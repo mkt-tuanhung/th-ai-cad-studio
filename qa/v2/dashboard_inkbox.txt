@@ -1,0 +1,54 @@
+brand.name                   mock x105 y75 w151 h15 | dx-1 dy-1 dw+0 dh+0
+brand.tag                    mock x106 y99 w150 h12 | dx-1 dy-1 dw+2 dh+0  <--
+nav.dashboard.text           mock x103 y156 w64 h11 | dx+0 dy-1 dw+2 dh+0  <--
+nav.projects                 mock x103 y203 w48 h13 | dx+0 dy+1 dw+2 dh+0  <--
+nav.settings                 mock x103 y700 w49 h13 | dx+0 dy+0 dw+1 dh+0
+nav.icon.projects            mock x59 y198 w23 h21 | dx-1 dy+0 dw+3 dh+1  <--
+nav.active.bg                mock=None cap=None
+search.placeholder           mock x347 y52 w402 h14 | dx+0 dy+0 dw+1 dh+0
+search.box                   mock x295 y30 w835 h55 | dx+0 dy+0 dw+5 dh+0  <--
+kbd                          mock x1083 y53 w25 h10 | dx+0 dy+0 dw-1 dh-1
+sun                          mock x1154 y48 w19 h20 | dx-1 dy+0 dw+1 dh+0
+lang.vi                      mock x1217 y53 w11 h10 | dx-1 dy+0 dw+0 dh-1
+lang.en                      mock x1260 y45 w25 h27 | dx-10 dy+0 dw+10 dh+0  <--
+bell                         mock x1316 y47 w21 h22 | dx+0 dy-2 dw+0 dh+1  <--
+user.name                    mock x1419 y43 w71 h15 | dx+0 dy+0 dw+0 dh+0
+user.role                    mock x1419 y64 w63 h10 | dx+0 dy-2 dw+5 dh+0  <--
+chev                         mock x1518 y55 w9 h5 | dx+0 dy+0 dw+1 dh+1
+hero.welcome                 mock x321 y145 w90 h9 | dx+0 dy+0 dw+2 dh+0  <--
+hero.title                   mock x321 y171 w397 h39 | dx+1 dy+0 dw-31 dh-2  <--
+hero.subtitle                mock x322 y220 w261 h16 | dx+0 dy+0 dw+0 dh-1
+hero.tags                    mock x322 y254 w376 h17 | dx+0 dy+1 dw-21 dh-3  <--
+hero.btn.new                 mock=None cap=None
+hero.btn.open.text           mock x539 y310 w56 h13 | dx+0 dy+1 dw+2 dh+1  <--
+cat.cad.title                mock x300 y440 w28 h11 | dx-1 dy+0 dw+1 dh+0
+cat.cad.desc                 mock x300 y462 w86 h24 | dx-1 dy+0 dw-3 dh+0  <--
+cat.cad.icon                 mock x301 y401 w28 h27 | dx+2 dy+0 dw-3 dh-2  <--
+cat.mech.title               mock x569 y439 w73 h12 | dx-2 dy+1 dw+1 dh-1  <--
+stat.ap.label                mock x354 y551 w82 h12 | dx+1 dy+0 dw+1 dh+0
+stat.ap.value                mock x355 y574 w24 h16 | dx+2 dy+0 dw-2 dh+0  <--
+stat.ap.delta                mock x356 y603 w84 h11 | dx+1 dy+1 dw+3 dh+0  <--
+stat.ap.tile                 mock x297 y548 w42 h43 | dx+11 dy+12 dw-19 dh-23  <--
+rp.title                     mock x288 y650 w117 h17 | dx+0 dy+0 dw+0 dh+0
+rp.viewall                   mock x1158 y651 w44 h11 | dx+0 dy+2 dw+2 dh-1  <--
+proj1.title                  mock x300 y801 w86 h11 | dx-1 dy+1 dw+3 dh+0  <--
+proj1.meta                   mock x300 y822 w113 h10 | dx-1 dy+0 dw+3 dh+0  <--
+proj1.modified               mock x340 y846 w96 h11 | dx+3 dy+0 dw+0 dh-1  <--
+rf.title                     mock x288 y890 w91 h13 | dx+0 dy+0 dw-1 dh+0
+rf.header.name               mock x307 y927 w28 h8 | dx-1 dy-1 dw+2 dh+0  <--
+rf.row.name                  mock x352 y957 w122 h12 | dx-1 dy+1 dw-1 dh+0
+ai.title                     mock x1317 y137 w130 h21 | dx+0 dy-1 dw-2 dh-2  <--
+ai.chip                      mock x1244 y131 w52 h52 | dx+0 dy+0 dw+0 dh+0
+ai.desc                      mock x1317 y167 w215 h12 | dx-1 dy-1 dw+4 dh+0  <--
+ai.traits                    mock x1317 y186 w158 h9 | dx+0 dy-1 dw+4 dh+0  <--
+ai.row.model                 mock x1258 y237 w31 h9 | dx+0 dy+0 dw+2 dh+1  <--
+ai.row.vram                  mock x1257 y298 w68 h12 | dx+0 dy+2 dw+5 dh+0  <--
+ai.row.speed                 mock x1258 y339 w87 h11 | dx+0 dy+0 dw+4 dh+2  <--
+ai.vrambar                   mock x1362 y317 w65 h6 | dx-3 dy+0 dw-3 dh+0  <--
+ai.btn                       mock=None cap=None
+qa.title                     mock x1244 y466 w108 h16 | dx+2 dy+1 dw-6 dh-1  <--
+qa.item1.text                mock x1295 y514 w121 h14 | dx+0 dy+1 dw-1 dh+0
+qa.item4.text                mock x1295 y680 w116 h11 | dx+0 dy+1 dw+1 dh-1
+lr.title                     mock x1244 y762 w161 h18 | dx+2 dy+0 dw+1 dh-1  <--
+lr.card.title                mock x1312 y812 w107 h30 | dx+0 dy+1 dw-1 dh-1
+lr.desc                      mock x1313 y853 w184 h11 | dx-1 dy+2 dw+5 dh-1  <--

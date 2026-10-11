@@ -1,0 +1,56 @@
+.templates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.tpl {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: left;
+  color: #374151;
+}
+
+.tpl span {
+  display: grid;
+  gap: 3px;
+}
+
+.tpl b {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f1a33;
+}
+
+.tpl small {
+  font-size: 11.5px;
+  color: #6b7381;
+}
+
+.tplOn {
+  border-color: #1f9aa0;
+  box-shadow: 0 0 0 2px rgba(31, 154, 160, 0.18);
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+}
+
+.activity {
+  min-width: 420px;
+}

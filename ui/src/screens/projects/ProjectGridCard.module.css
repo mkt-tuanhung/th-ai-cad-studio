@@ -1,0 +1,316 @@
+/* Project card — mockup 05 (card 222 × 237, image 113 px high, inset 3 px). */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 237px;
+  padding: 3px;
+  border: 1px solid #e6eaee;
+  border-radius: 10px;
+  background: #fdfdfe;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+  cursor: default;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  border-color: #d5dde3;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.06);
+}
+
+.card:focus-visible {
+  box-shadow: 0 0 0 3px rgba(31, 154, 160, 0.25);
+}
+
+.selected,
+.selected:hover {
+  border-color: #a9dcd8;
+  box-shadow: 0 0 0 1px #c8ebe8, 0 2px 8px rgba(21, 80, 88, 0.08);
+}
+
+.raised {
+  z-index: 5;
+}
+
+.media {
+  position: relative;
+  flex: none;
+  height: 112px;
+}
+
+.img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 7px;
+  user-select: none;
+}
+
+.noImg {
+  display: grid;
+  place-items: center;
+  color: #8fa3b0;
+  background: linear-gradient(180deg, #eef3f6 0%, #e4ebf0 100%);
+}
+
+/* status badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 21px;
+  padding: 0 8px 0 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+
+.b_active {
+  color: #13874f;
+  background: rgba(228, 248, 237, 0.96);
+}
+
+.b_in_progress {
+  color: #2563eb;
+  background: rgba(231, 240, 253, 0.96);
+}
+
+.b_draft {
+  color: #4b5563;
+  background: rgba(243, 244, 246, 0.96);
+}
+
+.b_draft i,
+.b_archived i {
+  background: transparent;
+  border: 1.5px solid currentColor;
+  box-shadow: none;
+}
+
+.b_archived {
+  color: #4b5563;
+  background: rgba(243, 244, 246, 0.96);
+}
+
+.b_shared {
+  color: #6046c9;
+  background: rgba(239, 234, 253, 0.96);
+}
+
+.mediaBadge {
+  position: absolute;
+  top: 10px;
+  left: 9px;
+}
+
+.star {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #fff;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.starOn {
+  color: #f6c33b;
+  background: rgba(36, 40, 52, 0.78);
+  filter: none;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  padding: 4px 5px 0 6px;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 20px;
+}
+
+.title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 20px;
+  color: #0f1a33;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.titleMenu,
+.footMenu,
+.rowMenu {
+  position: relative;
+  flex: none;
+  margin-right: -3px;
+}
+
+.footMenu {
+  margin-left: auto;
+  margin-right: -6px;
+}
+
+.kebab {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: #3c4555;
+}
+
+.kebab:hover {
+  background: #eef1f4;
+}
+
+.tags {
+  display: flex;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  color: #4b5563;
+  background: #f1f3f6;
+  white-space: nowrap;
+}
+
+.tagBlue {
+  color: #2563eb;
+  background: #e6effd;
+}
+
+.tagTeal {
+  color: #1d6b66;
+  background: #e1f3f0;
+}
+
+.summary {
+  display: -webkit-box;
+  overflow: hidden;
+  max-width: 178px;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #6b7381;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+  height: 24px;
+  padding-bottom: 0;
+}
+
+.team {
+  flex: none;
+}
+
+.extra {
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: #4b5563;
+  background: #eef1f4;
+}
+
+.modified {
+  margin-left: 3px;
+  overflow: hidden;
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  color: #8a93a1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* list layout */
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 210px 110px 150px 26px 26px;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 8px 0 6px;
+  border: 1px solid #e9edf0;
+  border-radius: 8px;
+  background: #fdfdfe;
+}
+
+.row:hover {
+  border-color: #d5dde3;
+}
+
+.row .star {
+  position: static;
+  color: #9aa3b0;
+  filter: none;
+}
+
+.row .starOn {
+  color: #f6c33b;
+  background: none;
+}
+
+.rowThumb {
+  height: 40px;
+}
+
+.rowMain {
+  min-width: 0;
+}
+
+.summary1 {
+  overflow: hidden;
+  font-size: 11.5px;
+  color: #6b7381;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.rowTags {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.rowBadge {
+  justify-self: start;
+}

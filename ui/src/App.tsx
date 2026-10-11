@@ -11,6 +11,7 @@ import { PlaceholderScreen } from './screens/placeholder/PlaceholderScreen'
 import { Cad2DScreen } from './screens/cad2d/Cad2DScreen'
 import { AiStudioScreen } from './screens/ai/AiStudioScreen'
 import { BimScreen } from './screens/bim/BimScreen'
+import { ProjectsScreen } from './screens/projects/ProjectsScreen'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
@@ -54,6 +55,8 @@ export default function App() {
               <AiStudioScreen />
             ) : route === 'bim' ? (
               <BimScreen />
+            ) : route === 'projects' ? (
+              <ProjectsScreen />
             ) : (
               <PlaceholderScreen route={route} title={t.nav[TITLE_KEY[route]]} />
             )}

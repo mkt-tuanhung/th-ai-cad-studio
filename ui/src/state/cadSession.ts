@@ -73,6 +73,8 @@ interface SessionState {
 
 /** UI hooks registered by the CAD screen (zoom, file dialogs, export). */
 export const cadUi: { zoomExtents?: () => void; openFile?: () => void; exportDxf?: () => void } = {}
+/** Files handed to CAD 2D by another screen (e.g. Projects → Open in CAD 2D); consumed on mount. */
+export const cadInbox: { files: File[] } = { files: [] }
 
 const t = () => getMessages(useSettings.getState().language).cad
 const cad = () => useCad.getState()

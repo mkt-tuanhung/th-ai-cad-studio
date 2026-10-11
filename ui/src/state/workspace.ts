@@ -1,5 +1,9 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  defaultDetails, EXTRA_PROJECTS, seedActivity, seedEntries, SEED_DETAILS,
+  type Activity, type ProjectDetails, type ProjectEntry, type ProjectStatus,
+} from './projectSeed'
 
 /**
  * Project / file catalogue shown on the Dashboard.
@@ -26,6 +30,16 @@ export interface Project {
   createdAt: number
   modifiedAt: number
   seed?: boolean
+  /** Projects screen (mockup 05): status, tags, team, settings … */
+  details?: ProjectDetails
+}
+
+export const detailsOf = (p: Project): ProjectDetails => p.details ?? defaultDetails(p.discipline)
+export const statusOf = (p: Project): ProjectStatus => detailsOf(p).status
+/** "Active Projects" on the Dashboard: my own projects that are being worked on. */
+export const isActiveOwn = (p: Project) => {
+  const d = detailsOf(p)
+  return (d.status === 'active' || d.status === 'in-progress') && !d.sharedWithMe
 }
 
 export interface RecentFile {
@@ -49,7 +63,7 @@ export interface ThumbRef {
 const H = 3600_000
 const D = 24 * H
 
-const SEED_PROJECTS = (now: number): Project[] => [
+const SEED_PROJECTS = (now: number): Project[] => ([
   {
     id: 'villa-riverside',
     name: 'Villa Riverside',
@@ -125,14 +139,14 @@ const SEED_PROJECTS = (now: number): Project[] => [
   // Older active projects (not in the "recent" four) — make up the "12 Active Projects" stat.
   ...(
     [
-      ['Riverside Clubhouse', 'architectural', 'DWG', 8, 9],
-      ['Hoa Lac Data Center', 'mep', 'DWG', 9, 11],
-      ['Gearbox GX-40', 'mechanical', 'STEP', 12, 14],
-      ['Ring Road 4 – Section B', 'civil', 'DWG', 15, 16],
-      ['Lakeview Penthouse', 'interior', 'DWG', 17, 18],
-      ['TH Factory Phase 2', 'bim', 'IFC', 30, 21],
-      ['Sky Garden Tower', 'bim', 'RVT', 40, 24],
-      ['HVAC Retrofit – Block C', 'mep', 'DWG', 45, 27],
+      ['Riverside Clubhouse', 'architectural', 'DWG', 28, 22],
+      ['Hoa Lac Data Center', 'mep', 'DWG', 29, 23],
+      ['Gearbox GX-40', 'mechanical', 'STEP', 32, 24],
+      ['Ring Road 4 – Section B', 'civil', 'DWG', 35, 25],
+      ['Lakeview Penthouse', 'interior', 'DWG', 37, 26],
+      ['TH Factory Phase 2', 'bim', 'IFC', 40, 27],
+      ['Sky Garden Tower', 'bim', 'RVT', 45, 29],
+      ['HVAC Retrofit – Block C', 'mep', 'DWG', 50, 36],
     ] as const
   ).map(([name, discipline, format, createdDaysAgo, modifiedDaysAgo], i) => ({
     id: `seed-${i}`,
@@ -144,8 +158,22 @@ const SEED_PROJECTS = (now: number): Project[] => [
     createdAt: now - createdDaysAgo * D,
     modifiedAt: now - modifiedDaysAgo * D,
     seed: true,
+    details: defaultDetails(discipline, name.startsWith('HVAC') ? 'archived' : 'active'),
   })),
-]
+  // rest of the 24-project catalogue (mockup 05)
+  ...EXTRA_PROJECTS.map(([id, name, discipline, format, createdDaysAgo, modifiedDaysAgo, status, shared]) => ({
+    id,
+    name,
+    discipline,
+    format,
+    favorite: false,
+    version: 1,
+    createdAt: now - createdDaysAgo * D,
+    modifiedAt: now - modifiedDaysAgo * D,
+    seed: true,
+    details: SEED_DETAILS[id] ?? { ...defaultDetails(discipline, status), sharedWithMe: shared, createdBy: shared ? 'linh' : 'hoang' },
+  })),
+] as Project[]).map((p) => (SEED_DETAILS[p.id] && !p.details ? { ...p, details: SEED_DETAILS[p.id] } : p))
 
 const SEED_FILES = (now: number): RecentFile[] => [
   { id: 'f1', name: 'Floor Plan - Level 1.dwg', format: 'DWG', projectId: 'villa-riverside', modifiedAt: now - 2 * H, sizeBytes: 12.4 * 1024 ** 2, source: 'seed' },
@@ -157,6 +185,9 @@ const SEED_FILES = (now: number): RecentFile[] => [
 interface WorkspaceState {
   projects: Project[]
   files: RecentFile[]
+  /** Files and folders inside projects (Projects screen). */
+  entries: ProjectEntry[]
+  activity: Activity[]
   hiddenFromRecent: string[]
   /** Last autosave as reported by the document service. */
   autosave: { at: number; fileName: string }
@@ -168,6 +199,12 @@ interface WorkspaceState {
   touchProject: (id: string) => void
   addFile: (f: Omit<RecentFile, 'id'>) => RecentFile
   removeFile: (id: string) => void
+  updateDetails: (id: string, patch: Partial<ProjectDetails>) => void
+  setStatus: (id: string, status: ProjectStatus) => void
+  addEntries: (projectId: string, entries: Omit<ProjectEntry, 'id' | 'projectId'>[]) => ProjectEntry[]
+  renameEntry: (id: string, name: string) => void
+  removeEntries: (ids: string[]) => void
+  log: (a: Omit<Activity, 'id' | 'at'>) => void
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -179,13 +216,16 @@ export const useWorkspace = create<WorkspaceState>()(
       return {
         projects: SEED_PROJECTS(now),
         files: SEED_FILES(now),
+        entries: seedEntries(now),
+        activity: seedActivity(now),
         hiddenFromRecent: [],
         autosave: { at: now - 2 * 60_000, fileName: 'Project_Villa_A.dwg' },
         seededAt: now,
         createProject: ({ name, discipline, format }) => {
           const t = Date.now()
-          const p: Project = { id: uid(), name, discipline, format, favorite: false, version: 1, createdAt: t, modifiedAt: t }
+          const p: Project = { id: uid(), name, discipline, format, favorite: false, version: 1, createdAt: t, modifiedAt: t, details: defaultDetails(discipline) }
           set({ projects: [p, ...get().projects] })
+          get().log({ projectId: p.id, who: 'hoang', kind: 'created', target: name })
           return p
         },
         renameProject: (id, name) =>
@@ -204,9 +244,54 @@ export const useWorkspace = create<WorkspaceState>()(
           return file
         },
         removeFile: (id) => set({ files: get().files.filter((f) => f.id !== id) }),
+        updateDetails: (id, patch) =>
+          set({
+            projects: get().projects.map((p) => (p.id === id ? { ...p, details: { ...detailsOf(p), ...patch }, modifiedAt: Date.now() } : p)),
+          }),
+        setStatus: (id, status) => {
+          const before = get().projects.find((p) => p.id === id)
+          get().updateDetails(id, { status })
+          if (before && statusOf(before) !== status && (status === 'archived' || statusOf(before) === 'archived'))
+            get().log({ projectId: id, who: 'hoang', kind: status === 'archived' ? 'archived' : 'restored', target: before.name })
+        },
+        addEntries: (projectId, list) => {
+          const t = Date.now()
+          const created = list.map((e) => ({ ...e, id: uid(), projectId, modifiedAt: e.modifiedAt ?? t }))
+          set({
+            entries: [...created, ...get().entries],
+            projects: get().projects.map((p) => (p.id === projectId ? { ...p, modifiedAt: t } : p)),
+          })
+          return created
+        },
+        renameEntry: (id, name) => set({ entries: get().entries.map((e) => (e.id === id ? { ...e, name, modifiedAt: Date.now(), modifiedBy: 'hoang' } : e)) }),
+        removeEntries: (ids) => {
+          const drop = new Set(ids)
+          set({ entries: get().entries.filter((e) => !drop.has(e.id)) })
+        },
+        log: (a) => set({ activity: [{ ...a, id: uid(), at: Date.now() }, ...get().activity].slice(0, 500) }),
       }
     },
-    { name: 'thcad.workspace', version: 1 },
+    {
+      name: 'thcad.workspace',
+      version: 2,
+      // v1 → v2 (Projects screen): keep the user's projects and files, add details, the rest of the
+      // seed catalogue, project entries and the activity log.
+      migrate: (old, version) => {
+        const s = old as Partial<WorkspaceState>
+        if (version < 2) {
+          const now = Date.now()
+          const seed = SEED_PROJECTS(now)
+          const byId = new Map(seed.map((p) => [p.id, p]))
+          const projects = (s.projects ?? []).map((p) => {
+            const sp = byId.get(p.id)
+            return p.details ? p : { ...p, details: sp?.details ?? defaultDetails(p.discipline), ...(sp && p.seed ? { modifiedAt: sp.modifiedAt } : {}) }
+          })
+          const have = new Set(projects.map((p) => p.id))
+          return { ...s, projects: [...projects, ...seed.filter((p) => !have.has(p.id))], entries: seedEntries(now), activity: seedActivity(now) }
+        }
+        return s
+      },
+    },
   ),
 )
 

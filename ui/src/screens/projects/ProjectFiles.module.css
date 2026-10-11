@@ -1,0 +1,292 @@
+/* Project Files card — mockup 05, window y 786–972. */
+.card {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  height: 186px;
+  margin: 9px -2px 0 -10px;
+  padding: 0 7px 0 10px;
+  border: 1px solid #e9edf1;
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: #fdfdfe;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 35px;
+}
+
+.title {
+  flex: none;
+  white-space: nowrap;
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: #0f1a33;
+}
+
+.tabs {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  height: 29px;
+  margin-left: 15px;
+  padding: 0 1px;
+  border-radius: 7px;
+  background: #f3f5f8;
+}
+
+.tab {
+  position: relative;
+  flex: none;
+  white-space: nowrap;
+  padding: 0 8px;
+  font-size: 11px;
+  letter-spacing: -0.005em;
+  color: #6b7381;
+}
+
+.tabOn {
+  font-weight: 500;
+  color: #0f1a33;
+}
+
+.tabOn::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: #1a7a80;
+}
+
+.newWrap {
+  position: relative;
+  flex: none;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.newBtn {
+  display: flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 8px;
+  height: 27px;
+  padding: 0 14px 0 13px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(180deg, #185a62 0%, #124b53 100%);
+}
+
+.newBtn:disabled {
+  opacity: 0.5;
+}
+
+.views {
+  display: flex;
+  gap: 7px;
+  margin-left: 17px;
+}
+
+.viewBtn {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 27px;
+  border: 1px solid #e3e7ec;
+  border-radius: 6px;
+  color: #374151;
+  background: #fdfdfe;
+}
+
+.viewOn {
+  color: #0f1a33;
+  background: #f1f4f7;
+}
+
+.up {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 2px;
+  font-size: 12px;
+  color: #17646b;
+}
+
+.table {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 2px;
+  border: 1px solid #edf0f3;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+}
+
+.row {
+  display: grid;
+  /* 232 / 117 / 108 / 161 / 173 px at the reference width (1 fr ≈ 1 px) */
+  grid-template-columns: 40px 45px minmax(140px, 232fr) minmax(48px, 117fr) minmax(56px, 108fr) minmax(84px, 161fr) minmax(110px, 173fr) 36px;
+  align-items: center;
+  height: 24.5px;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.row + .row {
+  border-top: 1px solid #f1f3f6;
+}
+
+.row input[type='checkbox'] {
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  accent-color: #17646b;
+}
+
+.headRow {
+  height: 24px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #f8f9fb;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.body::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(100, 116, 139, 0.25);
+}
+
+.nameHead {
+  grid-column: span 2;
+  padding-left: 8px;
+}
+
+.rowOn {
+  background: #f1f8f8;
+}
+
+.iconCell {
+  padding-left: 9px;
+}
+
+.folderIcon {
+  color: #f6b43c;
+}
+
+.badge,
+.imgIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 17px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.imgIcon {
+  background: #7c3aed;
+}
+
+.name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.muted {
+  color: #4b5563;
+}
+
+.by {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.by img {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.menu {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.menu > button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 20px;
+  border-radius: 4px;
+  color: #374151;
+}
+
+.menu > button:hover {
+  background: #eef1f4;
+}
+
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 210px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #edf0f3;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.tile span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-subtle);
+}

@@ -1,0 +1,63 @@
+title                        mock x293 y115 w115 h31 | dx+0 dy+0 dw-4 dh+0  <--
+subtitle                     mock x292 y152 w363 h15 | dx+0 dy+0 dw+2 dh+0  <--
+btn.newProject.text          mock x824 y131 w104 h15 | dx+0 dy+1 dw+2 dh+0  <--
+btn.newProject.bg            mock=None cap=None
+btn.import.text              mock x1065 y134 w70 h13 | dx+0 dy-1 dw+6 dh+1  <--
+btn.import.icon              mock x1031 y130 w19 h18 | dx+3 dy+1 dw-2 dh-3  <--
+btn.folder.text              mock x1233 y134 w67 h11 | dx-1 dy-1 dw+5 dh+0  <--
+btn.template.text            mock x1413 y134 w88 h13 | dx+0 dy-1 dw+8 dh+1  <--
+tab.all.text                 mock x325 y204 w65 h13 | dx+0 dy-1 dw+2 dh+1  <--
+tab.all.count                mock x402 y204 w19 h15 | dx-7 dy-5 dw+18 dh+7  <--
+tab.recent.text              mock x497 y204 w38 h10 | dx+0 dy+0 dw+4 dh+0  <--
+tab.shared.text              mock x609 y204 w39 h10 | dx+0 dy-1 dw+3 dh+1  <--
+tab.archived.text            mock x722 y204 w49 h10 | dx-1 dy-1 dw+4 dh+1  <--
+tab.underline                mock x288 y227 w143 h3 | dx+0 dy+0 dw+9 dh+0  <--
+search.placeholder           mock x332 y254 w99 h13 | dx+2 dy+0 dw-1 dh+0  <--
+sel.disc.text                mock x575 y255 w70 h11 | dx+2 dy-1 dw+7 dh+2  <--
+sel.status.text              mock x747 y255 w60 h9 | dx+2 dy-1 dw+6 dh+1  <--
+sel.sort.text                mock x907 y254 w68 h10 | dx+1 dy+0 dw+6 dh+0  <--
+view.grid                    mock x1116 y243 w33 h33 | dx+0 dy+1 dw-1 dh+0
+card1.title                  mock x297 y416 w88 h11 | dx+1 dy-1 dw+0 dh+0
+card1.tags                   mock x305 y440 w124 h10 | dx+0 dy-1 dw-4 dh-1  <--
+card1.summary                mock x297 y461 w165 h29 | dx+2 dy-1 dw+1 dh-1  <--
+card1.modified               mock x376 y507 w95 h11 | dx+0 dy+0 dw+6 dh-1  <--
+card2.title                  mock x536 y415 w112 h15 | dx-1 dy+0 dw+1 dh-1
+card3.title                  mock x769 y416 w98 h14 | dx-3 dy-1 dw+3 dh+0  <--
+card4.title                  mock x1000 y416 w116 h14 | dx-1 dy+0 dw-1 dh-1
+card5.title                  mock x298 y661 w109 h14 | dx+1 dy+1 dw+0 dh-1
+card6.title                  mock x537 y661 w116 h11 | dx-2 dy+0 dw-1 dh+0  <--
+card7.title                  mock x769 y661 w103 h14 | dx-3 dy+0 dw+2 dh+0  <--
+card8.title                  mock x1001 y661 w97 h14 | dx-1 dy+0 dw+4 dh+0  <--
+card8.modified               mock x1073 y752 w99 h11 | dx+4 dy+1 dw+4 dh-1  <--
+files.title                  mock x289 y800 w83 h16 | dx+2 dy+1 dw+1 dh-1  <--
+files.tab.all                mock x407 y803 w41 h10 | dx+1 dy+0 dw-3 dh-1  <--
+files.tab.drawings           mock x480 y803 w65 h12 | dx-2 dy+0 dw+2 dh-1  <--
+files.tab.folders            mock x884 y803 w52 h11 | dx-2 dy+0 dw-1 dh+0  <--
+files.newFile.text           mock x1040 y803 w67 h10 | dx+2 dy+1 dw+2 dh+0  <--
+files.hdr.name               mock x337 y836 w26 h8 | dx+3 dy+0 dw+2 dh+0  <--
+files.hdr.type               mock x608 y836 w22 h10 | dx+1 dy+0 dw+2 dh+1  <--
+files.hdr.size               mock x725 y836 w18 h8 | dx+2 dy+0 dw+2 dh+0  <--
+files.hdr.modified           mock x833 y835 w37 h9 | dx+2 dy+0 dw+6 dh+0  <--
+files.hdr.by                 mock x995 y835 w51 h11 | dx+2 dy+0 dw+7 dh+1  <--
+files.r1.name                mock x376 y860 w61 h12 | dx+0 dy+0 dw+2 dh+0  <--
+files.r4.name                mock x377 y934 w119 h12 | dx+0 dy+0 dw+6 dh+0  <--
+files.r4.size                mock x726 y934 w39 h9 | dx+1 dy+0 dw+4 dh+0  <--
+files.r4.by                  mock x1020 y933 w57 h13 | dx-8 dy+0 dw+15 dh+0  <--
+insp.name                    mock x1235 y355 w102 h13 | dx+2 dy+0 dw+4 dh+0  <--
+insp.path                    mock x1235 y382 w137 h13 | dx+2 dy+1 dw-3 dh+0  <--
+insp.desc                    mock x1235 y405 w251 h33 | dx+2 dy+1 dw+3 dh+0  <--
+insp.tags                    mock x1245 y454 w233 h10 | dx+1 dy+0 dw+3 dh+0  <--
+insp.lbl.status              mock x1238 y494 w36 h11 | dx-1 dy+0 dw+1 dh-1
+insp.lbl.units               mock x1239 y738 w71 h13 | dx-1 dy+0 dw-3 dh+0  <--
+insp.status.val              mock x1384 y494 w34 h10 | dx+0 dy+0 dw+2 dh+0  <--
+insp.date.val                mock x1366 y523 w70 h12 | dx+0 dy+0 dw+4 dh+0  <--
+insp.lastmod.val             mock x1358 y551 w65 h13 | dx+0 dy+1 dw+2 dh+0  <--
+insp.storage.text            mock x1476 y645 w63 h12 | dx+1 dy-1 dw+1 dh-1
+insp.autosave.text           mock x1401 y676 w86 h13 | dx-1 dy+0 dw+4 dh+0  <--
+insp.ai.text                 mock x1368 y708 w146 h12 | dx+0 dy-4 dw+6 dh+4  <--
+insp.units.text              mock x1368 y738 w100 h12 | dx+1 dy+0 dw+3 dh+1  <--
+recent.title                 mock x1235 y786 w101 h15 | dx+0 dy+0 dw+3 dh+0  <--
+recent.viewall               mock x1499 y787 w41 h11 | dx+0 dy+0 dw+3 dh-1  <--
+act1.text                    mock x1277 y817 w182 h12 | dx+2 dy+0 dw+10 dh+0  <--
+act1.time                    mock x1486 y818 w52 h11 | dx-2 dy+0 dw+5 dh-1  <--
+act4.text                    mock x1277 y935 w191 h11 | dx+1 dy-2 dw+6 dh+1  <--

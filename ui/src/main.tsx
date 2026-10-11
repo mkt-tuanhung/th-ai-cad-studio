@@ -28,6 +28,10 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
   })
 }
 if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
+  import('./state/workspace').then(({ useWorkspace }) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), workspace: useWorkspace }
+  })
   import('./state/bim').then(({ useBim }) => {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), bim: useBim }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useCad } from '../../state/cad'
-import { cadUi, useCadSession } from '../../state/cadSession'
+import { cadInbox, cadUi, useCadSession } from '../../state/cadSession'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { useWorkspace } from '../../state/workspace'
@@ -59,7 +59,7 @@ export function Cad2DScreen() {
     toast(fmt(T.cad.toast.exported, { file }), 'success')
   }
 
-  const openFiles = async (list: FileList | null) => {
+  const openFiles = async (list: FileList | File[] | null) => {
     if (!list) return
     // drawings hydrate from IndexedDB asynchronously: never let a late hydration replace a fresh import
     if (!useCad.persist.hasHydrated()) await new Promise<void>((r) => { const off = useCad.persist.onFinishHydration(() => { off(); r() }) })
@@ -108,6 +108,15 @@ export function Cad2DScreen() {
     }
     if (fileInput.current) fileInput.current.value = ''
   }
+
+  // files sent from another screen (Projects → Open in CAD 2D)
+  useEffect(() => {
+    if (!cadInbox.files.length) return
+    const files = cadInbox.files
+    cadInbox.files = []
+    void openFiles(files)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     cadUi.openFile = () => fileInput.current?.click()

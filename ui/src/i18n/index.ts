@@ -36,7 +36,6 @@ export function relativeTime(ts: number, lang: Language, now = Date.now()): stri
   const diff = Math.round((ts - now) / 1000)
   const abs = Math.abs(diff)
   for (const [unit, secs] of UNITS) {
-    if (unit === 'week') continue // mockup uses "5 days ago", not "1 week ago"
     if (abs >= secs) {
       return new Intl.RelativeTimeFormat(lang, { numeric: 'always' }).format(Math.round(diff / secs), unit)
     }

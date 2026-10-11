@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, Cloud, Database, Folder } from 'lucide-react'
 import { fmt, relativeTime, useLang, useT } from '../../i18n'
-import { useWorkspace } from '../../state/workspace'
+import { isActiveOwn, useWorkspace } from '../../state/workspace'
 import { getLocalAi, type AiActivityStats } from '../../services/localAi'
 import { getLibraryStats, type LibraryStats } from '../../services/componentLibrary'
 import { AiSparkIcon } from '../../components/icons'
@@ -34,7 +34,7 @@ export function StatsRow() {
         tone="teal"
         icon={<Folder size={25} strokeWidth={1.7} />}
         label={t.dashboard.stats.activeProjects}
-        value={projects.length}
+        value={projects.filter(isActiveOwn).length}
         delta={fmt(t.dashboard.stats.thisWeek, { n: createdThisWeek })}
         bars={[0.42, 0.68, 0.96, 0.88]}
       />

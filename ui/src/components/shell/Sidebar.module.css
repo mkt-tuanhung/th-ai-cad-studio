@@ -52,9 +52,10 @@
 .item {
   display: flex;
   align-items: center;
-  gap: 19px;
+  gap: 17px;
   height: 41px;
-  padding-left: 19px;
+  margin-top: var(--nudge, 0);
+  padding-left: 17px;
   border-radius: 9px;
   font-size: 14px;
   font-weight: 400;
@@ -94,6 +95,7 @@
 
   .item {
     height: 38px;
+    margin-top: 0;
   }
 }
 
