@@ -25,7 +25,9 @@ PrivilegesRequiredOverridesAllowed=dialog
 
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl"
-Name: "vi"; MessagesFile: "compiler:Languages\Vietnamese.isl"
+; Vietnamese is an unofficial Inno Setup translation (not installed with Inno Setup): vendored from
+; jrsoftware/issrc Files/Languages/Unofficial/Vietnamese.isl, same license as Inno Setup
+Name: "vi"; MessagesFile: "Vietnamese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
