@@ -49,6 +49,7 @@
       if (!rs.ok && /ray-tracing|OpenGL unavailable/.test(rs.error || '')) console.log('SELFTEST SKIP renderer: ' + rs.error)
       else {
         for (let i = 0; i < 100 && !rdone; i++) await new Promise((r) => setTimeout(r, 100))
+        out('render', { start: rs, done: rdone && { ...rdone, preview: rdone.preview ? rdone.preview.length : 0 } })
         check('renderer: path-traced image produced', rs.ok && !!rdone && rdone.ok && rdone.samples >= 8 && String(rdone.preview).startsWith('data:image/'))
       }
     }
