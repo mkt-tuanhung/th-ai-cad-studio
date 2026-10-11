@@ -13,6 +13,8 @@ export type CadOp =
   | { type: 'replace'; entities: Entity[]; label: string }
   | { type: 'setCurrentLayer'; layer: string; label: string }
   | { type: 'layerProps'; name: string; patch: Partial<Pick<CadDocument['layers'][number], 'visible' | 'locked' | 'color'>>; label: string }
+  /** AutoCAD -LAYER Make (without setting it current): creates the layer when it is missing. */
+  | { type: 'addLayer'; name: string; color: string; label: string }
 
 export type ValidationError = { code: 'locked-layer' | 'degenerate' | 'unknown-entity' | 'unknown-layer'; detail: string }
 
@@ -43,6 +45,7 @@ export function validate(doc: CadDocument, op: CadOp): ValidationError | null {
   }
   if (op.type === 'setCurrentLayer' && !layer(op.layer)) return { code: 'unknown-layer', detail: op.layer }
   if (op.type === 'layerProps' && !layer(op.name)) return { code: 'unknown-layer', detail: op.name }
+  if (op.type === 'addLayer' && !op.name.trim()) return { code: 'unknown-layer', detail: 'empty layer name' }
   return null
 }
 
@@ -86,6 +89,9 @@ export function preview(doc: CadDocument, op: CadOp): CadDocument {
       return { ...doc, currentLayer: op.layer }
     case 'layerProps':
       return { ...doc, layers: doc.layers.map((l) => (l.name === op.name ? { ...l, ...op.patch } : l)), dirty: true }
+    case 'addLayer':
+      if (doc.layers.some((l) => l.name === op.name)) return doc
+      return { ...doc, layers: [...doc.layers, { name: op.name, color: op.color, visible: true, locked: false, linetype: 'Continuous', lineweight: 0.25 }], dirty: true }
   }
 }
 

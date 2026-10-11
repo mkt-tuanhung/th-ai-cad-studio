@@ -1,4 +1,6 @@
-/** Component (block / family / part) library stats. Demo values until the native library index exists. */
+import { libraryStats, useLibrary } from '../state/library'
+
+/** Component library stats — computed from the real built-in library plus your uploads. */
 export interface LibraryStats {
   source: 'demo' | 'native'
   total: number
@@ -6,5 +8,6 @@ export interface LibraryStats {
 }
 
 export async function getLibraryStats(): Promise<LibraryStats> {
-  return { source: 'demo', total: 12580, addedRecently: 420 }
+  const s = libraryStats(useLibrary.getState().uploads)
+  return { source: 'native', ...s }
 }

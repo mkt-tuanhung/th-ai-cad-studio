@@ -1,0 +1,66 @@
+title                        mock x290 y114 w301 h34 | dx+2 dy-1 dw-2 dh+0  <--
+subtitle                     mock x290 y148 w677 h13 | dx+1 dy+1 dw+6 dh+1  <--
+upload.text                  mock x1340 y120 w133 h16 | dx+0 dy+1 dw-1 dh-1
+more.dots                    mock x1515 y127 w14 h3 | dx+0 dy+0 dw+0 dh+1
+tile.all.title               mock x345 y199 w95 h13 | dx+0 dy+1 dw-4 dh-1  <--
+tile.all.sub                 mock x346 y219 w66 h11 | dx+0 dy+0 dw-12 dh-2  <--
+tile.blocks.title            mock x529 y200 w35 h11 | dx+4 dy+0 dw+3 dh-1  <--
+tile.blocks.icon             mock x487 y202 w24 h24 | dx+5 dy+1 dw-2 dh-2  <--
+tile.families.title          mock x701 y200 w43 h11 | dx-1 dy+0 dw+4 dh-1  <--
+tile.mech.title              mock x862 y200 w93 h11 | dx+6 dy+0 dw+6 dh-1  <--
+tile.mep.title               mock x1049 y200 w68 h12 | dx+2 dy+0 dw+5 dh+0  <--
+tile.mat.title               mock x1236 y200 w49 h11 | dx-2 dy+0 dw+4 dh-1  <--
+tile.int.title               mock x1416 y200 w86 h11 | dx-1 dy+0 dw+7 dh-1  <--
+tree.title                   mock x287 y269 w65 h14 | dx+0 dy+1 dw+0 dh-1
+tree.collapse                mock x480 y272 w8 h7 | dx+0 dy-1 dw+2 dh+2  <--
+tree.search.ph               mock x300 y301 w112 h14 | dx+2 dy+1 dw+4 dh-2  <--
+tree.all.label               mock x327 y340 w79 h11 | dx-2 dy-1 dw+20 dh+3  <--
+tree.all.count               mock x455 y340 w31 h10 | dx+10 dy+1 dw-11 dh-1  <--
+tree.blocks.label            mock x330 y363 w31 h10 | dx+0 dy+0 dw+3 dh-1  <--
+tree.arch.label              mock x349 y386 w60 h9 | dx+0 dy+0 dw+5 dh+0  <--
+tree.families.label          mock x330 y477 w40 h9 | dx+0 dy+2 dw+3 dh+0  <--
+tree.doors.label             mock x350 y502 w29 h8 | dx+0 dy+0 dw+2 dh+1  <--
+tree.mech.label              mock x330 y615 w84 h10 | dx+0 dy+2 dw+8 dh-1  <--
+tree.mepobj.label            mock x330 y709 w65 h9 | dx+0 dy+0 dw+2 dh+0  <--
+tree.interior.label          mock x330 y761 w82 h3 | dx+0 dy-6 dw+4 dh+6  <--
+search.ph                    mock x549 y275 w204 h12 | dx-9 dy+0 dw+18 dh+0  <--
+sort.text                    mock x940 y274 w86 h12 | dx+1 dy+0 dw+2 dh+1  <--
+chip.discipline              mock x527 y311 w62 h11 | dx+1 dy+1 dw+3 dh+1  <--
+chip.filetype                mock x618 y311 w57 h11 | dx+2 dy+1 dw+3 dh+1  <--
+chip.tag                     mock x855 y311 w32 h11 | dx+1 dy+1 dw+2 dh+1  <--
+reset                        mock x918 y311 w29 h9 | dx+0 dy+1 dw+1 dh+0
+card1.title                  mock x520 y454 w113 h18 | dx+2 dy+0 dw+31 dh+0  <--
+card1.kind                   mock x521 y472 w62 h6 | dx+1 dy+0 dw+82 dh+10  <--
+card1.dims                   mock x524 y510 w122 h13 | dx-2 dy+0 dw+22 dh+5  <--
+card2.title                  mock x690 y454 w110 h18 | dx-5 dy+0 dw+6 dh+0  <--
+card3.title                  mock x850 y454 w76 h18 | dx-2 dy+0 dw+5 dh+0  <--
+card4.title                  mock x1013 y454 w73 h18 | dx-1 dy+0 dw+5 dh+0  <--
+card5.title                  mock x521 y695 w62 h10 | dx+0 dy-3 dw+0 dh+8  <--
+strip.recent                 mock x296 y813 w83 h14 | dx+2 dy-1 dw+2 dh-2  <--
+strip.shared                 mock x414 y814 w68 h10 | dx+2 dy-2 dw+4 dh-1  <--
+strip.ai                     mock x531 y814 w93 h10 | dx+0 dy-2 dw+5 dh-1  <--
+strip.viewall                mock x1101 y815 w39 h10 | dx-3 dy-2 dw+5 dh+0  <--
+mini1.title                  mock x293 y920 w56 h17 | dx-1 dy+0 dw+29 dh+0  <--
+mini1.sub                    mock x293 y937 w83 h10 | dx+0 dy+0 dw+1 dh-6  <--
+mini4.title                  mock x727 y920 w68 h17 | dx+0 dy+0 dw+7 dh+0  <--
+panel.tab.preview            mock x1188 y269 w43 h10 | dx+0 dy+1 dw+0 dh-1
+panel.tab.details            mock x1271 y269 w34 h10 | dx-1 dy+0 dw+2 dh-1  <--
+panel.tab.refs               mock x1345 y269 w54 h10 | dx+0 dy+0 dw+5 dh-1  <--
+panel.tab.versions           mock x1445 y269 w70 h12 | dx+0 dy+0 dw+8 dh+0  <--
+panel.2d                     mock x1239 y308 w58 h9 | dx+1 dy+1 dw+1 dh+0
+panel.3d                     mock x1421 y308 w55 h9 | dx-2 dy+1 dw+4 dh+0  <--
+params.title                 mock x1177 y482 w62 h10 | dx+1 dy+0 dw+2 dh-1  <--
+params.width.k               mock x1180 y510 w26 h8 | dx+0 dy+0 dw+2 dh+0  <--
+params.cat.k                 mock x1181 y706 w40 h11 | dx-1 dy+0 dw+4 dh-1  <--
+ins.title                    mock x1375 y482 w93 h13 | dx-1 dy+0 dw+2 dh-1  <--
+ins.edit                     mock x1522 y484 w17 h9 | dx-2 dy-2 dw+2 dh+0  <--
+ins.point.k                  mock x1376 y509 w69 h9 | dx-2 dy+0 dw+4 dh-1  <--
+ins.check1                   mock x1397 y561 w86 h11 | dx-3 dy+0 dw+4 dh+1  <--
+ins.check3                   mock x1397 y605 w104 h11 | dx-2 dy-1 dw+5 dh+1  <--
+map.title                    mock x1375 y635 w81 h13 | dx-1 dy+0 dw+0 dh-1
+map.layer.k                  mock x1376 y663 w26 h11 | dx-2 dy-1 dw+1 dh+0  <--
+map.linetype.k               mock x1376 y717 w41 h11 | dx-2 dy+1 dw+1 dh+0  <--
+mat.title                    mock x1177 y756 w50 h10 | dx+0 dy+1 dw+1 dh+0
+mat.name                     mock x1238 y785 w99 h12 | dx-2 dy-1 dw+2 dh+1  <--
+files.title                  mock x1177 y839 w115 h13 | dx-1 dy-2 dw-4 dh+0  <--
+files.f1                     mock x1222 y868 w124 h11 | dx-1 dy-1 dw+10 dh-1  <--

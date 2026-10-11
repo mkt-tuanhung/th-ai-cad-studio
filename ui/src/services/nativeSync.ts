@@ -41,6 +41,8 @@ export function toNativeOp(op: CadOp) {
       return { type: 'setCurrentLayer', label: op.label, layer: op.layer }
     case 'layerProps':
       return { type: 'layerProps', label: op.label, name: op.name, ...op.patch }
+    case 'addLayer':
+      return { type: 'addLayer', label: op.label, name: op.name, color: op.color }
   }
 }
 

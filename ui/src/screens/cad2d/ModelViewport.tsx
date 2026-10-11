@@ -15,7 +15,7 @@ import {
   type SnapKind,
 } from '../../cad/geometry'
 import { defaultView, useCad, type ViewState } from '../../state/cad'
-import { cadUi, hitTest, useCadSession, type Stage } from '../../state/cadSession'
+import { cadUi, hitTest, insertQueue, useCadSession, type Stage } from '../../state/cadSession'
 import { useCursor } from '../../state/cursor'
 import { DrawingSvg, projector, renderEntity, type Projector } from './DrawingSvg'
 import { GpuLayer, wantsGpu } from './gpu/GpuLayer'
@@ -24,7 +24,7 @@ import s from './ModelViewport.module.css'
 const POINT_STAGES: Stage[] = [
   'firstPoint', 'nextPoint', 'plStart', 'plNext', 'corner1', 'corner2', 'center', 'radius',
   'arc1', 'arc2', 'arc3', 'dim1', 'dim2', 'dim3', 'textPoint', 'basePoint', 'secondPoint', 'offsetSide',
-  'distP1', 'distP2', 'areaFirst', 'areaNext',
+  'distP1', 'distP2', 'areaFirst', 'areaNext', 'insertPoint',
 ]
 const SNAP_UNIT = 50 // mm
 const OSNAP_PX = 12
@@ -279,6 +279,9 @@ function Previews({ doc, P }: { doc: CadDocument; P: Projector }) {
       break
     case 'dist':
       if (last) ghost.push({ ...base, kind: 'line', a: last, b: hover })
+      break
+    case 'insert':
+      if (insertQueue.next) for (const e of insertQueue.next.entities) ghost.push({ ...translateEntity(e, hover), id: 'ghost' })
       break
     case 'area':
       if (points.length) ghost.push({ ...base, kind: 'polyline', pts: [...points, hover], closed: points.length >= 2 })

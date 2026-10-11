@@ -228,3 +228,24 @@ export function translateEntity(e: Entity, d: Vec2): Entity {
       return { ...e, a: add(e.a, d), b: add(e.b, d) }
   }
 }
+
+/** Rotation about the origin (radians, counter-clockwise). */
+export function rotateEntity(e: Entity, a: number): Entity {
+  if (!a) return e
+  const c = Math.cos(a), s = Math.sin(a)
+  const r = (p: Vec2): Vec2 => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c })
+  switch (e.kind) {
+    case 'line':
+      return { ...e, a: r(e.a), b: r(e.b) }
+    case 'polyline':
+      return { ...e, pts: e.pts.map(r) }
+    case 'circle':
+      return { ...e, c: r(e.c) }
+    case 'arc':
+      return { ...e, c: r(e.c), start: e.start + a, end: e.end + a }
+    case 'text':
+      return { ...e, p: r(e.p), rotation: e.rotation + a }
+    case 'dimension':
+      return { ...e, a: r(e.a), b: r(e.b) }
+  }
+}

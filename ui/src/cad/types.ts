@@ -20,6 +20,8 @@ interface EntityBase {
   lineweight: 'ByLayer' | '0.13' | '0.25' | '0.35' | '0.50'
   /** 0–90 (%), AutoCAD semantics. */
   transparency: number
+  /** Set on geometry inserted from the Components library as one block (selected together). */
+  block?: { id: string; name: string }
 }
 
 export interface LineEntity extends EntityBase {

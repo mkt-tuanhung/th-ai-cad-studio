@@ -202,3 +202,14 @@ TEST("arc angles in degrees (AI schema) are converted to radians") {
   const auto& a = std::get<Arc>(std::get<OpAdd>(ops[0].body).entities[0].shape);
   CHECK(std::abs(a.end - 1.5707963267948966) < 1e-12);
 }
+
+TEST("addLayer creates a missing layer once (LAYER Make) and entities can then use it") {
+  CommandBus bus(Document::blank("t"));
+  CHECK(!bus.execute({OpAddLayer{"A-FURN-FIXT", "#1f2937"}, "LAYER"}));
+  CHECK(!bus.execute({OpAddLayer{"A-FURN-FIXT", "#ff0000"}, "LAYER"}));  // idempotent
+  size_t n = 0;
+  for (const auto& l : bus.document().layers) n += l.name == "A-FURN-FIXT";
+  CHECK(n == 1);
+  CHECK(!bus.execute({OpAdd{{{{"s1", "A-FURN-FIXT"}, Line{{0, 0}, {100, 0}}}}}, "INSERT"}));
+  CHECK(bus.execute({OpAddLayer{"", ""}, "LAYER"}).has_value());
+}

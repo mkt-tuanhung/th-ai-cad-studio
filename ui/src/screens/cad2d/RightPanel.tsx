@@ -5,6 +5,7 @@ import { defaultView, useCad, type RightTab } from '../../state/cad'
 import { useCursor } from '../../state/cursor'
 import type { Entity } from '../../cad/types'
 import { toast } from '../../state/toast'
+import { useRouter } from '../../state/router'
 import s from './RightPanel.module.css'
 
 const TABS: RightTab[] = ['properties', 'layers', 'blocks', 'references']
@@ -27,10 +28,47 @@ export function RightPanel() {
       <div className={`${s.body} scroll-y`}>
         {tab === 'properties' && <PropertiesTab />}
         {tab === 'layers' && <LayersTab />}
-        {tab === 'blocks' && <p className={s.empty}>{t.noBlocks}</p>}
+        {tab === 'blocks' && <BlocksTab />}
         {tab === 'references' && <ReferencesTab />}
       </div>
     </section>
+  )
+}
+
+/** Blocks inserted from the Components library (grouped by name); a row selects all its instances. */
+function BlocksTab() {
+  const t = useT().cad.panel
+  const doc = useCad((st) => st.activeDoc())
+  const selection = useCad((st) => st.selection)
+  const setSelection = useCad((st) => st.setSelection)
+  const navigate = useRouter((st) => st.navigate)
+  if (!doc) return null
+  const blocks = new Map<string, { ids: string[]; inst: Set<string>; layer: string }>()
+  for (const e of doc.entities) {
+    if (!e.block) continue
+    const b = blocks.get(e.block.name) ?? { ids: [], inst: new Set<string>(), layer: e.layer }
+    b.ids.push(e.id)
+    b.inst.add(e.block.id)
+    blocks.set(e.block.name, b)
+  }
+  const sel = new Set(selection)
+  return (
+    <>
+      {blocks.size === 0 && <p className={s.empty}>{t.noBlocks}</p>}
+      {blocks.size > 0 && (
+        <ul className={s.blocks}>
+          {[...blocks].map(([name, b]) => (
+            <li key={name}>
+              <button type="button" className={b.ids.every((id) => sel.has(id)) ? s.blockOn : ''} title={fmt(t.blockSelect, { name })} onClick={() => setSelection(b.ids)}>
+                <b>{name}</b>
+                <small>{fmt(t.blockStats, { n: b.inst.size, m: b.ids.length })} · {b.layer}</small>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className={s.libLink} onClick={() => navigate('components')}>{t.openLibrary}</button>
+    </>
   )
 }
 

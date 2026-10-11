@@ -268,3 +268,51 @@
   font-size: 11.5px;
   color: var(--text-muted);
 }
+
+.blocks {
+  margin: 8px 6px 0;
+  border: 1px solid #edf0f3;
+  border-radius: 9px;
+}
+
+.blocks li + li {
+  border-top: 1px solid #f0f2f5;
+}
+
+.blocks button {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 7px 10px;
+  text-align: left;
+}
+
+.blocks button:hover {
+  background: #f6f8fa;
+}
+
+.blocks .blockOn {
+  background: #f0f9f9;
+}
+
+.blocks b {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.blocks small {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.libLink {
+  margin: 10px 10px 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #17767c;
+}
+
+.libLink:hover {
+  text-decoration: underline;
+}

@@ -18,9 +18,11 @@ struct OpSetCurrentLayer { std::string layer; };
 /** Selection by filter (AutoCAD QSELECT): erases every entity on `layers` (any if empty) of `kinds` (any if empty). */
 struct OpEraseWhere { std::vector<std::string> layers, kinds; };
 struct OpLayerProps { std::string name; std::optional<bool> visible, locked; std::optional<std::string> color; };
+/** AutoCAD -LAYER Make without changing the current layer: creates the layer if it does not exist. */
+struct OpAddLayer { std::string name; std::string color; };
 
 struct CadOp {
-  std::variant<OpAdd, OpErase, OpReplace, OpSetCurrentLayer, OpLayerProps, OpEraseWhere> body;
+  std::variant<OpAdd, OpErase, OpReplace, OpSetCurrentLayer, OpLayerProps, OpEraseWhere, OpAddLayer> body;
   std::string label;
 };
 

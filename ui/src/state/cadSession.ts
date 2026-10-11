@@ -54,6 +54,7 @@ export type Stage =
   | 'distP2'
   | 'areaFirst'
   | 'areaNext'
+  | 'insertPoint'
 
 interface SessionState {
   stage: Stage
@@ -78,6 +79,23 @@ interface SessionState {
 
 /** UI hooks registered by the CAD screen (zoom, file dialogs, export). */
 export const cadUi: { zoomExtents?: () => void; openFile?: () => void; exportDxf?: () => void } = {}
+/**
+ * Block waiting to be placed by INSERT (set by the Components library). Entities are in block
+ * coordinates, already offset to the chosen insertion point and rotated.
+ */
+export interface PendingInsert {
+  componentId: string
+  name: string
+  entities: Entity[]
+  layer: string | null
+  layerColor: string
+  color: string
+  linetype: Entity['linetype']
+  explode: boolean
+  onPlaced?: () => void
+}
+export const insertQueue: { next: PendingInsert | null } = { next: null }
+
 /** Files handed to CAD 2D by another screen (e.g. Projects → Open in CAD 2D); consumed on mount. */
 export const cadInbox: { files: File[] } = { files: [] }
 
@@ -118,6 +136,7 @@ const firstStage: Partial<Record<ToolId, Stage>> = {
   offset: 'offsetDist',
   dist: 'distP1',
   area: 'areaFirst',
+  insert: 'insertPoint',
 }
 
 export const useCadSession = create<SessionState>()((set, get) => {
@@ -161,11 +180,18 @@ export const useCadSession = create<SessionState>()((set, get) => {
     start: (tool, commandName) => {
       const spec = COMMANDS.find((c) => c.tool === tool)
       const name = commandName ?? spec?.name ?? tool.toUpperCase()
+      const queued = insertQueue.next // cancel() of a previous INSERT must not drop the newly queued block
       get().cancel()
+      insertQueue.next = queued
       print(`${t().prompts.command} ${name}`)
       set({ lastCommand: name })
       if (spec?.status === 'native') {
         print(fmt(t().cmd.native, { c: name }), 'error')
+        finish()
+        return
+      }
+      if (tool === 'insert' && !insertQueue.next) {
+        print(t().prompts.noInsert, 'error')
         finish()
         return
       }
@@ -182,6 +208,7 @@ export const useCadSession = create<SessionState>()((set, get) => {
     },
 
     cancel: () => {
+      if (cad().tool === 'insert') insertQueue.next = null
       const s = get()
       if (s.stage || s.windowStart) {
         if (cad().tool === 'polyline' || cad().tool === 'line') return endMulti()
@@ -224,7 +251,11 @@ export const useCadSession = create<SessionState>()((set, get) => {
         }
         if (hitId) {
           const cur = cad().selection
-          cad().setSelection(shift ? (cur.includes(hitId) ? cur.filter((x) => x !== hitId) : [...cur, hitId]) : [hitId])
+          // blocks inserted from the Components library select as one object
+          const hit = doc.entities.find((e) => e.id === hitId)
+          const group = hit?.block ? doc.entities.filter((e) => e.block?.id === hit.block!.id).map((e) => e.id) : [hitId]
+          const has = group.every((id) => cur.includes(id))
+          cad().setSelection(shift ? (has ? cur.filter((x) => !group.includes(x)) : [...new Set([...cur, ...group])]) : group)
           return
         }
         print(t().prompts.opposite)
@@ -253,6 +284,28 @@ export const useCadSession = create<SessionState>()((set, get) => {
         }
         case 'area':
           return set({ points: pts, stage: 'areaNext' })
+        case 'insert': {
+          const pend = insertQueue.next
+          if (!pend) return finish()
+          const docNow = cad().activeDoc()
+          const layer = pend.layer ?? docNow?.currentLayer ?? '0'
+          const ops: CadOp[] = []
+          if (docNow && !docNow.layers.some((l) => l.name === layer)) ops.push({ type: 'addLayer', name: layer, color: pend.layerColor, label: 'LAYER' })
+          const block = pend.explode ? undefined : { id: newId(), name: pend.name }
+          const entities = pend.entities.map((e) => ({
+            ...translateEntity(e, p), id: newId(), layer, color: pend.color, linetype: pend.linetype, lineweight: 'ByLayer' as const, transparency: 0,
+            ...(block ? { block } : {}),
+          }))
+          ops.push({ type: 'add', label: `INSERT ${pend.name}`, entities })
+          const err = cad().execBatch(ops, `INSERT ${pend.name}`)
+          if (err) reportError(err)
+          else {
+            print(fmt(L.inserted, { name: pend.name, n: entities.length, layer }))
+            pend.onPlaced?.()
+          }
+          insertQueue.next = null
+          return finish()
+        }
         case 'rectangle': {
           if (pts.length < 2) return set({ points: pts, stage: 'corner2' })
           const [a, b] = pts

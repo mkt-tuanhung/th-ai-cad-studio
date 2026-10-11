@@ -123,6 +123,7 @@ std::optional<CadOp> op(const json::Value& o, Ctx& ctx) {
           if (x.str()) (std::string(k) == "layers" ? f.layers : f.kinds).push_back(*x.str());
     out.body = f;
   } else if (type == "setCurrentLayer") out.body = OpSetCurrentLayer{str(o, "layer", "")};
+  else if (type == "addLayer") out.body = OpAddLayer{str(o, "name", ""), str(o, "color", "")};
   else if (type == "layerProps") {
     OpLayerProps p{str(o, "name", ""), {}, {}, {}};
     if (auto v = o.get("visible"); v && v->boolean()) p.visible = *v->boolean();
@@ -236,6 +237,7 @@ json::Value opsToJson(const std::vector<CadOp>& ops) {
                    },
                    [&](const OpSetCurrentLayer& s) { o["type"] = "setCurrentLayer"; o["layer"] = s.layer; },
                    [&](const OpLayerProps& p) { o["type"] = "layerProps"; o["name"] = p.name; },
+                   [&](const OpAddLayer& a) { o["type"] = "addLayer"; o["name"] = a.name; o["color"] = a.color; },
                    [&](const OpEraseWhere& f) {
                      json::Array l, k;
                      for (const auto& x : f.layers) l.push_back(x);

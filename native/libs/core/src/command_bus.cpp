@@ -88,6 +88,10 @@ std::optional<ValidationError> validate(const Document& doc, const CadOp& op) {
             if (!doc.findLayer(p.name)) return ValidationError{ErrorCode::UnknownLayer, p.name};
             return std::nullopt;
           },
+          [&](const OpAddLayer& a) -> std::optional<ValidationError> {
+            if (a.name.empty()) return ValidationError{ErrorCode::UnknownLayer, "empty layer name"};
+            return std::nullopt;
+          },
           [&](const OpEraseWhere& f) -> std::optional<ValidationError> {
             for (const auto& l : f.layers)
               if (!doc.findLayer(l)) return ValidationError{ErrorCode::UnknownLayer, l};
@@ -121,6 +125,13 @@ Document preview(const Document& doc, const CadOp& op) {
                    out.dirty = true;
                  },
                  [&](const OpSetCurrentLayer& s) { out.currentLayer = s.layer; },
+                 [&](const OpAddLayer& a) {
+                   if (!out.findLayer(a.name)) {
+                     Layer l{a.name, a.color.empty() ? std::string("#1f2937") : a.color};
+                     out.layers.push_back(l);
+                     out.dirty = true;
+                   }
+                 },
                  [&](const OpEraseWhere& f) {
                    const auto v = resolveFilter(doc, f);
                    std::unordered_set<std::string> ids(v.begin(), v.end());
