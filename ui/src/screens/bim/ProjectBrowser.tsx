@@ -96,13 +96,13 @@ export function ProjectBrowser() {
     set({ browserSel: n.key, view: n.open.view, ...(n.open.level ? { level: n.open.level } : {}), ...(n.open.cat ? { scheduleCat: n.open.cat } : {}) })
   }
 
-  const render = (n: Node, depth: number): ReactNode => {
+  const render = (n: Node, depth: number, index = 0): ReactNode => {
     if (!matches(n)) return null
     const open = needle ? true : (browserOpen[n.key] ?? true)
     const leaf = !n.children
     return (
       <li key={n.key}>
-        <div className={`${s.row} ${leaf ? s.leaf : ''} ${isActive(n) ? s.active : ''} ${depth === 0 ? s.root : ''}`} style={{ paddingLeft: 4 + depth * 13 + (leaf ? 18 : 0) }}>
+        <div className={`${s.row} ${leaf ? s.leaf : ''} ${isActive(n) ? s.active : ''} ${depth === 0 ? s.root : ''} ${!leaf && depth > 0 && index > 0 ? s.group : ''}`} style={{ paddingLeft: 4 + depth * 13 + (leaf ? 18 : 0) }}>
           {!leaf && (
             <button type="button" className={s.twisty} aria-label={open ? 'Collapse' : 'Expand'} aria-expanded={open} onClick={() => toggleBrowser(n.key)}>
               {open ? <ChevronDown size={13} strokeWidth={2} /> : <ChevronRight size={13} strokeWidth={2} />}
@@ -113,7 +113,7 @@ export function ProjectBrowser() {
             {n.label}
           </button>
         </div>
-        {!leaf && open && <ul>{n.children!.map((c) => render(c, depth + 1))}</ul>}
+        {!leaf && open && <ul>{n.children!.map((c, i) => render(c, depth + 1, i))}</ul>}
       </li>
     )
   }

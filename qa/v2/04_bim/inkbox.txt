@@ -1,0 +1,54 @@
+crumb.projects               mock x290 y105 w70 h12 | dx+0 dy+0 dw-7 dh+0  <--
+crumb.arch                   mock x440 y104 w80 h11 | dx+0 dy+0 dw+0 dh+0
+tab.plan.text                mock x746 y123 w22 h10 | dx-1 dy-2 dw-1 dh-3  <--
+tab.3d.text                  mock x825 y122 w25 h13 | dx+0 dy-1 dw+0 dh-5  <--
+tab.sched.text               mock x930 y122 w65 h13 | dx+5 dy-1 dw-15 dh-6  <--
+btn.share.text               mock x1224 y111 w36 h14 | dx+0 dy+1 dw+0 dh+0
+btn.export.text              mock x1315 y111 w50 h16 | dx+1 dy+0 dw-1 dh+0
+btn.ai.text                  mock x1445 y112 w84 h16 | dx+0 dy-2 dw+1 dh+0  <--
+rib.select.text              mock x291 y189 w31 h10 | dx+2 dy+1 dw+1 dh-1  <--
+rib.wall.text                mock x362 y189 w22 h10 | dx-2 dy+0 dw+0 dh-1  <--
+rib.room.text                mock x840 y190 w29 h9 | dx-3 dy-1 dw+1 dh+0  <--
+rib.modeltext.text           mock x980 y188 w55 h10 | dx-5 dy+1 dw+3 dh-1  <--
+rib.grid.text                mock x1259 y188 w22 h10 | dx+0 dy+1 dw-2 dh-1  <--
+rib.more.text                mock x1340 y188 w71 h8 | dx+0 dy+0 dw+2 dh+0  <--
+rib.wall.icon                mock x364 y155 w17 h26 | dx+1 dy+1 dw-4 dh-5  <--
+pb.title                     mock x283 y236 w99 h12 | dx-3 dy+2 dw+3 dh+2  <--
+pb.search                    mock x318 y270 w148 h8 | dx-3 dy+4 dw+3 dh+2  <--
+pb.villa                     mock x319 y301 w76 h10 | dx+2 dy-2 dw+7 dh+0  <--
+pb.level1                    mock x362 y365 w32 h9 | dx-1 dy+0 dw+2 dh+0  <--
+pb.roof                      mock x362 y406 w26 h10 | dx-1 dy+2 dw+0 dh-1  <--
+pb.section2                  mock x363 y697 w46 h10 | dx-2 dy+2 dw+2 dh-1  <--
+pb.a301                      mock x349 y906 w80 h9 | dx-2 dy-5 dw+3 dh+0  <--
+v.dropdown                   mock x521 y240 w88 h9 | dx+1 dy+0 dw+1 dh-1
+v.plantitle                  mock x520 y282 w129 h12 | dx+0 dy-1 dw-17 dh+0  <--
+v.realistic                  mock x510 y716 w59 h19 | dx+11 dy+3 dw-13 dh-10  <--
+v.shaded                     mock x608 y721 w38 h9 | dx+0 dy-2 dw+2 dh+0  <--
+v.hidden                     mock x770 y721 w59 h9 | dx+2 dy-3 dw-1 dh+1  <--
+v.level1                     mock x1027 y720 w33 h10 | dx+6 dy-1 dw+1 dh-1  <--
+v.scale                      mock x1116 y721 w32 h9 | dx+3 dy-2 dw+2 dh+0  <--
+sch.title                    mock x507 y772 w112 h11 | dx+0 dy-1 dw+8 dh+1  <--
+sch.viewall                  mock x921 y772 w38 h10 | dx-1 dy+0 dw+1 dh-1
+sch.walls                    mock x505 y792 w60 h18 | dx+0 dy+0 dw+15 dh+0  <--
+sch.doors                    mock x599 y798 w44 h8 | dx+4 dy-2 dw+2 dh+2  <--
+sch.h.mark                   mock x529 y826 w19 h6 | dx-3 dy-1 dw+2 dh+1  <--
+sch.w1.type                  mock x562 y846 w103 h7 | dx-1 dy+1 dw+9 dh+0  <--
+sch.w5.vol                   mock x855 y932 w16 h7 | dx+2 dy+1 dw+2 dh+0  <--
+coord.title                  mock x990 y773 w108 h11 | dx+1 dy-1 dw+11 dh+7  <--
+coord.check                  mock x1115 y768 w100 h24 | dx+0 dy+0 dw+0 dh+0
+coord.health                 mock x1021 y812 w54 h8 | dx+1 dy+1 dw+2 dh-1  <--
+coord.clash.status           mock x1120 y846 w78 h7 | dx+0 dy+0 dw+7 dh+0  <--
+coord.param.status           mock x1120 y934 w43 h8 | dx+0 dy+0 dw+2 dh-1  <--
+pr.tab                       mock x1272 y232 w55 h12 | dx+6 dy+0 dw+2 dh+0  <--
+pr.basic                     mock x1334 y284 w53 h10 | dx+1 dy-2 dw+3 dh+0  <--
+pr.identity                  mock x1263 y343 w71 h12 | dx+0 dy+1 dw+4 dh+0  <--
+pr.family                    mock x1271 y365 w31 h11 | dx+0 dy+1 dw+1 dh+1
+pr.typemark.v                mock x1369 y410 w14 h9 | dx-1 dy+2 dw+0 dh-1  <--
+pr.unconn                    mock x1271 y580 w79 h10 | dx-1 dy-2 dw+1 dh-1  <--
+pr.dims                      mock x1265 y611 w73 h9 | dx-2 dy-3 dw-3 dh+0  <--
+pr.volume.v                  mock x1370 y722 w36 h10 | dx-2 dy-2 dw+2 dh-2  <--
+pr.materials                 mock x1264 y753 w120 h10 | dx-1 dy-2 dw+8 dh-1  <--
+pr.finishint.v               mock x1371 y820 w61 h10 | dx-2 dy-3 dw+1 dh-1  <--
+pr.rec.title                 mock x1297 y866 w113 h4 | dx+5 dy+0 dw+2 dh+0  <--
+pr.rec.apply                 mock x1265 y920 w140 h20 | dx+0 dy+0 dw+0 dh+0
+pr.rec.details               mock x1455 y934 w53 h6 | dx-9 dy-1 dw+10 dh+1  <--

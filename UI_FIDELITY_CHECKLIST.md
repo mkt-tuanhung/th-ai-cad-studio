@@ -23,8 +23,8 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 |---|---|---|---|
 | 01 | Dashboard | ✅ 49/51 phần tử ≤ 2 px (đo lại sau khi sửa shell); overlay `qa/v2/01_dashboard/` | — |
 | 02 | CAD 2D | ✅ Kiểm tra lại theo v2 (2026-10-11, đã duyệt): 47/53 ≤ 2 px, 51/53 ≤ 3 px, 53/53 ≤ 5 px; nhãn thanh công cụ không còn bị cắt (EN/VI) — `qa/QA_CAD2D.md` | — |
-| 03 | AI Intelligence | ✅ Kiểm tra lại theo v2 (2026-10-11, chờ duyệt): 46/55 ≤ 2 px, 55/55 ≤ 5 px; trạng thái AI trên trình duyệt ghi Demo UI / Not connected — `qa/QA_AI_STUDIO.md` | — |
-| 04 | Architecture / BIM | ✅ 45/54 ≤ 5 px | — |
+| 03 | AI Intelligence | ✅ Kiểm tra lại theo v2 (2026-10-11, đã duyệt): 46/55 ≤ 2 px, 55/55 ≤ 5 px; trạng thái AI trên trình duyệt ghi Demo UI / Not connected — `qa/QA_AI_STUDIO.md` | — |
+| 04 | Architecture / BIM | ✅ Kiểm tra lại theo v2 (2026-10-11): 37/54 ≤ 2 px, 44/54 ≤ 3 px, 50/54 ≤ 5 px; bảng thống kê hiện đủ chữ — `qa/QA_BIM.md` | — |
 | 05 | Projects | ✅ Đã duyệt 2026-10-11: 57/62 phần tử ≤ 2 px, smoke test 18/18 — `qa/QA_PROJECTS.md` | Chờ ảnh sạch (DEMO); cần chọn trạng thái yêu thích của Pump |
 | 06 | Settings | ✅ Đã duyệt: 45/58 phần tử ≤ 2 px, smoke test 16/16, số liệu thật trong app desktop — `qa/QA_SETTINGS.md` | — |
 | 07 | Components | ✅ Đã duyệt 2026-10-11: 56/66 phần tử ≤ 2 px (62/66 ≤ 5 px), smoke test 17/17, chèn thật vào CAD 2D — `qa/QA_COMPONENTS.md` | — |

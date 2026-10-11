@@ -61,8 +61,8 @@ export function BimRibbon() {
         {SEPS.map((x) => (
           <span key={x} className={s.sep} style={{ left: x }} />
         ))}
-        <div className={s.anchor} ref={moreRef} style={{ left: 1067 }}>
-          <button type="button" className={s.tool} style={{ position: 'static', width: 104 }} aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>
+        <div className={s.anchor} ref={moreRef} style={{ left: 1058 }}>
+          <button type="button" className={s.tool} style={{ position: 'static', width: 104, marginTop: 8 }} aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)}>
             <Ellipsis size={24} strokeWidth={2} />
             <span>
               {t.tools.more}

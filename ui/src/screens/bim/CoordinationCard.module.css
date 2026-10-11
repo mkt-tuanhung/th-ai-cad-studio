@@ -20,7 +20,7 @@
 
 .title {
   flex: 1;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
   color: var(--text-strong);
@@ -29,9 +29,9 @@
 .check {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 25px;
-  padding: 0 11px 0 10px;
+  padding: 0 8px;
   border-radius: 6px;
   font-size: 10.5px;
   font-weight: 500;
@@ -58,7 +58,7 @@
 .list {
   flex: 1;
   min-height: 0;
-  padding: 2px 6px;
+  padding: 2px 2px;
   border: 1px solid #edf0f3;
   border-radius: 8px;
   background: #fff;
@@ -85,7 +85,7 @@ li:last-child .row {
 
 .name {
   width: 92px;
-  margin-left: 16px;
+  margin-left: 11px;
   overflow: hidden;
   color: #2b3341;
   white-space: nowrap;

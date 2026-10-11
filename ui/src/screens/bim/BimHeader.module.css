@@ -96,7 +96,7 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 11px;
   margin-left: auto;
   margin-right: 6px;
   margin-top: 5px;
@@ -105,9 +105,9 @@
 .btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   height: 34px;
-  padding: 0 15px 0 13px;
+  padding: 0 11px 0 10px;
   border: 1px solid #e1e6eb;
   border-radius: 7px;
   background: #fbfcfd;
@@ -118,7 +118,7 @@
 
 .export {
   gap: 9px;
-  padding-right: 11px;
+  padding-right: 6px;
 }
 
 .btn:hover {
@@ -128,9 +128,9 @@
 .ai {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   height: 35px;
-  padding: 0 18px 0 16px;
+  padding: 0 14px 0 13px;
   border-radius: 7px;
   font-size: 13px;
   font-weight: 500;

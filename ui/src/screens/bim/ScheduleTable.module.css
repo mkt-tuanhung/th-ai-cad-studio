@@ -8,16 +8,17 @@
 
 .row {
   display: grid;
-  grid-template-columns: 20px 34px minmax(0, 1fr) 43px 65px 52px 52px 44px 29px;
+  grid-template-columns: 17px 35px minmax(0, 1fr) 44px 70px 44px 58px 44px 26px;
   align-items: center;
   height: 21.6px;
-  padding-left: 4px;
+  padding-left: 0;
   border-top: 1px solid #f0f2f5;
   cursor: default;
 }
 
 .row span {
   overflow: hidden;
+  letter-spacing: -0.015em;
   white-space: nowrap;
   text-overflow: ellipsis;
   padding-left: 4px;
@@ -90,4 +91,14 @@
 
 .dense {
   font-size: 12px;
+}
+
+/* the mockup's schedule type runs narrower than Roboto: tighten the header and the family column so
+   "Generic - 200mm Concrete" and "Volume (m³)" fit the mockup's column widths */
+.head span {
+  font-size: 9.4px;
+}
+
+.row:not(.head) span:nth-child(3) {
+  font-size: 9.7px;
 }

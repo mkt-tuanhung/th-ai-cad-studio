@@ -57,3 +57,43 @@ Ngày: 2026-10-10 · Chuẩn so sánh: `mockups_full/04_architecture_bim_workspa
    đặt ra cho khớp các con số tổng (24/12/18/8/4) và kết quả kiểm tra.
 5. Bảng thống kê hiện thêm một phần dòng W6 ở cuối (mockup có khoảng trắng sau W5).
 6. Mũi tên trong Project Browser, view cube và icon công cụ là bản vẽ lại bằng SVG/Lucide gần nhất.
+
+---
+
+## Kiểm tra lại theo Pixel-Lock v2 — 2026-10-11
+
+Mockup `TH_AI_CAD_Studio_UI_LOCK_v2/mockups/04_Architecture_BIM.png` giống từng pixel với bản đã QA trước đây.
+
+Ảnh nằm trong `qa/v2/04_bim/`:
+- `side_by_side.png`, `mockup.png`;
+- `overlay_50_50.png`, `overlay_anaglyph.png`, `difference_amplified.png` (MAE 16.41);
+- `app_en.png`, `app_vi.png`;
+- `app_en_1280x800.png`, `app_en_1440x900.png`, `app_en_1920x1080.png`.
+
+| | Chụp lại (trước khi sửa) | Sau khi sửa |
+|---|---|---|
+| Phần tử ≤ 2 px (54) | 30 | **37** |
+| ≤ 3 px | 37 | **44** |
+| ≤ 5 px | 45 | **50** |
+
+**Đã sửa:**
+- Nút Share / Export / AI Assistant: bề rộng 78 / 104 / 129 px, khoảng cách 11 px, như mockup.
+- Ribbon: "More Tools" lệch 9 px cả ngang lẫn dọc; đã sửa.
+- Cây Project Browser:
+  - bước dòng 21.5 px;
+  - các nhóm không phải nhóm đầu tiên được tách thêm 4 px. Mockup làm vậy với Elevations, Sections, Schedules, Sheets…
+- Bảng Schedule:
+  - cột đặt theo vị trí đo trên mockup;
+  - chữ hẹp lại để hiện đủ "Generic - 200mm Concrete", "Area (m²)" và "Volume (m³)". Trước đây các chữ này bị cắt.
+- Model Coordination:
+  - tiêu đề 12.5 px;
+  - nút Check Model 95 px;
+  - nhãn và trạng thái dời trái 9 px.
+
+**4 phần tử còn lệch trên 5 px:**
+- `v.realistic`: vùng đo lẫn nền nút.
+- `tab.sched.text`: icon trong tab Schedule của mockup khác icon của app.
+- `pr.rec.details`: nút "Details" trong mockup hẹp hơn.
+- `pb.a301`: cuối cây, sai số tích luỹ do khoảng cách nhóm trong mockup không đều.
+
+**Tương tác:** `smoke-bim` 16/16 đạt.

@@ -84,12 +84,17 @@
 .row {
   display: flex;
   align-items: center;
-  height: 22.2px;
+  height: 21.5px;
   border-radius: 5px;
 }
 
 .root {
   height: 22.2px;
+}
+
+/* group headings (Views, Schedules, Sheets…) sit a little apart, as in the mockup */
+.group {
+  margin-top: 4px;
 }
 
 .twisty {
