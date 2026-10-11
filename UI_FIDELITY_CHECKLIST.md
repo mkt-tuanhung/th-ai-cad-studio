@@ -22,12 +22,12 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | # | Màn | Trạng thái | Việc còn thiếu (so với mockup) |
 |---|---|---|---|
 | 01 | Dashboard | ✅ 49/51 phần tử ≤ 2 px (đo lại sau khi sửa shell); overlay `qa/v2/01_dashboard/` | — |
-| 02 | CAD 2D | ✅ 47/53 ≤ 3 px | — |
+| 02 | CAD 2D | ✅ Kiểm tra lại theo v2 (2026-10-11, chờ duyệt): 47/53 ≤ 2 px, 51/53 ≤ 3 px, 53/53 ≤ 5 px; nhãn thanh công cụ không còn bị cắt (EN/VI) — `qa/QA_CAD2D.md` | — |
 | 03 | AI Intelligence | ✅ 54/55 ≤ 5 px | — |
 | 04 | Architecture / BIM | ✅ 45/54 ≤ 5 px | — |
 | 05 | Projects | ✅ Đã duyệt 2026-10-11: 57/62 phần tử ≤ 2 px, smoke test 18/18 — `qa/QA_PROJECTS.md` | Chờ ảnh sạch (DEMO); cần chọn trạng thái yêu thích của Pump |
 | 06 | Settings | ✅ Đã duyệt: 45/58 phần tử ≤ 2 px, smoke test 16/16, số liệu thật trong app desktop — `qa/QA_SETTINGS.md` | — |
-| 07 | Components | ✅ Đã dựng (chờ duyệt): 56/66 phần tử ≤ 2 px (62/66 ≤ 5 px), smoke test 17/17, chèn thật vào CAD 2D — `qa/QA_COMPONENTS.md` | — |
+| 07 | Components | ✅ Đã duyệt 2026-10-11: 56/66 phần tử ≤ 2 px (62/66 ≤ 5 px), smoke test 17/17, chèn thật vào CAD 2D — `qa/QA_COMPONENTS.md` | — |
 | 08 | MEP | ⏳ | Breadcrumb, tab chuyên ngành, ribbon, Project Browser, viewport 3D, bảng schedule, Properties, AI Recommendations |
 | 09 | Interior | ⏳ | Như MEP, thêm mặt bằng thu nhỏ, AI Interior Designer, bảng Furniture/Cut List, Room Information |
 | 10 | Civil | ⏳ | Mặt bằng tuyến, trắc dọc, trắc ngang, khối lượng đào đắp, Design Parameters, AI Civil Assistant |

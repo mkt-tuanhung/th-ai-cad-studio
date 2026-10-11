@@ -55,7 +55,7 @@ export function ToolPalette() {
       title={t[id]}
     >
       <Icon size={25} strokeWidth={1.45} />
-      <span>{t[id]}</span>
+      <span className={t[id].length > 8 ? s.long : undefined}>{t[id]}</span>
     </button>
   )
 

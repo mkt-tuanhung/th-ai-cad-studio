@@ -57,3 +57,51 @@ Cách chụp: Playwright Chromium headless, 1586×992 @1x, profile mới (tài l
 5. Biểu tượng AI Assist từng mục dùng icon Lucide gần nghĩa (mockup là hình minh hoạ nhỏ).
 6. Icon nút thứ ba nhóm Viewport/Layout không có nhãn trong mockup — gán chức năng "Sheet Set" (chưa có
    ở prototype).
+
+---
+
+## Kiểm tra lại theo Pixel-Lock v2 — 2026-10-11
+
+Mockup `TH_AI_CAD_Studio_UI_LOCK_v2/mockups/02_CAD_2D.png` giống từng pixel với `mockups_full/02_cad2d_workspace.png`.
+Màn này được kiểm tra lại vì từ lần QA trước đã có nhiều thay đổi:
+- shell mới (icon sidebar 28 px);
+- lớp vẽ GPU;
+- các lệnh INSERT, DIST, AREA;
+- tab Blocks.
+
+Ảnh nằm trong `qa/v2/02_cad2d/`:
+- `side_by_side.png`, `mockup.png`;
+- `overlay_50_50.png`, `overlay_anaglyph.png`, `difference_amplified.png` (MAE 7.36);
+- `app_en.png`, `app_vi.png`;
+- `app_en_1280x800.png`, `app_en_1440x900.png`, `app_en_1920x1080.png`.
+
+| | Trước khi sửa (chụp lại) | Sau khi sửa |
+|---|---|---|
+| Phần tử ≤ 2 px (53) | 39 | **47** |
+| ≤ 3 px | 47 | **51** |
+| ≤ 5 px | 53 | 53 |
+
+**Đã sửa:**
+- Ribbon:
+  - nút Plot dời +3 px;
+  - nhóm Viewport/Layout và nút Settings: phân bố lại khoảng cách, vì nhóm này căn theo mép phải;
+  - chữ AI Assist.
+- Properties: cột ô nhập dời phải 4 px. Mép trái ô từ 1341 thành 1345, đúng như mockup.
+- Status bar: chữ trong hộp tỉ lệ 1:100.
+- AI Assist: danh sách gợi ý dời lên 3 px.
+- Thanh công cụ trái — nhãn bị cắt: "Rectangl", "Dimensio", và bản VI "Kích thư", "Di chuyể".
+  - Nhãn dài (> 8 ký tự) giờ nằm sát icon hơn và chữ hẹp hơn, như mockup.
+  - Nhãn nào vẫn không vừa thì xuống dòng thay vì bị cắt.
+
+**6 phần tử còn lệch 3–5 px:**
+- `pal.trim.label` và `pal.text.icon`: 3 px.
+- `ai.tab.sugg`: 3 px, do tab chia đều theo flex.
+- `cmd.detected`: mockup ghi "Detectada"; app ghi "Detected" theo quyết định của chủ đầu tư.
+- `canvas.dim3200`: chữ vector, lệch 4 px.
+- `status.model`: lỗi vùng đo (chữ trắng trên nền đậm).
+
+**Kích thước nhỏ:** ở 1440 × 900 và 1280 × 800, ribbon cuộn ngang. Nút Settings ở cuối ribbon phải cuộn mới thấy;
+mục Settings ở sidebar vẫn luôn hiện.
+
+**Tương tác:** `smoke-cad2d` 21/21 đạt. INSERT, chọn cả block và tab Blocks được kiểm tra trong
+`smoke-components` (17/17). DIST và AREA theo đơn vị đã lưu được kiểm tra trong `smoke-settings` (16/16).

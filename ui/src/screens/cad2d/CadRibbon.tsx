@@ -92,8 +92,8 @@ export function CadRibbon(a: RibbonActions) {
       <Btn label={t.layer} icon={<Layers size={I} strokeWidth={SW} />} onClick={a.onLayer} w={62} ml={1} />
       <Btn label={t.properties} icon={<PropertiesToolIcon size={I} strokeWidth={SW} />} onClick={a.onProperties} w={76} ml={0} />
       <Sep ml={2} />
-      <Btn label={t.plot} icon={<Printer size={I} strokeWidth={SW} />} onClick={a.onPlot} w={56} ml={2} />
-      <Sep ml={4} />
+      <Btn label={t.plot} icon={<Printer size={I} strokeWidth={SW} />} onClick={a.onPlot} w={56} ml={5} />
+      <Sep ml={1} />
       <button type="button" className={s.share} onClick={a.onShare}>
         <Share size={21} strokeWidth={SW} />
         <span>{t.share}</span>
@@ -106,9 +106,9 @@ export function CadRibbon(a: RibbonActions) {
       <Sep ml={0} />
       <Btn label={t.viewport} icon={<ViewportToolIcon size={I} strokeWidth={SW} />} onClick={a.onViewport} w={70} ml={12} />
       <Btn label={t.layout} icon={<LayoutToolIcon size={I} strokeWidth={SW} />} onClick={a.onLayout} w={64} ml={8} />
-      <Btn label={t.sheetSet} icon={<SheetToolIcon size={I} strokeWidth={SW} />} onClick={a.onSheetSet} w={50} ml={6} hideLabel />
-      <Sep ml={27} />
-      <Btn label={t.settings} icon={<Settings size={I} strokeWidth={SW} />} onClick={a.onSettings} w={64} ml={7} />
+      <Btn label={t.sheetSet} icon={<SheetToolIcon size={I} strokeWidth={SW} />} onClick={a.onSheetSet} w={50} ml={10} hideLabel />
+      <Sep ml={33} />
+      <Btn label={t.settings} icon={<Settings size={I} strokeWidth={SW} />} onClick={a.onSettings} w={58} ml={7} />
     </div>
   )
 }

@@ -61,6 +61,17 @@
   flex: none;
 }
 
+/* Long labels sit closer to the icon and run narrower, as in the mockup ("Rectangle", "Dimension");
+   a label that still does not fit (VI "Kích thước") wraps to a second line instead of being cut. */
+.long {
+  min-width: 0;
+  margin-left: -6px;
+  letter-spacing: -0.035em;
+  line-height: 12px;
+  text-align: left;
+  white-space: normal;
+}
+
 .row:hover {
   background: #eef3f5;
 }
