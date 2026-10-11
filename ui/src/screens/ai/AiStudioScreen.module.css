@@ -1,0 +1,57 @@
+/* Grid measured on mockup 03: chat 277–744, right column 750–1543 (window 1528px). */
+.panel {
+  display: grid;
+  grid-template-columns: 467px minmax(0, 1fr);
+  grid-template-rows: 158px minmax(0, 1fr);
+  column-gap: 6px;
+  grid-template-areas:
+    'header header'
+    'chat right';
+  height: 100%;
+  padding: 0 13px 13px 9px;
+  background: var(--main-bg);
+  border-top: 1px solid #e8ebef;
+  border-left: 1px solid #e8ebef;
+  border-top-left-radius: 12px;
+}
+
+.header {
+  grid-area: header;
+  min-width: 0;
+  margin-left: -9px;
+}
+
+.chat {
+  grid-area: chat;
+  min-height: 0;
+  padding-bottom: 2px;
+}
+
+.right {
+  container-type: inline-size;
+  container-name: studio-right;
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.work {
+  flex: 1;
+  min-height: 0;
+}
+
+.modalText {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+/* Narrower Mac windows: keep the approved structure, reflow content inside the columns. */
+@container window (max-width: 1400px) {
+  .panel {
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+}

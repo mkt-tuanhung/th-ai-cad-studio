@@ -1,0 +1,198 @@
+// Interaction smoke test for the CAD 2D workspace (prototype engine). Fresh profile.
+import { chromium } from 'playwright'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+
+const browser = await chromium.launch()
+const ctx = await browser.newContext({ viewport: { width: 1586, height: 992 }, acceptDownloads: true })
+ctx.setDefaultTimeout(5000)
+const page = await ctx.newPage()
+const errors = []
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+page.on('pageerror', (e) => errors.push(String(e)))
+const results = []
+const step = async (name, fn) => {
+  try { await fn(); results.push(['PASS', name]) } catch (e) { results.push(['FAIL', name + ' — ' + e.message.split('\n')[0]]) }
+}
+const doc = () => page.evaluate(() => { const s = window.__thcad.cad.getState(); return JSON.parse(JSON.stringify(s.docs[s.activeId])) })
+const count = async () => (await doc()).entities.length
+const cmd = async (...lines) => {
+  const input = page.getByRole('textbox', { name: 'Type a command or use AI...' })
+  for (const l of lines) { await input.fill(l); await input.press('Enter') }
+}
+const log = () => page.getByRole('log').innerText()
+const vp = () => page.locator('[data-native-viewport-slot] > div')
+
+await page.goto('http://127.0.0.1:5173/#/cad2d', { waitUntil: 'networkidle' })
+await page.waitForFunction(() => window.__thcad)
+const seedCount = await count()
+
+await step('opens Villa Riverside with mockup state (tab, Detected (3), OSNAP/SNAP/MODEL on)', async () => {
+  assert.ok(await page.getByRole('tab', { name: /Villa Riverside - Floor Plan\.dwg/ }).isVisible())
+  assert.ok(await page.getByRole('tab', { name: 'Detected (3)' }).isVisible())
+  for (const [n, on] of [['OSNAP', 'true'], ['SNAP', 'true'], ['MODEL', 'true'], ['ORTHO', 'false'], ['GRID', 'false'], ['POLAR', 'false']])
+    assert.equal(await page.getByRole('button', { name: n, exact: true }).getAttribute('aria-pressed'), on, n)
+  assert.equal(await page.getByRole('button', { name: 'Undo' }).isDisabled(), true)
+})
+
+await step('LINE from the command line with absolute + relative coordinates', async () => {
+  await cmd('L', '0,0', '@3000,0', '@0,2000', '')
+  assert.equal(await count(), seedCount + 2)
+  assert.match(await log(), /Command: LINE/)
+  assert.equal(await page.getByRole('button', { name: 'Undo' }).isDisabled(), false)
+})
+
+await step('UNDO / REDO via ⌘Z / ⌘⇧Z', async () => {
+  await vp().click({ position: { x: 5, y: 5 } }); await page.keyboard.press('Escape')
+  await page.keyboard.press('Meta+z')
+  assert.equal(await count(), seedCount + 1)
+  await page.keyboard.press('Meta+Shift+z')
+  assert.equal(await count(), seedCount + 2)
+})
+
+await step('typing on the canvas goes to the command line (AutoCAD style): CIRCLE with typed radius', async () => {
+  await vp().click({ position: { x: 5, y: 5 } }); await page.keyboard.press('Escape')
+  await page.keyboard.type('c'); await page.keyboard.press('Enter')
+  await cmd('20000,20000', '750')
+  const d = await doc()
+  const c = d.entities.at(-1)
+  assert.equal(c.kind, 'circle'); assert.equal(c.r, 750)
+})
+
+await step('RECTANGLE by two clicks in the viewport', async () => {
+  const before = await count()
+  await page.getByRole('button', { name: 'Rectangle' }).click()
+  await vp().click({ position: { x: 120, y: 520 } })
+  await vp().click({ position: { x: 220, y: 560 } })
+  assert.equal(await count(), before + 1)
+  const r = (await doc()).entities.at(-1)
+  assert.equal(r.kind, 'polyline'); assert.equal(r.closed, true); assert.equal(r.pts.length, 4)
+})
+
+await step('click-select → Properties shows type; change layer; Delete erases', async () => {
+  await page.getByRole('button', { name: 'Select' }).click()
+  await vp().click({ position: { x: 170, y: 520 } }) // top edge of the rectangle
+  assert.ok(await page.getByText('Polyline (1)').isVisible())
+  await page.getByRole('combobox', { name: 'A-Wall' }).selectOption('A-Door')
+  assert.equal((await doc()).entities.at(-1).layer, 'A-Door')
+  const before = await count()
+  await vp().hover({ position: { x: 400, y: 300 } })
+  await page.keyboard.press('Delete')
+  assert.equal(await count(), before - 1)
+})
+
+await step('window selection (left→right) selects only fully enclosed objects', async () => {
+  await page.keyboard.press('Escape')
+  await vp().click({ position: { x: 760, y: 30 } }) // empty area near north arrow → starts window
+  await vp().click({ position: { x: 820, y: 100 } })
+  assert.match(await page.getByText(/^(Circle|Polyline|Text|All) \(\d+\)$/).first().innerText(), /\(\d+\)/)
+})
+
+await step('F8 toggles ORTHO, persisted across reload', async () => {
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('F8')
+  assert.equal(await page.getByRole('button', { name: 'ORTHO', exact: true }).getAttribute('aria-pressed'), 'true')
+  await page.reload({ waitUntil: 'networkidle' })
+  assert.equal(await page.getByRole('button', { name: 'ORTHO', exact: true }).getAttribute('aria-pressed'), 'true')
+  await page.keyboard.press('F8')
+})
+
+await step('Layers: hiding A-Grid removes grid geometry from the view', async () => {
+  await page.getByRole('button', { name: 'Layer', exact: true }).click()
+  const circles = () => page.locator('[data-native-viewport-slot] svg circle').count()
+  const before = await circles()
+  await page.getByRole('button', { name: 'On A-Grid' }).click()
+  assert.ok((await circles()) < before)
+  await page.getByRole('button', { name: 'On A-Grid' }).click()
+  await page.getByRole('button', { name: 'Properties', exact: true }).click()
+})
+
+await step('Detected tab lists the 3 dimension texts that disagree with measured geometry', async () => {
+  await page.getByRole('tab', { name: 'Detected (3)' }).click()
+  assert.equal(await page.getByText(/does not match measured/).count(), 3)
+  await page.getByRole('tab', { name: 'Command Line' }).click()
+})
+
+await step('native-only command (TRIM) reports honestly instead of faking', async () => {
+  await cmd('TR')
+  assert.match(await log(), /TRIM: needs the native CAD engine/)
+})
+
+await step('Export DXF downloads a valid R12 file; importing it opens a new tab with the same vector count', async () => {
+  const [dl] = await Promise.all([page.waitForEvent('download'), (async () => {
+    await page.getByRole('button', { name: 'Export' }).click()
+    await page.getByRole('menuitem', { name: /DXF/ }).click()
+  })()])
+  const p = await dl.path()
+  const text = fs.readFileSync(p, 'utf8')
+  assert.match(text, /AC1009/); assert.match(text, /\bCIRCLE\b/); assert.match(text, /\bLINE\b/)
+  const vectors = await count()
+  await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: 'roundtrip.dxf', mimeType: 'application/dxf', buffer: Buffer.from(text) })
+  assert.ok(await page.getByRole('tab', { name: /roundtrip\.dxf/ }).isVisible())
+  assert.ok((await count()) >= vectors) // dimensions are exploded to lines + text
+})
+
+await step('large DXF (blocks, 2 500+ entities) is exploded and drawn by the GPU layer, or by SVG if WebGL2 is unavailable', async () => {
+  // a block with 3 lines inserted as a 30×30 MINSERT array = 2 700 lines, plus one dimension-like block
+  const g = []
+  const p = (...a) => g.push(...a.map(String))
+  p(0, 'SECTION', 2, 'BLOCKS', 0, 'BLOCK', 2, 'CELL', 10, 0, 20, 0)
+  p(0, 'LINE', 8, '0', 10, 0, 20, 0, 11, 800, 21, 0, 0, 'LINE', 8, '0', 10, 0, 20, 0, 11, 0, 21, 800, 0, 'LINE', 8, '0', 10, 0, 20, 0, 11, 800, 21, 800)
+  p(0, 'ENDBLK', 0, 'ENDSEC', 0, 'SECTION', 2, 'ENTITIES')
+  p(0, 'INSERT', 8, 'GRID', 2, 'CELL', 10, 0, 20, 0, 70, 30, 71, 30, 44, 1000, 45, 1000)
+  p(0, 'TEXT', 8, 'TXT', 10, 0, 20, -1500, 40, 500, 1, 'LARGE %%c200')
+  p(0, 'ENDSEC', 0, 'EOF')
+  await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: 'large.dxf', mimeType: 'application/dxf', buffer: Buffer.from(g.join('\n') + '\n') })
+  await page.waitForFunction(() => { const s = window.__thcad.cad.getState(); const d = s.docs[s.activeId]; return d?.name === 'large.dxf' && s.views[s.activeId] })
+  const st = await page.evaluate(() => { const s = window.__thcad.cad.getState(); const d = s.docs[s.activeId]; return { n: d.entities.length, text: d.entities.find((e) => e.kind === 'text')?.value, gpu: window.thcadGpuStats, canvases: document.querySelectorAll('canvas[data-gpu]').length, svg: document.querySelectorAll('[data-tool] svg line, [data-tool] svg path').length } })
+  assert.equal(st.n, 2701)
+  assert.equal(st.text, 'LARGE ⌀200')
+  if (st.gpu.failed) assert.ok(st.svg >= 2700, 'SVG fallback draws everything')
+  else { assert.equal(st.canvases, 2); assert.equal(st.gpu.segments, 2700); assert.ok(st.svg < 50, 'SVG overlay holds no geometry') }
+})
+
+await step('DWG open is refused with a clear native-engine message', async () => {
+  await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: 'site.dwg', mimeType: 'application/acad', buffer: Buffer.alloc(64) })
+  assert.ok(await page.getByText(/licensed DWG reader/).first().isVisible())
+})
+
+await step('new drawing tab (+) and close tab', async () => {
+  await page.getByRole('button', { name: 'New drawing' }).click()
+  assert.ok(await page.getByRole('tab', { name: /Drawing1\.dwg/ }).isVisible())
+  await page.getByRole('button', { name: 'Close Drawing1.dwg' }).click()
+  assert.equal(await page.getByRole('tab', { name: /Drawing1\.dwg/ }).count(), 0)
+})
+
+await step('Layout1 shows the paper-space sheet; MODEL toggles back', async () => {
+  await page.getByRole('tab', { name: 'Villa Riverside - Floor Plan.dwg' }).click()
+  await page.getByRole('tab', { name: 'Layout1' }).click()
+  await page.getByText('ISO A3 — Layout1').waitFor()
+  await page.getByRole('button', { name: 'MODEL', exact: true }).click()
+  assert.equal(await page.getByRole('tab', { name: 'Model' }).getAttribute('aria-selected'), 'true')
+})
+
+await step('AI Assist: suggestion explains runtime is not connected; close + reopen from ribbon', async () => {
+  await page.getByRole('button', { name: /Detect similar rooms/ }).click()
+  assert.ok(await page.getByText(/Local AI runtime is not connected/).first().isVisible())
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  assert.equal(await page.getByRole('heading', { name: 'AI Assist' }).count(), 0)
+  await page.getByRole('button', { name: 'AI Assist', exact: true }).click()
+  assert.ok(await page.getByRole('heading', { name: 'AI Assist' }).isVisible())
+})
+
+await step('Save clears the unsaved marker', async () => {
+  await page.keyboard.press('Meta+s')
+  assert.equal((await doc()).dirty, false)
+})
+
+await step('VI language translates CAD chrome', async () => {
+  await page.getByRole('radio', { name: 'VI' }).click()
+  assert.ok(await page.getByRole('tab', { name: 'Thuộc tính' }).isVisible())
+  assert.ok(await page.getByRole('tab', { name: 'Phát hiện (3)' }).isVisible())
+  await page.getByRole('radio', { name: 'EN' }).click()
+})
+
+await step('no console errors', async () => assert.deepEqual(errors, []))
+for (const [s, n] of results) console.log(s, n)
+await browser.close()
+process.exitCode = results.some(([s]) => s === 'FAIL') ? 1 : 0

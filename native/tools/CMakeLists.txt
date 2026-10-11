@@ -1,0 +1,6 @@
+add_executable(thcad-cli thcad_cli.cpp ai_eval.cpp)
+target_link_libraries(thcad-cli PRIVATE thcad::ai thcad::bim thcad::core)
+if(THCAD_WITH_OCCT)
+  target_link_libraries(thcad-cli PRIVATE thcad::geom_occt)
+  target_compile_definitions(thcad-cli PRIVATE THCAD_HAS_OCCT=1)
+endif()

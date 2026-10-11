@@ -1,0 +1,53 @@
+model: qwen2.5-7b-instruct-q4_k_m-00001-of-00002 (qwen2 7B Q4_K - Medium)
+
+== hybrid (default) ==
+FAIL   3.4s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc 0 to 90","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Door","center":[0,0],"radius":1000,"start":0,"end":90}]}]}
+PASS   3.6s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+PASS   3.2s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   3.8s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   2.8s  Erase all lines on layer A-Wall.
+PASS   2.7s  Xóa mọi thứ trên layer A-Grid.
+PASS   3.3s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   3.4s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   3.1s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   4.0s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   2.5s  Set the current layer to A-Dims.
+PASS   3.6s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+== grammar-constrained ==
+FAIL   4.3s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc 0 to 90","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Door","center":[0,0],"radius":1000,"start":0,"end":90}]}]}
+PASS   4.9s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+PASS   4.3s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   5.3s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   3.4s  Erase all lines on layer A-Wall.
+PASS   3.2s  Xóa mọi thứ trên layer A-Grid.
+PASS   4.5s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   4.7s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   4.2s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   5.7s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   2.9s  Set the current layer to A-Dims.
+PASS   4.8s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+== free ==
+FAIL   3.2s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc 0 to 90","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Door","center":[0,0],"radius":1000,"start":0,"end":90}]}]}
+PASS   3.6s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+PASS   3.2s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   3.8s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   2.8s  Erase all lines on layer A-Wall.
+PASS   2.7s  Xóa mọi thứ trên layer A-Grid.
+PASS   3.3s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   3.4s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   3.2s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   4.0s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   2.5s  Set the current layer to A-Dims.
+PASS   3.5s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+hybrid (default)     correct 11/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 3.3s/request · avg 41.9 tok/s
+grammar-constrained  correct 11/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 4.4s/request · avg 22.5 tok/s
+free                 correct 11/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 3.3s/request · avg 41.9 tok/s

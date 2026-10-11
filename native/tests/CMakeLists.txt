@@ -1,0 +1,7 @@
+add_executable(thcad_tests test_main.cpp test_core.cpp test_bim.cpp test_ai.cpp)
+target_link_libraries(thcad_tests PRIVATE thcad::core thcad::bim thcad::ai)
+if(THCAD_WITH_OCCT)
+  target_sources(thcad_tests PRIVATE test_occt.cpp)
+  target_link_libraries(thcad_tests PRIVATE thcad::geom_occt)
+endif()
+add_test(NAME thcad_tests COMMAND thcad_tests)

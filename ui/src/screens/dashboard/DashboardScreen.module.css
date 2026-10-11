@@ -1,0 +1,77 @@
+/* Main panel (scrolls) + right rail. Metrics from mockup 01 at 1528px window width. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
+  height: 100%;
+  min-height: 0;
+}
+
+.main {
+  min-width: 0;
+  padding: 12px 12px 24px 17px;
+  background: var(--main-bg);
+  border-top: 1px solid #e8ebef;
+  border-left: 1px solid #e8ebef;
+  border-top-left-radius: 12px;
+}
+
+.gapCats {
+  margin-top: 15px;
+}
+
+.gapStats {
+  margin-top: 14px;
+}
+
+.sectionHead {
+  margin-top: 18px;
+  padding: 0 1px 0 2px;
+  height: 20px;
+}
+
+.sectionHead2 {
+  margin-top: 16px;
+  padding: 0 1px 0 2px;
+  height: 20px;
+}
+
+.projects {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  margin-top: 6px;
+}
+
+.files {
+  margin-top: 6px;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 13px 10px 16px 9px;
+  background: var(--rail-bg);
+  border-top: 1px solid #e8ebef;
+  border-left: 1px solid #eceff2;
+}
+
+/* Narrower Mac windows (13" at default scaling ≈ 1280–1440pt): keep the locked desktop layout,
+   reflow only what no longer fits. */
+@container window (max-width: 1400px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 316px;
+  }
+}
+
+.main {
+  container-type: inline-size;
+  container-name: main;
+}
+
+/* Below the mockup's 919px content width, reflow grids instead of squeezing cards. */
+@container main (max-width: 700px) {
+  .projects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

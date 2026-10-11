@@ -1,0 +1,53 @@
+.desktop {
+  position: fixed;
+  inset: 0;
+}
+
+.framed {
+  background: var(--desktop-bg);
+  /* Window insets measured on the 1586×992 mockups (window = 1528×957 at 30,20). */
+  padding: 20px 28px 16px 30px;
+}
+
+.window {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--chrome-bg);
+  container-type: inline-size;
+  container-name: window;
+}
+
+.framed .window {
+  border-radius: var(--radius-window);
+  box-shadow: var(--shadow-window), inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.lights {
+  position: absolute;
+  top: 17px;
+  left: 10px;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+}
+
+.lights span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+}
+
+.close {
+  background: #fe5f57;
+}
+
+.min {
+  background: #febc2e;
+}
+
+.max {
+  background: #28c840;
+}

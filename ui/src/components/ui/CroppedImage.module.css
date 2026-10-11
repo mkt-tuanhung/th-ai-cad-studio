@@ -1,0 +1,15 @@
+.wrap {
+  position: relative;
+  overflow: hidden;
+  container-type: size;
+}
+
+.img {
+  position: absolute;
+  --s: max(calc(100cqw / var(--cw)), calc(100cqh / var(--ch)));
+  width: calc(var(--nw) * var(--s));
+  height: calc(var(--nh) * var(--s));
+  left: calc(var(--cx) * var(--s) * -1);
+  top: calc(var(--cy) * var(--s) * -1);
+  user-select: none;
+}

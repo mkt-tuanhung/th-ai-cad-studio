@@ -1,0 +1,104 @@
+.sidebar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 52px 8px 25px 10px;
+  background: var(--chrome-bg);
+}
+
+.brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding-left: 9px;
+  text-align: left;
+}
+
+.brand svg {
+  flex: none;
+  margin-top: 0;
+}
+
+.brandText {
+  display: grid;
+  gap: 1px;
+  margin-top: -2px;
+}
+
+.brandName {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 25px;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+.brandTag {
+  font-size: 12px;
+  line-height: 15px;
+  color: #6b7383;
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8.45px;
+  margin-top: 29px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+  height: 41px;
+  padding-left: 19px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #3c4555;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.item svg {
+  flex: none;
+  color: #4e5769;
+}
+
+.item:hover {
+  background: rgba(21, 80, 88, 0.06);
+}
+
+.active,
+.active:hover {
+  color: #fff;
+  font-weight: 500;
+  background: linear-gradient(180deg, #17575f 0%, #124a52 100%);
+  box-shadow: 0 1px 2px rgba(10, 50, 56, 0.25);
+}
+
+.active svg {
+  color: #fff;
+}
+
+/* Shorter Mac screens: tighten the nav rhythm first, then drop the promo art. */
+@media (max-height: 960px) {
+  .nav {
+    gap: 4px;
+    margin-top: 24px;
+  }
+
+  .item {
+    height: 38px;
+  }
+}
+
+@media (max-height: 880px) {
+  .sidebar > :last-child {
+    display: none;
+  }
+}

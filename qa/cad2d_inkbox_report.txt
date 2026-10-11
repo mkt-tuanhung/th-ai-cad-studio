@@ -1,0 +1,53 @@
+filetab.name                 mock x323 y106 w173 h13 | dx+0 dy-1 dw+3 dh+0  <--
+filetab.close                mock x513 y108 w7 h7 | dx+0 dy-2 dw+2 dh+2  <--
+filetab.plus                 mock x554 y106 w11 h11 | dx-1 dy-2 dw+1 dh+1  <--
+rib.new.label                mock x300 y168 w21 h9 | dx+0 dy+0 dw+2 dh+0  <--
+rib.saveas.label             mock x471 y167 w40 h9 | dx-1 dy+1 dw+2 dh+0  <--
+rib.export.label             mock x545 y168 w47 h10 | dx-2 dy+0 dw+1 dh+2  <--
+rib.undo.label               mock x639 y168 w25 h8 | dx-2 dy+0 dw+2 dh+1  <--
+rib.properties.label         mock x820 y167 w50 h12 | dx-2 dy+1 dw+4 dh-1  <--
+rib.plot.label               mock x909 y167 w19 h10 | dx-3 dy+1 dw+1 dh-1  <--
+rib.share.text               mock x1011 y153 w31 h10 | dx-2 dy+0 dw+2 dh+0  <--
+rib.ai.text                  mock x1118 y153 w47 h10 | dx-3 dy+1 dw+4 dh-1  <--
+rib.viewport.label           mock x1244 y168 w45 h11 | dx+4 dy+0 dw+2 dh+1  <--
+rib.layout.label             mock x1326 y168 w32 h11 | dx+4 dy+0 dw+3 dh+1  <--
+rib.settings.label           mock x1484 y168 w39 h11 | dx-3 dy+0 dw+3 dh+1  <--
+rib.sheet.icon               mock x1402 y141 w16 h18 | dx+1 dy-1 dw-1 dh-1
+pal.select.label             mock x296 y247 w29 h9 | dx+2 dy-1 dw+3 dh+0  <--
+pal.line.label               mock x325 y288 w20 h8 | dx-1 dy+1 dw+0 dh+0
+pal.circle.label             mock x325 y417 w27 h9 | dx-2 dy+0 dw+2 dh+0  <--
+pal.trim.label               mock x326 y510 w21 h9 | dx-3 dy+0 dw+2 dh+0  <--
+pal.move.label               mock x325 y736 w26 h8 | dx-1 dy+0 dw+1 dh+0
+pal.more.label               mock x325 y777 w25 h9 | dx-1 dy+2 dw+0 dh-1  <--
+pal.text.icon                mock x289 y683 w19 h22 | dx+1 dy+3 dw-2 dh-1  <--
+sheet.model                  mock x395 y209 w39 h11 | dx+2 dy+1 dw-3 dh-1  <--
+sheet.layout1                mock x472 y211 w42 h12 | dx-1 dy+0 dw-1 dh+0
+sheet.layout2                mock x552 y211 w41 h11 | dx-1 dy+0 dw+2 dh+1  <--
+props.tab.props              mock x1238 y217 w57 h13 | dx+1 dy+0 dw+1 dh-1
+props.tab.refs               mock x1466 y218 w58 h9 | dx-2 dy-2 dw+3 dh+1  <--
+props.general                mock x1234 y264 w47 h11 | dx+2 dy+0 dw+1 dh+0  <--
+props.objtype.label          mock x1234 y294 w65 h12 | dx+2 dy+1 dw+0 dh+0  <--
+props.objtype.value          mock x1355 y294 w66 h10 | dx-2 dy+0 dw+2 dh+0  <--
+props.layer.value            mock x1379 y325 w34 h9 | dx-4 dy+0 dw+1 dh+1  <--
+props.transp.label           mock x1234 y449 w73 h12 | dx+2 dy+1 dw+2 dh+0  <--
+props.view                   mock x1234 y497 w30 h11 | dx+2 dy-2 dw+0 dh-1  <--
+props.cx.label               mock x1234 y527 w46 h10 | dx+2 dy-2 dw+1 dh-1  <--
+props.cx.value               mock x1355 y527 w51 h10 | dx-2 dy-2 dw+0 dh-1  <--
+props.width.label            mock x1234 y617 w31 h10 | dx+2 dy+0 dw+1 dh+0  <--
+ai.title                     mock x1268 y677 w61 h12 | dx+0 dy+0 dw+2 dh+0  <--
+ai.tab.sugg                  mock x1254 y715 w64 h12 | dx-3 dy+1 dw+2 dh+0  <--
+ai.item1.title               mock x1283 y751 w106 h10 | dx+2 dy+3 dw+4 dh-1  <--
+ai.item4.desc                mock x1283 y917 w180 h12 | dx+1 dy+2 dw+1 dh-1  <--
+cmd.tab                      mock x291 y841 w85 h10 | dx+0 dy-2 dw-1 dh+0  <--
+cmd.detected                 mock x411 y842 w71 h11 | dx+1 dy-3 dw+3 dh+2  <--
+cmd.log1                     mock x288 y873 w98 h10 | dx+1 dy+0 dw-3 dh+1  <--
+cmd.placeholder              mock x290 y916 w173 h15 | dx+0 dy+2 dw+4 dh-3  <--
+status.coords                mock x285 y957 w147 h11 | dx+1 dy-1 dw-1 dh+0
+status.ortho                 mock x646 y955 w40 h10 | dx+2 dy+0 dw-1 dh-1  <--
+status.model                 mock x1073 y956 w39 h9 | dx-5 dy-1 dw+11 dh+2  <--
+status.scale                 mock x1422 y957 w30 h10 | dx-5 dy-1 dw+0 dh-1  <--
+canvas.bubble3               mock x1164 y335 w25 h24 | dx+1 dy+1 dw-2 dh-2  <--
+canvas.dim9800               mock x1130 y508 w10 h27 | dx-1 dy-1 dw+0 dh+4  <--
+canvas.dim3200               mock x1108 y394 w10 h26 | dx-1 dy+4 dw+0 dh+1  <--
+canvas.north                 mock x1135 y253 w41 h53 | dx+0 dy-1 dw-1 dh+2  <--
+canvas.bubbleA               mock x531 y786 w25 h25 | dx+0 dy-2 dw-2 dh+0  <--

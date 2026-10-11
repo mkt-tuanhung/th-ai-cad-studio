@@ -1,0 +1,65 @@
+model: qwen2.5-3b-instruct-q4_k_m (qwen2 3B Q4_K - Medium)
+
+== hybrid (default) ==
+FAIL   1.5s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc 90 degrees","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Door","center":[0,0],"radius":1000,"start":0,"end":90}]}]}
+FAIL   1.9s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+      proposal proposal-1: +2 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc Path","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Wall","center":[2000,0],"radius":2000,"start":0,"end":180},{"kind":"line","layer":"A-Wall","a":[2000,0],"b":[4000,1500]}]}]}
+PASS   1.5s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   1.8s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   3.2s (retry)  Erase all lines on layer A-Wall.
+PASS   1.2s  Xóa mọi thứ trên layer A-Grid.
+PASS   1.6s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   1.6s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   1.5s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+FAIL   1.9s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Grid Line and Text","ops":[{"type":"add","entities":[{"kind":"line","layer":"A-Grid","a":[0,-500],"b":[0,10500]}],"entities":[{"kind":"text","layer":"A-Anno","position":[0,11000],"height":20,"value":"A"}]}]}
+PASS   1.2s  Set the current layer to A-Dims.
+PASS   1.7s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+== grammar-constrained ==
+FAIL   2.5s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc 90 degrees","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Door","center":[0,0],"radius":1000,"start":0,"end":90}]}]}
+FAIL   3.5s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+      proposal proposal-1: +2 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc Path","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Wall","center":[2000,0],"radius":2000,"start":0,"end":180},{"kind":"line","layer":"A-Wall","a":[2000,0],"b":[4000,1500]}]}]}
+PASS   2.5s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   3.4s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   2.0s  Erase all lines on layer A-Wall.
+PASS   2.2s  Xóa mọi thứ trên layer A-Grid.
+PASS   3.0s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   3.0s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   2.6s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   3.6s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   1.8s  Set the current layer to A-Dims.
+PASS   3.0s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+== free ==
+FAIL   1.5s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc 90 degrees","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Door","center":[0,0],"radius":1000,"start":0,"end":90}]}]}
+FAIL   2.0s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+      proposal proposal-1: +2 / -0 / ~0 — awaiting approval
+      raw: {"title":"Arc Path","ops":[{"type":"add","entities":[{"kind":"arc","layer":"A-Wall","center":[2000,0],"radius":2000,"start":0,"end":180},{"kind":"line","layer":"A-Wall","a":[2000,0],"b":[4000,1500]}]}]}
+PASS   1.5s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   1.8s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+FAIL   1.3s  Erase all lines on layer A-Wall.
+      invalid JSON: unexpected character
+      raw: {"title":"Erase lines on A-Wall","ops":[{"type":"erase","ids":[e1, e6]}]}
+PASS   1.2s  Xóa mọi thứ trên layer A-Grid.
+PASS   1.6s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   1.6s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   1.5s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+FAIL   1.9s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Grid Line and Text","ops":[{"type":"add","entities":[{"kind":"line","layer":"A-Grid","a":[0,-500],"b":[0,10500]}],"entities":[{"kind":"text","layer":"A-Anno","position":[0,11000],"height":20,"value":"A"}]}]}
+PASS   1.2s  Set the current layer to A-Dims.
+PASS   1.7s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+hybrid (default)     correct 9/12 · valid JSON 12/12 · valid ops 12/12 · retries 1 · avg 1.7s/request · avg 77.0 tok/s
+grammar-constrained  correct 10/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 2.8s/request · avg 29.8 tok/s
+free                 correct 8/12 · valid JSON 11/12 · valid ops 11/12 · retries 0 · avg 1.6s/request · avg 80.7 tok/s

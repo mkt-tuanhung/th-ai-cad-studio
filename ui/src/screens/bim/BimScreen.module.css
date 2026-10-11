@@ -1,0 +1,99 @@
+/* Grid measured on mockup 04 (page px): browser 268–490 · viewer 498–1243 · properties 1251–1550;
+   header 96–136 · ribbon 136–214 · viewer 222–754 · bottom cards 762–961. */
+.screen {
+  display: grid;
+  grid-template-columns: 222px minmax(0, 473px) minmax(0, 264px) 299px;
+  grid-template-rows: 32px 77px minmax(0, 1fr) 199px;
+  column-gap: 8px;
+  row-gap: 8px;
+  grid-template-areas:
+    'header header header header'
+    'ribbon ribbon ribbon ribbon'
+    'browser viewer viewer props'
+    'browser sched coord props';
+  height: 100%;
+  padding: 0 6px 16px 0;
+  background: var(--chrome-bg);
+}
+
+.screen > .header {
+  grid-area: header;
+  min-width: 0;
+  margin-bottom: -8px;
+}
+
+.ribbon {
+  grid-area: ribbon;
+  min-width: 0;
+  margin-right: -7px;
+}
+
+.browser {
+  grid-area: browser;
+  min-height: 0;
+}
+
+.viewer {
+  grid-area: viewer;
+  min-width: 0;
+  min-height: 0;
+}
+
+.schedule {
+  grid-area: sched;
+  min-width: 0;
+  min-height: 0;
+}
+
+.coord {
+  grid-area: coord;
+  min-width: 0;
+  min-height: 0;
+}
+
+.props {
+  grid-area: props;
+  min-height: 0;
+}
+
+.max {
+  grid-template-areas:
+    'header header header header'
+    'ribbon ribbon ribbon ribbon'
+    'browser viewer viewer props'
+    'browser viewer viewer props';
+}
+
+.slim {
+  grid-template-columns: 40px minmax(0, 1fr) minmax(0, 264px) 299px;
+}
+
+.screen:not(.slim) {
+  grid-template-columns: 222px minmax(0, 1fr) 264px 299px;
+}
+
+.fullSchedule {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 12px;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  background: #fbfcfd;
+}
+
+.fullBody {
+  flex: 1;
+  min-height: 0;
+}
+
+@container window (max-width: 1400px) {
+  .screen:not(.slim) {
+    grid-template-columns: 190px minmax(0, 1fr) 240px 270px;
+  }
+
+  .slim {
+    grid-template-columns: 40px minmax(0, 1fr) 240px 270px;
+  }
+}

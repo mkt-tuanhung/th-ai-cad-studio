@@ -1,0 +1,93 @@
+.table {
+  border: 1px solid #edf0f3;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 10.2px;
+  color: #3b4352;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 20px 34px minmax(0, 1fr) 43px 65px 52px 52px 44px 29px;
+  align-items: center;
+  height: 21.6px;
+  padding-left: 4px;
+  border-top: 1px solid #f0f2f5;
+  cursor: default;
+}
+
+.row span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-left: 4px;
+}
+
+.head {
+  height: 21px;
+  border-top: 0;
+  font-weight: 500;
+  color: #2f3746;
+  background: #f6f8fa;
+  border-radius: 7px 7px 0 0;
+}
+
+.row:not(.head):hover {
+  background: #f4f9f9;
+}
+
+.sel,
+.sel:hover {
+  background: #e5f4f4 !important;
+}
+
+.num {
+  text-align: center;
+}
+
+.cbCell {
+  display: grid;
+  place-items: center;
+  padding-left: 0 !important;
+}
+
+.cbCell input {
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  accent-color: #155058;
+}
+
+.warn {
+  color: #c27803;
+  font-style: italic;
+}
+
+.menu {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.more {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  border-radius: 4px;
+  color: #2a3140;
+}
+
+.more:hover {
+  background: #eef2f5;
+}
+
+.dense .row {
+  grid-template-columns: 28px 70px 1.5fr 0.8fr 1fr 1fr 1fr 0.6fr 40px;
+  height: 30px;
+  font-size: 12px;
+}
+
+.dense {
+  font-size: 12px;
+}

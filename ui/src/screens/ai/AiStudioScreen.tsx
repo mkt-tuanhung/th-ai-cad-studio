@@ -1,0 +1,127 @@
+import { useRef, useState } from 'react'
+import { fmt, useT } from '../../i18n'
+import { useAiStudio } from '../../state/aiStudio'
+import { useCad } from '../../state/cad'
+import { useRouter } from '../../state/router'
+import { toast } from '../../state/toast'
+import { runChecks } from '../../cad/checks'
+import { formatLength } from '../../cad/geometry'
+import { createProposalDocument, PROPOSALS } from '../../ai/sampleSession'
+import { Modal } from '../../components/ui/Modal'
+import { ActionButton } from '../../components/ui/Button'
+import { StudioHeader, type CapKey } from './StudioHeader'
+import { ChatPanel } from './ChatPanel'
+import { LocalAiStrip } from './LocalAiStrip'
+import { ProposalWorkspace } from './ProposalWorkspace'
+import s from './AiStudioScreen.module.css'
+
+export function AiStudioScreen() {
+  const T = useT()
+  const t = T.ai
+  const studio = useAiStudio()
+  const cad = useCad()
+  const navigate = useRouter((st) => st.navigate)
+  const [approveOpen, setApproveOpen] = useState(false)
+  const scanRef = useRef<HTMLInputElement>(null)
+  const p = PROPOSALS[studio.option - 1]
+  const optionLabel = fmt(t.option, { n: p.n })
+  const file = `Office Layout - Option ${p.n}.dwg`
+
+  const capability = (k: CapKey) => {
+    switch (k) {
+      case 'generateLayout':
+        return studio.set({ draft: T.ai.caps.generateLayout.desc.replace('\n', ' ') + ': ' })
+      case 'smartFix':
+        return studio.set({ draft: 'Fix wall intersections' })
+      case 'scanToCad':
+        return scanRef.current?.click()
+      case 'compare':
+        return studio.set({ tab: 'files' })
+      case 'voiceCad':
+        return toast(t.chat.voiceNative)
+      case 'geometryDoctor': {
+        // Deterministic local checks on the open drawing — no model involved.
+        const doc = cad.activeDoc()
+        if (!doc) return studio.pushTool(t.chat.doctorNoDoc, [])
+        const lines = runChecks(doc).map((f) =>
+          f.kind === 'dimension-override' ? fmt(t.chat.doctorDim, { shown: f.shown ?? '', measured: formatLength(f.measured ?? 0) }) : t.chat.doctorZero,
+        )
+        return studio.pushTool(fmt(t.chat.doctorTitle, { name: doc.name }), lines.length ? lines : [t.chat.doctorNone])
+      }
+    }
+  }
+
+  const confirmApprove = () => {
+    const doc = { ...createProposalDocument(), name: file }
+    cad.openDocument(doc)
+    studio.recordApply({ option: p.n, docId: doc.id, file })
+    setApproveOpen(false)
+    toast(fmt(t.approve.applied, { file }), 'success')
+    navigate('cad2d')
+  }
+
+  const undo = () => {
+    const last = studio.popApply()
+    if (!last) return toast(t.approve.nothingToUndo)
+    cad.closeTab(last.docId)
+    toast(fmt(t.approve.undone, { file: last.file }))
+  }
+
+  return (
+    <div className={s.panel}>
+      <div className={s.header}>
+        <StudioHeader onCapability={capability} />
+      </div>
+      <div className={s.chat}>
+        <ChatPanel />
+      </div>
+      <div className={s.right}>
+        <LocalAiStrip onApply={() => setApproveOpen(true)} />
+        <div className={s.work}>
+          <ProposalWorkspace
+            onUndo={undo}
+            onApprove={() => setApproveOpen(true)}
+            onReject={() => {
+              studio.reject(p.n)
+              toast(fmt(t.approve.rejectedToast, { option: optionLabel }))
+            }}
+            onOpenDoc={(id) => {
+              cad.setActive(id)
+              if (!cad.tabs.includes(id)) cad.openDocument(cad.docs[id])
+              navigate('cad2d')
+            }}
+          />
+        </div>
+      </div>
+
+      <input
+        ref={scanRef}
+        type="file"
+        hidden
+        accept="image/*,.pdf"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) toast(fmt(T.cad.ai.runtimeMissing, { name: `Scan to CAD — ${f.name}` }))
+          e.target.value = ''
+        }}
+      />
+
+      {approveOpen && (
+        <Modal
+          title={fmt(t.approve.title, { option: optionLabel })}
+          onClose={() => setApproveOpen(false)}
+          footer={
+            <>
+              <ActionButton onClick={() => setApproveOpen(false)}>{t.approve.cancel}</ActionButton>
+              <ActionButton variant="primary" disabled={!p.hasPreview} onClick={confirmApprove}>
+                {t.approve.confirm}
+              </ActionButton>
+            </>
+          }
+        >
+          <p className={s.modalText}>{p.hasPreview ? fmt(t.approve.body, { file }) : t.noPreview}</p>
+        </Modal>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,159 @@
+.header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  height: 41px;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  margin-top: 3px;
+  padding-left: 12px;
+  font-size: 12.5px;
+  color: #5b6474;
+}
+
+.home {
+  display: grid;
+  place-items: center;
+  color: #4b5563;
+}
+
+.sepSmall {
+  margin: 0 1px 0 2px;
+  color: #6b7280;
+}
+
+.sep {
+  margin: 0 8px 0 9px;
+  color: #6b7280;
+}
+
+.crumb:hover,
+.home:hover {
+  color: var(--teal-800);
+}
+
+.anchor {
+  position: relative;
+}
+
+.current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.switch {
+  position: absolute;
+  left: 427px;
+  top: 14px;
+  display: flex;
+  align-items: flex-end;
+  height: 26px;
+  z-index: 2;
+}
+
+.vtab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 25px;
+  border: 1px solid #e3e8ee;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: #f1f4f7;
+  font-size: 12.5px;
+  color: #3a4352;
+}
+
+.v_plan {
+  width: 95px;
+}
+
+.v_3d {
+  width: 92px;
+}
+
+.v_schedule {
+  width: 133px;
+}
+
+.vOn {
+  height: 27px;
+  font-weight: 500;
+  color: #11606a;
+  background: #fff;
+  border-top: 2px solid #2b9a9c;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+  margin-right: 6px;
+  margin-top: 5px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 15px 0 13px;
+  border: 1px solid #e1e6eb;
+  border-radius: 7px;
+  background: #fbfcfd;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1f2734;
+}
+
+.export {
+  gap: 9px;
+  padding-right: 11px;
+}
+
+.btn:hover {
+  background: #f2f6f8;
+}
+
+.ai {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 35px;
+  padding: 0 18px 0 16px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: linear-gradient(180deg, #17595f 0%, #114c54 100%);
+}
+
+.ai:hover {
+  background: linear-gradient(180deg, #1c646c 0%, #15545c 100%);
+}
+
+@container window (max-width: 1400px) {
+  .switch {
+    left: 330px;
+  }
+
+  .btn {
+    font-size: 0;
+    gap: 0;
+    padding: 0 9px;
+  }
+
+  .export svg:last-child {
+    display: none;
+  }
+}

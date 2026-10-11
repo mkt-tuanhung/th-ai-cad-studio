@@ -1,0 +1,46 @@
+.host {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 90;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 560px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: #12262b;
+  color: #fff;
+  font-size: 13px;
+  text-align: left;
+  box-shadow: 0 10px 30px rgba(15, 23, 41, 0.25);
+  animation: rise 0.18s ease-out;
+}
+
+.success svg {
+  color: #4fd1a1;
+}
+
+.warning svg {
+  color: #f6c453;
+}
+
+.info svg {
+  color: #7fd3d6;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

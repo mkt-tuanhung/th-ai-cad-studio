@@ -1,0 +1,157 @@
+.card {
+  padding: 19px 10px 9px 15px;
+  border: 1px solid #e8ebef;
+  border-radius: 12px;
+  background: #fbfcfd;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+}
+
+.chip {
+  flex: none;
+  margin-top: -2px;
+  margin-left: -3px;
+  color: var(--teal-800);
+}
+
+.headText {
+  margin-left: 17px;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 14px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 28px;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 22px;
+  padding: 0 5px 0 4px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #129a55;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--green-500);
+  box-shadow: 0 0 0 3px #d9f7e8;
+}
+
+.off {
+  color: var(--text-muted);
+}
+
+.off .dot {
+  background: #9aa3af;
+  box-shadow: 0 0 0 3px #eceff2;
+}
+
+.desc {
+  margin-top: 5px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  color: #8a93a1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.desc + .desc {
+  margin-top: 3px;
+}
+
+.sep {
+  margin: 0 8px;
+  font-size: 12px;
+}
+
+.inner {
+  margin-top: 21px;
+  margin-right: 4px;
+  padding: 8px 14px 0 12px;
+  border: 1px solid #edf0f3;
+  border-radius: 10px;
+  background: #fff;
+  padding-bottom: 12px;
+}
+
+.rows {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30.5px;
+  font-size: 12.5px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.row dt {
+  color: #3a4352;
+}
+
+.row dd {
+  margin: 0;
+  color: #1c2331;
+}
+
+.ready {
+  color: #129a55 !important;
+}
+
+.vramRow {
+  position: relative;
+  flex-wrap: wrap;
+  height: 41px;
+  align-content: flex-start;
+  padding-top: 7px;
+}
+
+.track {
+  position: absolute;
+  left: 102px;
+  right: 0;
+  bottom: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5ecef;
+  overflow: hidden;
+}
+
+.track span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #22b5b3;
+}
+
+.open {
+  height: 37px;
+  margin-top: 12px;
+  gap: 10px;
+  border-radius: 6px;
+}

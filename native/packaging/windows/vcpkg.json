@@ -1,0 +1,8 @@
+{
+  "name": "th-ai-cad-studio",
+  "version-string": "0.1.0",
+  "dependencies": [
+    { "name": "opencascade", "default-features": false, "features": ["freetype"] },
+    "llama-cpp"
+  ]
+}

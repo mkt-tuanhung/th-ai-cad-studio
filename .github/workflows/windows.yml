@@ -1,0 +1,75 @@
+# Builds the Windows installer (TH-AI-CAD-Studio-Setup-<ver>.exe) on a GitHub-hosted Windows runner.
+# Free for public repositories; private repositories use the account's included Actions minutes.
+# Run it from the Actions tab ("Run workflow") or by pushing a tag v*.
+name: windows-installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 300
+    env:
+      # vcpkg binary cache: Open CASCADE takes ~1 h to build the first time, minutes afterwards
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\vcpkg-cache,readwrite
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: vcpkg-cache
+          key: vcpkg-${{ hashFiles('native/packaging/windows/vcpkg.json') }}
+          restore-keys: vcpkg-
+
+      - name: Qt cache
+        uses: actions/cache@v4
+        with:
+          path: C:\Qt
+          key: qt-6.11.2-msvc2022_64-webengine
+
+      - name: MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Tools (Ninja, Inno Setup)
+        shell: pwsh
+        run: |
+          choco install ninja innosetup -y --no-progress
+          "C:\Program Files (x86)\Inno Setup 6" | Out-File -Append $env:GITHUB_PATH
+
+      - name: Build, test and package
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          New-Item -ItemType Directory -Force vcpkg-cache | Out-Null
+          ./native/packaging/windows/build_windows.ps1
+
+      - name: In-app self-test (bridge, engine, BIM, OCCT; no AI model on the runner)
+        shell: pwsh
+        run: |
+          $exe = "native/dist-win/TH AI CAD Studio/TH AI CAD Studio.exe"
+          $env:THCAD_SELFTEST = "1"; $env:THCAD_QUIT_AFTER_MS = "60000"; $env:QT_QUICK_BACKEND = "software"
+          $log = & $exe 2>&1 | Out-String
+          $log
+          if ($log -notmatch "SELFTEST DONE OK") { throw "self-test failed" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TH-AI-CAD-Studio-Windows
+          path: native/dist-win/TH-AI-CAD-Studio-Setup-*.exe
+          if-no-files-found: error

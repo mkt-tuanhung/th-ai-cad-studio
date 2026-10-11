@@ -1,0 +1,13 @@
+# build outputs
+native/build/
+native/build-win/
+native/dist/
+native/dist-win/
+ui/node_modules/
+ui/dist/
+ui/test-results/
+# local AI models are large and per-user (never committed)
+*.gguf
+.DS_Store
+.claude/
+native/packaging/windows/build-win/

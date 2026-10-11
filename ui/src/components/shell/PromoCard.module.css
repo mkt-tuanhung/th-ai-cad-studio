@@ -1,0 +1,23 @@
+.card {
+  position: relative;
+  margin-top: auto;
+  width: 219px;
+  height: 187px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 10px;
+  /* Matches the asset's own dark-teal background so the asset's 12px top / 10px right shortfall
+     (it was cropped 2px left / 12px low of the card in the mockup) blends in. */
+  background: radial-gradient(120% 90% at 85% 100%, #1d4a52 0%, #143840 55%, #0f2f37 100%);
+}
+
+.art {
+  position: absolute;
+  left: -2px;
+  top: 12px;
+  width: 211px;
+  height: 187px;
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 92%, transparent 100%);
+  user-select: none;
+}

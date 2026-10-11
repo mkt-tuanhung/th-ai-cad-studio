@@ -1,0 +1,117 @@
+/**
+ * Prototype CAD document model (TypeScript, in the UI process).
+ *
+ * This is NOT the CAD engine. The production engine is native C++20 / OCCT behind the Qt host
+ * (docs/ARCHITECTURE.md). This model exists so the UI, the command line and the command-bus
+ * contract (validate → preview → commit → undo) can be built and tested before the bridge exists.
+ * Units: millimetres, Y up (CAD convention).
+ */
+export interface Vec2 {
+  x: number
+  y: number
+}
+
+interface EntityBase {
+  id: string
+  layer: string
+  /** 'ByLayer' or a hex colour. */
+  color: string
+  linetype: 'ByLayer' | 'Continuous' | 'Dashed' | 'DashDot'
+  lineweight: 'ByLayer' | '0.13' | '0.25' | '0.35' | '0.50'
+  /** 0–90 (%), AutoCAD semantics. */
+  transparency: number
+}
+
+export interface LineEntity extends EntityBase {
+  kind: 'line'
+  a: Vec2
+  b: Vec2
+}
+
+export interface PolylineEntity extends EntityBase {
+  kind: 'polyline'
+  pts: Vec2[]
+  closed: boolean
+  /** Solid fill (used for north-arrow needle). */
+  filled?: boolean
+}
+
+export interface CircleEntity extends EntityBase {
+  kind: 'circle'
+  c: Vec2
+  r: number
+}
+
+export interface ArcEntity extends EntityBase {
+  kind: 'arc'
+  c: Vec2
+  r: number
+  /** Radians, counter-clockwise from +X, start → end. */
+  start: number
+  end: number
+}
+
+export interface TextEntity extends EntityBase {
+  kind: 'text'
+  p: Vec2
+  height: number
+  value: string
+  /** Radians. */
+  rotation: number
+  align: 'left' | 'center'
+}
+
+/** Aligned linear dimension between a and b, dimension line offset by `offset` (signed, mm). */
+export interface DimensionEntity extends EntityBase {
+  kind: 'dimension'
+  a: Vec2
+  b: Vec2
+  offset: number
+  /** Text override (as typed by the drafter). null = measured value. */
+  override: string | null
+  textHeight: number
+  /** Fixed text angle (radians); default keeps text readable along the dimension line. */
+  textAngle?: number
+}
+
+export type Entity = LineEntity | PolylineEntity | CircleEntity | ArcEntity | TextEntity | DimensionEntity
+export type EntityKind = Entity['kind']
+
+export interface Layer {
+  name: string
+  color: string
+  visible: boolean
+  locked: boolean
+  linetype: 'Continuous' | 'Dashed' | 'DashDot'
+  lineweight: number
+}
+
+/** Raster reference (AutoCAD IMAGE/underlay). Not editable geometry. */
+export interface ImageUnderlay {
+  name: string
+  src: string
+  natW: number
+  natH: number
+  /** Region of the asset that is used (asset px). */
+  crop: { x: number; y: number; w: number; h: number }
+  /** World position of the crop's top-left corner and size of one asset px in mm. */
+  origin: Vec2
+  mmPerPx: number
+  /** Entities with index < drawIndex are drawn behind the image (DRAWORDER). */
+  drawIndex: number
+}
+
+export interface CadDocument {
+  id: string
+  name: string
+  entities: Entity[]
+  layers: Layer[]
+  currentLayer: string
+  underlay: ImageUnderlay | null
+  blocks: string[]
+  dirty: boolean
+  createdAt: number
+  savedAt: number | null
+  /** Where the document came from — shown in References. */
+  source: 'seed' | 'new' | 'dxf-import'
+}

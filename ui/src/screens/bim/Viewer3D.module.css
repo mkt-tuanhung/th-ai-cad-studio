@@ -1,0 +1,334 @@
+/* Positions are relative to the viewer card (mockup 04: card at x 498, y 222; render origin −5, −2). */
+.viewer {
+  container-type: size;
+  container-name: viewer3d;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #eef1f4 0%, #e6e9ed 60%, #e1e5e9 100%);
+}
+
+.defs {
+  position: absolute;
+}
+
+.render {
+  position: absolute;
+  left: -6px;
+  top: -3px;
+  width: 651px;
+  height: 504px;
+  user-select: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 40px), transparent 100%);
+}
+
+.m_shaded .render {
+  filter: saturate(0.25) contrast(1.05) brightness(1.04);
+}
+
+.m_wireframe .render {
+  filter: url(#bimWire);
+}
+
+.m_hidden .render {
+  filter: url(#bimHidden);
+}
+
+.viewSelect {
+  position: absolute;
+  left: 12px;
+  top: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 148px;
+  height: 27px;
+  padding: 0 10px 0 11px;
+  border: 1px solid #e3e7ec;
+  border-radius: 7px;
+  background: #fbfcfd;
+  font-size: 11.5px;
+  color: #1f2734;
+}
+
+.viewSelect select,
+.sel select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toolbar {
+  position: absolute;
+  left: 268px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(250, 251, 252, 0.97);
+  box-shadow: 0 1px 2px rgba(15, 23, 41, 0.05);
+}
+
+.tbtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  border-radius: 6px;
+  color: #2f3746;
+}
+
+.tbtn:hover {
+  background: #eef2f5;
+}
+
+.plan {
+  position: absolute;
+  left: 12px;
+  top: 49px;
+  width: 208px;
+  height: 175px;
+  padding: 0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 41, 0.08);
+  overflow: hidden;
+}
+
+.planHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 0 7px 0 9px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #1f2734;
+}
+
+.planOpen {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 22px;
+  border-radius: 5px;
+  color: #3a4352;
+  background: #f1f4f6;
+}
+
+.planImg {
+  position: absolute;
+  left: 1px;
+  top: 30px;
+  width: 205px;
+  height: 145px;
+}
+
+.planNone {
+  display: grid;
+  place-items: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: #f6f8fa;
+}
+
+.cube {
+  position: absolute;
+  left: 662px;
+  top: 16px;
+  width: 64px;
+  height: 66px;
+}
+
+.cube button {
+  position: absolute;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #3a4352;
+  background: rgba(250, 251, 252, 0.96);
+  border: 1px solid #cfd5dc;
+}
+
+.cubeTop {
+  left: 6px;
+  top: 0;
+  width: 52px;
+  height: 20px;
+  transform: skewX(-25deg);
+}
+
+.cubeFront {
+  left: 0;
+  top: 20px;
+  width: 34px;
+  height: 40px;
+  transform: skewY(16deg) rotate(0deg);
+  writing-mode: horizontal-tb;
+}
+
+.cubeRight {
+  left: 34px;
+  top: 20px;
+  width: 30px;
+  height: 40px;
+  transform: skewY(-24deg);
+}
+
+.nav {
+  position: absolute;
+  left: 702px;
+  top: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 36px;
+  padding: 4px 0;
+  border-radius: 8px;
+  background: rgba(250, 251, 252, 0.97);
+  box-shadow: 0 1px 3px rgba(15, 23, 41, 0.08);
+}
+
+.nav .tbtn {
+  width: 30px;
+  height: 31px;
+}
+
+.modes {
+  position: absolute;
+  left: 2px;
+  top: 485px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: rgba(250, 251, 252, 0.97);
+}
+
+.mode {
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #3a4352;
+  background: #f1f4f6;
+}
+
+.mode:hover {
+  background: #e7edf0;
+}
+
+.modeOn,
+.modeOn:hover {
+  font-weight: 500;
+  color: #fff;
+  background: #175b62;
+}
+
+.levelBar {
+  position: absolute;
+  left: 518px;
+  top: 485px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 4px 0 6px;
+  border-radius: 9px;
+  background: rgba(250, 251, 252, 0.97);
+}
+
+.sel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 78px;
+  height: 26px;
+  padding: 0 7px 0 9px;
+  border: 1px solid #e3e7ec;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+  color: #1f2734;
+}
+
+.scaleSel {
+  width: 79px;
+}
+
+.full {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #2f3746;
+}
+
+.full:hover {
+  background: #eef2f5;
+}
+
+/* Smaller than the mockup's 745×532 viewer: anchor right/bottom controls to the edges and clip the
+   render above its baked-in bottom toolbar so it never shows through. */
+@container viewer3d (max-height: 531px) {
+  .modes,
+  .levelBar {
+    top: auto;
+    bottom: 10px;
+  }
+
+  .render {
+    clip-path: inset(0 0 calc(504px - (100cqh - 52px)) 0);
+  }
+}
+
+@container viewer3d (max-width: 744px) {
+  .levelBar {
+    left: auto;
+    right: 26px;
+  }
+
+  .cube {
+    left: auto;
+    right: 18px;
+  }
+
+  .nav {
+    left: auto;
+    right: 6px;
+  }
+}
+
+@container viewer3d (max-width: 600px) {
+  .modes .mode {
+    width: auto !important;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .levelBar {
+    display: none;
+  }
+}
+
+@container viewer3d (max-width: 700px) {
+  .cube {
+    top: 48px;
+  }
+
+  .nav {
+    top: 124px;
+  }
+}

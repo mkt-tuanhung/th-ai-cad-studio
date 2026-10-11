@@ -1,0 +1,120 @@
+.card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  height: 98px;
+  padding: 15px 14px 0 11px;
+  border: 1px solid #e8ebef;
+  border-radius: 10px;
+  background: #fcfdfd;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.teal {
+  color: #1d9399;
+  background: #e3f4f5;
+}
+
+.blue {
+  color: #2a7fe0;
+  background: #e3effc;
+}
+
+.body {
+  min-width: 0;
+  margin-left: 14px;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  line-height: 16px;
+  color: #4f5868;
+  white-space: nowrap;
+}
+
+.value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 26px;
+  color: var(--text-strong);
+}
+
+.compact {
+  font-size: 15px;
+  line-height: 22px;
+  margin-top: 7px;
+}
+
+.delta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 16px;
+  color: #12a463;
+}
+
+.foot {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #7a8392;
+  white-space: nowrap;
+}
+
+.bars {
+  position: absolute;
+  right: 18px;
+  bottom: 21px;
+  display: flex;
+  align-items: flex-end;
+  gap: 3.5px;
+  height: 28px;
+}
+
+.bars span {
+  width: 5.5px;
+  border-radius: 1.5px 1.5px 0 0;
+}
+
+.bars_teal span {
+  background: linear-gradient(180deg, #6ccbc5 0%, #a9e0dc 100%);
+}
+
+.bars_teal span:nth-child(-n + 2) {
+  background: linear-gradient(180deg, #a6dfda 0%, #d2efec 100%);
+}
+
+.bars_blue span {
+  background: linear-gradient(180deg, #8fd4cf 0%, #c6ebe8 100%);
+}
+
+/* Narrow main column: drop the decorative trend bars before anything overlaps. */
+@container main (max-width: 900px) {
+  .bars {
+    display: none;
+  }
+
+  .foot {
+    overflow: hidden;
+    margin-right: 22px;
+    text-overflow: ellipsis;
+  }
+
+  .body {
+    overflow: hidden;
+  }
+}

@@ -1,0 +1,63 @@
+/*
+ * Design tokens — sampled from the approved mockups (mockups_full/*.png, 1x).
+ * Do not change values without design approval: the mockups are locked.
+ */
+:root {
+  /* Brand teal */
+  --teal-950: #0c454d;
+  --teal-900: #0f4a52;
+  --teal-800: #155058; /* primary: active nav, primary buttons, EN chip */
+  --teal-700: #1a5f67;
+  --teal-600: #1e7c82;
+  --teal-500: #1f9aa0; /* accent icons, check badges */
+  --teal-400: #22b5b3; /* progress fill */
+  --teal-100: #d7eff0;
+  --teal-50: #e6f5f6; /* icon tiles */
+
+  --blue-600: #2477e3;
+  --blue-50: #e4f0fd;
+
+  --green-600: #13a35f;
+  --green-500: #0ab661;
+  --green-50: #e3f8ee;
+
+  --red-500: #ef3b3b;
+
+  /* Text */
+  --text-strong: #0f1729;
+  --text: #1f2937;
+  --text-2: #374151;
+  --text-muted: #5b6474;
+  --text-subtle: #8a93a1;
+
+  /* Surfaces */
+  --desktop-bg: linear-gradient(180deg, #aec1d3 0%, #b4cadc 55%, #bccfdf 100%);
+  --chrome-bg: #f1f4f7; /* sidebar + top bar */
+  --main-bg: #f9fafb; /* main content panel */
+  --rail-bg: #fbfcfd; /* right rail panel */
+  --card-bg: #fcfdfd;
+  --card-bg-strong: #ffffff;
+  --border: #e5e8ec;
+  --border-soft: #edf0f3;
+  --border-strong: #d9dde3;
+  --divider: #eceef1;
+
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.05), 0 1px 2px rgba(16, 24, 40, 0.03);
+  --shadow-window: 0 24px 60px rgba(30, 50, 80, 0.28), 0 2px 8px rgba(30, 50, 80, 0.12);
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-window: 14px;
+
+  --font-sans: 'Roboto Variable', 'Roboto', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+
+  /* Layout metrics (window-relative, from mockup 01) */
+  --sidebar-w: 237px;
+  --topbar-h: 76px;
+  --rail-w: 340px;
+}

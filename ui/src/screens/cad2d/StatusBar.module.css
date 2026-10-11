@@ -1,0 +1,141 @@
+.bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+  padding-left: 15px;
+  overflow: hidden;
+}
+
+.coords {
+  flex: 0 1 268px;
+  min-width: 150px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: #2b3341;
+  font-variant-numeric: tabular-nums;
+}
+
+.icons {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  border-left: 1px solid #e3e8ee;
+}
+
+.ibtn {
+  display: grid;
+  place-items: center;
+  width: 37px;
+  height: 28px;
+  color: #2f3746;
+  border-right: 1px solid #e3e8ee;
+}
+
+.ibtn:hover {
+  background: #eef2f5;
+}
+
+.ibtn[aria-pressed='true'] {
+  color: var(--teal-700);
+}
+
+.toggles {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.tg {
+  flex-shrink: 1;
+  min-width: 52px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: #2c4a55;
+  background: #e8eef1;
+  border: 1px solid #e1e7eb;
+  transition: background-color 0.15s ease;
+}
+
+.pill {
+  padding: 0;
+}
+
+.switch {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 0 0 3px;
+}
+
+.knob {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 41, 0.18);
+}
+
+.on {
+  color: #fff;
+  background: linear-gradient(180deg, #17666c 0%, #12575e 100%);
+  border-color: transparent;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  height: 100%;
+  padding-right: 13px;
+}
+
+.scale {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 25px;
+  padding: 0 9px 0 19px;
+  border: 1px solid #e3e7ec;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12.5px;
+  color: #1c2331;
+}
+
+.scale select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.paper {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 27px;
+  border-left: 1px solid #e3e8ee;
+  color: #2f3746;
+}
+
+@container window (max-width: 1360px) {
+  .coords {
+    flex-basis: 172px;
+  }
+
+  .tg {
+    font-size: 11px;
+  }
+}

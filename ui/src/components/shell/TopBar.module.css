@@ -1,0 +1,111 @@
+.bar {
+  display: flex;
+  align-items: center;
+  height: var(--topbar-h);
+  padding: 0 0 0 35px;
+  background: var(--chrome-bg);
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  height: 100%;
+}
+
+.anchor {
+  position: relative;
+}
+
+.iconBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: #3f4858;
+}
+
+.iconBtn:hover {
+  background: rgba(15, 23, 41, 0.05);
+}
+
+.sunBtn {
+  margin-right: 18px;
+}
+
+.bellAnchor {
+  margin-left: 16px;
+}
+
+.dot {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red-500);
+  box-shadow: 0 0 0 1.5px var(--chrome-bg);
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  margin-left: 22px;
+  margin-right: 20px;
+  padding: 4px 6px 4px 4px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.user:hover {
+  background: rgba(15, 23, 41, 0.04);
+}
+
+.avatar {
+  width: 37px;
+  height: 37px;
+  border-radius: 50%;
+}
+
+.userText {
+  display: grid;
+  margin-left: 12px;
+  width: 92px;
+}
+
+.userName {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--text-strong);
+}
+
+.userRole {
+  font-size: 12.5px;
+  line-height: 17px;
+  color: #697284;
+}
+
+.chev {
+  margin-left: 4px;
+  color: #4b5563;
+}
+
+.popHead {
+  padding: 8px 10px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.popEmpty {
+  padding: 6px 10px 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}

@@ -1,0 +1,190 @@
+### set tuning
+model: qwen2.5-7b-instruct-q4_k_m (qwen2 7B Q4_K - Medium)
+
+== hybrid (default) ==
+PASS   3.4s  Draw a rectangle 4000 mm by 3000 mm on layer A-Wall with its lower-left corner at 0,0.
+PASS   3.5s  Vẽ hình chữ nhật 5000 x 4000 trên layer A-Wall, góc dưới trái tại 10000,0.
+PASS   3.1s  Draw a circle with radius 500 centered at 2000,1500 on layer A-Furniture.
+PASS   3.0s  Vẽ đường tròn bán kính 300, tâm tại 500,500, trên layer 0.
+PASS   3.3s  Draw a line from 0,0 to 6000,0 on layer A-Grid.
+PASS   3.2s  Draw a horizontal wall line 3600 mm long starting at 1000,2000 going right, on layer A-Wall.
+PASS   3.3s  Add the text BEDROOM 1 at 1000,1000 on layer A-Anno with height 250.
+PASS   3.4s  Thêm chữ PHÒNG KHÁCH tại 2000,3000 trên layer A-Anno, cao 300.
+PASS   3.7s  Draw two parallel lines on layer A-Wall: from 0,0 to 5000,0 and from 0,200 to 5000,200.
+PASS   3.2s  Draw a linear dimension between 0,0 and 4200,0 with offset 600 on layer A-Dims.
+PASS   2.6s  Delete the circle.
+PASS   2.8s  Xóa dòng chữ KITCHEN.
+
+== grammar-constrained ==
+PASS   4.5s  Draw a rectangle 4000 mm by 3000 mm on layer A-Wall with its lower-left corner at 0,0.
+PASS   4.9s  Vẽ hình chữ nhật 5000 x 4000 trên layer A-Wall, góc dưới trái tại 10000,0.
+PASS   4.1s  Draw a circle with radius 500 centered at 2000,1500 on layer A-Furniture.
+PASS   3.9s  Vẽ đường tròn bán kính 300, tâm tại 500,500, trên layer 0.
+PASS   4.5s  Draw a line from 0,0 to 6000,0 on layer A-Grid.
+PASS   4.2s  Draw a horizontal wall line 3600 mm long starting at 1000,2000 going right, on layer A-Wall.
+PASS   4.5s  Add the text BEDROOM 1 at 1000,1000 on layer A-Anno with height 250.
+PASS   4.8s  Thêm chữ PHÒNG KHÁCH tại 2000,3000 trên layer A-Anno, cao 300.
+PASS   5.1s  Draw two parallel lines on layer A-Wall: from 0,0 to 5000,0 and from 0,200 to 5000,200.
+PASS   4.4s  Draw a linear dimension between 0,0 and 4200,0 with offset 600 on layer A-Dims.
+PASS   3.1s  Delete the circle.
+PASS   3.6s  Xóa dòng chữ KITCHEN.
+
+== free ==
+PASS   3.5s  Draw a rectangle 4000 mm by 3000 mm on layer A-Wall with its lower-left corner at 0,0.
+PASS   3.7s  Vẽ hình chữ nhật 5000 x 4000 trên layer A-Wall, góc dưới trái tại 10000,0.
+PASS   3.1s  Draw a circle with radius 500 centered at 2000,1500 on layer A-Furniture.
+PASS   3.0s  Vẽ đường tròn bán kính 300, tâm tại 500,500, trên layer 0.
+PASS   3.4s  Draw a line from 0,0 to 6000,0 on layer A-Grid.
+PASS   3.4s  Draw a horizontal wall line 3600 mm long starting at 1000,2000 going right, on layer A-Wall.
+PASS   3.4s  Add the text BEDROOM 1 at 1000,1000 on layer A-Anno with height 250.
+PASS   3.4s  Thêm chữ PHÒNG KHÁCH tại 2000,3000 trên layer A-Anno, cao 300.
+PASS   3.9s  Draw two parallel lines on layer A-Wall: from 0,0 to 5000,0 and from 0,200 to 5000,200.
+PASS   3.3s  Draw a linear dimension between 0,0 and 4200,0 with offset 600 on layer A-Dims.
+PASS   2.7s  Delete the circle.
+PASS   2.9s  Xóa dòng chữ KITCHEN.
+
+hybrid (default)     correct 12/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 3.2s/request · avg 41.8 tok/s
+grammar-constrained  correct 12/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 4.3s/request · avg 21.8 tok/s
+free                 correct 12/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 3.3s/request · avg 40.2 tok/s
+           747585536  maximum resident set size
+### set --holdout
+model: qwen2.5-7b-instruct-q4_k_m (qwen2 7B Q4_K - Medium)
+
+== hybrid (default) ==
+PASS   3.5s  Draw a square with side 2500 on layer A-Furniture with its lower-left corner at 3000,3000.
+PASS   3.4s  Vẽ một đường thẳng đứng dài 4500 mm, bắt đầu từ 0,0 đi lên, trên layer A-Grid.
+PASS   3.2s  Place a circle of diameter 800 at 1200,600 on layer A-Furniture.
+PASS   3.5s  Draw a closed triangle with vertices 0,0 and 3000,0 and 1500,2000 on layer A-Wall.
+PASS   2.6s  Delete the line on layer A-Wall.
+PASS   3.1s  Thêm nhãn WC cao 200 tại 4000,500 trên layer A-Anno.
+PASS   3.2s  Draw a 1200 mm line at 45 degrees starting from 2000,2000 on layer 0.
+PASS   2.5s  Switch the current layer to A-Door.
+PASS   4.0s  Draw a rectangle 6000 by 4000 at the origin on layer A-Wall, and a rectangle 900 by 200 with lower-left corner at 1000,0 on layer A-Door.
+PASS   2.8s  Xóa hết các đối tượng trên layer A-Anno và A-Furniture.
+
+== grammar-constrained ==
+PASS   4.5s  Draw a square with side 2500 on layer A-Furniture with its lower-left corner at 3000,3000.
+PASS   4.2s  Vẽ một đường thẳng đứng dài 4500 mm, bắt đầu từ 0,0 đi lên, trên layer A-Grid.
+PASS   4.0s  Place a circle of diameter 800 at 1200,600 on layer A-Furniture.
+PASS   4.6s  Draw a closed triangle with vertices 0,0 and 3000,0 and 1500,2000 on layer A-Wall.
+PASS   2.9s  Delete the line on layer A-Wall.
+PASS   4.0s  Thêm nhãn WC cao 200 tại 4000,500 trên layer A-Anno.
+PASS   4.2s  Draw a 1200 mm line at 45 degrees starting from 2000,2000 on layer 0.
+PASS   3.0s  Switch the current layer to A-Door.
+PASS   5.6s  Draw a rectangle 6000 by 4000 at the origin on layer A-Wall, and a rectangle 900 by 200 with lower-left corner at 1000,0 on layer A-Door.
+PASS   3.5s  Xóa hết các đối tượng trên layer A-Anno và A-Furniture.
+
+== free ==
+PASS   3.4s  Draw a square with side 2500 on layer A-Furniture with its lower-left corner at 3000,3000.
+PASS   3.2s  Vẽ một đường thẳng đứng dài 4500 mm, bắt đầu từ 0,0 đi lên, trên layer A-Grid.
+PASS   3.1s  Place a circle of diameter 800 at 1200,600 on layer A-Furniture.
+PASS   3.5s  Draw a closed triangle with vertices 0,0 and 3000,0 and 1500,2000 on layer A-Wall.
+PASS   2.6s  Delete the line on layer A-Wall.
+PASS   3.1s  Thêm nhãn WC cao 200 tại 4000,500 trên layer A-Anno.
+PASS   3.2s  Draw a 1200 mm line at 45 degrees starting from 2000,2000 on layer 0.
+PASS   2.6s  Switch the current layer to A-Door.
+PASS   4.2s  Draw a rectangle 6000 by 4000 at the origin on layer A-Wall, and a rectangle 900 by 200 with lower-left corner at 1000,0 on layer A-Door.
+PASS   2.9s  Xóa hết các đối tượng trên layer A-Anno và A-Furniture.
+
+hybrid (default)     correct 10/10 · valid JSON 10/10 · valid ops 10/10 · retries 0 · avg 3.2s/request · avg 41.0 tok/s
+grammar-constrained  correct 10/10 · valid JSON 10/10 · valid ops 10/10 · retries 0 · avg 4.1s/request · avg 22.6 tok/s
+free                 correct 10/10 · valid JSON 10/10 · valid ops 10/10 · retries 0 · avg 3.2s/request · avg 41.1 tok/s
+           689700864  maximum resident set size
+### set --holdout-b
+model: qwen2.5-7b-instruct-q4_k_m (qwen2 7B Q4_K - Medium)
+
+== hybrid (default) ==
+PASS   3.6s  Draw a rectangle 3200 wide and 2400 tall on layer A-Wall, lower-left corner at -1000,500.
+PASS   3.5s  Vẽ hình vuông cạnh 1200 trên layer A-Furniture, góc dưới trái tại 7000,7000.
+PASS   4.5s  Draw three circles of radius 250 on layer A-Furniture centered at 1000,1000 and 2000,1000 and 3000,1000.
+PASS   2.8s  Remove all text from the drawing.
+PASS   2.7s  Xóa tất cả đường tròn.
+PASS   3.1s  Draw a vertical line on layer A-Grid from 4000,0 to 4000,9000.
+PASS   3.2s  Add the text STAIR with height 200 at 6000,3000 on layer A-Anno.
+PASS   3.3s  Draw a 2500 mm line going straight down from 1000,5000 on layer A-Wall.
+PASS   2.5s  Make A-Window the current layer.
+PASS   4.2s  Draw a room outline 4500 x 3600 on layer A-Wall at 0,0 and put the label BEDROOM 2 at its centre on layer A-Anno.
+
+== grammar-constrained ==
+PASS   4.8s  Draw a rectangle 3200 wide and 2400 tall on layer A-Wall, lower-left corner at -1000,500.
+PASS   4.7s  Vẽ hình vuông cạnh 1200 trên layer A-Furniture, góc dưới trái tại 7000,7000.
+PASS   6.5s  Draw three circles of radius 250 on layer A-Furniture centered at 1000,1000 and 2000,1000 and 3000,1000.
+PASS   3.2s  Remove all text from the drawing.
+PASS   3.2s  Xóa tất cả đường tròn.
+PASS   4.1s  Draw a vertical line on layer A-Grid from 4000,0 to 4000,9000.
+PASS   4.3s  Add the text STAIR with height 200 at 6000,3000 on layer A-Anno.
+PASS   4.8s  Draw a 2500 mm line going straight down from 1000,5000 on layer A-Wall.
+PASS   3.1s  Make A-Window the current layer.
+PASS   6.1s  Draw a room outline 4500 x 3600 on layer A-Wall at 0,0 and put the label BEDROOM 2 at its centre on layer A-Anno.
+
+== free ==
+PASS   3.5s  Draw a rectangle 3200 wide and 2400 tall on layer A-Wall, lower-left corner at -1000,500.
+PASS   3.4s  Vẽ hình vuông cạnh 1200 trên layer A-Furniture, góc dưới trái tại 7000,7000.
+PASS   4.6s  Draw three circles of radius 250 on layer A-Furniture centered at 1000,1000 and 2000,1000 and 3000,1000.
+PASS   2.9s  Remove all text from the drawing.
+PASS   2.7s  Xóa tất cả đường tròn.
+PASS   3.1s  Draw a vertical line on layer A-Grid from 4000,0 to 4000,9000.
+PASS   3.2s  Add the text STAIR with height 200 at 6000,3000 on layer A-Anno.
+PASS   3.3s  Draw a 2500 mm line going straight down from 1000,5000 on layer A-Wall.
+PASS   2.5s  Make A-Window the current layer.
+PASS   4.2s  Draw a room outline 4500 x 3600 on layer A-Wall at 0,0 and put the label BEDROOM 2 at its centre on layer A-Anno.
+
+hybrid (default)     correct 10/10 · valid JSON 10/10 · valid ops 10/10 · retries 0 · avg 3.3s/request · avg 41.2 tok/s
+grammar-constrained  correct 10/10 · valid JSON 10/10 · valid ops 10/10 · retries 0 · avg 4.5s/request · avg 21.6 tok/s
+free                 correct 10/10 · valid JSON 10/10 · valid ops 10/10 · retries 0 · avg 3.3s/request · avg 40.9 tok/s
+           653099008  maximum resident set size
+### set --holdout-c
+model: qwen2.5-7b-instruct-q4_k_m (qwen2 7B Q4_K - Medium)
+
+== hybrid (default) ==
+PASS   3.4s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+FAIL   3.6s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Polyline","ops":[{"type":"add","entities":[{"kind":"polyline","layer":"A-Wall","points":[[0,0],"@2000<0","@1500<90","@2000<90"],"closed":false}]}]}
+PASS   3.2s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   3.9s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   2.8s  Erase all lines on layer A-Wall.
+PASS   2.7s  Xóa mọi thứ trên layer A-Grid.
+PASS   3.4s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   3.5s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   3.2s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   4.0s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   2.5s  Set the current layer to A-Dims.
+PASS   3.6s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+== grammar-constrained ==
+PASS   4.5s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+FAIL   4.8s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Polyline","ops":[{"type":"add","entities":[{"kind":"polyline","layer":"A-Wall","points":[[0,0],"@2000<0","@1500<90","@2000<90"],"closed":false}]}]}
+PASS   4.4s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   5.6s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   3.5s  Erase all lines on layer A-Wall.
+PASS   3.4s  Xóa mọi thứ trên layer A-Grid.
+PASS   4.7s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   4.9s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   4.3s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   5.9s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   2.9s  Set the current layer to A-Dims.
+PASS   4.8s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+== free ==
+PASS   3.3s  Draw an arc with center 0,0 and radius 1000 from 0 to 90 degrees on layer A-Door.
+FAIL   3.6s  Vẽ đường gấp khúc hở đi qua các điểm 0,0 ; 2000,0 ; 2000,1500 ; 4000,1500 trên layer A-Wall.
+      proposal proposal-1: +1 / -0 / ~0 — awaiting approval
+      raw: {"title":"Polyline","ops":[{"type":"add","entities":[{"kind":"polyline","layer":"A-Wall","points":[[0,0],"@2000<0","@1500<90","@2000<90"],"closed":false}]}]}
+PASS   3.3s  Draw a horizontal dimension from 0,0 to 6000,0 with offset 800 on layer A-Dims.
+PASS   3.9s  Place two circles with diameter 600 on layer A-Furniture at 1000,2000 and 1800,2000.
+PASS   2.8s  Erase all lines on layer A-Wall.
+PASS   2.6s  Xóa mọi thứ trên layer A-Grid.
+PASS   3.4s  Draw a rectangle 800 by 2100 on layer A-Door with its lower-left corner at 2400,0.
+PASS   3.5s  Thêm chữ PHÒNG NGỦ 3 cao 250 tại 8000,2000 trên layer A-Anno.
+PASS   3.2s  Draw a line 3000 mm long at 30 degrees from 0,0 on layer 0.
+PASS   4.0s  Draw a grid line from 0,-500 to 0,10500 on layer A-Grid and label it A with a text at 0,11000 on layer A-Anno.
+PASS   2.5s  Set the current layer to A-Dims.
+PASS   3.6s  Draw a closed polyline on layer A-Furniture through 0,0 then 1000,0 then 1000,500 then 0,500.
+
+hybrid (default)     correct 11/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 3.3s/request · avg 41.5 tok/s
+grammar-constrained  correct 11/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 4.5s/request · avg 21.9 tok/s
+free                 correct 11/12 · valid JSON 12/12 · valid ops 12/12 · retries 0 · avg 3.3s/request · avg 41.9 tok/s
+           754335744  maximum resident set size

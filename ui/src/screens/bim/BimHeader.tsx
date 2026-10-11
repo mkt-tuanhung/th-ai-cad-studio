@@ -1,0 +1,96 @@
+import { CalendarDays, ChevronDown, ChevronRight, Home, Share } from 'lucide-react'
+import { fmt, useT } from '../../i18n'
+import { useBim, type BimView } from '../../state/bim'
+import { useRouter } from '../../state/router'
+import { toast } from '../../state/toast'
+import { AiSparkIcon, CubeSolidIcon, ExportToolIcon, PlanViewIcon } from '../../components/icons'
+import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
+import s from './BimHeader.module.css'
+
+export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
+  const T = useT()
+  const t = T.bim
+  const navigate = useRouter((st) => st.navigate)
+  const { view, set } = useBim()
+  const [discOpen, setDiscOpen, discRef] = useDismissable<HTMLDivElement>()
+  const [expOpen, setExpOpen, expRef] = useDismissable<HTMLDivElement>()
+  const views: { k: BimView; icon: React.ReactNode }[] = [
+    { k: 'plan', icon: <PlanViewIcon size={17} strokeWidth={1.6} /> },
+    { k: '3d', icon: <CubeSolidIcon size={17} /> },
+    { k: 'schedule', icon: <CalendarDays size={16} strokeWidth={1.6} /> },
+  ]
+  return (
+    <div className={s.header}>
+      <nav className={s.crumbs} aria-label="Breadcrumb">
+        <button type="button" className={s.home} aria-label={T.nav.dashboard} onClick={() => navigate('dashboard')}>
+          <Home size={15} strokeWidth={1.7} />
+        </button>
+        <ChevronRight size={11} strokeWidth={2} className={s.sepSmall} />
+        <button type="button" className={s.crumb} onClick={() => navigate('projects')}>
+          {t.crumbs.projects}
+        </button>
+        <ChevronRight size={14} strokeWidth={1.8} className={s.sep} />
+        <button type="button" className={s.crumb} onClick={() => navigate('dashboard')}>
+          {t.crumbs.project}
+        </button>
+        <ChevronRight size={14} strokeWidth={1.8} className={s.sep} />
+        <div className={s.anchor} ref={discRef}>
+          <button type="button" className={s.current} aria-expanded={discOpen} onClick={() => setDiscOpen(!discOpen)}>
+            {t.crumbs.discipline}
+            <ChevronDown size={14} strokeWidth={1.8} />
+          </button>
+          {discOpen && (
+            <PopoverPanel align="left" width={180}>
+              <MenuList
+                onClose={() => setDiscOpen(false)}
+                items={[
+                  { label: t.disciplines.architecture, onSelect: () => undefined },
+                  { label: t.disciplines.structure, onSelect: () => toast(fmt(t.toast.native, { what: t.disciplines.structure })) },
+                  { label: t.disciplines.mep, onSelect: () => navigate('mep') },
+                ]}
+              />
+            </PopoverPanel>
+          )}
+        </div>
+      </nav>
+
+      <div className={s.switch} role="tablist">
+        {views.map(({ k, icon }) => (
+          <button key={k} type="button" role="tab" aria-selected={view === k} className={`${s.vtab} ${s[`v_${k}`]} ${view === k ? s.vOn : ''}`} onClick={() => set({ view: k })}>
+            {icon}
+            {t.views[k]}
+          </button>
+        ))}
+      </div>
+
+      <div className={s.actions}>
+        <button type="button" className={s.btn} onClick={() => toast(t.toast.shareOffline)}>
+          <Share size={16} strokeWidth={1.7} />
+          {t.share}
+        </button>
+        <div className={s.anchor} ref={expRef}>
+          <button type="button" className={`${s.btn} ${s.export}`} aria-expanded={expOpen} onClick={() => setExpOpen(!expOpen)}>
+            <ExportToolIcon size={20} strokeWidth={1.5} />
+            {t.export}
+            <ChevronDown size={13} strokeWidth={1.9} />
+          </button>
+          {expOpen && (
+            <PopoverPanel width={230}>
+              <MenuList
+                onClose={() => setExpOpen(false)}
+                items={[
+                  { label: t.exportCsv, onSelect: onExportCsv },
+                  { label: t.exportIfc, onSelect: () => toast(fmt(t.toast.native, { what: 'IFC export' })) },
+                ]}
+              />
+            </PopoverPanel>
+          )}
+        </div>
+        <button type="button" className={s.ai} onClick={() => navigate('ai-studio')}>
+          <AiSparkIcon size={21} strokeWidth={1.7} />
+          {t.aiAssistant}
+        </button>
+      </div>
+    </div>
+  )
+}
