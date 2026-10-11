@@ -629,6 +629,15 @@ std::string SceneView::beginRender(const RenderParams& p) {
   if (!d->ok) return "OpenGL unavailable";
   if (d->items.empty()) return "empty scene";
   endRender();
+  // capability first: the GL context exists after a first (raster) frame
+  d->view->Redraw();
+  {
+    Handle(OpenGl_GraphicDriver) drv = Handle(OpenGl_GraphicDriver)::DownCast(d->viewer->Driver());
+    const Handle(OpenGl_Context) gl = drv.IsNull() ? Handle(OpenGl_Context)() : drv->GetSharedContext();
+    if (gl.IsNull() || !gl->HasRayTracing())
+      return gl.IsNull() ? "no OpenGL context — ray-tracing unavailable on this GPU/driver"
+                         : "this GPU/driver has no OpenGL ray-tracing support (OpenGL " + std::to_string(gl->VersionMajor()) + "." + std::to_string(gl->VersionMinor()) + ")";
+  }
   d->rp = p;
   d->passes = 0;
   // materials: physically based surfaces, no edge overlay
@@ -712,13 +721,6 @@ std::string SceneView::beginRender(const RenderParams& p) {
   cv->SetFBO(d->fbo);
   d->view->Redraw();
   ++d->passes;
-  Handle(OpenGl_GraphicDriver) drv = Handle(OpenGl_GraphicDriver)::DownCast(d->viewer->Driver());
-  const Handle(OpenGl_Context) gl = drv.IsNull() ? Handle(OpenGl_Context)() : drv->GetSharedContext();
-  if (gl.IsNull() || !gl->HasRayTracing()) {
-    const std::string why = gl.IsNull() ? "no OpenGL context — ray-tracing unavailable on this GPU/driver" : "this GPU/driver has no OpenGL ray-tracing support (OpenGL " + std::to_string(gl->VersionMajor()) + "." + std::to_string(gl->VersionMinor()) + ")";
-    endRender();
-    return why;
-  }
   return {};
 }
 
