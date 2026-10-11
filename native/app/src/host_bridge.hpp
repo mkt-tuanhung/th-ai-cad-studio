@@ -51,6 +51,16 @@ class HostBridge : public QObject {
   /** DWG bytes (base64) → DXF bytes via the bundled LibreDWG helper. Async: emits dwgResult
    *  ({id, ok, dxf: base64, ms, warnings, error}); returns the id. */
   Q_INVOKABLE QString dwgToDxf(const QString& base64, const QString& name);
+  /** Settings: models folder, installed models (size, active), disk of the models volume, versions. */
+  Q_INVOKABLE QJsonObject systemInfo() const;
+  /** Settings: switches the models folder and loads its preferred model. */
+  Q_INVOKABLE QJsonObject setModelsDir(const QString& dir);
+  /** Settings: GPU offload for the local model (reloads the model). */
+  Q_INVOKABLE bool setAiGpu(bool on);
+  /** Opens a folder in Finder / Explorer. */
+  Q_INVOKABLE bool revealFolder(const QString& path);
+  /** Native folder chooser; empty string when cancelled. */
+  Q_INVOKABLE QString pickFolder(const QString& title, const QString& start);
   /** QA only (THCAD_QA=1): bytes of $THCAD_DWG_SAMPLE as base64 (the page cannot read files). */
   Q_INVOKABLE QString qaSampleDwg() const;
   /** QA only (THCAD_QA=1): saves a Qt grab of the window. */

@@ -25,8 +25,8 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | 02 | CAD 2D | ✅ 47/53 ≤ 3 px | — |
 | 03 | AI Intelligence | ✅ 54/55 ≤ 5 px | — |
 | 04 | Architecture / BIM | ✅ 45/54 ≤ 5 px | — |
-| 05 | Projects | ✅ Đã dựng (chờ duyệt): 57/62 phần tử ≤ 2 px, smoke test 18/18 — `qa/QA_PROJECTS.md` | Chờ ảnh sạch (DEMO); cần chọn trạng thái yêu thích của Pump |
-| 06 | Settings | ⏳ | Toàn bộ màn: menu trái 11 mục, AI Model Configuration (số liệu **thật** từ runtime), File Locations, Units, Interface, File Handling, Performance, Current Configuration, Storage Usage, Help |
+| 05 | Projects | ✅ Đã duyệt 2026-10-11: 57/62 phần tử ≤ 2 px, smoke test 18/18 — `qa/QA_PROJECTS.md` | Chờ ảnh sạch (DEMO); cần chọn trạng thái yêu thích của Pump |
+| 06 | Settings | ✅ Đã dựng (chờ duyệt): 45/58 phần tử ≤ 2 px, smoke test 16/16, số liệu thật trong app desktop — `qa/QA_SETTINGS.md` | — |
 | 07 | Components | ⏳ | Toàn bộ màn: 7 thẻ nhóm, cây danh mục, lưới linh kiện, Preview 2D/3D, tham số, tuỳ chọn chèn, Recently Used |
 | 08 | MEP | ⏳ | Breadcrumb, tab chuyên ngành, ribbon, Project Browser, viewport 3D, bảng schedule, Properties, AI Recommendations |
 | 09 | Interior | ⏳ | Như MEP, thêm mặt bằng thu nhỏ, AI Interior Designer, bảng Furniture/Cut List, Room Information |

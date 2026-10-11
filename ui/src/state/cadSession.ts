@@ -18,6 +18,7 @@ import type { CadOp, ValidationError } from '../cad/commandBus'
 import { fmt, getMessages } from '../i18n'
 import { useSettings } from './settings'
 import { useCad, type DraftToggle } from './cad'
+import { formatAngle, formatArea, formatLength, polygonMetrics } from '../lib/units'
 
 /**
  * Interactive command session — the AutoCAD-style state machine behind the tool palette, the
@@ -49,6 +50,10 @@ export type Stage =
   | 'offsetSide'
   | 'opposite'
   | 'zoom'
+  | 'distP1'
+  | 'distP2'
+  | 'areaFirst'
+  | 'areaNext'
 
 interface SessionState {
   stage: Stage
@@ -111,6 +116,8 @@ const firstStage: Partial<Record<ToolId, Stage>> = {
   dimension: 'dim1',
   text: 'textPoint',
   offset: 'offsetDist',
+  dist: 'distP1',
+  area: 'areaFirst',
 }
 
 export const useCadSession = create<SessionState>()((set, get) => {
@@ -236,6 +243,16 @@ export const useCadSession = create<SessionState>()((set, get) => {
         }
         case 'polyline':
           return set({ points: pts, stage: 'plNext' })
+        case 'dist': {
+          if (pts.length < 2) return set({ points: pts, stage: 'distP2' })
+          const [a, b] = pts
+          const u = useSettings.getState()
+          const d = { x: b.x - a.x, y: b.y - a.y }
+          print(fmt(L.distResult, { d: formatLength(Math.hypot(d.x, d.y), u), angle: formatAngle(Math.atan2(d.y, d.x) < 0 ? Math.atan2(d.y, d.x) + 2 * Math.PI : Math.atan2(d.y, d.x), u), dx: formatLength(d.x, u), dy: formatLength(d.y, u) }), 'info')
+          return finish()
+        }
+        case 'area':
+          return set({ points: pts, stage: 'areaNext' })
         case 'rectangle': {
           if (pts.length < 2) return set({ points: pts, stage: 'corner2' })
           const [a, b] = pts
@@ -341,6 +358,17 @@ export const useCadSession = create<SessionState>()((set, get) => {
         if (tool === 'line' || tool === 'polyline' || tool === 'offset') {
           echo()
           return endMulti()
+        }
+        if (tool === 'area') {
+          echo()
+          if (s.points.length < 3) {
+            print(L.areaNeedPoints, 'error')
+            return finish()
+          }
+          const u = useSettings.getState()
+          const m = polygonMetrics(s.points)
+          print(fmt(L.areaResult, { area: formatArea(m.area, u), perimeter: formatLength(m.perimeter, u) }), 'info')
+          return finish()
         }
         return get().cancel()
       }

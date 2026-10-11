@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useCad } from '../../state/cad'
+import { matchesShortcut, useSettings } from '../../state/settings'
 import { cadInbox, cadUi, useCadSession } from '../../state/cadSession'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { useWorkspace } from '../../state/workspace'
-import { FKEYS } from '../../cad/commands'
 import { toDxf } from '../../cad/dxf'
 import { decodeDxf, importDxf } from '../../cad/dxfImport'
 import { convertDwg, dwgReader } from '../../services/dwg'
@@ -127,25 +127,33 @@ export function Cad2DScreen() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey
-      if (mod && e.key.toLowerCase() === 'z') {
+      // Settings → Keyboard Shortcuts
+      const sc = useSettings.getState().shortcuts
+      const isRedo = matchesShortcut(e, sc.redo)
+      if (isRedo || matchesShortcut(e, sc.undo)) {
         e.preventDefault()
-        const label = e.shiftKey ? useCad.getState().redo() : useCad.getState().undo()
+        const label = isRedo ? useCad.getState().redo() : useCad.getState().undo()
         const P = T.cad.prompts
-        say(label ? fmt(e.shiftKey ? P.redone : P.undone, { label }) : e.shiftKey ? P.nothingRedo : P.nothingUndo, label ? undefined : 'error')
+        say(label ? fmt(isRedo ? P.redone : P.undone, { label }) : isRedo ? P.nothingRedo : P.nothingUndo, label ? undefined : 'error')
         return
       }
-      if (mod && e.key.toLowerCase() === 's') {
+      if (matchesShortcut(e, sc.saveAs)) {
         e.preventDefault()
-        return e.shiftKey ? setSaveAsOpen(true) : save()
+        return setSaveAsOpen(true)
       }
-      if (FKEYS[e.key]) {
+      if (matchesShortcut(e, sc.save)) {
         e.preventDefault()
-        const k = FKEYS[e.key]
+        return save()
+      }
+      const toggleKey = (['osnap', 'grid', 'ortho', 'snap', 'polar'] as const).find((k) => matchesShortcut(e, sc[k]))
+      if (toggleKey) {
+        e.preventDefault()
+        const k = toggleKey
         useCad.getState().toggle(k)
         const on = useCad.getState().toggles[k]
         return say(fmt(on ? T.cad.prompts.toggleOn : T.cad.prompts.toggleOff, { name: k.charAt(0).toUpperCase() + k.slice(1) }))
       }
-      if (e.key === 'F1') {
+      if (matchesShortcut(e, sc.help)) {
         e.preventDefault()
         return say(T.cad.cmd.helpText, 'info')
       }

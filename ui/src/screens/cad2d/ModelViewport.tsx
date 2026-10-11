@@ -24,6 +24,7 @@ import s from './ModelViewport.module.css'
 const POINT_STAGES: Stage[] = [
   'firstPoint', 'nextPoint', 'plStart', 'plNext', 'corner1', 'corner2', 'center', 'radius',
   'arc1', 'arc2', 'arc3', 'dim1', 'dim2', 'dim3', 'textPoint', 'basePoint', 'secondPoint', 'offsetSide',
+  'distP1', 'distP2', 'areaFirst', 'areaNext',
 ]
 const SNAP_UNIT = 50 // mm
 const OSNAP_PX = 12
@@ -275,6 +276,12 @@ function Previews({ doc, P }: { doc: CadDocument; P: Projector }) {
       break
     case 'polyline':
       if (points.length) ghost.push({ ...base, kind: 'polyline', pts: [...points, hover], closed: false })
+      break
+    case 'dist':
+      if (last) ghost.push({ ...base, kind: 'line', a: last, b: hover })
+      break
+    case 'area':
+      if (points.length) ghost.push({ ...base, kind: 'polyline', pts: [...points, hover], closed: points.length >= 2 })
       break
     case 'rectangle':
       if (last) ghost.push({ ...base, kind: 'polyline', closed: true, pts: [last, { x: hover.x, y: last.y }, hover, { x: last.x, y: hover.y }] })

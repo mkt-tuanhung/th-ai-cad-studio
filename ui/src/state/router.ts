@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useSettings } from './settings'
 
 /** Screens with an approved mockup + module placeholders reachable from the sidebar. */
 export type Route =
@@ -30,8 +31,15 @@ interface RouterState {
   navigate: (r: Route) => void
 }
 
+/** Launch screen: the URL, else the Dashboard — or the last screen when the start page is off. */
+function initialRoute(): Route {
+  if (window.location.hash.replace(/^#\/?/, '')) return parseHash()
+  const s = useSettings.getState()
+  return !s.startPage && ROUTES.includes(s.lastRoute as Route) ? (s.lastRoute as Route) : 'dashboard'
+}
+
 export const useRouter = create<RouterState>()((set) => ({
-  route: parseHash(),
+  route: initialRoute(),
   navigate: (route) => {
     if (window.location.hash !== `#/${route}`) window.location.hash = `#/${route}`
     set({ route })

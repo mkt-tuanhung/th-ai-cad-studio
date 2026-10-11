@@ -12,6 +12,7 @@ import { Cad2DScreen } from './screens/cad2d/Cad2DScreen'
 import { AiStudioScreen } from './screens/ai/AiStudioScreen'
 import { BimScreen } from './screens/bim/BimScreen'
 import { ProjectsScreen } from './screens/projects/ProjectsScreen'
+import { SettingsScreen } from './screens/settings/SettingsScreen'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
@@ -57,6 +58,8 @@ export default function App() {
               <BimScreen />
             ) : route === 'projects' ? (
               <ProjectsScreen />
+            ) : route === 'settings' ? (
+              <SettingsScreen />
             ) : (
               <PlaceholderScreen route={route} title={t.nav[TITLE_KEY[route]]} />
             )}

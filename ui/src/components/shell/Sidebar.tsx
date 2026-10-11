@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import { Box, Database, Folder, Image, Settings, Armchair } from 'lucide-react'
 import { useT } from '../../i18n'
 import { useRouter, type Route } from '../../state/router'
+import { useSettings } from '../../state/settings'
 import { AiSparkIcon, CadToolsIcon, HomeIcon, LogoMark, PeaksIcon, PipeIcon, type IconProps } from '../icons'
 import { PromoCard } from './PromoCard'
 import s from './Sidebar.module.css'
@@ -32,8 +33,9 @@ const NUDGE = [1, -1, -3, -1, 1, -1, 0, 1, 1, 1, 1, 1]
 export function Sidebar({ promo }: { promo: string }) {
   const t = useT()
   const { route, navigate } = useRouter()
+  const compact = useSettings((st) => st.compactUi)
   return (
-    <aside className={s.sidebar}>
+    <aside className={`${s.sidebar} ${compact ? s.compact : ''}`}>
       <button type="button" className={s.brand} onClick={() => navigate('dashboard')} aria-label={t.app.name}>
         <LogoMark />
         <span className={s.brandText}>

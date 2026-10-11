@@ -1,6 +1,13 @@
 #include "host_bridge.hpp"
 
+#include <QDesktopServices>
+#include <QDir>
+#include <QUrl>
 #include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QStorageInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QThread>
@@ -255,6 +262,60 @@ QJsonObject HostBridge::bim3dLoad(const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::bim3dFrame(int, int, const QString&, const QString&) { return {{"ok", false}}; }
 void HostBridge::bim3dCamera(const QString&, double, double, double, double) {}
 #endif
+
+QJsonObject HostBridge::systemInfo() const {
+  namespace fs = std::filesystem;
+  const fs::path dir = ai::modelsDir();
+  const ai::RuntimeStatus st = runtime_->status();
+  QJsonArray models;
+  qint64 modelBytes = 0;
+  for (const std::string& first : ai::listModels()) {
+    // split GGUF: count every shard of this model
+    const QFileInfo fi(QString::fromStdString(first));
+    QString stem = fi.completeBaseName();  // without .gguf
+    if (const int at = stem.indexOf(QStringLiteral("-00001-of-")); at > 0) stem = stem.left(at);
+    qint64 bytes = 0;
+    for (const QFileInfo& f : QDir(fi.absolutePath()).entryInfoList({stem + QStringLiteral("*.gguf")}, QDir::Files)) bytes += f.size();
+    modelBytes += bytes;
+    models.append(QJsonObject{{"name", stem}, {"path", fi.absoluteFilePath()}, {"bytes", static_cast<double>(bytes)},
+                              {"active", first == st.modelPath}});
+  }
+  const QString d = QString::fromStdString(dir.string());
+  QStorageInfo vol(QDir(d).exists() ? d : QDir::homePath());
+  return {
+      {"modelsDir", d},
+      {"models", models},
+      {"modelBytes", static_cast<double>(modelBytes)},
+      {"disk", QJsonObject{{"total", static_cast<double>(vol.bytesTotal())}, {"free", static_cast<double>(vol.bytesAvailable())}}},
+      {"home", QDir::homePath()},
+      {"documents", QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)},
+      {"aiGpu", qEnvironmentVariable("THCAD_AI_GPU") != QStringLiteral("0")},
+      {"backend", QString::fromStdString(st.backend)},
+      {"dwgReader", DwgReader::version()},
+  };
+}
+
+QJsonObject HostBridge::setModelsDir(const QString& dir) {
+  if (!QDir(dir).exists()) return {{"ok", false}, {"error", "folder not found"}};
+  qputenv("THCAD_MODELS_DIR", dir.toUtf8());
+  const std::string model = ai::discoverModel();
+  const bool loaded = !model.empty() && runtime_->load(model);
+  return {{"ok", true}, {"model", QString::fromStdString(model)}, {"loaded", loaded}};
+}
+
+bool HostBridge::setAiGpu(bool on) {
+  qputenv("THCAD_AI_GPU", on ? "1" : "0");
+  const std::string path = runtime_->status().modelPath;
+  return path.empty() || runtime_->load(path);
+}
+
+bool HostBridge::revealFolder(const QString& path) {
+  return QDir(path).exists() && QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+QString HostBridge::pickFolder(const QString& title, const QString& start) {
+  return QFileDialog::getExistingDirectory(qobject_cast<QWidget*>(parent()), title, start.isEmpty() ? QDir::homePath() : start);
+}
 
 QString HostBridge::dwgToDxf(const QString& base64, const QString& name) {
   return dwg_->convert(QByteArray::fromBase64(base64.toLatin1()), name);

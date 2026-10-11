@@ -75,7 +75,11 @@ export function ToolPalette() {
         </button>
         {moreOpen && (
           <PopoverPanel align="left" width={170} className={s.morePop}>
-            <MenuList onClose={() => setMoreOpen(false)} items={[{ label: `${t.erase} (E)`, onSelect: () => start('erase') }]} />
+            <MenuList onClose={() => setMoreOpen(false)} items={[
+              { label: `${t.erase} (E)`, onSelect: () => start('erase') },
+              { label: `${t.dist} (DI)`, onSelect: () => start('dist', 'DIST') },
+              { label: `${t.area} (AA)`, onSelect: () => start('area', 'AREA') },
+            ]} />
           </PopoverPanel>
         )}
       </div>

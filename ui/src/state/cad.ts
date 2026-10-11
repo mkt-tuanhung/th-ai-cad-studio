@@ -4,6 +4,13 @@ import { idbStorage } from './idbStorage'
 import type { CadDocument, Vec2 } from '../cad/types'
 import { commit, emptyHistory, preview, redo as redoOp, undo as undoOp, validate, type CadOp, type History, type ValidationError } from '../cad/commandBus'
 import { createBlankDocument, createVillaDocument, SEED_VIEW } from '../cad/seed'
+import { useSettings } from './settings'
+
+/** Settings → Performance → Max Undo Steps. */
+const capUndo = (h: History): History => {
+  const max = Math.max(1, useSettings.getState().maxUndo)
+  return h.undo.length > max ? { ...h, undo: h.undo.slice(-max) } : h
+}
 import type { ToolId } from '../cad/commands'
 
 export type DraftToggle = 'ortho' | 'osnap' | 'grid' | 'snap' | 'polar' | 'model'
@@ -110,7 +117,7 @@ export const useCad = create<CadState>()(
         const h = get().history[doc.id] ?? emptyHistory()
         const r = commit(doc, h, op)
         if (!r.ok) return r.error
-        set({ docs: { ...get().docs, [doc.id]: r.doc }, history: { ...get().history, [doc.id]: r.history } })
+        set({ docs: { ...get().docs, [doc.id]: r.doc }, history: { ...get().history, [doc.id]: capUndo(r.history) } })
         mirror()?.commit(doc.id, [op], op.label)
         return null
       },
@@ -125,7 +132,7 @@ export const useCad = create<CadState>()(
           next = preview(next, op)
         }
         const h = get().history[doc.id] ?? emptyHistory()
-        const history = { undo: [...h.undo, { label, before: doc, after: next }], redo: [] }
+        const history = capUndo({ undo: [...h.undo, { label, before: doc, after: next }], redo: [] })
         set({ docs: { ...get().docs, [doc.id]: next }, history: { ...get().history, [doc.id]: history } })
         mirror()?.commit(doc.id, ops, label)
         return null

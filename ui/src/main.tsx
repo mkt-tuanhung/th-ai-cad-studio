@@ -7,6 +7,9 @@ import './styles/tokens.css'
 import './styles/global.css'
 import App from './App.tsx'
 
+// Saved preferences (compact UI, animations, tooltips, GPU layer, host folders …).
+import('./state/prefsEffects').then(({ installPrefsEffects }) => installPrefsEffects())
+
 // Desktop app: mirror CAD 2D edits into the native C++ command bus.
 import('./services/host').then(({ getHost, isDesktopHost }) => {
   if (!isDesktopHost()) return

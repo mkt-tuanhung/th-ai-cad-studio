@@ -84,3 +84,11 @@ ol {
   scrollbar-width: thin;
   scrollbar-color: rgba(100, 116, 139, 0.28) transparent;
 }
+
+/* Settings → Enable Animations off */
+html.no-anim *,
+html.no-anim *::before,
+html.no-anim *::after {
+  transition: none !important;
+  animation: none !important;
+}

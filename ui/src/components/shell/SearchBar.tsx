@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, FolderClosed, Search } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { useRouter } from '../../state/router'
+import { matchesShortcut, useSettings } from '../../state/settings'
 import { useWorkspace } from '../../state/workspace'
 import { AiSparkIcon } from '../icons'
 import { routeForDiscipline } from '../../lib/routes'
@@ -27,7 +28,7 @@ export function SearchBar() {
   // ⌘K / Ctrl+K focuses global search from anywhere.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if (matchesShortcut(e, useSettings.getState().shortcuts.commandSearch)) {
         e.preventDefault()
         inputRef.current?.focus()
         inputRef.current?.select()

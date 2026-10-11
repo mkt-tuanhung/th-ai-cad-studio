@@ -1,0 +1,89 @@
+.switch {
+  position: relative;
+  flex: none;
+  border-radius: 999px;
+  background: #d5dbe1;
+  transition: background-color 0.15s ease;
+}
+
+.md {
+  width: 34px;
+  height: 20px;
+}
+
+.sm {
+  width: 25px;
+  height: 15px;
+}
+
+.switch i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  transition: transform 0.15s ease;
+}
+
+.md i {
+  width: 16px;
+  height: 16px;
+}
+
+.sm i {
+  width: 11px;
+  height: 11px;
+}
+
+.on {
+  background: #17767c;
+}
+
+.md.on i {
+  transform: translateX(14px);
+}
+
+.sm.on i {
+  transform: translateX(10px);
+}
+
+.switch:focus-visible,
+.dropdown:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(31, 154, 160, 0.2);
+}
+
+.dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 9px 0 11px;
+  border: 1px solid #e3e7ec;
+  border-radius: 6px;
+  background: #fff;
+  color: #1f2937;
+}
+
+.value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dropdown > svg:last-of-type {
+  flex: none;
+  color: #4b5563;
+}
+
+.dropdown select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+}

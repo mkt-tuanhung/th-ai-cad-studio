@@ -39,7 +39,25 @@ export interface HostApi {
   dwgToDxf(base64: string, name: string): Promise<string>
   /** QA only (THCAD_QA=1). */
   qaSampleDwg(): Promise<string>
+  systemInfo(): Promise<HostSystemInfo>
+  setModelsDir(dir: string): Promise<{ ok: boolean; model?: string; loaded?: boolean; error?: string }>
+  setAiGpu(on: boolean): Promise<boolean>
+  pickFolder(title: string, start: string): Promise<string>
+  revealFolder(path: string): Promise<boolean>
+  loadModel(path: string): Promise<boolean>
   on(signal: 'aiResult' | 'documentChanged' | 'dwgResult', fn: (payload: unknown) => void): void
+}
+
+export interface HostSystemInfo {
+  modelsDir: string
+  models: { name: string; path: string; bytes: number; active: boolean }[]
+  modelBytes: number
+  disk: { total: number; free: number }
+  home: string
+  documents: string
+  aiGpu: boolean
+  backend: string
+  dwgReader: string
 }
 
 declare global {

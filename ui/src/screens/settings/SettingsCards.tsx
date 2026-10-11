@@ -1,0 +1,465 @@
+import { useEffect, useState, type ReactNode } from 'react'
+import {
+  ChevronDown, ChevronUp, CircleHelp, Cpu, FileText, Folder, FolderOpen, Gauge, Globe, Keyboard, Monitor, Moon, Plug,
+  Settings as Gear, ShieldCheck, Sun, Trash2, CloudUpload, Ruler,
+} from 'lucide-react'
+import { fmt, useT } from '../../i18n'
+import { DEFAULT_SHORTCUTS, shortcutFromEvent, shortcutLabel, useSettings, type Prefs, type ShortcutId, type UnitSystem } from '../../state/settings'
+import { getHost } from '../../services/host'
+import { clearCaches, formatGb, type SystemStatus } from '../../services/system'
+import { formatAngle, formatArea, formatLength } from '../../lib/units'
+import { toast } from '../../state/toast'
+import { Dropdown, Switch } from '../../components/ui/Controls'
+import { Modal } from '../../components/ui/Modal'
+import { ActionButton } from '../../components/ui/Button'
+import { Field, TextInput } from '../../components/ui/Field'
+import s from './Settings.module.css'
+
+export interface CardProps {
+  draft: Prefs
+  set: (p: Partial<Prefs>) => void
+  sys: SystemStatus | null
+  refresh: () => void
+  modelPath: string | null
+  setModelPath: (p: string | null) => void
+}
+
+function Card({ icon, title, text, chip, children, className }: { icon: ReactNode; title: string; text: string; chip?: ReactNode; children: ReactNode; className?: string }) {
+  const T = useT().settings
+  const [open, setOpen] = useState(true)
+  return (
+    <section className={`${s.card} ${className ?? ''}`} aria-label={title}>
+      <div className={s.cardHead}>
+        <span className={s.tile}>{icon}</span>
+        <div className={s.cardTitles}>
+          <h2>{title}</h2>
+          <p>{text}</p>
+        </div>
+        {chip}
+        <button type="button" className={s.chev} aria-expanded={open} aria-label={open ? T.collapse : T.expand} onClick={() => setOpen(!open)}>
+          {open ? <ChevronUp size={17} strokeWidth={1.8} /> : <ChevronDown size={17} strokeWidth={1.8} />}
+        </button>
+      </div>
+      {open && <div className={s.cardBody}>{children}</div>}
+    </section>
+  )
+}
+
+export function Chip({ tone, children }: { tone: 'green' | 'amber' | 'gray'; children: ReactNode }) {
+  return (
+    <span className={`${s.chip} ${s[`chip_${tone}`]}`}>
+      <i />
+      {children}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------- folders
+type FolderKey = 'modelsDir' | 'projectsDir' | 'autosaveDir' | 'exchangeDir'
+
+/** The folder actually used: the saved choice, else the platform default. */
+export function folderPath(key: FolderKey, value: string, sys: SystemStatus | null): string {
+  if (value) return value
+  const docs = sys?.host?.documents ?? '~/Documents'
+  switch (key) {
+    case 'modelsDir':
+      return sys?.host?.modelsDir ?? '~/Library/Application Support/TH AI CAD Studio/models'
+    case 'projectsDir':
+      return `${docs}/TH AI CAD Studio/Projects`
+    case 'autosaveDir':
+      return `${docs}/TH AI CAD Studio/Autosave`
+    default:
+      return `${docs}/TH AI CAD Studio/Exchange`
+  }
+}
+
+function FolderRow({ label, k, p }: { label: string; k: FolderKey; p: CardProps }) {
+  const T = useT().settings.files
+  const [editing, setEditing] = useState(false)
+  const path = folderPath(k, p.draft[k], p.sys)
+  const desktop = !!p.sys?.host
+  const change = async () => {
+    const host = await getHost()
+    if (!host) return setEditing(true)
+    const picked = await host.pickFolder(T.pickTitle, path)
+    if (picked) p.set({ [k]: picked } as Partial<Prefs>)
+  }
+  return (
+    <div className={s.row}>
+      <span className={s.label}>{label}</span>
+      <div className={s.pathField} title={path}>
+        <Folder size={16} strokeWidth={1.6} />
+        <span>{path}</span>
+      </div>
+      <button type="button" className={s.iconBtn} aria-label={`${T.reveal}: ${label}`} disabled={!desktop} onClick={async () => (await getHost())?.revealFolder(path)}>
+        <FolderOpen size={16} strokeWidth={1.6} />
+      </button>
+      <button type="button" className={s.changeBtn} onClick={() => void change()} aria-label={`${T.change} ${label}`}>{T.change}</button>
+      {editing && <PathModal title={label} initial={path} onClose={() => setEditing(false)} onSave={(v) => { p.set({ [k]: v } as Partial<Prefs>); setEditing(false) }} />}
+    </div>
+  )
+}
+
+function PathModal({ title, initial, onClose, onSave }: { title: string; initial: string; onClose: () => void; onSave: (v: string) => void }) {
+  const t = useT()
+  const [v, setV] = useState(initial)
+  return (
+    <Modal title={title} onClose={onClose} footer={<>
+      <ActionButton onClick={onClose}>{t.projects.modals.cancel}</ActionButton>
+      <ActionButton variant="primary" disabled={!v.trim()} onClick={() => onSave(v.trim())}>{t.projects.modals.save}</ActionButton>
+    </>}>
+      <Field label={t.settings.files.pathLabel}><TextInput autoFocus value={v} onChange={(e) => setV(e.target.value)} /></Field>
+    </Modal>
+  )
+}
+
+// ---------------------------------------------------------------- AI model
+export function aiChip(sys: SystemStatus | null, T: ReturnType<typeof useT>['settings']) {
+  if (!sys) return null
+  if (sys.ai.source === 'demo') return <Chip tone="gray">{T.ai.demo}</Chip>
+  return sys.ai.ready ? <Chip tone="green">{T.ai.modelReady}</Chip> : <Chip tone="amber">{T.ai.noModel}</Chip>
+}
+
+export function AiModelCard(p: CardProps) {
+  const T = useT().settings
+  const A = T.ai
+  const [manage, setManage] = useState(false)
+  const sys = p.sys
+  const demo = !sys || sys.ai.source === 'demo'
+  const models = sys?.host?.models ?? []
+  const active = models.find((m) => m.active)?.path ?? ''
+  const options = demo
+    ? [{ value: 'demo', label: sys?.ai.modelName ?? '—' }]
+    : models.length
+      ? models.map((m) => ({ value: m.path, label: `${m.name} (${formatGb(m.bytes)})` }))
+      : [{ value: '', label: A.none }]
+  const used = sys?.ai.vramUsedGb ?? 0
+  const total = sys?.ai.vramTotalGb ?? 0
+  const pct = total ? Math.round((used / total) * 100) : 0
+  return (
+    <Card icon={<Cpu size={22} strokeWidth={1.5} />} title={A.title} text={A.text} chip={aiChip(sys, T)} className={s.aiCard}>
+      <div className={s.row}>
+        <span className={s.label}>{A.model}</span>
+        <Dropdown className={s.modelSel} label={A.model} value={demo ? 'demo' : (p.modelPath ?? active)} options={options}
+          onChange={(v) => !demo && p.setModelPath(v === active ? null : v)} />
+        <button type="button" className={s.manageBtn} onClick={() => setManage(true)}>
+          <Gear size={17} strokeWidth={1.6} />
+          {A.manage}
+        </button>
+      </div>
+      <div className={s.row}>
+        <span className={s.label}>{A.status}</span>
+        {demo ? <Chip tone="gray">{A.demo}</Chip> : sys!.ai.ready ? <Chip tone="green">{A.ready}</Chip> : <Chip tone="amber">{A.noModel}</Chip>}
+        <span className={s.muted}>{demo ? A.demoText : sys!.ai.ready ? A.running : ''}</span>
+      </div>
+      <div className={s.row}>
+        <span className={s.label}>{A.vram}</span>
+        <span className={s.bar}><span style={{ width: `${pct}%` }} /></span>
+        <span className={s.barText}>{used.toFixed(1)} / {Math.round(total)} GB ({pct}%)</span>
+        {demo && <em className={s.demoTag}>DEMO</em>}
+      </div>
+      <FolderRow label={A.folder} k="modelsDir" p={p} />
+      {manage && (
+        <Modal title={A.manageTitle} onClose={() => setManage(false)}>
+          <p className={s.modalText}>{A.manageText}</p>
+          <p className={s.modalPath}>{folderPath('modelsDir', p.draft.modelsDir, sys)}</p>
+          <ul className={s.modelList}>
+            {models.map((m) => (
+              <li key={m.path}>
+                <b>{m.name}</b>
+                <span>{formatGb(m.bytes)}</span>
+                {m.active && <Chip tone="green">{A.active}</Chip>}
+              </li>
+            ))}
+            {models.length === 0 && <li>{demo ? A.demo : A.none}</li>}
+          </ul>
+        </Modal>
+      )}
+    </Card>
+  )
+}
+
+export function FileLocationsCard(p: CardProps) {
+  const T = useT().settings.files
+  return (
+    <Card icon={<Folder size={22} strokeWidth={1.5} />} title={T.title} text={T.text} className={s.filesCard}>
+      <FolderRow label={T.projects} k="projectsDir" p={p} />
+      <FolderRow label={T.autosave} k="autosaveDir" p={p} />
+      <FolderRow label={T.exchange} k="exchangeDir" p={p} />
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- units
+export function precisionLabel(n: number, U: ReturnType<typeof useT>['settings']['units']) {
+  const sample = (0).toFixed(n)
+  return `${sample} (${n === 0 ? U.place0 : n === 1 ? U.place1 : fmt(U.places, { n })})`
+}
+
+export function UnitsCard(p: CardProps) {
+  const U = useT().settings.units
+  const d = p.draft
+  return (
+    <Card icon={<Ruler size={22} strokeWidth={1.5} />} title={U.title} text={U.text} className={s.unitsCard}>
+      <div className={s.row}>
+        <span className={s.label}>{U.system}</span>
+        <div className={s.segs} role="radiogroup" aria-label={U.system}>
+          {(['mm', 'cm', 'm', 'in'] as UnitSystem[]).map((u) => (
+            <button key={u} type="button" role="radio" aria-checked={d.units === u} className={`${s.seg} ${d.units === u ? s.segOn : ''}`} onClick={() => p.set({ units: u })}>{u}</button>
+          ))}
+        </div>
+      </div>
+      <div className={s.row}>
+        <span className={s.label}>{U.precision}</span>
+        <Dropdown className={s.wide} label={U.precision} value={d.precision} onChange={(v) => p.set({ precision: v })}
+          options={[0, 1, 2, 3, 4].map((n) => ({ value: n, label: precisionLabel(n, U) }))} />
+      </div>
+      <div className={s.row}>
+        <span className={s.label}>{U.angle}</span>
+        <Dropdown className={s.wide} label={U.angle} value={d.angleUnits} onChange={(v) => p.set({ angleUnits: v })}
+          options={(['deg', 'rad', 'grad'] as const).map((a) => ({ value: a, label: U[a] }))} />
+      </div>
+      <div className={s.preview} title={U.appliesTo}>
+        <b>{U.preview}</b>
+        <div>
+          <span>{U.length}</span><strong>{formatLength(1234.56, d)}</strong>
+          <span>{U.angleL}</span><strong>{formatAngle(Math.PI / 4, d)}</strong>
+          <span>{U.area}</span><strong>{formatArea(12_345_600, d)}</strong>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- interface / language
+export function InterfaceCard(p: CardProps) {
+  const T = useT().settings
+  const I = T.ui
+  const d = p.draft
+  const themes = [
+    { id: 'light' as const, Icon: Sun, label: I.light },
+    { id: 'dark' as const, Icon: Moon, label: I.dark },
+    { id: 'system' as const, Icon: Monitor, label: I.system },
+  ]
+  return (
+    <Card icon={<Monitor size={22} strokeWidth={1.5} />} title={I.title} text={I.text} className={s.uiCard}>
+      <div className={s.row}>
+        <span className={s.label}>{I.theme}</span>
+        <div className={s.themes} role="radiogroup" aria-label={I.theme}>
+          {themes.map(({ id, Icon, label }) => (
+            <button key={id} type="button" role="radio" aria-checked={d.themePreference === id} className={`${s.theme} ${d.themePreference === id ? s.themeOn : ''}`} onClick={() => p.set({ themePreference: id })}>
+              <Icon size={17} strokeWidth={1.6} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {d.themePreference !== 'light' && <p className={s.note}>{I.themeNote}</p>}
+      <div className={s.row}>
+        <span className={s.label}>{I.language}</span>
+        <Dropdown className={s.wide} label={I.language} value={d.language} onChange={(v) => p.set({ language: v })}
+          options={[{ value: 'en', label: T.languageCard.en }, { value: 'vi', label: T.languageCard.vi }]} />
+      </div>
+      {([['startPage', I.startPage], ['compactUi', I.compact], ['tooltips', I.tooltips], ['animations', I.animations]] as const).map(([k, label]) => (
+        <div key={k} className={s.toggleRow}>
+          <span>{label}</span>
+          <Switch checked={d[k]} onChange={(v) => p.set({ [k]: v } as Partial<Prefs>)} label={label} />
+        </div>
+      ))}
+    </Card>
+  )
+}
+
+export function LanguageCard(p: CardProps) {
+  const L = useT().settings.languageCard
+  return (
+    <Card icon={<Globe size={22} strokeWidth={1.5} />} title={L.title} text={L.text}>
+      <div className={s.radioList} role="radiogroup" aria-label={L.title}>
+        {(['en', 'vi'] as const).map((l) => (
+          <label key={l} className={s.radio}>
+            <input type="radio" name="lang" checked={p.draft.language === l} onChange={() => p.set({ language: l })} />
+            {L[l]}
+          </label>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- file handling / performance
+export function FileHandlingCard(p: CardProps) {
+  const H = useT().settings.handling
+  const d = p.draft
+  return (
+    <Card icon={<FileText size={20} strokeWidth={1.5} />} title={H.title} text={H.text} className={s.handlingCard}>
+      <div className={s.split}>
+        <div className={s.smallToggles}>
+          {([['autoRecover', H.autoRecover], ['backup', H.backup], ['embedFonts', H.embedFonts], ['optimizeSize', H.optimize]] as const).map(([k, label]) => (
+            <div key={k} className={s.smallToggle}>
+              <Switch size="sm" checked={d[k]} onChange={(v) => p.set({ [k]: v } as Partial<Prefs>)} label={label} />
+              <span>{label}</span>
+              {k === 'autoRecover' && <span className={s.help} title={H.autoRecoverHelp}><CircleHelp size={13} strokeWidth={1.7} /></span>}
+            </div>
+          ))}
+        </div>
+        <div className={s.smallSelects}>
+          <span className={s.tiny}>{H.format}</span>
+          <Dropdown className={s.smallSel} label={H.format} value={d.defaultFormat} onChange={(v) => p.set({ defaultFormat: v })}
+            options={[{ value: 'dxf-r12', label: H.dxfR12 }, { value: 'dwg', label: H.dwg, disabled: true }]} />
+          <div className={s.inline}>
+            <span className={s.tiny}>{H.image}</span>
+            <Dropdown className={s.tinySel} label={H.image} value={d.imageFormat} onChange={(v) => p.set({ imageFormat: v })}
+              options={[{ value: 'png', label: 'PNG' }, { value: 'jpg', label: 'JPG' }]} />
+          </div>
+          <div className={s.inline}>
+            <span className={s.tiny}>{H.quality}</span>
+            <Dropdown className={s.tinySel} label={H.quality} value={d.renderQuality} onChange={(v) => p.set({ renderQuality: v })}
+              options={(['draft', 'medium', 'high'] as const).map((q) => ({ value: q, label: H[q] }))} />
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+export function PerformanceCard(p: CardProps) {
+  const P = useT().settings.perf
+  const d = p.draft
+  return (
+    <Card icon={<Gauge size={22} strokeWidth={1.5} />} title={P.title} text={P.text} className={s.perfCard}>
+      <div className={s.split}>
+        <div className={s.smallToggles}>
+          <div className={s.smallToggle}>
+            <Switch size="sm" checked={d.gpu2d} onChange={(v) => p.set({ gpu2d: v })} label={P.gpu} />
+            <span>{P.gpu}</span>
+          </div>
+          <div className={s.smallToggle}>
+            <Switch size="sm" checked={d.aiGpu} onChange={(v) => p.set({ aiGpu: v })} label={P.aiGpu} />
+            <span>{P.aiGpu}</span>
+          </div>
+        </div>
+        <div className={s.perfRight}>
+          <div className={s.inline}>
+            <span className={s.tinyLabel}>{P.cache}</span>
+            <Dropdown className={s.perfSel} label={P.cache} value={d.cacheSizeGb} onChange={(v) => p.set({ cacheSizeGb: v })}
+              options={[2, 5, 10, 20].map((n) => ({ value: n, label: `${n} GB` }))} />
+          </div>
+          <div className={s.inline}>
+            <span className={s.tinyLabel}>{P.undo}</span>
+            <input className={s.numInput} type="number" min={10} max={1000} step={10} value={d.maxUndo} aria-label={P.undo}
+              onChange={(e) => p.set({ maxUndo: Math.max(10, Math.min(1000, Math.round(Number(e.target.value) || 10))) })} />
+          </div>
+          <button type="button" className={s.clearBtn} onClick={async () => { await clearCaches(); toast(P.cleared, 'success'); p.refresh() }}>
+            <Trash2 size={15} strokeWidth={1.7} />
+            <span>{P.clear}</span>
+            <b>{formatGb(p.sys?.cacheBytes ?? 0)}</b>
+          </button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- shortcuts
+export function ShortcutsCard(p: CardProps) {
+  const K = useT().settings.shortcuts
+  const [capturing, setCapturing] = useState<ShortcutId | null>(null)
+  const [warn, setWarn] = useState('')
+  useEffect(() => {
+    if (!capturing) return
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') return setCapturing(null)
+      const combo = shortcutFromEvent(e)
+      if (!combo) return
+      const clash = (Object.keys(p.draft.shortcuts) as ShortcutId[]).find((k) => k !== capturing && p.draft.shortcuts[k] === combo)
+      if (clash) return setWarn(fmt(K.conflict, { name: K.names[clash] }))
+      p.set({ shortcuts: { ...p.draft.shortcuts, [capturing]: combo } })
+      setWarn('')
+      setCapturing(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [capturing, p, K])
+  return (
+    <Card icon={<Keyboard size={22} strokeWidth={1.5} />} title={K.title} text={K.text}>
+      {warn && <p className={s.note}>{warn}</p>}
+      <ul className={s.keys}>
+        {(Object.keys(DEFAULT_SHORTCUTS) as ShortcutId[]).map((id) => (
+          <li key={id}>
+            <span>{K.names[id]}</span>
+            <button type="button" className={`${s.keyBtn} ${capturing === id ? s.keyOn : ''}`} aria-label={`${K.names[id]}: ${p.draft.shortcuts[id]}`} onClick={() => { setWarn(''); setCapturing(id) }}>
+              {capturing === id ? K.press : <kbd>{shortcutLabel(p.draft.shortcuts[id])}</kbd>}
+            </button>
+            <button type="button" className={s.linkBtn} disabled={p.draft.shortcuts[id] === DEFAULT_SHORTCUTS[id]}
+              onClick={() => p.set({ shortcuts: { ...p.draft.shortcuts, [id]: DEFAULT_SHORTCUTS[id] } })}>{K.reset}</button>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- facts
+function Facts({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl className={s.facts}>
+      {rows.map(([k, v]) => (
+        <div key={k}>
+          <dt>{k}</dt>
+          <dd>{v}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+export function UpdatesCard(p: CardProps) {
+  const U = useT().settings.updates
+  const i = p.sys?.info
+  return (
+    <Card icon={<CloudUpload size={22} strokeWidth={1.5} />} title={U.title} text={U.text}>
+      <Facts rows={[
+        [U.app, '0.1.0'],
+        [U.engine, i?.engine ?? U.browser],
+        [U.occt, i?.occt ?? '—'],
+        [U.ai, i?.aiBackend ?? '—'],
+        [U.dwg, i?.dwgReader || '—'],
+      ]} />
+    </Card>
+  )
+}
+
+export function PrivacyCard() {
+  const P = useT().settings.privacy
+  return (
+    <Card icon={<ShieldCheck size={22} strokeWidth={1.5} />} title={P.title} text={P.text}>
+      <Facts rows={[[P.network, P.networkV], [P.ai, P.aiV], [P.telemetry, P.telemetryV], [P.files, P.filesV]]} />
+    </Card>
+  )
+}
+
+export function IntegrationsCard(p: CardProps) {
+  const I = useT().settings.integrations
+  const i = p.sys?.info
+  const desktop = !!p.sys?.host
+  return (
+    <Card icon={<Plug size={22} strokeWidth={1.5} />} title={I.title} text={I.text}>
+      <Facts rows={[
+        [I.dwg, desktop ? i?.dwgReader || I.notInstalled : I.browser],
+        [I.occt, desktop ? (i?.occt ?? I.notInstalled) : I.browser],
+        [I.llama, desktop ? (i?.aiBackend ?? I.notInstalled) : I.browser],
+        [I.cloud, I.none],
+      ]} />
+    </Card>
+  )
+}
+
+/** Current saved theme label, for the rail. */
+export function useThemeLabel() {
+  const I = useT().settings.ui
+  const th = useSettings((st) => st.themePreference)
+  return th === 'light' ? I.light : th === 'dark' ? I.dark : I.system
+}
+

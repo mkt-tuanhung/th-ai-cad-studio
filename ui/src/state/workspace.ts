@@ -111,7 +111,7 @@ const SEED_PROJECTS = (now: number): Project[] => ([
       natH: 118,
       crop: { x: 25, y: 24, w: 181, h: 94 },
     },
-    favorite: true,
+    favorite: false, // owner decision 2026-10-11 (mockup 05 wins over mockup 01),
     version: 2,
     collaborators: { image: '/assets/extracted/avatars_pump.png', width: 23 },
     createdAt: now - 20 * D,
@@ -273,11 +273,17 @@ export const useWorkspace = create<WorkspaceState>()(
     },
     {
       name: 'thcad.workspace',
-      version: 2,
+      version: 3,
       // v1 → v2 (Projects screen): keep the user's projects and files, add details, the rest of the
       // seed catalogue, project entries and the activity log.
       migrate: (old, version) => {
         const s = old as Partial<WorkspaceState>
+        // v2 → v3: Pump Assembly is not a favourite (owner decision 2026-10-11)
+        const unfavPump = (st: Partial<WorkspaceState>) => ({
+          ...st,
+          projects: st.projects?.map((p) => (p.id === 'pump-assembly' && p.seed ? { ...p, favorite: false } : p)),
+        })
+        if (version === 2) return unfavPump(s)
         if (version < 2) {
           const now = Date.now()
           const seed = SEED_PROJECTS(now)
@@ -287,7 +293,7 @@ export const useWorkspace = create<WorkspaceState>()(
             return p.details ? p : { ...p, details: sp?.details ?? defaultDetails(p.discipline), ...(sp && p.seed ? { modifiedAt: sp.modifiedAt } : {}) }
           })
           const have = new Set(projects.map((p) => p.id))
-          return { ...s, projects: [...projects, ...seed.filter((p) => !have.has(p.id))], entries: seedEntries(now), activity: seedActivity(now) }
+          return unfavPump({ ...s, projects: [...projects, ...seed.filter((p) => !have.has(p.id))], entries: seedEntries(now), activity: seedActivity(now) })
         }
         return s
       },

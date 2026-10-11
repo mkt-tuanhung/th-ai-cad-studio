@@ -17,6 +17,8 @@ export type ToolId =
   | 'text'
   | 'move'
   | 'erase'
+  | 'dist'
+  | 'area'
 
 export interface CommandSpec {
   name: string
@@ -39,6 +41,8 @@ export const COMMANDS: CommandSpec[] = [
   { name: 'TEXT', aliases: ['T', 'DT', 'MTEXT', 'MT'], tool: 'text', status: 'prototype' },
   { name: 'MOVE', aliases: ['M'], tool: 'move', status: 'prototype' },
   { name: 'ERASE', aliases: ['E'], tool: 'erase', status: 'prototype' },
+  { name: 'DIST', aliases: ['DI'], tool: 'dist', status: 'prototype' },
+  { name: 'AREA', aliases: ['AA'], tool: 'area', status: 'prototype' },
   { name: 'UNDO', aliases: ['U'], status: 'prototype' },
   { name: 'REDO', aliases: [], status: 'prototype' },
   { name: 'ZOOM', aliases: ['Z'], status: 'prototype' },
