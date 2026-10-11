@@ -1,6 +1,7 @@
 import type { Messages } from './en'
 import { interiorVi } from './ws/interior'
 import { mepVi } from './ws/mep'
+import { civilVi } from './ws/civil'
 
 export const vi: Messages = {
   app: {
@@ -901,6 +902,7 @@ export const vi: Messages = {
   },
   interior: interiorVi,
   mep: mepVi,
+  civil: civilVi,
   components: {
     title: 'Thư viện cấu kiện',
     subtitle: 'Tài nguyên thiết kế dùng chung cho mọi bộ môn. Tìm, duyệt và dùng các cấu kiện, block và family.',

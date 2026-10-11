@@ -1,5 +1,6 @@
 import { interiorEn } from './ws/interior'
 import { mepEn } from './ws/mep'
+import { civilEn } from './ws/civil'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
   app: {
@@ -899,6 +900,7 @@ export const en = {
   },
   interior: interiorEn,
   mep: mepEn,
+  civil: civilEn,
   components: {
     title: 'Components Library',
     subtitle: 'Shared design assets for all disciplines. Search, browse and use high-quality components, blocks and families.',

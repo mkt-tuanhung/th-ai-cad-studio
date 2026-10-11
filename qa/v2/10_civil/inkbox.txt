@@ -1,0 +1,66 @@
+crumb.projects               mock x305 y107 w39 h12 | dx-5 dy-2 dw+8 dh+0  <--
+crumb.project                mock x381 y107 w95 h12 | dx+2 dy-2 dw+2 dh+0  <--
+crumb.current                mock x512 y107 w60 h12 | dx+5 dy-3 dw+0 dh+1  <--
+tab.plan                     mock x702 y123 w20 h9 | dx+1 dy+0 dw+1 dh+0
+tab.profile                  mock x795 y123 w29 h9 | dx-2 dy+0 dw+3 dh+0  <--
+tab.section                  mock x887 y123 w34 h9 | dx-2 dy+1 dw+3 dh-1  <--
+tab.3d                       mock x986 y123 w13 h9 | dx+0 dy+1 dw+0 dh-1
+tab.schedule                 mock x1065 y123 w44 h9 | dx-1 dy+0 dw+2 dh+0  <--
+btn.share                    mock x1255 y114 w28 h9 | dx+0 dy-1 dw+3 dh+0  <--
+btn.export                   mock x1350 y114 w31 h11 | dx-1 dy-1 dw+3 dh+1  <--
+btn.ai                       mock x1465 y114 w65 h10 | dx+2 dy+0 dw+3 dh-1  <--
+rib.select                   mock x294 y189 w30 h9 | dx-1 dy+1 dw+0 dh+0
+rib.alignment                mock x361 y189 w50 h11 | dx-2 dy-1 dw+2 dh+1  <--
+rib.profile                  mock x450 y189 w31 h9 | dx-2 dy-1 dw+1 dh+0  <--
+rib.cross                    mock x519 y189 w68 h9 | dx-3 dy+0 dw+2 dh-1  <--
+rib.channel                  mock x625 y189 w40 h9 | dx-1 dy-1 dw+0 dh+0
+rib.culvert                  mock x707 y189 w34 h9 | dx-2 dy-1 dw+2 dh+0  <--
+rib.earthwork                mock x780 y189 w50 h9 | dx-2 dy-1 dw+1 dh+0  <--
+rib.surface                  mock x871 y189 w37 h9 | dx-2 dy-1 dw+2 dh+0  <--
+rib.intersection             mock x950 y189 w58 h9 | dx-3 dy+0 dw+2 dh-1  <--
+rib.annotation               mock x1050 y189 w54 h9 | dx-2 dy+0 dw+2 dh-1  <--
+rib.dimension                mock x1156 y189 w52 h9 | dx-3 dy+0 dw+2 dh-1  <--
+rib.quantity                 mock x1258 y189 w41 h11 | dx-2 dy+0 dw+1 dh+0  <--
+rib.more                     mock x1348 y189 w55 h9 | dx-5 dy-3 dw+11 dh+0  <--
+pb.title                     mock x283 y234 w99 h14 | dx+1 dy+1 dw-5 dh-1  <--
+pb.search                    mock x315 y267 w158 h11 | dx+3 dy+2 dw-10 dh-1  <--
+pb.root                      mock x318 y299 w99 h11 | dx+3 dy+0 dw+2 dh+1  <--
+pb.alignments                mock x329 y319 w55 h11 | dx+1 dy+1 dw+0 dh-1
+pb.canal                     mock x351 y338 w85 h11 | dx+2 dy+1 dw-1 dh+0  <--
+pb.profiles                  mock x330 y401 w36 h9 | dx+1 dy+4 dw+0 dh-1  <--
+pb.sections                  mock x329 y465 w73 h9 | dx+1 dy+5 dw+0 dh-1  <--
+pb.sta0                      mock x366 y506 w54 h9 | dx+0 dy+4 dw-1 dh-1  <--
+pb.sta5                      mock x366 y609 w54 h9 | dx+0 dy+3 dw-1 dh-1  <--
+pb.surfaces                  mock x328 y633 w42 h10 | dx+2 dy+3 dw+1 dh-2  <--
+pb.drainage                  mock x329 y698 w98 h11 | dx+2 dy+3 dw-3 dh-1  <--
+pb.cl2                       mock x366 y763 w66 h9 | dx+0 dy-1 dw-1 dh-1
+pb.channel                   mock x329 y789 w76 h11 | dx+1 dy-1 dw+0 dh-1
+pb.sheets                    mock x333 y855 w57 h10 | dx-3 dy+1 dw+0 dh+1  <--
+pb.c004                      mock x351 y940 w87 h9 | dx+1 dy-2 dw-3 dh-1  <--
+plan.title                   mock x520 y238 w117 h9 | dx-1 dy+0 dw-5 dh+0  <--
+prof.title                   mock x517 y567 w168 h13 | dx+2 dy+3 dw-7 dh-1  <--
+sec.title                    mock x937 y567 w142 h10 | dx+4 dy+3 dw-5 dh-1  <--
+bt.earth                     mock x520 y784 w113 h11 | dx+1 dy+1 dw-1 dh+0
+bt.channel                   mock x669 y785 w94 h10 | dx-5 dy+0 dw+3 dh+0  <--
+bt.struct                    mock x800 y785 w51 h9 | dx-4 dy+0 dw+1 dh+0  <--
+bt.mat                       mock x889 y785 w45 h9 | dx+1 dy+0 dw+3 dh+0  <--
+bt.viewall                   mock x1192 y784 w38 h10 | dx-4 dy+2 dw-2 dh-1  <--
+th.from                      mock x523 y816 w54 h8 | dx-2 dy-1 dw+0 dh-1  <--
+th.cut                       mock x838 y815 w37 h11 | dx-2 dy-1 dw-2 dh-1  <--
+th.rem                       mock x1132 y816 w39 h8 | dx-3 dy-1 dw-2 dh-1  <--
+tr1.from                     mock x523 y836 w30 h9 | dx-2 dy+2 dw-2 dh-2  <--
+tr1.cut                      mock x840 y836 w38 h10 | dx-3 dy+2 dw-1 dh-2  <--
+tr6.from                     mock x523 y938 w30 h8 | dx-2 dy+1 dw-2 dh-1  <--
+rp.props                     mock x1268 y236 w58 h12 | dx+2 dy-2 dw-5 dh+0  <--
+rp.layers                    mock x1383 y237 w33 h11 | dx-3 dy-2 dw+0 dh+0  <--
+rp.refs                      mock x1476 y236 w56 h10 | dx-5 dy-2 dw-3 dh-1  <--
+rp.alignment                 mock x1274 y278 w55 h12 | dx-3 dy+0 dw-6 dh+1  <--
+rp.name.l                    mock x1264 y306 w28 h9 | dx-2 dy-2 dw+0 dh-1  <--
+rp.name.v                    mock x1381 y306 w50 h9 | dx-3 dy-2 dw-11 dh-1  <--
+rp.site.l                    mock x1264 y474 w18 h10 | dx-3 dy-1 dw+0 dh-2  <--
+rp.design                    mock x1274 y508 w99 h13 | dx-3 dy-2 dw-1 dh-1  <--
+rp.slopemin.l                mock x1264 y533 w90 h12 | dx-2 dy-2 dw-1 dh-1  <--
+rp.freeboard.l               mock x1264 y656 w48 h10 | dx-2 dy-4 dw-1 dh-2  <--
+ai.title                     mock x1285 y704 w101 h11 | dx-4 dy+0 dw-9 dh-1  <--
+ai.analysis                  mock x1285 y736 w39 h11 | dx-3 dy+0 dw+2 dh-1  <--
+ai.slope                     mock x1305 y771 w102 h11 | dx-4 dy+1 dw-1 dh-1  <--

@@ -36,3 +36,4 @@
 | interior/item-*.png (6) | 09 | crops x 532–567, y 796–953 | DEMO | mockup |
 | mep/viewport.png | 08 | crop 08_MEP.png (499,244)–(1243,737), UI overlays inpainted | DEMO | mockup |
 | mep/duct-thumb.png | 08 | crop (1262,296)–(1330,340) | DEMO | mockup |
+| civil/plan.png | 10 | crop 10_Civil.png (507,261)–(1233,548), nav strip inpainted | DEMO | mockup |

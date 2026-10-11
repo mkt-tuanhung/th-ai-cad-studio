@@ -30,7 +30,7 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | 07 | Components | ✅ Đã duyệt 2026-10-11: 56/66 phần tử ≤ 2 px (62/66 ≤ 5 px), smoke test 17/17, chèn thật vào CAD 2D — `qa/QA_COMPONENTS.md` | — |
 | 08 | MEP | ✅ Đã dựng (2026-10-11): 56/73 ≤ 2 px, 69/73 ≤ 5 px, smoke 11/11; vận tốc/tổn thất/va chạm/sụt áp tính thật, 3D là ảnh DEMO — `qa/QA_MEP.md` | Breadcrumb, tab chuyên ngành, ribbon, Project Browser, viewport 3D, bảng schedule, Properties, AI Recommendations |
 | 09 | Interior | ✅ Đã dựng (2026-10-11): 51/65 ≤ 2 px, 64/65 ≤ 5 px, smoke 12/12; cut list / quantities thật, 3D là ảnh DEMO — `qa/QA_INTERIOR.md` | Như MEP, thêm mặt bằng thu nhỏ, AI Interior Designer, bảng Furniture/Cut List, Room Information |
-| 10 | Civil | ⏳ | Mặt bằng tuyến, trắc dọc, trắc ngang, khối lượng đào đắp, Design Parameters, AI Civil Assistant |
+| 10 | Civil | ✅ Đã dựng (2026-10-11): 34/66 ≤ 2 px, 66/66 ≤ 5 px, smoke 12/12; Manning, đào đắp, kiểm tra dốc tính thật; trắc dọc/mặt cắt vẽ vector — `qa/QA_CIVIL.md` | Mặt bằng tuyến, trắc dọc, trắc ngang, khối lượng đào đắp, Design Parameters, AI Civil Assistant |
 | 11 | Mechanical | ⏳ | Model Browser, viewport cụm lắp, Parameters, BOM, Mates, AI Design Checks |
 | 12 | Renders | ⏳ | Scene & Cameras, Asset Library, viewport render, Variations, Render Queue, Render Settings |
 
@@ -46,6 +46,6 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | 07 | "Family • RFA", tệp .rfa/.dwg 12.4 MB | Cấu kiện xuất ra DXF thật; dung lượng là kích thước thật của tệp DXF |
 | 07 | Danh sách AI Recommended | "Not connected" — AI cục bộ chưa xếp hạng cấu kiện |
 | 01, 03 | Local AI "Online / Ready", model "AutoCAD Assistant (Local)", VRAM 6.2 / 16 GB, 0.8s | Trên trình duyệt: "Demo UI", Model "Not connected", VRAM kèm nhãn DEMO, tốc độ "—". App desktop hiện số đo thật |
-| 10 | "TCVN 11823:2017" cho kênh tưới | TCVN 11823:2017 là tiêu chuẩn thiết kế cầu đường bộ. Với kênh thuỷ lợi cần đối chiếu TCVN 4118:2021 (hệ thống tưới tiêu — yêu cầu thiết kế); chờ chủ đầu tư chọn |
-| 10 | Bảng đào đắp: dòng 0+100–0+200 ghi Cut 980.40, Fill 85.20, Net 895.20 | Các ô Net đều khớp Cut − Fill. App tính lại từ dữ liệu, không chép số trong ảnh |
+| 10 | "TCVN 11823:2017" cho kênh tưới | ✅ Đã dựng (2026-10-11): 34/66 ≤ 2 px, 66/66 ≤ 5 px, smoke 12/12; Manning, đào đắp, kiểm tra dốc tính thật; trắc dọc/mặt cắt vẽ vector — `qa/QA_CIVIL.md` |
+| 10 | Bảng đào đắp: dòng 0+100–0+200 ghi Cut 980.40, Fill 85.20, Net 895.20 | ✅ Đã dựng (2026-10-11): 34/66 ≤ 2 px, 66/66 ≤ 5 px, smoke 12/12; Manning, đào đắp, kiểm tra dốc tính thật; trắc dọc/mặt cắt vẽ vector — `qa/QA_CIVIL.md` |
 | 11 | "Meets ISO 5199" | Đây là tiêu chuẩn có thật cho bơm ly tâm. App chỉ hiện kết quả khi có engine kiểm tra; trước đó ghi "Not connected" |
