@@ -23,7 +23,8 @@ Cảnh: camera ngoại thất / trên cao dùng **mô hình BIM** (tường có 
 
 | Kiểm tra | Kết quả |
 |---|---|
-| Tự kiểm tra trong app (`THCAD_SELFTEST=1`) | 15/15, gồm "renderer: path-traced image produced" (job 64 × 48, không ghi file) |
+| Tự kiểm tra trong app (`THCAD_SELFTEST=1`) | macOS (bản build và bản đóng gói `dist/`): 15/15, gồm "renderer: path-traced image produced" (job 64 × 48, không ghi file) |
+| Windows CI (run 38171075113, Setup-0.1.0.exe 144 MB) | Build + tự kiểm tra đạt; bài render **SKIP** vì máy ảo chỉ có OpenGL 1.1 (GDI Generic) — chưa kiểm chứng trên máy Windows có GPU thật |
 | 5 camera, 1920 × 1080, 256 mẫu, khử nhiễu (Batch Render từ giao diện) | `native_renders_5cams.jpg` — ngoại thất ~5 s/ảnh trên máy này |
 | Màn Renders khi đang/đã kết xuất | `native_renders_studio.png` — ảnh thật thay ảnh DEMO, nhãn "OCCT render · 256 samples · 0:05 · tên file", hàng đợi Done/Rendering/Waiting, Lịch sử |
 | Thử đèn (hộp trên sàn: path tracing / Whitted) | `native_render_light_test.png` |
@@ -34,6 +35,7 @@ Cảnh: camera ngoại thất / trên cao dùng **mô hình BIM** (tường có 
 - Shader skydome của OCCT 7.9 dùng GLSL 1.30, macOS (core 4.1 hoặc legacy 2.1) không hỗ trợ → crash. Thay bằng cubemap bầu trời tự sinh.
 - macOS mặc định context OpenGL 2.1 (không ray tracing) → bộ kết xuất dùng context core profile riêng.
 - Path tracing của OCCT coi cường độ đèn hướng là radiance của đĩa mặt trời → mặt trời gần như không chiếu. Đặt radiance = độ rọi / góc khối của đĩa.
+- Windows: máy không có ray tracing (OpenGL cũ) → job báo lỗi rõ ràng "this GPU/driver has no OpenGL ray-tracing support", không treo.
 - Ảnh chụp cửa sổ QA bị trắng lúc 2 giờ sáng: màn hình tắt nên Chromium ngừng vẽ (không phải lỗi app) — chụp kèm `caffeinate -u`.
 
 ## Chưa có
