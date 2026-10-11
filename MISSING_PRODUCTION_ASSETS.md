@@ -38,6 +38,11 @@ Coordinates are in mockup pixels (x, y, w, h). "Needed" is the minimum clean siz
 | 07-09…14 | 07 Components | 282–1141, 843, 135 × 71 each | Recently Used: Office Chair, Meeting Table, Pendant Light, Glass Partition, Potted Plant, Toilet WC | 270 × 140 | DEMO crops, ★ inpainted |
 | 07-15 | 07 Components | material card swatch | Fabric - Light Gray | 128 × 128 tileable | DEMO crop (40 × 37) |
 | 07-16 | 07 Components | — | Thumbnails / renders for the other 141 catalogue components | 330 × 220 | Not present: the card shows the component's real plan geometry (no stock art) |
+| 09-01 | 09 Interior | 497, 222, 727 × 505 | Living room 3D render (viewport) — overlays inpainted | 1454 × 1010 | DEMO crop; inpaint smudges sit under the real overlays |
+| 09-02 | 09 Interior | 517, 296, 191 × 145 | Level 1 interior plan with camera cone (inset) | 382 × 290, vector preferred | DEMO crop — should be the live plan from the interior engine |
+| 09-03…04 | 09 Interior | 1252, 592 / 693, 283 × 93 / 88 | AI suggestion renders: Modern Luxury, Japandi | 566 × 186 | DEMO crops, caption + Apply inpainted |
+| 09-05 | 09 Interior | 1252, 788, 283 × 14 | Third suggestion (cut off in the mockup) | 566 × 186 | DEMO sliver |
+| 09-06…11 | 09 Interior | 532, 796–953, 35 × ~22 | Furniture thumbnails: sofa, coffee table, TV cabinet, dining table, chair, pendant | 140 × 88 | DEMO crops; other items show a neutral placeholder |
 
 The table will be extended for screens 08–12 as they are built. Screens 08–12 need the most:
 MEP / interior / mechanical / render viewports, satellite map, material swatches, component

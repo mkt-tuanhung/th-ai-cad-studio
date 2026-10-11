@@ -1,4 +1,5 @@
 import type { Messages } from './en'
+import { interiorVi } from './ws/interior'
 
 export const vi: Messages = {
   app: {
@@ -897,6 +898,7 @@ export const vi: Messages = {
       privacyText: 'TH AI CAD Studio chạy hoàn toàn ngoại tuyến: không tài khoản, không cloud, không thu thập dữ liệu. AI chạy trên máy này và chỉ đề xuất chỉnh sửa để bạn duyệt. Tệp DWG được chuyển đổi cục bộ bằng chương trình LibreDWG đi kèm.',
     },
   },
+  interior: interiorVi,
   components: {
     title: 'Thư viện cấu kiện',
     subtitle: 'Tài nguyên thiết kế dùng chung cho mọi bộ môn. Tìm, duyệt và dùng các cấu kiện, block và family.',

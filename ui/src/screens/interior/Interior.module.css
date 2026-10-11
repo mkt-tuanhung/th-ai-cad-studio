@@ -1,0 +1,531 @@
+/* Interior workspace — mockup 09. Page px: browser 272–488 · viewer 495–1225 · right 1231–1547;
+   header 96–137 · ribbon 137–214 · viewer 220–728 · bottom 734–961. */
+.screen {
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr) 316px;
+  grid-template-rows: 35px 77px minmax(0, 1fr) 227px;
+  column-gap: 7px;
+  row-gap: 6px;
+  grid-template-areas:
+    'header header header'
+    'ribbon ribbon ribbon'
+    'browser viewer right'
+    'browser bottom right';
+  height: 100%;
+  padding: 0 10px 10px 5px;
+  background: var(--chrome-bg);
+}
+
+.max {
+  grid-template-areas:
+    'header header header'
+    'ribbon ribbon ribbon'
+    'browser viewer right'
+    'browser viewer right';
+}
+
+.header {
+  grid-area: header;
+  min-width: 0;
+  margin: 0 -10px -6px -5px;
+}
+
+.ribbon {
+  grid-area: ribbon;
+  min-width: 0;
+  margin: 0 -10px 0 -5px;
+}
+
+.browser {
+  grid-area: browser;
+  min-height: 0;
+}
+
+.viewer {
+  grid-area: viewer;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bottom {
+  grid-area: bottom;
+  min-width: 0;
+  min-height: 0;
+  margin-left: 2px;
+}
+
+.right {
+  grid-area: right;
+  min-height: 0;
+}
+
+.screen > .right {
+  margin-left: -1px;
+}
+
+/* ---------- viewport ---------- */
+.inset {
+  left: 14px;
+  top: 51px;
+  width: 207px;
+  height: 177px;
+}
+
+.insetImg {
+  position: absolute;
+  left: 8px;
+  top: 25px;
+  width: 191px;
+  height: 145px;
+}
+
+/* ---------- bottom tables ---------- */
+.thumb {
+  display: block;
+  width: 35px;
+  height: 21px;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.thumbNone {
+  display: block;
+  width: 35px;
+  height: 21px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(135deg, #eef1f4 0 4px, #e5e9ed 4px 8px);
+}
+
+.swatch {
+  display: inline-block;
+  width: 18px;
+  height: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.cutSum {
+  flex: none;
+  padding: 6px 10px 4px;
+  font-size: 10.5px;
+  color: #3a4352;
+}
+
+.cutSum em {
+  display: block;
+  margin-top: 2px;
+  font-style: normal;
+  color: #8a6512;
+}
+
+/* ---------- right panel ---------- */
+.rbody {
+  padding-top: 8px;
+}
+
+.roomIcon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  font-size: 22px;
+  color: #d97706;
+  background: #fff4e5;
+}
+
+.matHint {
+  padding: 2px 4px 8px;
+  font-size: 11px;
+  color: #5b6474;
+}
+
+.matList {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.matList button {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #edf0f3;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 11px;
+  text-align: left;
+  color: #1c2331;
+}
+
+.matList button:hover:not(:disabled) {
+  border-color: #b9dcdc;
+}
+
+.matList button:disabled {
+  cursor: default;
+}
+
+.matList small {
+  font-size: 10px;
+  color: #8a93a1;
+}
+
+.matOn {
+  border-color: #2b9a9c !important;
+  background: #eef8f8 !important;
+}
+
+.aiHead {
+  display: flex;
+  gap: 10px;
+  height: 69px;
+  padding: 8px 9px;
+  border: 1px solid #edf0f3;
+  border-radius: 9px;
+  background: #fbfcfd;
+}
+
+.aiIcon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 50px;
+  height: 52px;
+  border-radius: 8px;
+  color: #1a73e8;
+  background: #eaf3fd;
+}
+
+.aiHead h3 {
+  margin-top: 1px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.aiHead p {
+  margin-top: 3px;
+  font-size: 9.6px;
+  line-height: 1.45;
+  color: #6b7383;
+}
+
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  height: 30px;
+  margin-top: 8px;
+  padding: 2px;
+  border-radius: 8px;
+  background: #eef2f4;
+}
+
+.seg button {
+  border-radius: 7px;
+  font-size: 11px;
+  color: #3a4352;
+}
+
+.segOn {
+  font-weight: 500;
+  color: #11606a !important;
+  background: #dcefee;
+  box-shadow: inset 0 -2px 0 #1a8a8c;
+}
+
+.ctx {
+  margin-top: 8px;
+  padding: 9px 9px 10px;
+  border: 1px solid #edf0f3;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.ctxRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ctxRow b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.ctxSel {
+  position: relative !important;
+  width: 182px;
+  height: 26px !important;
+  background: #fff !important;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chips button {
+  height: 22px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: #4f5868;
+  background: #eef1f4;
+}
+
+.chips .chipOn {
+  color: #fff;
+  background: #17767c;
+}
+
+.prompt {
+  position: relative;
+  margin-top: 7px;
+}
+
+.prompt textarea {
+  display: block;
+  width: 100%;
+  height: 82px;
+  padding: 7px 8px;
+  border: 1px solid #e3e7ec;
+  border-radius: 7px;
+  outline: none;
+  resize: none;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: #2b3341;
+}
+
+.prompt textarea:focus {
+  border-color: #9fd0d3;
+}
+
+.send {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 28px;
+  border-radius: 6px;
+  color: #fff;
+  background: #17595f;
+}
+
+.note {
+  margin-top: 7px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: #8a6512;
+}
+
+.sugg {
+  margin-top: 8px;
+  padding: 7px 8px 0;
+  border: 1px solid #edf0f3;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.sugg header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+  padding: 0 4px 0 4px;
+  color: #1a8a8c;
+}
+
+.sugg header b {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.sugg header .link,
+.sugg header button {
+  margin-left: auto;
+}
+
+.suggCard {
+  position: relative;
+  height: 93px;
+  margin: 7px 0 0;
+  overflow: hidden;
+  border-radius: 7px;
+}
+
+.suggCard + .suggCard {
+  height: 88px;
+  margin-top: 8px;
+}
+
+.suggCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.suggCard figcaption {
+  position: absolute;
+  left: 5px;
+  bottom: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  line-height: 22px;
+  color: #1c2331;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.suggCard button {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 68px;
+  height: 25px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+  background: #17595f;
+}
+
+.suggCard button:hover {
+  background: #1c6870;
+}
+
+.suggMore {
+  display: block;
+  width: 100%;
+  height: 14px;
+  margin-top: 8px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 7px 7px 0 0;
+}
+
+.roomInfo {
+  margin-top: 6px;
+  border: 1px solid #edf0f3;
+  border-radius: 9px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.roomInfo header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px 0 6px;
+}
+
+.roomInfo header b {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.riIcon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  font-size: 14px;
+  color: #fff;
+  background: #f59e0b;
+}
+
+.riSel {
+  position: relative !important;
+  width: 134px;
+  height: 24px !important;
+}
+
+.riGrid {
+  display: grid;
+  grid-template-columns: 76px 1fr 84px 1fr;
+  align-items: center;
+  border-top: 1px solid #f0f2f5;
+}
+
+.riGrid > * {
+  height: 27px;
+  overflow: hidden;
+  padding: 0 4px 0 8px;
+  font-size: 9.6px;
+  line-height: 27px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.riGrid span {
+  color: #6b7383;
+}
+
+.riGrid b {
+  font-weight: 400;
+  color: #2b3341;
+}
+
+.riRow {
+  display: grid;
+  grid-template-columns: 1fr auto 18px;
+  align-items: center;
+  width: 100%;
+  height: 27px;
+  padding: 0 4px 0 8px;
+  border-bottom: 1px solid #f0f2f5;
+  font-size: 9.6px;
+  text-align: left;
+}
+
+.riRow span {
+  color: #6b7383;
+}
+
+.riRow b {
+  font-weight: 400;
+  color: #2b3341;
+}
+
+.riRow:hover {
+  background: #f6f9fa;
+}
+
+/* ---------- cabinet dialog ---------- */
+.cabGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+  min-width: 380px;
+}
+
+.cabGrid > :first-child {
+  grid-column: 1 / -1;
+}
+
+.cabErr {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #c2410c;
+}

@@ -1,0 +1,65 @@
+crumb.projects               mock x290 y106 w52 h11 | dx+0 dy-1 dw+3 dh+1  <--
+crumb.current                mock x488 y105 w79 h13 | dx-1 dy+0 dw+3 dh-1  <--
+tab.design                   mock x736 y123 w33 h12 | dx+1 dy+0 dw+2 dh+0  <--
+tab.renders                  mock x839 y123 w40 h10 | dx+0 dy+0 dw+1 dh-1
+tab.drawings                 mock x941 y124 w45 h11 | dx-2 dy+0 dw+2 dh+0  <--
+tab.schedule                 mock x1040 y124 w43 h8 | dx+0 dy-1 dw+3 dh+1  <--
+btn.share                    mock x1246 y114 w29 h9 | dx-2 dy-1 dw+1 dh+0  <--
+btn.export                   mock x1343 y114 w33 h12 | dx-3 dy-1 dw-1 dh+0  <--
+btn.ai                       mock x1462 y114 w67 h10 | dx-1 dy+0 dw+1 dh-1
+rib.select                   mock x291 y189 w31 h10 | dx+2 dy+1 dw-1 dh-1  <--
+rib.furniture                mock x379 y188 w46 h9 | dx-1 dy+1 dw-1 dh-1
+rib.cabinet                  mock x484 y188 w38 h9 | dx-2 dy+0 dw+0 dh+0  <--
+rib.material                 mock x582 y188 w41 h9 | dx-1 dy+0 dw-1 dh+0
+rib.lighting                 mock x677 y188 w41 h12 | dx-1 dy+0 dw-1 dh+0
+rib.decor                    mock x770 y188 w29 h9 | dx-1 dy+1 dw+0 dh-1
+rib.dimension                mock x854 y188 w53 h9 | dx-2 dy+1 dw+1 dh-1  <--
+rib.tag                      mock x964 y188 w20 h12 | dx-1 dy+1 dw-2 dh-1  <--
+rib.cabparam                 mock x1037 y188 w97 h9 | dx-2 dy+0 dw+1 dh+0  <--
+rib.cutlist                  mock x1177 y188 w38 h9 | dx-1 dy+1 dw+0 dh-1
+rib.more                     mock x1294 y188 w72 h9 | dx-1 dy+0 dw-1 dh+0
+pb.title                     mock x282 y232 w100 h15 | dx+2 dy+1 dw-6 dh-2  <--
+pb.search                    mock x317 y267 w154 h10 | dx+1 dy+0 dw-6 dh-1  <--
+pb.villa                     mock x319 y299 w79 h11 | dx+1 dy+2 dw-3 dh-2  <--
+pb.views                     mock x333 y322 w67 h9 | dx+0 dy+0 dw-1 dh-1
+pb.3dint                     mock x351 y342 w59 h9 | dx+0 dy+0 dw-2 dh-1  <--
+pb.floorplans                mock x333 y425 w53 h8 | dx+0 dy-2 dw+1 dh+0  <--
+pb.living                    mock x381 y484 w58 h11 | dx-1 dy-1 dw+1 dh-1
+pb.balcony                   mock x381 y645 w37 h10 | dx-1 dy+0 dw+1 dh+0
+pb.finish                    mock x367 y705 w52 h9 | dx-2 dy+0 dw-4 dh-1  <--
+pb.elevations                mock x333 y726 w50 h9 | dx+0 dy-1 dw-1 dh-1
+pb.secb                      mock x354 y827 w56 h9 | dx-3 dy-1 dw+0 dh-1  <--
+pb.lighting                  mock x352 y930 w87 h11 | dx+0 dy-3 dw-1 dh-1  <--
+vp.view                      mock x521 y240 w80 h11 | dx+2 dy+2 dw-1 dh-2  <--
+vp.inset                     mock x518 y280 w115 h11 | dx+1 dy+1 dw-5 dh+0  <--
+vp.realistic                 mock x525 y700 w42 h9 | dx-2 dy+3 dw+1 dh+0  <--
+vp.shaded                    mock x606 y700 w37 h9 | dx-1 dy+3 dw+1 dh+0  <--
+vp.hidden                    mock x766 y700 w58 h9 | dx-1 dy+3 dw+1 dh+0  <--
+vp.level                     mock x1004 y700 w37 h9 | dx-2 dy+3 dw-6 dh-1  <--
+vp.scale                     mock x1096 y700 w28 h9 | dx+0 dy+3 dw-3 dh-1  <--
+bt.furniture                 mock x510 y745 w89 h10 | dx+2 dy+1 dw+1 dh-1  <--
+bt.materials                 mock x625 y747 w47 h10 | dx+2 dy-1 dw+1 dh-1  <--
+bt.cutlist                   mock x710 y746 w105 h12 | dx+2 dy+0 dw+0 dh+0  <--
+bt.qty                       mock x859 y747 w84 h11 | dx+2 dy-1 dw+1 dh-1  <--
+bt.viewall                   mock x1175 y747 w38 h10 | dx-1 dy+3 dw+1 dh-2  <--
+th.name                      mock x585 y779 w23 h7 | dx+1 dy+0 dw+2 dh+0  <--
+th.dims                      mock x828 y779 w67 h8 | dx+1 dy+0 dw+2 dh+1  <--
+tr1.name                     mock x585 y802 w55 h10 | dx+1 dy+1 dw+4 dh+0  <--
+tr1.dims                     mock x828 y803 w79 h8 | dx+1 dy+1 dw+2 dh-1  <--
+tr6.name                     mock x587 y934 w58 h11 | dx+0 dy-3 dw+2 dh-2  <--
+tr6.status                   mock x1116 y933 w28 h9 | dx+2 dy-2 dw+1 dh-2  <--
+rp.props                     mock x1254 y232 w55 h12 | dx+2 dy+1 dw-3 dh-2  <--
+rp.ai                        mock x1457 y233 w64 h10 | dx+0 dy-1 dw-2 dh-1  <--
+ai.title                     mock x1305 y276 w132 h15 | dx+4 dy-1 dw-2 dh-1  <--
+ai.sugg                      mock x1264 y352 w61 h12 | dx-2 dy-1 dw-3 dh-5  <--
+ai.generate                  mock x1374 y353 w44 h9 | dx-2 dy-2 dw-5 dh-4  <--
+ai.ctx                       mock x1252 y394 w81 h10 | dx-2 dy-1 dw+0 dh+0  <--
+ai.ctxsel                    mock x1368 y395 w57 h11 | dx-2 dy-1 dw-2 dh-1  <--
+ai.chip1                     mock x1265 y427 w31 h8 | dx-3 dy+1 dw+3 dh+0  <--
+ai.prompt                    mock x1258 y462 w231 h12 | dx-1 dy+0 dw+0 dh-2  <--
+ai.suggtitle                 mock x1277 y566 w80 h12 | dx-2 dy+0 dw+1 dh+0  <--
+ai.viewall                   mock x1494 y567 w39 h9 | dx-2 dy-1 dw-4 dh+0  <--
+ri.title                     mock x1273 y824 w98 h11 | dx+1 dy-2 dw-2 dh-3  <--
+ri.area                      mock x1248 y858 w41 h9 | dx+0 dy-2 dw+2 dh-3  <--
+ri.areav                     mock x1329 y859 w31 h8 | dx-3 dy-3 dw-1 dh-2  <--
+ri.floorfin                  mock x1423 y915 w83 h9 | dx+6 dy-3 dw-2 dh-4  <--

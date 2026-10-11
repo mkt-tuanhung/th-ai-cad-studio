@@ -14,6 +14,7 @@ import { BimScreen } from './screens/bim/BimScreen'
 import { ProjectsScreen } from './screens/projects/ProjectsScreen'
 import { SettingsScreen } from './screens/settings/SettingsScreen'
 import { ComponentsScreen } from './screens/components/ComponentsScreen'
+import { InteriorScreen } from './screens/interior/InteriorScreen'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
@@ -63,6 +64,8 @@ export default function App() {
               <SettingsScreen />
             ) : route === 'components' ? (
               <ComponentsScreen />
+            ) : route === 'interior' ? (
+              <InteriorScreen />
             ) : (
               <PlaceholderScreen route={route} title={t.nav[TITLE_KEY[route]]} />
             )}

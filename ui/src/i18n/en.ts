@@ -1,3 +1,4 @@
+import { interiorEn } from './ws/interior'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
   app: {
@@ -895,6 +896,7 @@ export const en = {
       privacyText: 'TH AI CAD Studio runs fully offline: no account, no cloud, no telemetry. The AI runs on this computer and only proposes edits that you approve. DWG files are converted locally by the bundled LibreDWG program.',
     },
   },
+  interior: interiorEn,
   components: {
     title: 'Components Library',
     subtitle: 'Shared design assets for all disciplines. Search, browse and use high-quality components, blocks and families.',

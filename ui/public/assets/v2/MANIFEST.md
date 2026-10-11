@@ -28,3 +28,9 @@
 | components/plant.png | 07 Recently Used | crop 07_Components.png (861,843)–(996,914), image area only, ★ inpainted | DEMO | mockup |
 | components/toilet.png | 07 Recently Used | crop 07_Components.png (1006,843)–(1141,914), image area only, ★ inpainted | DEMO | mockup |
 | components/fabric.png | 07 Materials card | crop of the material swatch | DEMO | mockup |
+| interior/viewport.png | 09 | crop 09_Interior.png (497,222)–(1224,727), UI overlays inpainted (cv2 TELEA) | DEMO | mockup |
+| interior/plan-inset.png | 09 | crop (517,296)–(708,441) | DEMO | mockup |
+| interior/sugg-modern-luxury.png | 09 | crop (1252,592)–(1535,685), label+Apply inpainted | DEMO | mockup |
+| interior/sugg-japandi.png | 09 | crop (1252,693)–(1535,781), label+Apply inpainted | DEMO | mockup |
+| interior/sugg-third.png | 09 | crop (1252,788)–(1535,802) | DEMO | mockup |
+| interior/item-*.png (6) | 09 | crops x 532–567, y 796–953 | DEMO | mockup |
