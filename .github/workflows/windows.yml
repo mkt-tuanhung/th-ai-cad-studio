@@ -76,6 +76,8 @@ jobs:
       - name: Build, test and package
         shell: pwsh
         run: |
+          # GitHub's Windows runners have no GPU: the offscreen-3D pixel checks are skipped there
+          $env:THCAD_TEST_NO_GPU = "1"
           $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
           New-Item -ItemType Directory -Force vcpkg-cache | Out-Null
           ./native/packaging/windows/build_windows.ps1

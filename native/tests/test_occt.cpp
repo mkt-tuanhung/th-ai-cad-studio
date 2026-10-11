@@ -29,7 +29,7 @@ TEST("OCCT extrudes closed polylines and writes STEP") {
   auto s = occt::extrudeClosedPolylines(d, "A-Wall", 3000, &n);
   CHECK(n == 1);
   CHECK_NEAR(s.volumeM3(), 0.6, 1e-9);
-  const std::string path = "/tmp/thcad_test.step";
+  const std::string path = (std::filesystem::temp_directory_path() / "thcad_test.step").string();
   CHECK(occt::writeStep(s, path).empty());
 }
 
@@ -41,6 +41,8 @@ TEST("OCCT building solid: all 24 walls placed, net volume = sum of walls with o
 }
 
 #include "thcad/occt/offscreen.hpp"
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
 
 TEST("OCCT offscreen renders frames in every display mode") {
@@ -56,8 +58,9 @@ TEST("OCCT offscreen renders frames in every display mode") {
     for (size_t i = 0; i + 3 < px.size(); i += 4)
       if (std::abs(px[i] - px[0]) + std::abs(px[i + 1] - px[1]) + std::abs(px[i + 2] - px[2]) > 40) ++drawn;
     // shaded fills faces; wireframe / hidden-line only draw thin edges
-    CHECK(drawn > (std::string(mode) == "shaded" ? 740u * 530u / 10u : 740u * 530u / 200u));
-    std::ofstream f(std::string("/tmp/thcad_offscreen_") + mode + ".ppm", std::ios::binary);
+    // CI runners without a GPU (software OpenGL 1.1, no FBO) cannot draw: THCAD_TEST_NO_GPU=1 skips this check
+    if (!std::getenv("THCAD_TEST_NO_GPU")) CHECK(drawn > (std::string(mode) == "shaded" ? 740u * 530u / 10u : 740u * 530u / 200u));
+    std::ofstream f((std::filesystem::temp_directory_path() / (std::string("thcad_offscreen_") + mode + ".ppm")).string(), std::ios::binary);
     f << "P6\n740 530\n255\n";
     for (size_t i = 0; i + 3 < px.size(); i += 4) f.write(reinterpret_cast<const char*>(&px[i]), 3);
   }
