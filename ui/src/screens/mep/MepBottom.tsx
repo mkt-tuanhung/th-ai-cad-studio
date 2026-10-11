@@ -3,7 +3,7 @@ import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useMep, type MepBottom as Tab, type MepSchedule } from '../../state/mep'
 import { Status, TabCard, Table, wsStyles as w, type Column } from '../../components/workspace/Workspace'
-import { designChecks, type Circuit, type Clash, type Duct, type Equipment, type Finding, type LevelId, type Pipe } from '../../mep/model'
+import { clearElevation, designChecks, type Circuit, type Clash, type Duct, type Equipment, type Finding, type LevelId, type Pipe } from '../../mep/model'
 import { cableCheck, pipeCheck, LIMITS } from '../../mep/calc'
 import s from './Mep.module.css'
 
@@ -79,13 +79,15 @@ export function MepBottom({ clashes, onCheck, onDownload }: { clashes: Clash[]; 
   const lowerDuct = (mark: string, lvId: LevelId) => {
     const d = doc.ducts.find((x) => x.mark === mark && x.level === lvId)
     if (!d) return
-    const err = edit(`${d.mark}: ${t.fixes.lower}`, (m) => ({ ...m, ducts: m.ducts.map((x) => (x.id === d.id ? { ...x, elevation: 2650 } : x)) }))
-    toast(err ? fmt(t.toast.invalid, { why: err }) : fmt(t.toast.applied, { label: `${d.mark} → 2650 mm` }), err ? 'warning' : 'success')
+    const e = clearElevation(doc, d.id)
+    if (e === null) return toast(fmt(t.toast.invalid, { why: t.fixes.noRoom }), 'warning')
+    const err = edit(`${d.mark}: ${t.fixes.lower}`, (m) => ({ ...m, ducts: m.ducts.map((x) => (x.id === d.id ? { ...x, elevation: e } : x)) }))
+    toast(err ? fmt(t.toast.invalid, { why: err }) : fmt(t.toast.applied, { label: `${d.mark} → ${e} mm` }), err ? 'warning' : 'success')
   }
 
   const systems = [
-    { id: 'hvac', n: doc.ducts.length, total: `${(doc.ducts.reduce((a, d) => a + d.length, 0) / 1000).toFixed(1)} m`, cl: clashes.filter((x) => x.kind !== 'pipe-beam').length, is: findings.filter((f) => f.target.kind === 'duct').length },
-    { id: 'plumbing', n: doc.pipes.length, total: `${(doc.pipes.reduce((a, d) => a + d.length, 0) / 1000).toFixed(1)} m`, cl: clashes.filter((x) => x.kind !== 'duct-beam').length, is: findings.filter((f) => f.target.kind === 'pipe').length },
+    { id: 'hvac', n: doc.ducts.length, total: `${(doc.ducts.reduce((a, d) => a + d.length, 0) / 1000).toFixed(1)} m`, cl: clashes.filter((x) => x.kind.includes('duct')).length, is: findings.filter((f) => f.target.kind === 'duct').length },
+    { id: 'plumbing', n: doc.pipes.length, total: `${(doc.pipes.reduce((a, d) => a + d.length, 0) / 1000).toFixed(1)} m`, cl: clashes.filter((x) => x.kind.includes('pipe')).length, is: findings.filter((f) => f.target.kind === 'pipe').length },
     { id: 'electrical', n: doc.circuits.length, total: `${doc.circuits.reduce((a, d) => a + d.kw, 0).toFixed(1)} kW`, cl: 0, is: findings.filter((f) => f.target.kind === 'circuit').length },
   ] as const
   const statusCols: Column<(typeof systems)[number]>[] = [
@@ -158,7 +160,7 @@ export function MepBottom({ clashes, onCheck, onDownload }: { clashes: Clash[]; 
         </>
       )}
       {bottom === 'clashes' && <NativeClashNote clashes={clashes} />}
-      {bottom === 'clashes' && <Table label={fmt(t.bottom.clashes, { n: clashes.length })} columns={clashCols} rows={clashes} rowKey={(x) => x.id} rowH={22} onSelect={(x) => { const d = doc.ducts.find((y) => y.mark === x.a && y.level === x.level); if (d) select('duct', d.id) }} empty={t.aiCard.none} />}
+      {bottom === 'clashes' && <Table label={fmt(t.bottom.clashes, { n: clashes.length })} columns={clashCols} rows={clashes} rowKey={(x) => x.id} rowH={22} onSelect={(x) => { const d = doc.ducts.find((y) => y.mark === x.a && y.level === x.level); if (d) return select('duct', d.id); const p = doc.pipes.find((y) => y.mark === x.a && y.level === x.level); if (p) select('pipe', p.id) }} empty={t.aiCard.none} />}
       {bottom === 'status' && <Table label={t.bottom.status} columns={statusCols} rows={[...systems]} rowKey={(x) => x.id} rowH={24} />}
       {bottom === 'ai' && (
         <>

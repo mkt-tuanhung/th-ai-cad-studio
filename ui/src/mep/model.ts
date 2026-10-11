@@ -213,7 +213,7 @@ export interface Clash {
   id: string
   a: string
   b: string
-  kind: 'duct-beam' | 'pipe-beam' | 'duct-pipe'
+  kind: 'duct-beam' | 'pipe-beam' | 'duct-pipe' | 'duct-duct' | 'pipe-pipe'
   level: LevelId
   depth: number // vertical overlap, mm
 }
@@ -229,6 +229,17 @@ export function findClashes(m: MepModel): Clash[] {
     for (const { p, box: pb } of pipes) if (p.level === d.level && hit(db, pb)) out.push({ id: `${d.id}×${p.id}`, a: d.mark, b: p.mark, kind: 'duct-pipe', level: d.level, depth: ov(db, pb) })
   }
   for (const { p, box: pb } of pipes) for (const { b, box: bb } of beams) if (b.level === p.level && hit(pb, bb)) out.push({ id: `${p.id}×${b.id}`, a: p.mark, b: b.id.replace(/^B-L\d-/, 'Beam '), kind: 'pipe-beam', level: p.level, depth: ov(pb, bb) })
+  // same-service crossings: runs of one system drawn through each other (found by the exact OCCT check)
+  for (let i = 0; i < ducts.length; i++)
+    for (let j = i + 1; j < ducts.length; j++) {
+      const a = ducts[i], b = ducts[j]
+      if (a.d.level === b.d.level && hit(a.box, b.box)) out.push({ id: `${a.d.id}×${b.d.id}`, a: a.d.mark, b: b.d.mark, kind: 'duct-duct', level: a.d.level, depth: ov(a.box, b.box) })
+    }
+  for (let i = 0; i < pipes.length; i++)
+    for (let j = i + 1; j < pipes.length; j++) {
+      const a = pipes[i], b = pipes[j]
+      if (a.p.level === b.p.level && hit(a.box, b.box)) out.push({ id: `${a.p.id}×${b.p.id}`, a: a.p.mark, b: b.p.mark, kind: 'pipe-pipe', level: a.p.level, depth: ov(a.box, b.box) })
+    }
   return out
 }
 
@@ -271,3 +282,19 @@ export function designChecks(m: MepModel): Finding[] {
 }
 
 export const systemOf = (d: Duct | Pipe) => ('service' in d ? 'Plumbing' : 'HVAC')
+
+/**
+ * Highest centre-line elevation (50 mm steps, from the beam soffit down to 1800 mm) at which a duct clashes
+ * with nothing — beams, other ducts or pipes. null when no such elevation exists (re-route needed).
+ */
+export function clearElevation(m: MepModel, ductId: string): number | null {
+  const d = m.ducts.find((x) => x.id === ductId)
+  if (!d) return null
+  const soffit = 3300 - 300 // beam centre 3300, depth 600
+  const top = Math.floor((soffit - d.h / 2 - d.insulation) / 50) * 50
+  for (let e = top; e >= 1800; e -= 50) {
+    const trial = { ...m, ducts: m.ducts.map((x) => (x.id === ductId ? { ...x, elevation: e } : x)) }
+    if (!findClashes(trial).some((c) => c.id.split('×').includes(ductId))) return e
+  }
+  return null
+}

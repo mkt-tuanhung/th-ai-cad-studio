@@ -3,7 +3,7 @@ import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useMep, type MepRight as Tab } from '../../state/mep'
 import { NumField, PRow, PanelTabs, Section, wsStyles as w } from '../../components/workspace/Workspace'
-import { LEVELS, designChecks, type Clash, type Duct, type Finding, type LevelId } from '../../mep/model'
+import { LEVELS, clearElevation, designChecks, type Clash, type Duct, type Finding, type LevelId } from '../../mep/model'
 import { cableCheck, ductLoss, pipeCheck } from '../../mep/calc'
 import s from './Mep.module.css'
 
@@ -176,8 +176,10 @@ function useIssues(clashes: Clash[]) {
       text: fmt(t.aiCard.clashText, { a: c.a, b: c.b, level: lvName(t, c.level), depth: c.depth }),
       apply: () => {
         const d = doc.ducts.find((x) => x.mark === c.a && x.level === c.level)!
-        const err = edit(`${d.mark}: ${t.fixes.lower}`, (m) => ({ ...m, ducts: m.ducts.map((x) => (x.id === d.id ? { ...x, elevation: 2650 } : x)) }))
-        toast(err ? fmt(t.toast.invalid, { why: err }) : fmt(t.toast.applied, { label: `${d.mark} → 2650 mm` }), err ? 'warning' : 'success')
+        const e = clearElevation(doc, d.id)
+        if (e === null) return toast(fmt(t.toast.invalid, { why: t.fixes.noRoom }), 'warning')
+        const err = edit(`${d.mark}: ${t.fixes.lower}`, (m) => ({ ...m, ducts: m.ducts.map((x) => (x.id === d.id ? { ...x, elevation: e } : x)) }))
+        toast(err ? fmt(t.toast.invalid, { why: err }) : fmt(t.toast.applied, { label: `${d.mark} → ${e} mm` }), err ? 'warning' : 'success')
       },
     })),
     ...findings.map((f: Finding) => ({ id: f.id, text: fmt(t.aiCard.findingText, { target: f.target.id, rule: t.rules[f.rule], value: f.value.toFixed(2), limit: f.limit }) })),
