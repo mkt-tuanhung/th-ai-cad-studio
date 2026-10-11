@@ -18,6 +18,20 @@ cp /opt/homebrew/opt/ggml/libexec/*.so "$APP/Contents/PlugIns/ggml/"
 for so in "$APP"/Contents/PlugIns/ggml/*.so; do
   install_name_tool -add_rpath @loader_path/../../Frameworks "$so" 2>/dev/null || true
 done
+# DWG reader: LibreDWG `dwg2dxf` shipped as a separate GPL-3.0 program (run as a child process, never
+# linked), with its library, license and the complete corresponding source (third_party/libredwg).
+LIBREDWG=/opt/homebrew/opt/libredwg
+[[ -x $LIBREDWG/bin/dwg2dxf ]] || { echo "error: brew install libredwg (DWG reader)" >&2; exit 1; }
+mkdir -p "$APP/Contents/Helpers" "$APP/Contents/Resources/licenses/libredwg"
+cp $LIBREDWG/bin/dwg2dxf "$APP/Contents/Helpers/"
+cp $LIBREDWG/lib/libredwg.0.dylib "$APP/Contents/Frameworks/"
+chmod u+w "$APP/Contents/Helpers/dwg2dxf" "$APP/Contents/Frameworks/libredwg.0.dylib"
+install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/Helpers/dwg2dxf" 2>/dev/null || true
+SRC=$(third_party/libredwg/fetch.sh https://ftpmirror.gnu.org/libredwg/libredwg-0.14.tar.gz cb6ee0b078c6d9e0f09d66f1feac33ba6342df88ae544e9f9335fab475218351)
+cp "$SRC" "$APP/Contents/Resources/licenses/libredwg/"
+tar -xzOf "$SRC" libredwg-0.14/COPYING > "$APP/Contents/Resources/licenses/libredwg/COPYING"
+cp third_party/libredwg/README.md "$APP/Contents/Resources/licenses/libredwg/"
+cp ../THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/licenses/"
 python3 tools/fix_bundle_paths.py "$APP"
 # every Mach-O in the bundle must be relocatable
 BAD=$(find "$APP" -type f -perm +111 -o -type f -name "*.dylib" | while read -r f; do otool -L "$f" 2>/dev/null | grep -q "/opt/homebrew" && echo "$f"; done || true)

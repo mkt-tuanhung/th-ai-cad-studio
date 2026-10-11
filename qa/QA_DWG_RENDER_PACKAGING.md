@@ -42,6 +42,42 @@ Kiểm chứng thêm:
 3. Nếu nhập tệp trong lúc dữ liệu đang được nạp lại, bước nạp lại có thể ghi đè bản vẽ vừa nhập. Giờ app
    đợi nạp xong rồi mới nhập.
 
+### Mở DWG trong app (2026-10-11 — chủ đầu tư chọn LibreDWG cài kèm)
+
+- **Luồng xử lý:**
+  1. Chọn tệp `.dwg` trong CAD 2D.
+  2. Host native (`app/src/dwg_reader.cpp`) chạy `dwg2dxf` của LibreDWG như **một chương trình riêng**
+     (tiến trình con, không link vào app), chạy nền và tự dừng nếu quá 120 s.
+  3. Byte DXF được gửi về UI, nhận đúng bảng mã rồi đi qua bộ nhập DXF.
+  4. Bản vẽ từ 2.000 đối tượng trở lên được vẽ bằng lớp GPU.
+- **Đóng gói:**
+  - macOS: `Contents/Helpers/dwg2dxf` và `Frameworks/libredwg.0.dylib`. Helper được ký với
+    `disable-library-validation`, vì chữ ký ad-hoc không có Team ID để khớp.
+  - Windows: thư mục `libredwg\` gồm `dwg2dxf.exe`, `libredwg-0.dll`, `libiconv-2.dll`, lấy từ bản dựng
+    chính thức trên GitHub và kiểm tra sha256.
+  - Cả hai bản cài đều kèm `COPYING` (GPL-3.0) và **toàn bộ mã nguồn** đúng phiên bản phát hành,
+    cùng `THIRD_PARTY_NOTICES.md`.
+- **Bảng mã chữ:**
+  - DXF từ AC1021 trở lên dùng UTF-8. Bản cũ hơn dùng code page lấy từ `$DWGCODEPAGE` (ví dụ ANSI_1258),
+    có chuẩn hoá NFC.
+  - **TCVN3** (font .VnTime/.VnArial, vntime.shx — rất phổ biến trong bản vẽ ở Việt Nam) được đổi sang
+    Unicode theo font của text style hoặc font khai báo ngay trong MTEXT. Font TrueType có đuôi `H` là bộ
+    chữ in hoa nên text được viết hoa theo đúng như AutoCAD hiển thị.
+  - Mã VNI chưa đổi được: app chỉ đếm số text VNI và báo ra dòng lệnh.
+  - Lỗi này được phát hiện khi đọc bản vẽ Kênh Đức Phong: trước khi sửa, app hiện "Cao ®é mÆt ®Êt",
+    nay hiện đúng "Cao độ mặt đất tự nhiên" và "CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM".
+
+| Bản vẽ DWG (chạy từ DMG) | Đổi DWG → DXF | Mở xong | Đối tượng | Cảnh báo của LibreDWG |
+|---|---|---|---|---|
+| VILLA_150_MASTER (AC1032) | 47 ms | 0,2 s | 3 014 | 237 (không ảnh hưởng hình) |
+| BVTK Kênh Đức Phong (AC1021, 1,8 MB) | 453 ms | 1,3 s | 41 717 | 1 462 (không ảnh hưởng hình) |
+
+Kiểm thử:
+- `native/app/resources/e2e_dwg.js` (`THCAD_QA=1 THCAD_DWG_SAMPLE=…`): đạt 8/8 cho cả hai bản vẽ khi chạy
+  từ DMG, kể cả bước kiểm tra "không còn ký tự TCVN3".
+- Bước TCVN3 trong `ui/tools/smoke-cad2d.mjs`.
+- Ảnh: `native_dwg_villa_master.png`, `native_dwg_kenh_duc_phong.png`.
+
 ## 2. Có cần renderer 2D native không? — Đo thật
 
 Đo bằng `ui/tools/bench-2d.mjs`. Mỗi lần đổi khung nhìn (pan/zoom) được tính đến khi vẽ xong; 33 ms là
@@ -112,7 +148,7 @@ Metal, tức cùng đường GPU mà QtWebEngine dùng:
 | Hạng mục | Trạng thái |
 |---|---|
 | macOS `.dmg` | `native/packaging/macos/make_dmg.sh` → `dist/TH-AI-CAD-Studio-0.1.0-macOS-arm64.dmg` (~104 MB). Ký ad-hoc + **hardened runtime** + entitlements (JIT cho V8, `disable-library-validation` cho ggml) |
-| Chạy từ DMG đã mount | selftest **10/10**, e2e_cad 12/12, e2e_bim3d 9/9, e2e_gpu 4/4, e2e_ai 7/7 (Qwen2.5-7B), không nạp thư viện nào từ `/opt/homebrew` |
+| Chạy từ DMG đã mount (126 MB, có LibreDWG) | selftest **10/10**, e2e_cad 12/12, e2e_bim3d 9/9, e2e_gpu 4/4, e2e_dwg 8/8 × 2 bản vẽ, e2e_ai 7/7 (Qwen2.5-7B), không nạp thư viện nào từ `/opt/homebrew`. e2e_bim3d từng lỗi 1 lần trên 9 lần chạy (không tìm thấy nút của view cube) và không tái hiện được trong 6 lần chạy lại |
 | Developer ID + notarize | Script đã sẵn sàng (`DEVELOPER_ID=… NOTARY_PROFILE=…`). **Chưa chạy**: máy chưa có chứng chỉ (0 identity). Cần Apple Developer Program $99/năm — chỉ để bỏ cảnh báo Gatekeeper, **không bắt buộc** |
 | Windows: mã nguồn | Đã tách phần riêng của macOS: số thực theo locale (`_strtod_l`), RAM (`GlobalMemoryStatusEx`), đường dẫn exe, thư mục model `%LOCALAPPDATA%`, cửa sổ OCCT (`WNT_Window`), title bar, AppKit chỉ dùng trên Apple, cờ MSVC |
 | Windows: biên dịch thử | Lõi core/bim/ai + 31 test + CLI biên dịch chéo bằng MinGW-w64 → `thcad_tests.exe`, `thcad-cli.exe`, **0 lỗi** (chưa chạy được vì không có Windows/Wine) |

@@ -1,14 +1,15 @@
 #include "host_bridge.hpp"
 
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonArray>
 #include <QThread>
 
 #include <chrono>
 #include <QSysInfo>
 #include <QWidget>
 
+#include "dwg_reader.hpp"
 #include "native_viewport.hpp"
 #include "thcad/ai/assistant.hpp"
 #include "thcad/core/commands.hpp"
@@ -35,6 +36,8 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
       bus_(std::make_unique<CommandBus>(Document::blank("Drawing1.dwg"))),
       proposals_(std::make_unique<ProposalQueue>(*bus_)),
       bim_(bim::villaRiverside()) {
+  dwg_ = new DwgReader(this);
+  connect(dwg_, &DwgReader::finished, this, &HostBridge::dwgResult);
   if (const std::string model = ai::discoverModel(); !model.empty()) runtime_->load(model);
 }
 
@@ -54,6 +57,7 @@ QJsonObject HostBridge::info() const {
 #endif
       {"aiBackend", QString::fromStdString(runtime_->status().backend)},
       {"nativeViewport", nativeViewport()},
+      {"dwgReader", DwgReader::version()},
   };
 }
 
@@ -251,6 +255,16 @@ QJsonObject HostBridge::bim3dLoad(const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::bim3dFrame(int, int, const QString&, const QString&) { return {{"ok", false}}; }
 void HostBridge::bim3dCamera(const QString&, double, double, double, double) {}
 #endif
+
+QString HostBridge::dwgToDxf(const QString& base64, const QString& name) {
+  return dwg_->convert(QByteArray::fromBase64(base64.toLatin1()), name);
+}
+
+QString HostBridge::qaSampleDwg() const {
+  if (qEnvironmentVariableIntValue("THCAD_QA") != 1) return {};
+  QFile f(qEnvironmentVariable("THCAD_DWG_SAMPLE"));
+  return f.open(QIODevice::ReadOnly) ? QString::fromLatin1(f.readAll().toBase64()) : QString();
+}
 
 bool HostBridge::qaGrab(const QString& path) {
   if (qEnvironmentVariableIntValue("THCAD_QA") != 1) return false;

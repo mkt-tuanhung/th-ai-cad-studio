@@ -38,7 +38,8 @@ Cách chụp: Playwright Chromium headless, 1586×992 @1x, profile mới (tài l
 ## Những gì cố ý KHÔNG giả lập (báo rõ trong dòng lệnh / toast)
 
 - TRIM, HATCH, PLOT, tạo layout mới, xuất PDF/PNG → "cần CAD engine native".
-- Mở DWG → cần thư viện đọc DWG (chờ chủ đầu tư chọn: LibreDWG/GPL, ODA File Converter, ODA SDK trả phí); hiện mở DXF.
+- Mở DWG: trong app desktop thì đọc bằng LibreDWG đi kèm (xem `QA_DWG_RENDER_PACKAGING.md`); bản xem trên
+  trình duyệt chỉ mở được DXF.
 - AI Assist (Suggestions/Generate/Modify) → "Local AI runtime chưa kết nối"; khi có, mọi đề xuất phải
   qua xem trước + phê duyệt.
 

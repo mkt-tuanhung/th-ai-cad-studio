@@ -151,9 +151,25 @@ await step('large DXF (blocks, 2 500+ entities) is exploded and drawn by the GPU
   else { assert.equal(st.canvases, 2); assert.equal(st.gpu.segments, 2700); assert.ok(st.svg < 50, 'SVG overlay holds no geometry') }
 })
 
-await step('DWG open is refused with a clear native-engine message', async () => {
+await step('Vietnamese TCVN3 text (.VnTime / .VnTimeH fonts) is converted to Unicode', async () => {
+  const g = []
+  const p = (...a) => g.push(...a.map(String))
+  p(0, 'SECTION', 2, 'TABLES', 0, 'TABLE', 2, 'STYLE')
+  p(0, 'STYLE', 2, 'VN', 70, 0, 3, '', 1001, 'ACAD', 1000, '.VnTime')
+  p(0, 'STYLE', 2, 'VNH', 70, 0, 3, '', 1001, 'ACAD', 1000, '.VnTimeH')
+  p(0, 'ENDTAB', 0, 'ENDSEC', 0, 'SECTION', 2, 'ENTITIES')
+  p(0, 'TEXT', 8, '0', 7, 'VN', 10, 0, 20, 0, 40, 250, 1, 'Cao ®é mÆt ®Êt tù nhiªn')
+  p(0, 'TEXT', 8, '0', 7, 'VNH', 10, 0, 20, 500, 40, 250, 1, 'céng hoµ x· héi chñ nghÜa viÖt nam')
+  p(0, 'ENDSEC', 0, 'EOF')
+  await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: 'tcvn3.dxf', mimeType: 'application/dxf', buffer: Buffer.from(g.join('\n') + '\n', 'utf8') })
+  await page.waitForFunction(() => { const s = window.__thcad.cad.getState(); return s.docs[s.activeId]?.name === 'tcvn3.dxf' })
+  const texts = await page.evaluate(() => { const s = window.__thcad.cad.getState(); return s.docs[s.activeId].entities.map((e) => e.value) })
+  assert.deepEqual(texts, ['Cao độ mặt đất tự nhiên', 'CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM'])
+})
+
+await step('DWG in a plain browser explains that the desktop app reads DWG', async () => {
   await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: 'site.dwg', mimeType: 'application/acad', buffer: Buffer.alloc(64) })
-  assert.ok(await page.getByText(/licensed DWG reader/).first().isVisible())
+  assert.ok(await page.getByText(/needs the desktop app/).first().isVisible())
 })
 
 await step('new drawing tab (+) and close tab', async () => {

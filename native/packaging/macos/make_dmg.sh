@@ -28,6 +28,8 @@ for fw in "$APP"/Contents/Frameworks/*.framework; do
   sign "$fw"
 done
 find "$APP/Contents/PlugIns" -name "*.dylib" -type f | while read -r f; do sign "$f"; done
+# helper programs (LibreDWG dwg2dxf)
+find "$APP/Contents/Helpers" -type f -perm +111 2>/dev/null | while read -r f; do sign --entitlements packaging/macos/helper.entitlements.plist "$f"; done
 sign --entitlements "$ENT" "$APP"
 codesign --verify --deep --strict "$APP"
 echo "signed: $IDENTITY"

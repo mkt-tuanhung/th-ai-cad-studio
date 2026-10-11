@@ -11,3 +11,4 @@ ui/test-results/
 .DS_Store
 .claude/
 native/packaging/windows/build-win/
+native/third_party/downloads/

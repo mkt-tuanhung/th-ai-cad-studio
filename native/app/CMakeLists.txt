@@ -6,6 +6,7 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/main_window.cpp src/main_window.hpp
   src/ui_scheme.cpp src/ui_scheme.hpp
   src/host_bridge.cpp src/host_bridge.hpp
+  src/dwg_reader.cpp src/dwg_reader.hpp
   src/native_viewport.cpp src/native_viewport.hpp
   src/mac_window.hpp
 )

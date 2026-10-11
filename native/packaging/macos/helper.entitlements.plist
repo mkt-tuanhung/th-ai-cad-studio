@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Helper programs (LibreDWG dwg2dxf) load their library from Contents/Frameworks. With an ad-hoc
+       signature there is no Team ID to match, so library validation must be off; with a Developer ID
+       signature this is harmless. -->
+  <key>com.apple.security.cs.disable-library-validation</key><true/>
+</dict>
+</plist>

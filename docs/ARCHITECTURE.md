@@ -94,7 +94,8 @@ Hệ quả của A: UI trong `ui/` là UI sản phẩm thật (không phải b�
        đối tượng; SVG giữ cho lớp tương tác và bản vẽ mockup;
    (e) phát hành: `.dmg` ký ad-hoc + hardened runtime (miễn phí) ✅; Developer ID + notarize tuỳ chọn ($99/năm);
        Windows `.exe` — mã nguồn đã tách phần riêng macOS, script MSVC + Inno Setup + GitHub Actions sẵn, chưa build trên Windows thật;
-   (g) đọc DWG — chờ chọn thư viện; bộ nhập DXF R12–2018 đầy đủ block/kích thước/hatch ✅.
+   (g) đọc DWG ✅ — LibreDWG `dwg2dxf` đi kèm như chương trình riêng (GPL-3.0, kèm mã nguồn), bộ nhập DXF
+       R12–2018 đầy đủ block/kích thước/hatch, tiếng Việt UTF-8 / code page / TCVN3; ghi DWG chưa có.
    Sau này: PWA kết nối server để theo dõi/ra lệnh cho app desktop (bản mobile chỉ quản lý, không có công cụ kỹ thuật).
    ✅ (f) So sánh 3B/7B: 7B 95% so với 3B 73% trên câu chưa gặp; engine tự chọn theo bộ nhớ máy.
 

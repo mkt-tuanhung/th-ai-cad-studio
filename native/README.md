@@ -86,6 +86,7 @@ tất cả miễn phí). Không ký thì SmartScreen cảnh báo lần đầu (M
 | `… e2e_cad.js` | 12 — CAD 2D ⇄ engine: vẽ, undo/redo, engine từ chối → tự hoàn tác, đổi tab |
 | `… e2e_bim3d.js` | 9 — 3D OCCT trong slot web: 3 chế độ, view cube, tô sáng, sửa mô hình → dựng lại, ⌘Z |
 | `… e2e_gpu.js` | 4 — bản vẽ lớn: WebGL2 có trong QtWebEngine, hình vẽ bằng lớp GPU, zoom ≤ 2 vsync |
+| `THCAD_QA=1 THCAD_DWG_SAMPLE=/x.dwg … e2e_dwg.js` | 7 — mở DWG thật qua LibreDWG đi kèm, tiếng Việt (kể cả TCVN3) đúng, vẽ bằng lớp GPU |
 
 ## Hạn chế hiện tại (nói thẳng)
 
@@ -94,7 +95,8 @@ tất cả miễn phí). Không ký thì SmartScreen cảnh báo lần đầu (M
 - **Renderer 2D**: bản vẽ ≥ 2 000 đối tượng được vẽ bằng WebGL2 ngay trong web view (60 fps ở 200k đối
   tượng, xem `qa/QA_DWG_RENDER_PACKAGING.md`); không cần renderer native. Nét đứt (linetype) chưa có trên
   đường GPU.
-- **Chưa đọc DWG** (chờ chọn thư viện); DXF R12–2018 đọc được, kể cả block, kích thước và hatch.
+- **DWG**: đọc bằng LibreDWG 0.14 đi kèm, chạy như một chương trình riêng (GPL-3.0, xem `third_party/libredwg/`);
+  mới **đọc**, chưa **ghi** DWG (lưu ra DXF). Build cần `brew install libredwg`.
 - **Phát hành**: `.dmg` ký ad-hoc (miễn phí, có cảnh báo lần đầu). Bản Windows chưa build/chạy thử thật
   (chưa có máy Windows) — script đã viết nhưng chưa được kiểm chứng.
 - Biến `THCAD_NATIVE_VIEWPORT=1` (widget OpenGL đè lên web) đã được thay thế bằng trình vẽ offscreen; giữ lại để so sánh.

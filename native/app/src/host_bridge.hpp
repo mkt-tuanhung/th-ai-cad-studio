@@ -15,6 +15,7 @@ namespace thcad::occt { class OffscreenView; }
 namespace thcad::app {
 
 class NativeViewport;
+class DwgReader;
 
 class HostBridge : public QObject {
   Q_OBJECT
@@ -47,6 +48,11 @@ class HostBridge : public QObject {
   Q_INVOKABLE QJsonObject bim3dFrame(int w, int h, const QString& mode, const QString& selectedWall);
   /** action: orbitStart | orbit | pan | zoom | fit | home | top | front | right */
   Q_INVOKABLE void bim3dCamera(const QString& action, double a, double b, double c, double d);
+  /** DWG bytes (base64) → DXF bytes via the bundled LibreDWG helper. Async: emits dwgResult
+   *  ({id, ok, dxf: base64, ms, warnings, error}); returns the id. */
+  Q_INVOKABLE QString dwgToDxf(const QString& base64, const QString& name);
+  /** QA only (THCAD_QA=1): bytes of $THCAD_DWG_SAMPLE as base64 (the page cannot read files). */
+  Q_INVOKABLE QString qaSampleDwg() const;
   /** QA only (THCAD_QA=1): saves a Qt grab of the window. */
   Q_INVOKABLE bool qaGrab(const QString& path);
   /** Option A: the UI reports where its viewport slot is; the native viewer is placed there. */
@@ -55,12 +61,14 @@ class HostBridge : public QObject {
  signals:
   void aiResult(const QJsonObject& result);
   void documentChanged(const QJsonObject& document);
+  void dwgResult(const QJsonObject& result);
 
  private:
   QJsonObject proposalJson(const Proposal& p) const;
   QJsonObject result(std::optional<ValidationError> err) const;
 
   NativeViewport* viewport_;
+  DwgReader* dwg_;
   std::unique_ptr<ai::Runtime> runtime_;
   std::unique_ptr<CommandBus> bus_;
   std::unique_ptr<ProposalQueue> proposals_;

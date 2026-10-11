@@ -7,7 +7,8 @@ import { toast } from '../../state/toast'
 import { useWorkspace } from '../../state/workspace'
 import { FKEYS } from '../../cad/commands'
 import { toDxf } from '../../cad/dxf'
-import { importDxf } from '../../cad/dxfImport'
+import { decodeDxf, importDxf } from '../../cad/dxfImport'
+import { convertDwg, dwgReader } from '../../services/dwg'
 import { createBlankDocument } from '../../cad/seed'
 import { Modal } from '../../components/ui/Modal'
 import { ActionButton } from '../../components/ui/Button'
@@ -64,23 +65,40 @@ export function Cad2DScreen() {
     if (!useCad.persist.hasHydrated()) await new Promise<void>((r) => { const off = useCad.persist.onFinishHydration(() => { off(); r() }) })
     for (const f of Array.from(list)) {
       const ext = f.name.split('.').pop()?.toLowerCase()
+      let bytes: Uint8Array
       if (ext === 'dwg') {
-        say(T.cad.toast.dwgNative, 'error')
-        toast(T.cad.toast.dwgNative, 'warning')
-        continue
-      }
-      if (ext !== 'dxf') {
+        // desktop app: the bundled LibreDWG helper converts DWG → DXF; a browser has no reader
+        const reader = await dwgReader()
+        if (!reader) {
+          say(T.cad.toast.dwgNative, 'error')
+          toast(T.cad.toast.dwgNative, 'warning')
+          continue
+        }
+        say(fmt(T.cad.toast.dwgConverting, { file: f.name, reader }), 'info')
+        try {
+          const r = await convertDwg(new Uint8Array(await f.arrayBuffer()), f.name)
+          bytes = r.dxf
+          say(fmt(T.cad.toast.dwgConverted, { file: f.name, ms: Math.round(r.ms), warnings: r.warnings ? fmt(T.cad.toast.dwgWarnings, { n: r.warnings }) : '' }), 'info')
+        } catch (e) {
+          const msg = fmt(T.cad.toast.dwgFailed, { file: f.name, error: (e as Error).message })
+          say(msg, 'error')
+          toast(msg, 'warning')
+          continue
+        }
+      } else if (ext === 'dxf') {
+        bytes = new Uint8Array(await f.arrayBuffer())
+      } else {
         toast(fmt(T.toast.unsupported, { ext: `.${ext}` }), 'warning')
         continue
       }
-      const { entities, layers, skipped, approximated } = importDxf(await f.text())
+      const { entities, layers, skipped, approximated } = importDxf(decodeDxf(bytes).text)
       const d = createBlankDocument(f.name)
       const known = new Set(d.layers.map((l) => l.name))
       d.layers = [...d.layers, ...layers.filter((l) => !known.has(l.name)).map(({ name, visible }) => ({ name, color: '#1f2937', visible, locked: false, linetype: 'Continuous' as const, lineweight: 0.25 }))]
       d.entities = entities
       d.source = 'dxf-import'
       cad.openDocument(d)
-      addFile({ name: f.name, format: 'DXF', projectId: null, modifiedAt: f.lastModified || Date.now(), sizeBytes: f.size, source: 'local-import' })
+      addFile({ name: f.name, format: ext === 'dwg' ? 'DWG' : 'DXF', projectId: null, modifiedAt: f.lastModified || Date.now(), sizeBytes: f.size, source: 'local-import' })
       const sk = Object.entries(skipped).map(([k, n]) => `${k}×${n}`).join(', ')
       const msg = fmt(T.cad.toast.imported, { n: entities.length, file: f.name, skipped: sk ? ` (skipped: ${sk})` : '' })
       say(msg, 'info')

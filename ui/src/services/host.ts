@@ -19,7 +19,7 @@ export interface NativeAiStatus {
 
 export interface HostApi {
   nativeViewport: boolean
-  info(): Promise<{ engine: string; platform: string; occt: string | null; aiBackend: string; commands: number; nativeViewport: boolean }>
+  info(): Promise<{ engine: string; platform: string; occt: string | null; aiBackend: string; commands: number; nativeViewport: boolean; dwgReader?: string }>
   localAiStatus(): Promise<NativeAiStatus>
   cadExecute(opsJson: string): Promise<{ ok: boolean; error?: { code: string; detail: string } }>
   proposeOps(title: string, opsJson: string): Promise<{ ok: boolean; message: string }>
@@ -35,7 +35,11 @@ export interface HostApi {
   bim3dCamera(action: string, a: number, b: number, c: number, d: number): Promise<void>
   bimSummary(): Promise<{ walls: { mark: string; area: number; volume: number; netVolume?: number }[]; checks: number[] }>
   setViewportSlot(kind: string, x: number, y: number, w: number, h: number, visible: boolean): Promise<void>
-  on(signal: 'aiResult' | 'documentChanged', fn: (payload: unknown) => void): void
+  /** Async; the result arrives on the 'dwgResult' signal with the returned id. */
+  dwgToDxf(base64: string, name: string): Promise<string>
+  /** QA only (THCAD_QA=1). */
+  qaSampleDwg(): Promise<string>
+  on(signal: 'aiResult' | 'documentChanged' | 'dwgResult', fn: (payload: unknown) => void): void
 }
 
 declare global {

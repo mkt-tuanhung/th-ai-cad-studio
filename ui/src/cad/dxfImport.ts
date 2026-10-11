@@ -127,6 +127,33 @@ export function dxfText(s: string): string {
     .trim()
 }
 
+/**
+ * TCVN3 (ABC) — the legacy Vietnamese 8-bit encoding behind the .VnTime / vntime.shx font family,
+ * still common in Vietnamese drawings. The text is stored as Latin-1 code points that only render
+ * as Vietnamese with those fonts; we convert it to Unicode. (VNI, the other legacy scheme, uses
+ * two-byte sequences and is reported, not converted.)
+ */
+const TCVN3_FROM = '¸µ¶·¹¨¾»¼½Æ©ÊÇÈÉËÐÌÎÏÑªÕÒÓÔÖÝ×ØÜÞãßáâä«èåæçé¬íêëìîóïñòô\u00adøõö÷ùýúûüþ®¡¢£¤¥¦§'
+const TCVN3_TO = 'áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđĂÂÊÔƠƯĐ'
+const TCVN3 = new Map([...TCVN3_FROM].map((c, i) => [c, [...TCVN3_TO][i]]))
+export function tcvn3ToUnicode(s: string): string {
+  let out = ''
+  for (const c of s) out += TCVN3.get(c) ?? c
+  return out
+}
+export type VnEncoding = 'tcvn3' | 'tcvn3-caps' | 'vni'
+/**
+ * Font file / face name → legacy Vietnamese encoding it implies. TCVN3 TrueType faces ending in
+ * "H" (.VnTimeH, .VnArial NarrowH …) are the all-capitals cuts: AutoCAD shows their text uppercase.
+ */
+export function vnFontEncoding(font: string): VnEncoding | null {
+  const base = font.split(/[\\/]/).pop()!.trim()
+  const lower = base.toLowerCase()
+  if (/^vni[-_ ]/.test(lower)) return 'vni'
+  if (!/^\.?vn/.test(lower)) return null
+  return !/\.shx$/.test(lower) && /H$/.test(base.replace(/\.(ttf|otf)$/i, '')) ? 'tcvn3-caps' : 'tcvn3'
+}
+
 /** Arc from bulge between p and q, sampled (bulge = tan(θ/4)). */
 function bulgePts(p: Vec2, q: Vec2, bulge: number): Vec2[] {
   if (Math.abs(bulge) < 1e-9) return []
@@ -265,6 +292,32 @@ function hatchLoops(r: Rec): Vec2[][] {
   return loops
 }
 
+const CODEPAGES: Record<string, string> = {
+  ANSI_874: 'windows-874', ANSI_932: 'shift_jis', ANSI_936: 'gbk', ANSI_949: 'euc-kr', ANSI_950: 'big5',
+  ANSI_1250: 'windows-1250', ANSI_1251: 'windows-1251', ANSI_1252: 'windows-1252', ANSI_1253: 'windows-1253',
+  ANSI_1254: 'windows-1254', ANSI_1255: 'windows-1255', ANSI_1256: 'windows-1256', ANSI_1257: 'windows-1257',
+  ANSI_1258: 'windows-1258',
+}
+
+/**
+ * DXF bytes → text. AutoCAD 2007+ (AC1021+) writes UTF-8; older files use the drawing's code page
+ * ($DWGCODEPAGE, e.g. ANSI_1258 for Vietnamese). Files without a header are tried as UTF-8 first.
+ */
+export function decodeDxf(bytes: Uint8Array): { text: string; encoding: string } {
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, 256 * 1024))
+  const ver = /\$ACADVER\s*\r?\n\s*1\s*\r?\n\s*(AC\d{4})/.exec(head)?.[1]
+  const cp = /\$DWGCODEPAGE\s*\r?\n\s*3\s*\r?\n\s*(\S+)/.exec(head)?.[1]?.toUpperCase()
+  const legacy = ver && ver < 'AC1021' && cp && CODEPAGES[cp]
+  // NFC: Windows-1258 spells Vietnamese tones as combining marks (o + U+0300), keep text composed
+  if (legacy) return { text: new TextDecoder(legacy).decode(bytes).normalize('NFC'), encoding: legacy }
+  try {
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), encoding: 'utf-8' }
+  } catch {
+    const fallback = (cp && CODEPAGES[cp]) || 'windows-1252'
+    return { text: new TextDecoder(fallback).decode(bytes), encoding: fallback }
+  }
+}
+
 export function importDxf(text: string): DxfImport {
   const pairs = pairsOf(text)
   const skipped: Record<string, number> = {}
@@ -273,8 +326,30 @@ export function importDxf(text: string): DxfImport {
 
   // ---- layers (TABLES/LAYER): negative colour = off, flag 1 = frozen ----
   const layerVis = new Map<string, boolean>()
-  for (const r of records(section(pairs, 'TABLES')))
+  // text styles whose font implies a legacy Vietnamese encoding (font file code 3, or the TrueType
+  // face name AutoCAD keeps in the style's XDATA, code 1000)
+  const styleEnc = new Map<string, VnEncoding>()
+  for (const r of records(section(pairs, 'TABLES'))) {
     if (r.type === 'LAYER') layerVis.set(str(r, 2, '0'), num(r, 62, 7) >= 0 && (num(r, 70) & 1) === 0)
+    if (r.type === 'STYLE') {
+      const fonts = r.props.filter(([c]) => c === 3 || c === 1000).map(([, v]) => v)
+      const enc = fonts.map(vnFontEncoding).find(Boolean)
+      if (enc) styleEnc.set(str(r, 2).toUpperCase(), enc)
+    }
+  }
+  /** Converts a text value written in a TCVN3 font; counts VNI texts it cannot convert. */
+  const vnText = (r: Rec, value: string, raw: string) => {
+    // an inline MTEXT font (\\f.VnAvant|b0|…;) overrides the style's font
+    const inline = /\\f\s*([^|;]+)/i.exec(raw)?.[1]
+    const enc = (inline ? vnFontEncoding(inline) : null) ?? styleEnc.get(str(r, 7, 'STANDARD').toUpperCase())
+    if (enc === 'tcvn3' || enc === 'tcvn3-caps') {
+      bump(approximated, 'TCVN3 text → Unicode')
+      const u = tcvn3ToUnicode(value)
+      return enc === 'tcvn3-caps' ? u.toLocaleUpperCase('vi') : u
+    }
+    if (enc === 'vni') bump(skipped, 'VNI-encoded text (shown as stored)')
+    return value
+  }
 
   // ---- block definitions ----
   const blocks = new Map<string, Block>()
@@ -330,7 +405,7 @@ export function importDxf(text: string): DxfImport {
       case 'TEXT':
       case 'ATTRIB': {
         if (r.type === 'ATTRIB' && (num(r, 70) & 1) === 1) break // invisible attribute
-        const value = dxfText(str(r, 1))
+        const value = vnText(r, dxfText(str(r, 1)), str(r, 1))
         if (!value) break
         const h72 = num(r, 72), v = r.type === 'TEXT' ? num(r, 73) : num(r, 74)
         const aligned = h72 !== 0 || v !== 0
@@ -340,7 +415,8 @@ export function importDxf(text: string): DxfImport {
         break
       }
       case 'MTEXT': {
-        const value = dxfText(r.props.filter(([c]) => c === 3).map(([, s]) => s).join('') + str(r, 1))
+        const raw = r.props.filter(([c]) => c === 3).map(([, s]) => s).join('') + str(r, 1)
+        const value = vnText(r, dxfText(raw), raw)
         if (!value) break
         const h = num(r, 40, 250) * scaleOf(m)
         const att = num(r, 71, 1) // 1..9: top/middle/bottom × left/center/right
