@@ -402,6 +402,7 @@
 
 .preview {
   flex: 0 1 221px;
+  gap: 15px;
   margin-left: 3px;
   border: 1px solid #3a8f90;
   color: #11454c;
@@ -419,7 +420,7 @@
   margin-left: auto;
   border: 1px solid #f08b93;
   color: #e5383f;
-  background: #fff;
+  background: #fffafa;
 }
 
 .undo:hover:not(:disabled),

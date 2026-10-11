@@ -45,3 +45,49 @@ Ngày: 2026-10-10 · Chuẩn so sánh: `mockups_full/03_ai_intelligence_studio.p
 4. Nội dung do AI trả lời ("Hoàn thành · 24 giây", "Đề xuất phương án:") theo **ngôn ngữ của cuộc trò
    chuyện** (tiếng Việt), đúng như mockup ở giao diện EN; khung giao diện theo VI/EN.
 5. Icon của 6 thẻ năng lực và 3 phương án dùng icon Lucide gần nghĩa nhất.
+
+---
+
+## Kiểm tra lại theo Pixel-Lock v2 — 2026-10-11
+
+Mockup `TH_AI_CAD_Studio_UI_LOCK_v2/mockups/03_AI_Intelligence.png` giống từng pixel với bản đã QA trước đây.
+
+Ảnh nằm trong `qa/v2/03_ai/`:
+- `side_by_side.png`, `mockup.png`;
+- `overlay_50_50.png`, `overlay_anaglyph.png`, `difference_amplified.png` (MAE 11.59);
+- `app_en.png`, `app_vi.png`;
+- `app_en_1280x800.png`, `app_en_1440x900.png`, `app_en_1920x1080.png`.
+
+| | Chụp lại (trước khi sửa) | Sau khi sửa |
+|---|---|---|
+| Phần tử ≤ 2 px (55) | 40 | **46** |
+| ≤ 3 px | 49 | **52** |
+| ≤ 5 px | 54 | **55** |
+
+**Đã sửa bố cục:**
+- Nút New Chat và "…": chữ 13.5 px, cụm nút dời lên 3 px, khoảng cách giữa hai nút 8 px.
+- Thẻ đề xuất: cao 44 px, dời lên 7 px; nút Preview nhỏ hơn và cách mép phải 3 px.
+- Ô nhập: cao 40 px.
+- Dòng "Hoàn thành" và các nhãn trên thanh Local AI.
+- Nút Preview Changes: tăng khoảng cách icon–chữ. Nút Reject: nền hồng nhạt như mockup.
+
+**Đã sửa nội dung (đúng luật của brief: không hiện trạng thái runtime giả):**
+- Bản xem trên trình duyệt không có AI runtime. Trước đây, thanh Local AI ở màn này và thẻ Local AI ở Dashboard vẫn hiện số liệu
+  của mockup như số thật: "Online", "Ready", "AutoCAD Assistant (Local)", "6.2 / 16 GB", "0.8s".
+- Giờ hai chỗ này ghi:
+  - trạng thái: **Demo UI**;
+  - mô tả: "Browser preview — the AI runs in the desktop app";
+  - Model: **Not connected**;
+  - VRAM: con số kèm nhãn **DEMO**;
+  - Response Speed: "—".
+- App desktop (có host) vẫn hiện số đo thật từ llama.cpp như trước.
+
+**9 phần tử còn lệch 3–5 px:**
+- `cap1.tile`: viền ô icon; mockup vẽ ô cao hơn.
+- `user.l3`, `user.time`: chữ trong bong bóng chat dài hơn mockup.
+- `local.trait1`: nhãn "Private" có icon khác mockup.
+- `sidebyside`, `det.totalv`, `det.imp5`: lệch 3 px.
+- `btn.reject`: chữ trong mockup thấp hơn 3 px so với các nút cùng hàng (lỗi khi AI vẽ mockup).
+- `chip1`: chip gợi ý; lệch 4 px.
+
+**Tương tác:** smoke test AI 14/14, Dashboard 14/14, Settings 16/16 — đều đạt.

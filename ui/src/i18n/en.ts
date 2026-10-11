@@ -99,6 +99,9 @@ export const en = {
       vram: 'VRAM Usage',
       speed: 'Response Speed',
       open: 'Open AI Assistant',
+      demoPill: 'Demo UI',
+      notConnected: 'Not connected',
+      demoRunning: 'Browser preview — the AI runs in the desktop app',
     },
     quickActions: {
       title: 'Quick Actions',

@@ -101,6 +101,9 @@ export const vi: Messages = {
       vram: 'Bộ nhớ VRAM',
       speed: 'Tốc độ phản hồi',
       open: 'Mở Trợ lý AI',
+      demoPill: 'Demo UI',
+      notConnected: 'Chưa kết nối',
+      demoRunning: 'Bản xem trên trình duyệt — AI chạy trong app desktop',
     },
     quickActions: {
       title: 'Thao tác nhanh',

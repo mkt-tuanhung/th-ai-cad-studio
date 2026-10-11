@@ -13,6 +13,8 @@ export function LocalAiStrip({ onApply }: { onApply: () => void }) {
     getLocalAi().status().then(setSt)
   }, [])
   const pct = st ? (st.vramUsedGb / st.vramTotalGb) * 100 : 0
+  // Browser preview: no runtime → never present the demo numbers as live status.
+  const demo = st?.source === 'demo'
   const traitIcons = [<span key="p" className={s.privDot} />, <Zap key="f" size={12} strokeWidth={2} />, <Tag key="n" size={12} strokeWidth={2} />]
   return (
     <section className={s.strip} data-source={st?.source}>
@@ -23,12 +25,12 @@ export function LocalAiStrip({ onApply }: { onApply: () => void }) {
         <div className={s.idText}>
           <div className={s.titleRow}>
             <h2 className={s.title}>{t.title}</h2>
-            <span className={s.online}>
+            <span className={`${s.online} ${demo || st?.online === false ? s.off : ''}`}>
               <span className={s.dot} />
-              {st?.online === false ? L.offline : t.online}
+              {demo ? L.demoPill : st?.online === false ? L.offline : t.online}
             </span>
           </div>
-          <p className={s.running}>{t.running}</p>
+          <p className={s.running}>{demo ? L.demoRunning : t.running}</p>
           <div className={s.traits}>
             {t.traits.map((tr, i) => (
               <span key={tr} className={s.trait}>
@@ -42,11 +44,11 @@ export function LocalAiStrip({ onApply }: { onApply: () => void }) {
       <dl className={s.metrics}>
         <div className={s.mrow}>
           <dt>{L.model}</dt>
-          <dd>{st ? (st.modelName ?? L.noModel) : '—'}</dd>
+          <dd>{!st ? '—' : demo ? L.notConnected : (st.modelName ?? L.noModel)}</dd>
         </div>
         <div className={s.mrow}>
           <dt>{L.status}</dt>
-          <dd className={st?.ready ? s.ready : undefined}>{st ? (st.ready ? L.ready : L.notLoaded) : '—'}</dd>
+          <dd className={st?.ready && !demo ? s.ready : undefined}>{!st ? '—' : demo ? L.demoPill : st.ready ? L.ready : L.notLoaded}</dd>
         </div>
         <div className={s.mrow}>
           <dt>{L.vram}</dt>
@@ -55,11 +57,12 @@ export function LocalAiStrip({ onApply }: { onApply: () => void }) {
               <span style={{ width: `${pct}%` }} />
             </span>
             {st ? `${st.vramUsedGb} / ${st.vramTotalGb} GB` : '—'}
+            {demo && <em className={s.demoTag}>DEMO</em>}
           </dd>
         </div>
         <div className={s.mrow}>
           <dt>{L.speed}</dt>
-          <dd>{st?.responseSeconds != null ? `${st.responseSeconds}s` : '—'}</dd>
+          <dd>{st?.responseSeconds != null && !demo ? `${st.responseSeconds}s` : '—'}</dd>
         </div>
       </dl>
       <div className={s.apply}>

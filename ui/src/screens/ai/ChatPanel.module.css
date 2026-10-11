@@ -21,7 +21,13 @@
   align-items: center;
   flex: none;
   height: 55px;
-  padding: 0 9px 0 13px;
+  padding: 0 11px 0 13px;
+}
+
+.head > button,
+.head > .anchor {
+  position: relative;
+  top: -3px;
 }
 
 .title {
@@ -37,11 +43,11 @@
   align-items: center;
   gap: 8px;
   height: 31px;
-  padding: 0 13px 0 11px;
+  padding: 0 11px 0 12px;
   border: 1px solid #e3e7ec;
   border-radius: 7px;
   background: #fff;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 500;
   color: #1f2734;
 }
@@ -53,7 +59,7 @@
 
 .anchor {
   position: relative;
-  margin-left: 2px;
+  margin-left: 8px;
 }
 
 .more {
@@ -229,14 +235,14 @@
 .done {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 16px;
+  gap: 4px;
+  margin: 16px 0 0 -2px;
   font-size: 11px;
   color: #6b7383;
 }
 
 .doneText {
-  margin-left: 2px;
+  margin-left: 0;
   color: #13a35f;
   font-weight: 500;
 }
@@ -265,9 +271,9 @@
 .prop {
   display: flex;
   align-items: center;
-  height: 40px;
-  margin-top: 10px;
-  padding: 0 1px 0 7px;
+  height: 44px;
+  margin-top: 3px;
+  padding: 0 3px 0 7px;
   border: 1px solid #e8ebef;
   border-radius: 8px;
   background: #fff;
@@ -322,12 +328,12 @@
 
 .propBtn {
   flex: none;
-  height: 30px;
-  padding: 0 14px;
+  height: 28px;
+  padding: 0 10px;
   border: 1px solid #e3e7ec;
   border-radius: 6px;
   background: #fff;
-  font-size: 12px;
+  font-size: 11.5px;
   color: #1f2734;
 }
 
@@ -347,7 +353,7 @@
   display: flex;
   align-items: center;
   flex: none;
-  height: 36px;
+  height: 40px;
   margin-top: 10px;
   padding: 0 11px 0 9px;
   border: 1px solid #e3e7ec;
@@ -412,7 +418,7 @@
   display: flex;
   flex: none;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 6px;
   overflow: hidden;
 }
 

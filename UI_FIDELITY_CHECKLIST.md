@@ -22,8 +22,8 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | # | Màn | Trạng thái | Việc còn thiếu (so với mockup) |
 |---|---|---|---|
 | 01 | Dashboard | ✅ 49/51 phần tử ≤ 2 px (đo lại sau khi sửa shell); overlay `qa/v2/01_dashboard/` | — |
-| 02 | CAD 2D | ✅ Kiểm tra lại theo v2 (2026-10-11, chờ duyệt): 47/53 ≤ 2 px, 51/53 ≤ 3 px, 53/53 ≤ 5 px; nhãn thanh công cụ không còn bị cắt (EN/VI) — `qa/QA_CAD2D.md` | — |
-| 03 | AI Intelligence | ✅ 54/55 ≤ 5 px | — |
+| 02 | CAD 2D | ✅ Kiểm tra lại theo v2 (2026-10-11, đã duyệt): 47/53 ≤ 2 px, 51/53 ≤ 3 px, 53/53 ≤ 5 px; nhãn thanh công cụ không còn bị cắt (EN/VI) — `qa/QA_CAD2D.md` | — |
+| 03 | AI Intelligence | ✅ Kiểm tra lại theo v2 (2026-10-11, chờ duyệt): 46/55 ≤ 2 px, 55/55 ≤ 5 px; trạng thái AI trên trình duyệt ghi Demo UI / Not connected — `qa/QA_AI_STUDIO.md` | — |
 | 04 | Architecture / BIM | ✅ 45/54 ≤ 5 px | — |
 | 05 | Projects | ✅ Đã duyệt 2026-10-11: 57/62 phần tử ≤ 2 px, smoke test 18/18 — `qa/QA_PROJECTS.md` | Chờ ảnh sạch (DEMO); cần chọn trạng thái yêu thích của Pump |
 | 06 | Settings | ✅ Đã duyệt: 45/58 phần tử ≤ 2 px, smoke test 16/16, số liệu thật trong app desktop — `qa/QA_SETTINGS.md` | — |
@@ -45,6 +45,7 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | 07 | "12,580 items" và số đếm theo nhóm | Số thật của thư viện (156 cấu kiện dựng sẵn + tệp tải lên); Dashboard cũng hiện số này |
 | 07 | "Family • RFA", tệp .rfa/.dwg 12.4 MB | Cấu kiện xuất ra DXF thật; dung lượng là kích thước thật của tệp DXF |
 | 07 | Danh sách AI Recommended | "Not connected" — AI cục bộ chưa xếp hạng cấu kiện |
+| 01, 03 | Local AI "Online / Ready", model "AutoCAD Assistant (Local)", VRAM 6.2 / 16 GB, 0.8s | Trên trình duyệt: "Demo UI", Model "Not connected", VRAM kèm nhãn DEMO, tốc độ "—". App desktop hiện số đo thật |
 | 10 | "TCVN 11823:2017" cho kênh tưới | TCVN 11823:2017 là tiêu chuẩn thiết kế cầu đường bộ. Với kênh thuỷ lợi cần đối chiếu TCVN 4118:2021 (hệ thống tưới tiêu — yêu cầu thiết kế); chờ chủ đầu tư chọn |
 | 10 | Bảng đào đắp: dòng 0+100–0+200 ghi Cut 980.40, Fill 85.20, Net 895.20 | Các ô Net đều khớp Cut − Fill. App tính lại từ dữ liệu, không chép số trong ảnh |
 | 11 | "Meets ISO 5199" | Đây là tiêu chuẩn có thật cho bơm ly tâm. App chỉ hiện kết quả khi có engine kiểm tra; trước đó ghi "Not connected" |

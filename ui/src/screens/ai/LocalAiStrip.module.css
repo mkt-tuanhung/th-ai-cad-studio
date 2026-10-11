@@ -91,7 +91,7 @@
   height: 22px;
   padding: 0 9px 0 5px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 500;
   color: #1b6a70;
   background: #e2efef;
@@ -206,4 +206,25 @@
   .identity {
     flex: 1 1 auto;
   }
+}
+
+.demoTag {
+  margin: 0 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.off {
+  color: var(--text-muted);
+  background: #eef1f4;
+}
+
+.off .dot {
+  background: #9aa3af;
 }
