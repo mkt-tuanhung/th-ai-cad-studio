@@ -137,9 +137,9 @@
 .btn {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   height: 35px;
-  padding: 0 11px 0 12px;
+  padding: 0 8px 0 12px;
   border: 1px solid #e1e6eb;
   border-radius: 7px;
   background: #fbfcfd;
@@ -170,6 +170,21 @@
 
 .primary:hover {
   background: linear-gradient(180deg, #1c646c 0%, #15545c 100%);
+}
+
+/* tall discipline tabs (MEP) */
+.tabsBig {
+  height: 37px;
+}
+
+.tabsBig .ftab {
+  gap: 16px;
+  height: 35px;
+  font-size: 11.5px;
+}
+
+.tabsBig .ftabOn {
+  height: 37px;
 }
 
 /* ---------- ribbon ---------- */

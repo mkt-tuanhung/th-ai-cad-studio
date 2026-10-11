@@ -31,6 +31,8 @@ export function WsHeader({
   onTab,
   tabsStyle,
   variant = 'folder',
+  big,
+  crumbsStyle,
   actions,
 }: {
   crumbs: Crumb[]
@@ -43,12 +45,15 @@ export function WsHeader({
   onTab?: (k: string) => void
   tabsStyle?: CSSProperties
   variant?: 'folder' | 'underline'
+  /** Tall discipline tabs (MEP). */
+  big?: boolean
+  crumbsStyle?: CSSProperties
   actions: ReactNode
 }) {
   const [open, setOpen, ref] = useDismissable<HTMLDivElement>()
   return (
     <div className={s.header}>
-      <nav className={s.crumbs} aria-label="Breadcrumb">
+      <nav className={s.crumbs} aria-label="Breadcrumb" style={crumbsStyle}>
         <button type="button" className={s.home} aria-label={homeLabel} onClick={onHome}>
           <Home size={15} strokeWidth={1.7} />
         </button>
@@ -80,7 +85,7 @@ export function WsHeader({
       </nav>
 
       {tabs && (
-        <div className={s.tabs} role="tablist" style={tabsStyle}>
+        <div className={`${s.tabs} ${big ? s.tabsBig : ''}`} role="tablist" style={tabsStyle}>
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -143,13 +148,13 @@ export interface RibbonTool {
   iconSize?: number
 }
 
-export function WsRibbon({ tools, seps, more, width = 1290 }: { tools: RibbonTool[]; seps: number[]; more?: { c: number; label: string; items: MenuItem[] }; width?: number }) {
+export function WsRibbon({ tools, seps, more, width = 1290, top = 7 }: { tools: RibbonTool[]; seps: number[]; more?: { c: number; label: string; items: MenuItem[] }; width?: number; top?: number }) {
   const [open, setOpen, ref] = useDismissable<HTMLDivElement>()
   return (
     <div className={s.ribbon} role="toolbar">
       <div className={s.track} style={{ width }}>
         {tools.map(({ key, label, Icon, c, w = 70, onClick, active, iconSize = 24 }) => (
-          <button key={key} type="button" className={`${s.tool} ${active ? s.toolOn : ''}`} style={{ left: c - w / 2, width: w }} aria-pressed={active} onClick={onClick} title={label}>
+          <button key={key} type="button" className={`${s.tool} ${active ? s.toolOn : ''}`} style={{ left: c - w / 2, width: w, top }} aria-pressed={active} onClick={onClick} title={label}>
             <Icon size={iconSize} strokeWidth={1.45} />
             <span>{label}</span>
           </button>
@@ -159,7 +164,7 @@ export function WsRibbon({ tools, seps, more, width = 1290 }: { tools: RibbonToo
         ))}
         {more && (
           <div className={s.ranchor} ref={ref} style={{ left: more.c - 55 }}>
-            <button type="button" className={s.tool} style={{ position: 'static', width: 110, marginTop: 7 }} aria-expanded={open} onClick={() => setOpen(!open)}>
+            <button type="button" className={s.tool} style={{ position: 'static', width: 110, marginTop: top - 2 }} aria-expanded={open} onClick={() => setOpen(!open)}>
               <Ellipsis size={24} strokeWidth={2} />
               <span>
                 {more.label}
@@ -188,6 +193,8 @@ export interface TreeNode {
   /** Text on the right (e.g. counts). */
   count?: string
   open?: boolean
+  /** Extra space above this row (px), overriding groupGap. */
+  gap?: number
 }
 
 export function WsTree({
@@ -202,6 +209,7 @@ export function WsTree({
   extraTop,
   styleHead,
   indent = { base: 4, step: 13, leaf: 18 },
+  groupGap = 0,
 }: {
   title: string
   placeholder: string
@@ -214,6 +222,8 @@ export function WsTree({
   extraTop?: number
   styleHead?: CSSProperties
   indent?: { base: number; step: number; leaf: number }
+  /** Extra space above top-level groups after the first (mockups separate them slightly). */
+  groupGap?: number
 }) {
   const [q, setQ] = useState('')
   const [closed, setClosed] = useState<Record<string, boolean>>({})
@@ -230,12 +240,12 @@ export function WsTree({
       </section>
     )
 
-  const render = (n: TreeNode, depth: number): ReactNode => {
+  const render = (n: TreeNode, depth: number, index = 0): ReactNode => {
     if (!matches(n)) return null
     const leaf = !n.children
     const isOpen = needle ? true : !(closed[n.key] ?? n.open === false)
     return (
-      <li key={n.key}>
+      <li key={n.key} style={n.gap !== undefined ? { marginTop: n.gap } : groupGap && depth === 1 && index > 0 && !leaf ? { marginTop: groupGap } : undefined}>
         <div className={`${s.trow} ${depth === 0 ? s.troot : ''} ${active === n.key ? s.tactive : ''}`} style={{ height: rowH, paddingLeft: Math.max(0, indent.base + depth * indent.step + (leaf ? indent.leaf : 0)) }}>
           {!leaf && (
             <button type="button" className={s.twisty} aria-label={n.label} aria-expanded={isOpen} onClick={() => setClosed((c) => ({ ...c, [n.key]: isOpen }))}>
@@ -248,7 +258,7 @@ export function WsTree({
           </button>
           {n.count && <span className={s.tcount}>{n.count}</span>}
         </div>
-        {!leaf && isOpen && <ul>{n.children!.map((c) => render(c, depth + 1))}</ul>}
+        {!leaf && isOpen && <ul>{n.children!.map((c, i) => render(c, depth + 1, i))}</ul>}
       </li>
     )
   }

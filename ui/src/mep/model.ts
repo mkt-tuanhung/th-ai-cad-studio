@@ -98,10 +98,10 @@ function makeDucts(): Duct[] {
   // the five ducts shown in the mockup (Level 2)
   const out: Duct[] = [
     base({ mark: 'SA-01', type: 'Supply Air Duct', w: 600, h: 400, length: 3000, flow: 1200, x: 2000, y: 4000, axis: 'x', level: 'L2' }),
-    base({ mark: 'SA-02', type: 'Supply Air Duct', w: 500, h: 300, length: 2800, flow: 900, x: 5200, y: 4000, axis: 'x', level: 'L2' }),
+    base({ mark: 'SA-02', type: 'Supply Air Duct', w: 500, h: 300, length: 2800, flow: 900, x: 3500, y: 5000, axis: 'x', level: 'L2' }),
     base({ mark: 'RA-01', type: 'Return Air Duct', w: 800, h: 500, length: 4200, flow: 1500, x: 2500, y: 9000, axis: 'x', level: 'L2' }),
     base({ mark: 'EA-01', type: 'Exhaust Air Duct', w: 400, h: 300, length: 2500, flow: 800, x: 11500, y: 2000, axis: 'y', level: 'L2' }),
-    base({ mark: 'OA-01', type: 'Outdoor Air Duct', w: 500, h: 400, length: 3100, flow: 1100, x: 13000, y: 6000, axis: 'y', level: 'L2' }),
+    base({ mark: 'OA-01', type: 'Outdoor Air Duct', w: 500, h: 400, length: 3100, flow: 1100, x: 13000, y: 7000, axis: 'y', level: 'L2' }),
   ]
   const types: [DuctType, string][] = [['Supply Air Duct', 'SA'], ['Return Air Duct', 'RA'], ['Exhaust Air Duct', 'EA'], ['Outdoor Air Duct', 'OA']]
   const sizes = [[300, 200], [400, 250], [400, 300], [500, 300], [600, 400], [700, 400], [800, 500]]
@@ -187,8 +187,8 @@ function makeBeams(): Beam[] {
   // primary beams under each slab: 300 × 600, along both grids
   const out: Beam[] = []
   for (const level of ['L1', 'L2', 'L3'] as LevelId[]) {
-    for (const x of [0, 4000, 8000, 12000, 15000]) out.push({ id: `B-${level}-x${x}`, x, y: 0, axis: 'y', length: 12000, elevation: 3300, level, w: 300, h: 600 })
-    for (const y of [0, 6000, 12000]) out.push({ id: `B-${level}-y${y}`, x: 0, y, axis: 'x', length: 15000, elevation: 3300, level, w: 300, h: 600 })
+    for (const x of [0, 7500, 15000]) out.push({ id: `B-${level}-x${x}`, x, y: 0, axis: 'y', length: 12000, elevation: 3300, level, w: 300, h: 600 })
+    for (const y of [0, 6500, 12000]) out.push({ id: `B-${level}-y${y}`, x: 0, y, axis: 'x', length: 15000, elevation: 3300, level, w: 300, h: 600 })
   }
   return out
 }

@@ -43,6 +43,8 @@ Coordinates are in mockup pixels (x, y, w, h). "Needed" is the minimum clean siz
 | 09-03…04 | 09 Interior | 1252, 592 / 693, 283 × 93 / 88 | AI suggestion renders: Modern Luxury, Japandi | 566 × 186 | DEMO crops, caption + Apply inpainted |
 | 09-05 | 09 Interior | 1252, 788, 283 × 14 | Third suggestion (cut off in the mockup) | 566 × 186 | DEMO sliver |
 | 09-06…11 | 09 Interior | 532, 796–953, 35 × ~22 | Furniture thumbnails: sofa, coffee table, TV cabinet, dining table, chair, pendant | 140 × 88 | DEMO crops; other items show a neutral placeholder |
+| 08-01 | 08 MEP | 499, 244, 744 × 493 | MEP coordination 3D render (viewport) — overlays inpainted | 1488 × 986 or the live MEP engine | DEMO crop |
+| 08-02 | 08 MEP | 1262, 296, 68 × 44 | Rectangular duct thumbnail (Properties) | 136 × 88 | DEMO crop |
 
 The table will be extended for screens 08–12 as they are built. Screens 08–12 need the most:
 MEP / interior / mechanical / render viewports, satellite map, material swatches, component

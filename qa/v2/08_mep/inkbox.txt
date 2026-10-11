@@ -1,0 +1,73 @@
+crumb.projects               mock x296 y106 w46 h11 | dx+0 dy-1 dw+4 dh+1  <--
+crumb.mep                    mock x488 y106 w24 h10 | dx-5 dy-1 dw+1 dh-1  <--
+tab.hvac                     mock x602 y144 w29 h10 | dx-2 dy+1 dw-1 dh-2  <--
+tab.plumbing                 mock x748 y144 w45 h12 | dx+5 dy+1 dw+1 dh-1  <--
+tab.electrical               mock x915 y144 w45 h10 | dx+1 dy+1 dw+0 dh-1
+tab.coord                    mock x1059 y143 w67 h10 | dx-4 dy+0 dw+8 dh+5  <--
+btn.share                    mock x1245 y113 w30 h10 | dx+3 dy+0 dw+1 dh-1  <--
+btn.export                   mock x1343 y114 w34 h12 | dx-1 dy-1 dw+0 dh+0
+btn.ai                       mock x1462 y114 w67 h10 | dx-1 dy+0 dw+1 dh-1
+rib.select                   mock x291 y215 w31 h9 | dx+2 dy+2 dw-1 dh+0  <--
+rib.duct                     mock x369 y217 w21 h9 | dx+1 dy-1 dw+1 dh-1
+rib.pipe                     mock x425 y216 w20 h11 | dx+0 dy+0 dw+2 dh-1  <--
+rib.tray                     mock x470 y216 w50 h12 | dx+0 dy-1 dw+3 dh+0  <--
+rib.equip                    mock x542 y216 w52 h11 | dx+1 dy+0 dw+2 dh-1  <--
+rib.fixture                  mock x627 y216 w33 h9 | dx+1 dy+0 dw+1 dh-1
+rib.fitting                  mock x692 y216 w29 h11 | dx+0 dy+0 dw+3 dh+0  <--
+rib.terminal                 mock x753 y216 w40 h9 | dx+0 dy-1 dw+4 dh+0  <--
+rib.annotation               mock x820 y216 w53 h9 | dx+0 dy+0 dw+3 dh-1  <--
+rib.section                  mock x901 y216 w36 h9 | dx+0 dy+0 dw+2 dh-1  <--
+rib.dimension                mock x968 y216 w51 h9 | dx+0 dy+0 dw+3 dh-1  <--
+rib.tag                      mock x1063 y216 w17 h11 | dx+1 dy+0 dw+1 dh+0
+rib.schedule                 mock x1123 y217 w42 h9 | dx+0 dy-2 dw+4 dh+0  <--
+rib.filter                   mock x1194 y217 w53 h9 | dx+0 dy-2 dw+3 dh+0  <--
+rib.more                     mock x1359 y213 w70 h10 | dx+2 dy+0 dw-2 dh-1  <--
+pb.title                     mock x283 y256 w99 h14 | dx+1 dy+2 dw-5 dh-1  <--
+pb.search                    mock x318 y289 w156 h11 | dx+0 dy+1 dw-9 dh-1  <--
+pb.villa                     mock x320 y323 w78 h11 | dx+0 dy+0 dw-2 dh-2  <--
+pb.views                     mock x334 y346 w57 h10 | dx+0 dy+1 dw-3 dh-2  <--
+pb.coord                     mock x351 y370 w114 h9 | dx+0 dy+0 dw-4 dh-1  <--
+pb.systems                   mock x335 y512 w42 h12 | dx-2 dy-1 dw+0 dh-2  <--
+pb.hvac                      mock x354 y535 w28 h9 | dx-6 dy+0 dw-4 dh-1  <--
+pb.equipment                 mock x335 y606 w54 h12 | dx-1 dy+0 dw-3 dh-2  <--
+pb.ahu                       mock x350 y629 w40 h11 | dx+1 dy-1 dw-2 dh+0  <--
+pb.panel                     mock x354 y723 w93 h11 | dx-2 dy-2 dw-3 dh+0  <--
+pb.families                  mock x335 y754 w41 h9 | dx-1 dy+0 dw-1 dh-1
+pb.supports                  mock x351 y894 w45 h11 | dx+0 dy-1 dw-1 dh-1
+vp.view                      mock x521 y264 w113 h10 | dx+0 dy+0 dw-3 dh-2  <--
+vp.realistic                 mock x530 y705 w41 h9 | dx-2 dy+0 dw+2 dh+0  <--
+vp.shaded                    mock x611 y705 w35 h10 | dx-3 dy+0 dw+3 dh-1  <--
+vp.wire                      mock x684 y705 w51 h9 | dx-2 dy+0 dw+1 dh+0  <--
+vp.hidden                    mock x773 y705 w56 h10 | dx-1 dy+0 dw+3 dh-1  <--
+vp.level                     mock x1027 y706 w33 h9 | dx+0 dy-1 dw+0 dh-1
+vp.scale                     mock x1116 y705 w32 h10 | dx+3 dy+0 dw+0 dh-2  <--
+bt.sched                     mock x516 y754 w98 h12 | dx+0 dy+1 dw+5 dh+1  <--
+bt.clash                     mock x661 y755 w100 h11 | dx+1 dy+0 dw+4 dh+2  <--
+bt.coord                     mock x805 y756 w103 h9 | dx+2 dy+0 dw+3 dh+0  <--
+bt.ai                        mock x949 y756 w76 h12 | dx+0 dy+0 dw+5 dh+0  <--
+bt.viewall                   mock x1100 y757 w40 h10 | dx-2 dy+0 dw-1 dh-1  <--
+pill.duct                    mock x536 y793 w88 h12 | dx-5 dy-6 dw+10 dh+5  <--
+pill.pipe                    mock x662 y793 w90 h12 | dx+5 dy+0 dw-1 dh-1  <--
+pill.elec                    mock x790 y794 w108 h11 | dx+1 dy-1 dw+2 dh+0  <--
+pill.equip                   mock x946 y794 w73 h12 | dx-5 dy-1 dw-1 dh+0  <--
+th.mark                      mock x548 y825 w18 h8 | dx+0 dy-1 dw+4 dh-1  <--
+th.type                      mock x679 y825 w18 h9 | dx+0 dy-1 dw+2 dh+0  <--
+th.flow                      mock x992 y825 w36 h9 | dx+0 dy-1 dw+6 dh+0  <--
+tr1.mark                     mock x548 y846 w24 h7 | dx+0 dy+1 dw+1 dh+0
+tr1.type                     mock x679 y846 w58 h9 | dx+0 dy+0 dw+5 dh+1  <--
+tr5.mark                     mock x548 y929 w26 h8 | dx+0 dy+1 dw+0 dh-1
+rp.props                     mock x1268 y255 w56 h13 | dx+4 dy+2 dw-3 dh-1  <--
+rp.sys                       mock x1366 y256 w64 h12 | dx+2 dy+1 dw+0 dh+0  <--
+rp.ai                        mock x1470 y256 w59 h10 | dx+1 dy+2 dw+2 dh-2  <--
+rp.name                      mock x1340 y300 w97 h13 | dx+1 dy-6 dw-5 dh-6  <--
+rp.sub                       mock x1339 y320 w128 h12 | dx+1 dy-1 dw-13 dh-2  <--
+rp.identity                  mock x1271 y356 w65 h12 | dx-4 dy+0 dw+8 dh+0  <--
+rp.family.l                  mock x1270 y379 w31 h12 | dx+2 dy+1 dw+0 dh-1  <--
+rp.family.v                  mock x1376 y379 w83 h12 | dx+4 dy+1 dw-2 dh-1  <--
+rp.dims                      mock x1272 y504 w62 h10 | dx-5 dy+0 dw+7 dh-1  <--
+rp.width.l                   mock x1270 y527 w29 h10 | dx+1 dy+1 dw-2 dh-2  <--
+rp.flowsec                   mock x1270 y676 w121 h11 | dx-3 dy+0 dw+3 dh-2  <--
+rp.vel.l                     mock x1270 y722 w38 h12 | dx+1 dy+2 dw+0 dh-2  <--
+ai.title                     mock x1294 y856 w115 h11 | dx+8 dy+2 dw-3 dh-2  <--
+ai.apply                     mock=(np.int64(1296), np.int64(925), np.int64(1381), np.int64(937)) cap=None
+ai.details                   mock=(np.int64(1452), np.int64(925), np.int64(1511), np.int64(935)) cap=None

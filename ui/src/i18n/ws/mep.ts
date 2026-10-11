@@ -27,6 +27,7 @@ export const mepEn = {
     modes: { realistic: 'Realistic', shaded: 'Shaded', wireframe: 'Wireframe', hidden: 'Hidden Line' },
     modeLabel: 'Display mode', level: 'Level', scale: 'Scale', fullscreen: 'Maximise view', restore: 'Restore view',
     demo: 'DEMO render · MEP engine not connected',
+    levelName: 'Level {n}',
   },
   bottom: { schedules: 'System Schedules', clashes: 'Clash Detection ({n})', status: 'Coordination Status', ai: 'AI Suggestions', viewAll: 'View all', levelOnly: 'Current level', download: 'Download CSV', settings: 'Check settings' },
   pills: { duct: 'Duct Schedule ({n})', pipe: 'Pipe Schedule ({n})', electrical: 'Electrical Schedule ({n})', equipment: 'Equipment ({n})' },
@@ -41,6 +42,8 @@ export const mepEn = {
   rules: { ductVel: 'Duct velocity above limit', ductLoss: 'Duct friction loss above limit', pipeVel: 'Pipe velocity above limit', vd: 'Voltage drop above 3 %', ampacity: 'Cable current above rating', clash: 'Clash with {b}' },
   fixes: { resize: 'Resize to {label}', lower: 'Lower to clear the beam (2650 mm)' },
   systems: { hvac: 'HVAC', plumbing: 'Plumbing', electrical: 'Electrical' },
+  ductTypes: {} as Record<string, string>,
+  services: {} as Record<string, string>,
   right: { properties: 'Properties', system: 'System Data', ai: 'AI Assistant' },
   props: {
     identity: 'Identity Data', dims: 'Dimensions', flow: 'Flow and Performance', family: 'Family', type: 'Type', typeMark: 'Type Mark', system: 'System', description: 'Description',
@@ -73,7 +76,7 @@ export const mepVi: typeof mepEn = {
   ai: 'Trợ lý AI',
   exportItems: { duct: 'Thống kê ống gió (CSV)', pipe: 'Thống kê đường ống (CSV)', electrical: 'Thống kê điện (CSV)', clashes: 'Báo cáo va chạm (CSV)' },
   tools: {
-    select: 'Chọn', duct: 'Ống gió', pipe: 'Ống nước', cableTray: 'Máng cáp', equipment: 'Thiết bị', fixture: 'Thiết bị vệ sinh', fitting: 'Phụ kiện', terminal: 'Miệng gió',
+    select: 'Chọn', duct: 'Ống gió', pipe: 'Ống nước', cableTray: 'Máng cáp', equipment: 'Thiết bị', fixture: 'Vệ sinh', fitting: 'Phụ kiện', terminal: 'Miệng gió',
     annotation: 'Chú thích', section: 'Mặt cắt', dimension: 'Kích thước', tag: 'Nhãn', schedule: 'Thống kê', colorFilter: 'Lọc màu', visibility: 'Hiển thị', more: 'Thêm công cụ',
   },
   moreItems: { check: 'Chạy kiểm tra va chạm', undo: 'Hoàn tác', redo: 'Làm lại', reset: 'Khôi phục dữ liệu mẫu' },
@@ -94,6 +97,7 @@ export const mepVi: typeof mepEn = {
     modes: { realistic: 'Chân thực', shaded: 'Tô bóng', wireframe: 'Khung dây', hidden: 'Nét khuất' },
     modeLabel: 'Chế độ hiển thị', level: 'Tầng', scale: 'Tỉ lệ', fullscreen: 'Phóng to khung nhìn', restore: 'Thu nhỏ khung nhìn',
     demo: 'Ảnh DEMO · chưa kết nối engine MEP',
+    levelName: 'Tầng {n}',
   },
   bottom: { schedules: 'Thống kê hệ thống', clashes: 'Kiểm tra va chạm ({n})', status: 'Tình trạng phối hợp', ai: 'Gợi ý AI', viewAll: 'Xem tất cả', levelOnly: 'Tầng hiện tại', download: 'Tải CSV', settings: 'Thiết lập kiểm tra' },
   pills: { duct: 'Ống gió ({n})', pipe: 'Đường ống ({n})', electrical: 'Điện ({n})', equipment: 'Thiết bị ({n})' },
@@ -108,6 +112,8 @@ export const mepVi: typeof mepEn = {
   rules: { ductVel: 'Vận tốc ống gió vượt giới hạn', ductLoss: 'Tổn thất ma sát ống gió vượt giới hạn', pipeVel: 'Vận tốc ống nước vượt giới hạn', vd: 'Sụt áp vượt 3 %', ampacity: 'Dòng điện vượt khả năng tải của cáp', clash: 'Va chạm với {b}' },
   fixes: { resize: 'Đổi kích thước thành {label}', lower: 'Hạ xuống dưới dầm (2650 mm)' },
   systems: { hvac: 'Điều hoà', plumbing: 'Cấp thoát nước', electrical: 'Điện' },
+  ductTypes: { 'Supply Air Duct': 'Ống gió cấp', 'Return Air Duct': 'Ống gió hồi', 'Exhaust Air Duct': 'Ống gió thải', 'Outdoor Air Duct': 'Ống gió tươi' },
+  services: { 'Chilled Water Supply': 'Nước lạnh cấp', 'Chilled Water Return': 'Nước lạnh hồi', 'Domestic Cold Water': 'Nước lạnh sinh hoạt', 'Domestic Hot Water': 'Nước nóng sinh hoạt', 'Sanitary Drain': 'Thoát nước thải', 'Fire Sprinkler': 'Sprinkler chữa cháy' },
   right: { properties: 'Thuộc tính', system: 'Dữ liệu hệ thống', ai: 'Trợ lý AI' },
   props: {
     identity: 'Thông tin nhận dạng', dims: 'Kích thước', flow: 'Lưu lượng và hiệu suất', family: 'Family', type: 'Loại', typeMark: 'Ký hiệu loại', system: 'Hệ thống', description: 'Mô tả',
