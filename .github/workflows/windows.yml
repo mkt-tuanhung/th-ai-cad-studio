@@ -102,6 +102,8 @@ jobs:
         run: |
           $exe = "native/dist-win/TH AI CAD Studio/TH AI CAD Studio.exe"
           $env:THCAD_SELFTEST = "1"; $env:THCAD_QUIT_AFTER_MS = "60000"; $env:QT_QUICK_BACKEND = "software"
+          # a GUI-subsystem exe logs to OutputDebugString unless told otherwise
+          $env:QT_FORCE_STDERR_LOGGING = "1"
           $log = & $exe 2>&1 | Out-String
           $log
           if ($log -notmatch "SELFTEST DONE OK") { throw "self-test failed" }

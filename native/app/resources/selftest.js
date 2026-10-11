@@ -30,6 +30,19 @@
     const b = await h.bimSummary()
     out('bim', { w1: b.walls[0], checks: b.checks })
     check('BIM quantities + OCCT net volume', Math.abs(b.walls[0].volume - 2.55) < 1e-9 && b.walls[0].netVolume < 2.55 && b.checks.join() === '0,3,5,0,0')
+    // OCCT scene engine (Mechanical / Interior / MEP): exact volumes, boolean overlap, offscreen frame, pick
+    const box = (id, x) => ({ id, rgb: [0.5, 0.5, 0.5], parts: [{ k: 'box', o: [x, 0, 0], s: [1000, 1000, 1000] }] })
+    const sc = await h.scene3dLoad('selftest', JSON.stringify({ volumes: true, items: [box('a', 0), box('b', 500)] }))
+    if (!sc.ok && sc.error === 'OpenGL unavailable') console.log('SELFTEST SKIP 3D scene: no OpenGL on this machine')
+    else {
+      check('3D scene: exact volumes (1 m³ boxes)', sc.ok && sc.failures === 0 && Math.abs(sc.volumes.a - 1) < 1e-9 && Math.abs(sc.volumes.b - 1) < 1e-9)
+      const ov = await h.scene3dOverlaps('selftest')
+      check('3D scene: boolean overlap 0.5 m³', ov.length === 1 && Math.abs(ov[0].m3 - 0.5) < 1e-9)
+      await h.scene3dCamera('selftest', 'home', 0, 0, 0)
+      const fr = await h.scene3dFrame('selftest', 320, 240, 'shaded', '', '')
+      check('3D scene: offscreen frame', fr.ok && fr.url.startsWith('data:image/'))
+      check('3D scene: pick at the centre hits a box', ['a', 'b'].includes(await h.scene3dPick('selftest', 160, 120)))
+    }
     let result = null
     h.on('aiResult', (r) => { result = r; out('aiResult', { ok: r.ok, message: r.message, proposal: r.proposal && { added: r.proposal.added, status: r.proposal.status } }) })
     const docBefore = (await h.cadDocument()).entities.length
