@@ -85,10 +85,11 @@ await step('browser STA 0+500 sets the cross section station', async () => {
 
 await step('Profile tab shows the full longitudinal profile; Schedule shows the quantities table', async () => {
   await page.getByRole('tab', { name: 'Profile' }).click()
-  assert.ok(await page.getByRole('img', { name: 'Longitudinal Profile - CANAL-01' }).isVisible())
+  await page.getByRole('img', { name: 'Longitudinal Profile - CANAL-01' }).waitFor() // drawn after the box is measured
   await page.getByRole('tab', { name: 'Schedule' }).click()
-  assert.ok(await page.getByRole('table', { name: 'Earthwork Quantities' }).isVisible())
+  await page.getByRole('table', { name: 'Earthwork Quantities' }).waitFor()
   await page.getByRole('tab', { name: 'Plan' }).click()
+  await page.getByRole('img', { name: /^Cross section/ }).first().waitFor()
 })
 
 await step('Materials: lining concrete = perimeter × length × 0.12 m (927.93 m³)', async () => {

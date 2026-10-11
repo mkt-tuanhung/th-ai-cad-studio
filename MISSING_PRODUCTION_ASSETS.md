@@ -54,6 +54,6 @@ Coordinates are in mockup pixels (x, y, w, h). "Needed" is the minimum clean siz
 | 12-15…18 | 12 Renders | 572–1081, 699, 119 × 67 | Variations: original, warm, overcast, night | 476 × 268 | DEMO crops |
 | 12-19 | 12 Renders | 1368, 584, 37 × 26 | HDRI thumbnail | 148 × 104 | DEMO crop |
 
-The table will be extended for screens 08–12 as they are built. Screens 08–12 need the most:
+All screens 05–12 are listed above. The biggest gaps are the live viewports (interior, MEP, mechanical, render) and the satellite map, which need the native engines or licensed imagery rather than crops.
 MEP / interior / mechanical / render viewports, satellite map, material swatches, component
 product renders.
