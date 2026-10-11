@@ -1,3 +1,5 @@
+#include <cstdlib>
+#include <filesystem>
 #include "check.hpp"
 #include "thcad/occt/geometry.hpp"
 #include "thcad/bim/model_json.hpp"
@@ -41,8 +43,6 @@ TEST("OCCT building solid: all 24 walls placed, net volume = sum of walls with o
 }
 
 #include "thcad/occt/offscreen.hpp"
-#include <cstdlib>
-#include <filesystem>
 #include <fstream>
 
 TEST("OCCT offscreen renders frames in every display mode") {
