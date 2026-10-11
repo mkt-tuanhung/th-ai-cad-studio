@@ -48,6 +48,11 @@ Coordinates are in mockup pixels (x, y, w, h). "Needed" is the minimum clean siz
 | 10-01 | 10 Civil | 507, 261, 726 × 287 | Aerial imagery with CANAL-01 linework, labels, legend, scale (plan view) — nav strip inpainted | GIS basemap + live alignment from the civil engine | DEMO crop; contains AI artefacts (duplicate 0+100 label) |
 | 11-01 | 11 Mechanical | 499, 245, 754 × 454 | Pump assembly 3D render (viewport) — toolbar, cube, triad and display modes inpainted | live 3D kernel view | DEMO crop |
 | 11-02 | 11 Mechanical | 1272, 293, 68 × 63 | Pump casing thumbnail (Properties) | 136 × 126 | DEMO crop |
+| 12-01 | 12 Renders | 562, 218, 676 × 433 | Villa exterior render (Cam 01) — overlays inpainted | 4K render from the renderer | DEMO crop |
+| 12-02…06 | 12 Renders | 290, 262–586, 78 × 54 | Camera thumbnails Cam 01–05 | 312 × 216 | DEMO crops — also used as low-res previews |
+| 12-07…14 | 12 Renders | 290–538, 760 / 845, 54 × 53 | Material spheres (concrete, wood, marble, metal, glass, fabric, stone, vegetation) | 216 × 216 | DEMO crops |
+| 12-15…18 | 12 Renders | 572–1081, 699, 119 × 67 | Variations: original, warm, overcast, night | 476 × 268 | DEMO crops |
+| 12-19 | 12 Renders | 1368, 584, 37 × 26 | HDRI thumbnail | 148 × 104 | DEMO crop |
 
 The table will be extended for screens 08–12 as they are built. Screens 08–12 need the most:
 MEP / interior / mechanical / render viewports, satellite map, material swatches, component

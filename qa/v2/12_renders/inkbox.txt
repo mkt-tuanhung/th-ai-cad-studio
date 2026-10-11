@@ -1,0 +1,59 @@
+crumb.projects               mock x297 y107 w46 h11 | dx+3 dy-2 dw+1 dh+1  <--
+crumb.project                mock x381 y107 w68 h9 | dx+1 dy-2 dw+3 dh+0  <--
+crumb.current                mock x488 y106 w44 h10 | dx-1 dy-2 dw+2 dh+0  <--
+btn.share                    mock x1227 y115 w31 h10 | dx-1 dy+1 dw+0 dh-1
+btn.save                     mock x1325 y115 w53 h10 | dx-2 dy+1 dw+2 dh-1  <--
+btn.render                   mock x1477 y114 w40 h10 | dx+3 dy+3 dw-2 dh-1  <--
+tab.studio                   mock x305 y140 w75 h10 | dx-5 dy-1 dw+3 dh+0  <--
+tab.pano                     mock x419 y141 w83 h9 | dx-4 dy-1 dw+6 dh+0  <--
+tab.video                    mock x543 y140 w72 h10 | dx-2 dy-1 dw+5 dh+0  <--
+tab.ai                       mock x656 y141 w87 h9 | dx-2 dy-2 dw+7 dh+1  <--
+tab.batch                    mock x785 y141 w72 h9 | dx+0 dy-2 dw+4 dh+1  <--
+sc.title                     mock x289 y190 w117 h12 | dx+1 dy+1 dw-7 dh-2  <--
+sc.cameras                   mock x391 y226 w45 h9 | dx+1 dy+2 dw+0 dh-1  <--
+sc.scene                     mock x314 y226 w30 h9 | dx+3 dy+2 dw+1 dh-1  <--
+cam1.name                    mock x383 y268 w41 h10 | dx+0 dy+1 dw-2 dh-1  <--
+cam1.kind                    mock x383 y285 w99 h9 | dx+1 dy+0 dw-2 dh-1  <--
+cam5.name                    mock x383 y539 w41 h10 | dx+0 dy+0 dw+0 dh-1
+cam5.res                     mock x384 y573 w93 h9 | dx+0 dy-2 dw-4 dh-1  <--
+sc.add                       mock=(np.int64(393), np.int64(612), np.int64(456), np.int64(622)) cap=None
+as.title                     mock=(np.int64(288), np.int64(665), np.int64(373), np.int64(680)) cap=None
+as.search                    mock x317 y695 w194 h11 | dx-3 dy-5 dw-135 dh+1  <--
+as.mat                       mock x298 y729 w44 h9 | dx+4 dy-1 dw+0 dh+3  <--
+as.people                    mock x493 y729 w31 h11 | dx-5 dy+0 dw+2 dh-1  <--
+as.concrete                  mock x291 y819 w41 h8 | dx+25 dy-6 dw-20 dh+12  <--
+as.veg                       mock x484 y904 w48 h11 | dx+4 dy-6 dw+1 dh+9  <--
+vp.cam                       mock x600 y191 w158 h10 | dx+3 dy+2 dw-7 dh-2  <--
+vp.persp                     mock x1083 y192 w57 h11 | dx+4 dy+1 dw+1 dh-1  <--
+vp.wire                      mock x589 y622 w49 h9 | dx-4 dy-6 dw-5 dh+12  <--
+vp.rendered                  mock x818 y621 w32 h9 | dx+0 dy+2 dw+7 dh-5  <--
+vp.quality                   mock=(np.int64(1069), np.int64(621), np.int64(1131), np.int64(633)) cap=None
+va.title                     mock x570 y672 w77 h12 | dx+0 dy+1 dw-2 dh+1  <--
+va.ai                        mock x686 y672 w59 h9 | dx-4 dy+2 dw-11 dh-1  <--
+va.viewall                   mock x1187 y672 w39 h9 | dx+3 dy+2 dw+0 dh+0  <--
+va.warm                      mock x706 y777 w63 h11 | dx-2 dy+0 dw+7 dh-1  <--
+va.night                     mock x969 y777 w52 h11 | dx+4 dy+0 dw+0 dh-1  <--
+va.gen                       mock x1123 y749 w80 h9 | dx+5 dy+3 dw+0 dh-1  <--
+q.title                      mock x581 y820 w91 h11 | dx+2 dy-1 dw+2 dh+1  <--
+q.history                    mock x711 y820 w100 h12 | dx-4 dy-2 dw-9 dh+1  <--
+q.clear                      mock x1145 y821 w75 h10 | dx+0 dy-1 dw+5 dh+2  <--
+q.h.cam                      mock x616 y852 w64 h10 | dx-3 dy+1 dw+5 dh-1  <--
+q.r1.cam                     mock x616 y880 w127 h9 | dx-3 dy+1 dw+7 dh-1  <--
+q.r3.cam                     mock x616 y936 w97 h11 | dx-3 dy-1 dw+6 dh-1  <--
+rs.tab                       mock x1273 y186 w83 h13 | dx+0 dy+0 dw-1 dh-1
+rs.post                      mock x1394 y187 w77 h11 | dx-1 dy+0 dw+5 dh+0  <--
+rs.output                    mock x1265 y222 w41 h14 | dx-3 dy+0 dw-1 dh-1  <--
+rs.res.l                     mock x1266 y251 w53 h10 | dx-3 dy+2 dw-3 dh-2  <--
+rs.res.v                     mock x1376 y251 w114 h11 | dx-2 dy+1 dw-5 dh+1  <--
+rs.dpi.l                     mock x1266 y337 w16 h9 | dx-3 dy+1 dw+0 dh-1  <--
+rs.rendering                 mock x1265 y375 w60 h14 | dx-2 dy-5 dw+0 dh-13  <--
+rs.engine.l                  mock x1266 y405 w67 h12 | dx-3 dy+2 dw-9 dh+1  <--
+rs.samples.v                 mock x1508 y433 w24 h10 | dx-7 dy+6 dw+8 dh-4  <--
+rs.env                       mock x1265 y558 w79 h11 | dx-2 dy-5 dw-9 dh-3  <--
+rs.hdri.v                    mock=(np.int64(1412), np.int64(592), np.int64(1504), np.int64(603)) cap=None
+rs.rot.v                     mock x1508 y623 w23 h10 | dx-6 dy+10 dw+11 dh-6  <--
+rs.adv                       mock x1288 y737 w109 h9 | dx-3 dy+10 dw+8 dh-5  <--
+rs.ai                        mock x1290 y779 w96 h11 | dx-2 dy-1 dw+6 dh-3  <--
+rs.ai1                       mock=(np.int64(1290), np.int64(806), np.int64(1395), np.int64(817)) cap=None
+rs.ai4                       mock x1290 y877 w88 h11 | dx-4 dy-1 dw+9 dh+0  <--
+rs.render                    mock x1338 y921 w124 h11 | dx-4 dy-5 dw+9 dh+11  <--

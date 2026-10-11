@@ -39,3 +39,8 @@
 | civil/plan.png | 10 | crop 10_Civil.png (507,261)–(1233,548), nav strip inpainted | DEMO | mockup |
 | mechanical/viewport.png | 11 | crop 11_Mechanical.png (499,245)–(1253,699), overlays inpainted | DEMO | mockup |
 | mechanical/casing-thumb.png | 11 | crop (1272,293)–(1340,356) | DEMO | mockup |
+| renders/viewport.png | 12 | crop 12_Renders.png (562,218)–(1238,651), overlays inpainted | DEMO | mockup |
+| renders/cam1–5.png | 12 | crops x 290–368, y 262/330/397/465/532 (+54) | DEMO | mockup |
+| renders/mat-*.png (8) | 12 | crops 54 × 53 of the asset spheres | DEMO | mockup |
+| renders/var-*.png (4) | 12 | crops 119 × 67 of the variation cards | DEMO | mockup |
+| renders/hdri.png | 12 | crop (1368,584)–(1405,610) | DEMO | mockup |

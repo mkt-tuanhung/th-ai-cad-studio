@@ -32,7 +32,7 @@ kết quả đo của 4 màn này vẫn còn giá trị.
 | 09 | Interior | ✅ Đã dựng (2026-10-11): 51/65 ≤ 2 px, 64/65 ≤ 5 px, smoke 12/12; cut list / quantities thật, 3D là ảnh DEMO — `qa/QA_INTERIOR.md` | Như MEP, thêm mặt bằng thu nhỏ, AI Interior Designer, bảng Furniture/Cut List, Room Information |
 | 10 | Civil | ✅ Đã dựng (2026-10-11): 34/66 ≤ 2 px, 66/66 ≤ 5 px, smoke 12/12; Manning, đào đắp, kiểm tra dốc tính thật; trắc dọc/mặt cắt vẽ vector — `qa/QA_CIVIL.md` | Mặt bằng tuyến, trắc dọc, trắc ngang, khối lượng đào đắp, Design Parameters, AI Civil Assistant |
 | 11 | Mechanical | ✅ Đã dựng (2026-10-12): 47/73 ≤ 2 px, 69/73 ≤ 5 px, smoke 12/12; tham số, BOM, kiểm tra thiết kế tính tay, khối lượng = V × ρ; 3D là ảnh DEMO — `qa/QA_MECHANICAL.md` | Model Browser, viewport cụm lắp, Parameters, BOM, Mates, AI Design Checks |
-| 12 | Renders | ⏳ | Scene & Cameras, Asset Library, viewport render, Variations, Render Queue, Render Settings |
+| 12 | Renders | ✅ Đã dựng (2026-10-12): 27/59 ≤ 2 px, 53/59 ≤ 5 px, smoke 11/11; hàng đợi thật nhưng không có tiến độ giả (renderer chưa kết nối) — `qa/QA_RENDERS.md` | Scene & Cameras, Asset Library, viewport render, Variations, Render Queue, Render Settings |
 
 ## Nội dung mockup sai chuyên môn — giữ bố cục, sửa nội dung (cần chủ đầu tư duyệt)
 

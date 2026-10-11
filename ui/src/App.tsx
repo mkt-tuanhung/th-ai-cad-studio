@@ -18,6 +18,7 @@ import { InteriorScreen } from './screens/interior/InteriorScreen'
 import { MepScreen } from './screens/mep/MepScreen'
 import { CivilScreen } from './screens/civil/CivilScreen'
 import { MechanicalScreen } from './screens/mechanical/MechanicalScreen'
+import { RendersScreen } from './screens/renders/RendersScreen'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
@@ -75,6 +76,8 @@ export default function App() {
               <CivilScreen />
             ) : route === 'mechanical' ? (
               <MechanicalScreen />
+            ) : route === 'renders' ? (
+              <RendersScreen />
             ) : (
               <PlaceholderScreen route={route} title={t.nav[TITLE_KEY[route]]} />
             )}
