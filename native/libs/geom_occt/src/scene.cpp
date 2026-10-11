@@ -3,9 +3,10 @@
 
 #include <AIS_InteractiveContext.hxx>
 #include <AIS_Shape.hxx>
-#include <Aspect_SkydomeBackground.hxx>
 #include <Graphic3d_BSDF.hxx>
 #include <Graphic3d_CubeMapPacked.hxx>
+#include <Graphic3d_Vec3.hxx>
+#include <Graphic3d_Vec4.hxx>
 #include <Graphic3d_MaterialAspect.hxx>
 #include <OpenGl_Context.hxx>
 #include <V3d_AmbientLight.hxx>
