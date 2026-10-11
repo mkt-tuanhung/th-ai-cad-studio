@@ -7,7 +7,7 @@ export const mechEn = {
   share: 'Share',
   export: 'Export',
   ai: 'AI Assistant',
-  exportItems: { bom: 'Bill of materials (CSV)', params: 'Parameters (CSV)', checks: 'Design check report (CSV)' },
+  exportItems: { bom: 'Bill of materials (CSV)', params: 'Parameters (CSV)', checks: 'Design check report (CSV)', step: '3D model (STEP AP214)' },
   tools: {
     select: 'Select', part: 'Part', sketch: 'Sketch', extrude: 'Extrude', revolve: 'Revolve', hole: 'Hole', fillet: 'Fillet', chamfer: 'Chamfer', pattern: 'Pattern',
     assembly: 'Assembly', constraint: 'Constraint', explode: 'Explode', dimension: 'Dimension', cam: 'CAM Prep', more: 'More Tools',
@@ -18,7 +18,7 @@ export const mechEn = {
     gcs: 'Global Coordinate System', planes: 'Planes', origin: 'Origin', assembly: 'Assembly ({n})', fasteners: 'Fasteners ({n})', mates: 'Mates ({n})',
   },
   viewer: {
-    label: 'Mechanical 3D view', demo: 'DEMO render · mechanical 3D kernel not connected',
+    label: 'Mechanical 3D view', demo: 'DEMO render · the OCCT 3D kernel runs in the desktop app', demoRealistic: 'DEMO render (Realistic) · switch to Shaded for the live OCCT model',
     orbit: 'Orbit', pan: 'Pan', zoom: 'Zoom', fit: 'Zoom to fit', snapshot: 'Snapshot', remove: 'Delete', isolate: 'Isolate', settings: 'View settings',
     cube: { top: 'TOP', front: 'FRONT', right: 'RIGHT' },
     modes: { shaded: 'Shaded', wireframe: 'Wireframe', hidden: 'Hidden Line', realistic: 'Realistic' }, modeLabel: 'Display mode',
@@ -41,6 +41,7 @@ export const mechEn = {
     },
     details: {
       interference: 'Impeller–casing radial gap {radial} mm; shaft–bearing 6208 fit {fit} mm.',
+      interferenceOcct: ' OCCT boolean impeller ∩ casing = {v} cm³.',
       clearance: 'Radial clearance impeller → casing bore {radial} mm (min 2 mm).',
       strength: 'FEA solver not connected. Hand check: shaft torsion τ = {tau} MPa (allow {tauAllow}) at T = {T} N·m; casing hoop σ = {hoop} MPa at PN16 (allow {allow}).',
       standard: 'Suction DN{din} / discharge DN{dout} (EN 1092-1 series, discharge ≤ suction).',
@@ -52,7 +53,7 @@ export const mechEn = {
   props: {
     general: 'General', appearance: 'Appearance', mass: 'Mass Properties', name: 'Name', type: 'Type', directory: 'Directory', description: 'Description', material: 'Material',
     color: 'Color', byMaterial: 'By Material', opacity: 'Opacity', massL: 'Mass', volume: 'Volume', area: 'Surface Area', com: 'Center of Mass',
-    assemblyComponent: 'Assembly Component', partComponent: 'Part', geomNote: 'Volume, area and centre of mass: sample geometry (kernel not connected). Mass = volume × density.', kinds: { Assembly: 'Assembly', Part: 'Part' },
+    assemblyComponent: 'Assembly Component', partComponent: 'Part', geomNote: 'Volume, area and centre of mass: sample geometry (browser preview). Mass = volume × density.', geomNoteOcct: 'Volume: exact OCCT solid built from the parameters; mass = volume × density. Area and centre of mass: sample geometry.', kinds: { Assembly: 'Assembly', Part: 'Part' },
   },
   configs: { title: 'Configurations', activate: 'Activate', active: 'Active' },
   display: { title: 'Display', mode: 'Display mode', explode: 'Exploded view', exploded: 'Exploded view needs the 3D kernel (not connected).' },
@@ -73,7 +74,7 @@ export const mechVi: typeof mechEn = {
   share: 'Chia sẻ',
   export: 'Xuất',
   ai: 'Trợ lý AI',
-  exportItems: { bom: 'Danh mục vật tư (CSV)', params: 'Tham số (CSV)', checks: 'Báo cáo kiểm tra thiết kế (CSV)' },
+  exportItems: { bom: 'Danh mục vật tư (CSV)', params: 'Tham số (CSV)', checks: 'Báo cáo kiểm tra thiết kế (CSV)', step: 'Mô hình 3D (STEP AP214)' },
   tools: {
     select: 'Chọn', part: 'Chi tiết', sketch: 'Phác thảo', extrude: 'Đùn', revolve: 'Xoay', hole: 'Lỗ', fillet: 'Bo góc', chamfer: 'Vát mép', pattern: 'Mảng',
     assembly: 'Lắp ráp', constraint: 'Ràng buộc', explode: 'Tách rời', dimension: 'Kích thước', cam: 'Chuẩn bị CAM', more: 'Thêm công cụ',
@@ -84,7 +85,7 @@ export const mechVi: typeof mechEn = {
     gcs: 'Hệ toạ độ chung', planes: 'Mặt phẳng', origin: 'Gốc toạ độ', assembly: 'Lắp ráp ({n})', fasteners: 'Chi tiết kẹp chặt ({n})', mates: 'Ràng buộc ({n})',
   },
   viewer: {
-    label: 'Khung nhìn 3D cơ khí', demo: 'Ảnh DEMO · chưa kết nối kernel 3D cơ khí',
+    label: 'Khung nhìn 3D cơ khí', demo: 'Ảnh DEMO · kernel 3D OCCT chạy trong app desktop', demoRealistic: 'Ảnh DEMO (Chân thực) · chọn Tô bóng để xem mô hình OCCT thật',
     orbit: 'Xoay', pan: 'Kéo', zoom: 'Thu phóng', fit: 'Vừa khung', snapshot: 'Chụp ảnh', remove: 'Xoá', isolate: 'Tách riêng', settings: 'Thiết lập khung nhìn',
     cube: { top: 'TRÊN', front: 'TRƯỚC', right: 'PHẢI' },
     modes: { shaded: 'Tô bóng', wireframe: 'Khung dây', hidden: 'Nét khuất', realistic: 'Chân thực' }, modeLabel: 'Chế độ hiển thị',
@@ -114,6 +115,7 @@ export const mechVi: typeof mechEn = {
     },
     details: {
       interference: 'Khe hở hướng kính bánh công tác – thân {radial} mm; lắp trục – ổ 6208 {fit} mm.',
+      interferenceOcct: ' Phép giao OCCT bánh công tác ∩ thân = {v} cm³.',
       clearance: 'Khe hở hướng kính bánh công tác → lỗ thân {radial} mm (tối thiểu 2 mm).',
       strength: 'Chưa kết nối bộ giải FEA. Tính tay: xoắn trục τ = {tau} MPa (cho phép {tauAllow}) với T = {T} N·m; ứng suất vòng thân σ = {hoop} MPa ở PN16 (cho phép {allow}).',
       standard: 'Cửa hút DN{din} / cửa đẩy DN{dout} (dãy EN 1092-1, cửa đẩy ≤ cửa hút).',
@@ -125,7 +127,7 @@ export const mechVi: typeof mechEn = {
   props: {
     general: 'Chung', appearance: 'Ngoại quan', mass: 'Tính chất khối lượng', name: 'Tên', type: 'Loại', directory: 'Thư mục', description: 'Mô tả', material: 'Vật liệu',
     color: 'Màu', byMaterial: 'Theo vật liệu', opacity: 'Độ mờ', massL: 'Khối lượng', volume: 'Thể tích', area: 'Diện tích bề mặt', com: 'Trọng tâm',
-    assemblyComponent: 'Cụm lắp ráp', partComponent: 'Chi tiết', geomNote: 'Thể tích, diện tích, trọng tâm: hình học mẫu (chưa kết nối kernel). Khối lượng = thể tích × khối lượng riêng.', kinds: { Assembly: 'Lắp ráp', Part: 'Chi tiết' },
+    assemblyComponent: 'Cụm lắp ráp', partComponent: 'Chi tiết', geomNote: 'Thể tích, diện tích, trọng tâm: hình học mẫu (bản xem trên trình duyệt). Khối lượng = thể tích × khối lượng riêng.', geomNoteOcct: 'Thể tích: khối OCCT chính xác dựng từ tham số; khối lượng = thể tích × khối lượng riêng. Diện tích, trọng tâm: hình học mẫu.', kinds: { Assembly: 'Lắp ráp', Part: 'Chi tiết' },
   },
   configs: { title: 'Cấu hình', activate: 'Kích hoạt', active: 'Đang dùng' },
   display: { title: 'Hiển thị', mode: 'Chế độ hiển thị', explode: 'Hình tách rời', exploded: 'Hình tách rời cần kernel 3D (chưa kết nối).' },

@@ -25,6 +25,7 @@
 #include "thcad/bim/model_json.hpp"
 #include "thcad/occt/geometry.hpp"
 #include "thcad/occt/offscreen.hpp"
+#include "thcad/occt/scene.hpp"
 #endif
 #include <QBuffer>
 #include <QImage>
@@ -257,7 +258,100 @@ void HostBridge::bim3dCamera(const QString& action, double a, double b, double c
   else v->preset(action.toStdString());
   (void)d;
 }
+
+occt::SceneView* HostBridge::scene(const QString& key) {
+  auto& v = scenes_[key];
+  if (!v) v = std::make_unique<occt::SceneView>();
+  return v->ok() ? v.get() : nullptr;
+}
+
+QJsonObject HostBridge::scene3dLoad(const QString& key, const QString& json) {
+  auto* v = scene(key);
+  if (!v) return {{"ok", false}, {"error", "OpenGL unavailable"}};
+  auto parsed = json::parse(json.toStdString());
+  if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+  const json::Value& root = std::get<json::Value>(parsed);
+  const std::vector<occt::SceneItem> items = occt::sceneFromJson(root);
+  const int failures = v->setItems(items);
+  QJsonObject volumes;
+  const json::Value* wantVol = root.get("volumes");
+  if (wantVol && wantVol->boolean() && *wantVol->boolean())
+    for (const auto& it : items) volumes[QString::fromStdString(it.id)] = v->volumeM3(it.id);
+  return {{"ok", true}, {"items", static_cast<int>(items.size())}, {"failures", failures}, {"ms", v->lastBuildMs()}, {"volumes", volumes}};
+}
+
+QJsonObject HostBridge::scene3dFrame(const QString& key, int w, int h, const QString& mode, const QString& selected, const QString& highlightedCsv) {
+  auto* v = scene(key);
+  if (!v || w < 8 || h < 8) return {{"ok", false}};
+  static std::map<QString, QString> lastMode, lastSel, lastHi;
+  if (mode != lastMode[key]) { v->setMode(mode.toStdString()); lastMode[key] = mode; }
+  if (selected != lastSel[key]) { v->setSelected(selected.toStdString()); lastSel[key] = selected; }
+  if (highlightedCsv != lastHi[key]) {
+    std::vector<std::string> ids;
+    for (const auto& s : highlightedCsv.split(',', Qt::SkipEmptyParts)) ids.push_back(s.toStdString());
+    v->setHighlighted(ids);
+    lastHi[key] = highlightedCsv;
+  }
+  std::vector<unsigned char> px = v->renderRgba(w, h);
+  if (px.empty()) return {{"ok", false}};
+  QImage img(px.data(), w, h, w * 4, QImage::Format_RGBA8888);
+  QByteArray bytes;
+  QBuffer buf(&bytes);
+  buf.open(QIODevice::WriteOnly);
+  img.save(&buf, "JPG", 88);
+  return {{"ok", true}, {"url", QStringLiteral("data:image/jpeg;base64,") + QString::fromLatin1(bytes.toBase64())}, {"ms", v->lastRenderMs()}};
+}
+
+void HostBridge::scene3dCamera(const QString& key, const QString& action, double a, double b, double c) {
+  auto* v = scene(key);
+  if (!v) return;
+  if (action == "orbitStart") v->orbit(int(a), int(b), int(a), int(b), true);
+  else if (action == "orbit") v->orbit(0, 0, int(a), int(b), false);
+  else if (action == "pan") v->pan(int(a), int(b));
+  else if (action == "zoom") v->zoom(int(a), int(b), c);
+  else if (action == "fit") v->fit();
+  else v->preset(action.toStdString());
+}
+
+QString HostBridge::scene3dPick(const QString& key, int x, int y) {
+  auto* v = scene(key);
+  return v ? QString::fromStdString(v->pick(x, y)) : QString();
+}
+
+double HostBridge::scene3dCommon(const QString& key, const QString& a, const QString& b) {
+  auto* v = scene(key);
+  return v ? v->commonM3(a.toStdString(), b.toStdString()) : -1;
+}
+
+QJsonArray HostBridge::scene3dOverlaps(const QString& key) {
+  QJsonArray out;
+  auto* v = scene(key);
+  if (!v) return out;
+  for (const auto& o : v->overlaps()) out.append(QJsonObject{{"a", QString::fromStdString(o.a)}, {"b", QString::fromStdString(o.b)}, {"m3", o.volume}});
+  return out;
+}
+
+QJsonObject HostBridge::scene3dExportStep(const QString& key, const QString& suggestedName) {
+  auto* v = scene(key);
+  if (!v) return {{"ok", false}, {"error", "no scene"}};
+  QString path = qEnvironmentVariable("THCAD_STEP_OUT");  // QA: skip the dialog
+  if (path.isEmpty()) {
+    const QString start = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + suggestedName;
+    path = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Export STEP"), start, "STEP (*.step *.stp)");
+  }
+  if (path.isEmpty()) return {{"ok", false}, {"cancelled", true}};
+  const std::string err = v->writeStep(path.toStdString());
+  if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+  return {{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
+}
 #else
+QJsonObject HostBridge::scene3dLoad(const QString&, const QString&) { return {{"ok", false}}; }
+QJsonObject HostBridge::scene3dFrame(const QString&, int, int, const QString&, const QString&, const QString&) { return {{"ok", false}}; }
+void HostBridge::scene3dCamera(const QString&, const QString&, double, double, double) {}
+QString HostBridge::scene3dPick(const QString&, int, int) { return {}; }
+double HostBridge::scene3dCommon(const QString&, const QString&, const QString&) { return -1; }
+QJsonArray HostBridge::scene3dOverlaps(const QString&) { return {}; }
+QJsonObject HostBridge::scene3dExportStep(const QString&, const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::bim3dLoad(const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::bim3dFrame(int, int, const QString&, const QString&) { return {{"ok", false}}; }
 void HostBridge::bim3dCamera(const QString&, double, double, double, double) {}

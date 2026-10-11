@@ -1,3 +1,4 @@
+import { useEffect as useHostEffect, useState as useHostState } from 'react'
 /**
  * Desktop host bridge (architecture option A). In the Qt app, the native side injects
  * `window.thcadHostReady` (QWebChannel) before any page script runs. In a plain browser there is no
@@ -33,6 +34,13 @@ export interface HostApi {
   bim3dLoad(modelJson: string): Promise<{ ok: boolean }>
   bim3dFrame(w: number, h: number, mode: string, selectedWall: string): Promise<{ ok: boolean; url?: string; ms?: number }>
   bim3dCamera(action: string, a: number, b: number, c: number, d: number): Promise<void>
+  scene3dLoad(key: string, json: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; volumes?: Record<string, number>; error?: string }>
+  scene3dFrame(key: string, w: number, h: number, mode: string, selected: string, highlightedCsv: string): Promise<{ ok: boolean; url?: string; ms?: number }>
+  scene3dCamera(key: string, action: string, a: number, b: number, c: number): Promise<void>
+  scene3dPick(key: string, x: number, y: number): Promise<string>
+  scene3dCommon(key: string, a: string, b: string): Promise<number>
+  scene3dOverlaps(key: string): Promise<{ a: string; b: string; m3: number }[]>
+  scene3dExportStep(key: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; error?: string; cancelled?: boolean }>
   bimSummary(): Promise<{ walls: { mark: string; area: number; volume: number; netVolume?: number }[]; checks: number[] }>
   setViewportSlot(kind: string, x: number, y: number, w: number, h: number, visible: boolean): Promise<void>
   /** Async; the result arrives on the 'dwgResult' signal with the returned id. */
@@ -94,3 +102,16 @@ export function getHost(): Promise<HostApi | null> {
 }
 
 export const isDesktopHost = () => typeof window.thcadHostReady !== 'undefined'
+
+/** React hook: the desktop host, or null in a plain browser (resolves once). */
+export function useHost(): HostApi | null {
+  const [host, setHost] = useHostState<HostApi | null>(null)
+  useHostEffect(() => {
+    let live = true
+    getHost().then((h) => live && setHost(h))
+    return () => {
+      live = false
+    }
+  }, [])
+  return host
+}

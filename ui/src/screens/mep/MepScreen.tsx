@@ -128,7 +128,7 @@ export function MepScreen() {
         <MepBrowser />
       </div>
       <div className={s.viewer}>
-        <MepViewport max={max} onMax={() => setMax(!max)} />
+        <MepViewport max={max} onMax={() => setMax(!max)} clashes={clashes} />
       </div>
       {!max && (
         <div className={s.bottom}>

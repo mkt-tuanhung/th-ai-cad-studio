@@ -157,6 +157,7 @@ export function MepBottom({ clashes, onCheck, onDownload }: { clashes: Clash[]; 
           {schedule === 'equipment' && <Table label={fmt(t.pills.equipment, { n: equip.length })} columns={eqCols} rows={equip} rowKey={(x) => x.id} rowH={20.8} selected={sel?.id} onSelect={(x) => select('equipment', x.id)} />}
         </>
       )}
+      {bottom === 'clashes' && <NativeClashNote clashes={clashes} />}
       {bottom === 'clashes' && <Table label={fmt(t.bottom.clashes, { n: clashes.length })} columns={clashCols} rows={clashes} rowKey={(x) => x.id} rowH={22} onSelect={(x) => { const d = doc.ducts.find((y) => y.mark === x.a && y.level === x.level); if (d) select('duct', d.id) }} empty={t.aiCard.none} />}
       {bottom === 'status' && <Table label={t.bottom.status} columns={statusCols} rows={[...systems]} rowKey={(x) => x.id} rowH={24} />}
       {bottom === 'ai' && (
@@ -166,5 +167,21 @@ export function MepBottom({ clashes, onCheck, onDownload }: { clashes: Clash[]; 
         </>
       )}
     </TabCard>
+  )
+}
+
+/** Desktop app: what the exact OCCT check found on the shown level, and which pairs the rule set does not cover. */
+function NativeClashNote({ clashes }: { clashes: Clash[] }) {
+  const t = useT().mep
+  const { doc, nativeOverlaps: no } = useMep()
+  if (!no) return null
+  const mark = (id: string) => doc.ducts.find((d) => d.id === id)?.mark ?? doc.pipes.find((p) => p.id === id)?.mark ?? id.replace(/^B-L\d-/, 'Beam ')
+  const known = new Set(clashes.flatMap((c) => [c.id, c.id.split('×').reverse().join('×')]))
+  const extra = no.pairs.filter((p) => !known.has(`${p.a}×${p.b}`))
+  return (
+    <p className={s.note} data-testid="native-clashes">
+      {fmt(t.native3d.summary, { level: no.level.slice(1), n: no.pairs.length, extra: extra.length })}
+      {extra.length > 0 && ` — ${extra.map((p) => `${mark(p.a)} × ${mark(p.b)} (${(p.m3 * 1e6).toFixed(0)} cm³)`).join(', ')}`}
+    </p>
   )
 }

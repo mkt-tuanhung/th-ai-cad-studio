@@ -110,11 +110,11 @@ export const ROOMS: Room[] = [
   { id: 'living', name: 'Living Room', outline: rect(0, 0, 7670, 3730), ...FIN },
   { id: 'dining', name: 'Dining & Kitchen', outline: rect(7670, 0, 5200, 4100), ...FIN },
   { id: 'master', name: 'Master Bedroom', outline: rect(0, 3730, 4500, 4000), ...FIN, floorFinish: 'Wood - Oak' },
-  { id: 'bed1', name: 'Bedroom 1', outline: rect(4500, 3730, 3800, 3400), ...FIN, floorFinish: 'Wood - Oak' },
+  { id: 'bed1', name: 'Bedroom 1', outline: rect(4500, 3730, 3170, 3400), ...FIN, floorFinish: 'Wood - Oak' },
   { id: 'bed2', name: 'Bedroom 2', outline: rect(8300, 4100, 3600, 3300), ...FIN, floorFinish: 'Wood - Oak' },
   { id: 'bath1', name: 'Bathroom 1', outline: rect(11900, 4100, 2400, 2100), ...FIN, ceilingHeight: 2700 },
   { id: 'bath2', name: 'Bathroom 2', outline: rect(4500, 7130, 2200, 1900), ...FIN, ceilingHeight: 2700 },
-  { id: 'laundry', name: 'Laundry', outline: rect(6700, 7130, 1800, 1600), ...FIN, ceilingHeight: 2700 },
+  { id: 'laundry', name: 'Laundry', outline: rect(6700, 7130, 1600, 1600), ...FIN, ceilingHeight: 2700 },
   { id: 'balcony', name: 'Balcony', outline: rect(0, -1500, 3600, 1500), ...FIN, ceilingFinish: '—', ceilingHeight: 3000 },
 ]
 
@@ -149,6 +149,15 @@ export function area(o: Pt[]): number {
     a += p.x * q.y - q.x * p.y
   }
   return Math.abs(a) / 2 / 1e6 // m²
+}
+
+/** Overlap area (m²) of two rooms; exact for axis-aligned rectangles, 0 for other outlines (not checked). */
+export function roomOverlap(a: Pt[], b: Pt[]): number {
+  const rect = (o: Pt[]) => o.length === 4 && o.every((p, i) => { const q = o[(i + 1) % 4]; return p.x === q.x || p.y === q.y })
+  if (!rect(a) || !rect(b)) return 0
+  const bb = (o: Pt[]) => ({ x0: Math.min(...o.map((p) => p.x)), x1: Math.max(...o.map((p) => p.x)), y0: Math.min(...o.map((p) => p.y)), y1: Math.max(...o.map((p) => p.y)) })
+  const p = bb(a), q = bb(b)
+  return (Math.max(0, Math.min(p.x1, q.x1) - Math.max(p.x0, q.x0)) * Math.max(0, Math.min(p.y1, q.y1) - Math.max(p.y0, q.y0))) / 1e6
 }
 
 export function perimeter(o: Pt[]): number {

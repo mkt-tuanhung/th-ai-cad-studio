@@ -32,7 +32,7 @@ await step('opens like the mockup: HVAC tab, Duct Schedule (48), SA-01 in Proper
   assert.equal(await page.getByRole('tab', { name: 'Duct Schedule (48)' }).getAttribute('aria-selected'), 'true')
   assert.ok(await page.getByText('Rectangular Duct').first().isVisible())
   assert.equal(await page.getByRole('textbox', { name: 'Width' }).inputValue(), '600')
-  assert.ok(await page.getByText('DEMO render · MEP engine not connected').isVisible())
+  assert.ok(await page.getByText('DEMO render · the OCCT 3D engine runs in the desktop app').isVisible())
   assert.equal(await page.getByText('Model Ready').count(), 0)
 })
 

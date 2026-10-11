@@ -5,6 +5,7 @@ import { toast } from '../../state/toast'
 import { useInterior, type InteriorBottom as Tab } from '../../state/interior'
 import { Status, TabCard, Table, wsStyles as w, type Column } from '../../components/workspace/Workspace'
 import { MATERIALS, cutList, cutTotals, dimsLabel, roomQuantities, type CutPart, type Item, type Material, type RoomQty } from '../../interior/model'
+import { cutListVolume } from '../../interior/scene'
 import s from './Interior.module.css'
 
 const n2 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -14,7 +15,7 @@ export function InteriorBottom({ full }: { full?: boolean }) {
   const t = T.interior
   const c = t.cols
   const navigate = useRouter((st) => st.navigate)
-  const { doc, bottom, sel, filter, checked, edit, set } = useInterior()
+  const { doc, bottom, sel, filter, checked, edit, set, nativeVolumes } = useInterior()
   const [all, setAll] = useState(false)
   const rn = (id: string) => {
     const r = doc.rooms.find((x) => x.id === id)
@@ -136,6 +137,7 @@ export function InteriorBottom({ full }: { full?: boolean }) {
           <p className={s.cutSum}>
             {fmt(t.cut.totals, { parts: tot.parts, area: n2(tot.boardArea), edge: n2(tot.edge) })} · {fmt(t.cut.sheets, { list: Object.entries(tot.sheets).map(([m, n]) => `${mn(m)} × ${n}`).join(', ') })}
             <em>{t.cut.note}</em>
+            {nativeVolumes && <Check3d />}
           </p>
           <Table label={t.bottom.cutlist} columns={cutCols} rows={parts.map((p, i) => ({ ...p, k: `${p.cabinet}-${p.part}-${i}` }))} rowKey={(p) => p.k} rowH={24} />
         </>
@@ -148,4 +150,16 @@ export function InteriorBottom({ full }: { full?: boolean }) {
       )}
     </TabCard>
   )
+}
+
+/** Cabinet board volume from the OCCT solids vs the cut list (desktop app only). */
+function Check3d() {
+  const t = useT().interior.cut
+  const { doc, nativeVolumes } = useInterior()
+  const rows = doc.cabinets
+    .map((c) => ({ c, item: doc.items.find((i) => i.cabinet === c.id) }))
+    .filter((r) => r.item && nativeVolumes?.[r.item.id] !== undefined)
+    .map(({ c, item }) => ({ name: c.name, d: ((nativeVolumes![item!.id] / ((item!.qty || 1) * cutListVolume(c))) - 1) * 100 }))
+  const bad = rows.find((r) => Math.abs(r.d) > 0.1)
+  return <em data-testid="cut-check3d">{bad ? fmt(t.check3dBad, { name: bad.name, d: bad.d.toFixed(2) }) : fmt(t.check3d, { ok: rows.length, n: rows.length })}</em>
 }

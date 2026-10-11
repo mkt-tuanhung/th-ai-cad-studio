@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   Box, Boxes, Camera, ChevronDown, Circle, CircleDot, Expand, FileBox, Focus, Grid2x2, Hand, Layers, MousePointer2, Plus, RefreshCcw, Scaling, Settings, Share, Spline,
   SquareDashed, Trash2, Triangle, X, ZoomOut, Disc, Move3d,
@@ -11,6 +11,9 @@ import { undoKeys } from '../../state/undoable'
 import { AiSparkIcon, DimensionToolIcon, ExportToolIcon } from '../../components/icons'
 import { Modes, ToolStrip, ViewCube, Viewport, WsButton, WsHeader, WsRibbon, csv, downloadFile } from '../../components/workspace/Workspace'
 import { designChecks } from '../../mech/model'
+import { pumpScene } from '../../mech/scene'
+import { useHost } from '../../services/host'
+import { NativeScene, type SceneCamera } from '../../components/workspace/NativeScene'
 import { MechBrowser } from './MechBrowser'
 import { MechBottom } from './MechBottom'
 import { MechRight } from './MechRight'
@@ -30,6 +33,18 @@ export function MechanicalScreen() {
   const navigate = useRouter((st) => st.navigate)
   const st = useMech()
   const native = (what: string) => toast(fmt(t.toast.native, { what }))
+  const host = useHost()
+  const live = !!host && st.mode !== 'realistic'
+  const cam = useRef<SceneCamera | null>(null)
+  const scene = useMemo(() => pumpScene(st.doc, st.exploded ? 140 : 0), [st.doc, st.exploded])
+  // camera tools act on the live OCCT view; in the browser they explain that the kernel runs in the desktop app
+  const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
+  const exportStep = async () => {
+    if (!host) return native('STEP')
+    const r = await host.scene3dExportStep('mech', 'Centrifugal_Pump_Assembly.step')
+    if (r.ok) toast(fmt(t.toast.exported, { file: r.path ?? '' }), 'success')
+    else if (!r.cancelled) toast(fmt(t.toast.invalid, { why: r.error ?? 'STEP' }), 'warning')
+  }
 
   useEffect(() => {
     const onKey = undoKeys(st.undo, st.redo, (label, redo) => toast(label ? fmt(redo ? t.toast.redone : t.toast.undone, { label }) : t.toast.nothing))
@@ -67,7 +82,7 @@ export function MechanicalScreen() {
           actions={
             <>
               <WsButton icon={<Share size={15} strokeWidth={1.7} />} label={t.share} width={79} onClick={() => toast(t.toast.shareOffline)} />
-              <WsButton icon={<ExportToolIcon size={19} strokeWidth={1.5} />} label={t.export} width={106} menu={(['bom', 'params', 'checks'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) }))} />
+              <WsButton icon={<ExportToolIcon size={19} strokeWidth={1.5} />} label={t.export} width={106} menu={[...(['bom', 'params', 'checks'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) })), { label: t.exportItems.step, onSelect: () => void exportStep() }]} />
               <WsButton primary icon={<AiSparkIcon size={19} strokeWidth={1.7} />} label={t.ai} width={130} onClick={() => st.set({ bottom: 'checks' })} />
             </>
           }
@@ -99,7 +114,7 @@ export function MechanicalScreen() {
             { key: 'pattern', label: t.tools.pattern, Icon: Grid2x2, c: 635, w: 62, onClick: () => native(t.tools.pattern) },
             { key: 'assembly', label: t.tools.assembly, Icon: Boxes, c: 718, w: 72, onClick: () => st.set({ bottom: 'bom' }) },
             { key: 'constraint', label: t.tools.constraint, Icon: Spline, c: 807, w: 78, onClick: () => st.set({ bottom: 'mates' }) },
-            { key: 'explode', label: t.tools.explode, Icon: Move3d, c: 892, w: 64, onClick: () => native(t.tools.explode) },
+            { key: 'explode', label: t.tools.explode, Icon: Move3d, c: 892, w: 64, active: st.exploded, onClick: () => (host ? st.set({ exploded: !st.exploded, mode: st.mode === 'realistic' ? 'shaded' : st.mode }) : native(t.tools.explode)) },
             { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 977, w: 76, onClick: () => native(t.tools.dimension) },
             { key: 'cam', label: t.tools.cam, Icon: SquareDashed, c: 1067, w: 72, onClick: () => native(t.tools.cam) },
           ]}
@@ -117,21 +132,37 @@ export function MechanicalScreen() {
       </div>
 
       <div className={s.viewer}>
-        <Viewport mode={st.mode} img="/assets/v2/mechanical/viewport.png" alt="Centrifugal pump assembly (DEMO render)" label={t.viewer.label} demo={{ text: t.viewer.demo, style: { left: 12, top: 12 } }}>
+        <Viewport mode={live ? 'shaded' : st.mode} img={live ? undefined : '/assets/v2/mechanical/viewport.png'} alt="Centrifugal pump assembly (DEMO render)" label={t.viewer.label} demo={live ? undefined : { text: host ? t.viewer.demoRealistic : t.viewer.demo, style: { left: 12, top: 12 } }}>
+          {live && host && (
+            <NativeScene
+              host={host}
+              sceneKey="mech"
+              scene={scene}
+              mode={st.mode as 'shaded' | 'wireframe' | 'hidden'}
+              selected={st.sel}
+              cameraRef={cam}
+              label={t.viewer.label}
+              onPick={(id) => st.set({ sel: id, browserSel: `c-${id}`, right: 'properties' })}
+              onLoaded={async (r) => {
+                const overlap = await host.scene3dCommon('mech', 'impeller', 'casing')
+                st.set({ nativeVolumes: r.volumes ?? null, nativeOverlap: overlap >= 0 ? overlap : null })
+              }}
+            />
+          )}
           <ToolStrip
             style={{ left: 'calc(50% - 108px)', top: 6 }}
             items={[
-              { label: t.viewer.orbit, icon: <RefreshCcw size={18} strokeWidth={1.7} />, onClick: () => native(t.viewer.orbit) },
+              { label: t.viewer.orbit, icon: <RefreshCcw size={18} strokeWidth={1.7} />, onClick: camOr('home', t.viewer.orbit) },
               { label: t.viewer.pan, icon: <Hand size={18} strokeWidth={1.7} />, onClick: () => native(t.viewer.pan) },
-              { label: t.viewer.zoom, icon: <ZoomOut size={18} strokeWidth={1.7} />, onClick: () => native(t.viewer.zoom) },
-              { label: t.viewer.fit, icon: <Expand size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.fit) },
+              { label: t.viewer.zoom, icon: <ZoomOut size={18} strokeWidth={1.7} />, onClick: camOr('zoom', t.viewer.zoom, 400, 300, -2) },
+              { label: t.viewer.fit, icon: <Expand size={17} strokeWidth={1.7} />, onClick: camOr('fit', t.viewer.fit) },
               { label: t.viewer.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.snapshot) },
               { label: t.viewer.remove, icon: <Trash2 size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.remove) },
               { label: t.viewer.isolate, icon: <Focus size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.isolate) },
               { label: t.viewer.settings, icon: <Settings size={17} strokeWidth={1.7} />, onClick: () => st.set({ right: 'display' }) },
             ]}
           />
-          <ViewCube style={{ right: 16, top: 22 }} labels={t.viewer.cube} onFace={(f) => native(`${t.viewer.cube[f]} view`)} />
+          <ViewCube style={{ right: 16, top: 22 }} labels={t.viewer.cube} onFace={(f) => (live && cam.current ? cam.current(f) : native(`${t.viewer.cube[f]} view`))} />
           <svg className={s.triad} width="60" height="74" viewBox="0 0 60 74" aria-hidden="true">
             <line x1="12" y1="58" x2="12" y2="14" stroke="#2f6fed" strokeWidth="2" /><text x="8" y="10" fill="#2f6fed">Z</text>
             <line x1="12" y1="58" x2="30" y2="46" stroke="#13a35f" strokeWidth="2" /><text x="31" y="45" fill="#13a35f">Y</text>

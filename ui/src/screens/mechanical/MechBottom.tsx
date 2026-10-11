@@ -11,7 +11,7 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
   const T = useT()
   const t = T.mechanical
   const lang = useLang()
-  const { doc, bottom, bomAll, checkedAt, checked, edit, set } = useMech()
+  const { doc, bottom, bomAll, checkedAt, checked, edit, set, nativeOverlap } = useMech()
   const [moreOpen, setMoreOpen, moreRef] = useDismissable<HTMLDivElement>()
   const up = (p: Param, v: number) => {
     const err = edit(`${p.name} = ${v} ${p.unit}`, (m) => ({ ...m, params: m.params.map((x) => (x.name === p.name ? { ...x, value: v } : x)) }))
@@ -35,7 +35,13 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
     { key: 'm', label: t.bom.material, w: '72px', render: (b) => b.material },
     { key: 'q', label: t.bom.qty, w: 'minmax(30px,1fr)', render: (b) => b.qty },
   ]
-  const checks = designChecks(doc)
+  const checks = designChecks(doc).map((c) => {
+    // desktop: the exact OCCT boolean common decides interference between impeller and casing
+    if (c.key !== 'interference' || nativeOverlap === null) return c
+    const hit = nativeOverlap > 1e-9
+    return { ...c, tone: hit ? ('err' as const) : c.tone, detail: hit ? 'interference' : c.detail, facts: { ...c.facts, occt: (nativeOverlap * 1e6).toFixed(1) } }
+  })
+  const detailOf = (c: (typeof checks)[number]) => fmt(t.checks.details[c.key], c.facts) + ('occt' in c.facts ? fmt(t.checks.details.interferenceOcct, { v: c.facts.occt }) : '')
   const ICON = { interference: <Scan size={18} />, clearance: <Ruler size={17} />, strength: <AlertTriangle size={17} />, standard: <ShieldCheck size={17} />, dfm: <Settings2 size={17} /> }
   const run = () => {
     set({ checkedAt: Date.now(), bottom: 'checks' })
@@ -99,7 +105,7 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
         </header>
         <ul>
           {checks.map((c) => (
-            <li key={c.key} title={fmt(t.checks.details[c.key], c.facts)}>
+            <li key={c.key} title={detailOf(c)}>
               <span className={`${s.ckIcon} ${s[`k_${c.key}`]}`}>{ICON[c.key]}</span>
               <b>{t.checks.names[c.key]}</b>
               <span className={`${s.res} ${s[c.tone]}`}>
@@ -107,7 +113,7 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
                 {resText(c)}
               </span>
               <ChevronRight size={14} className={s.chev} />
-              <small className={s.detail}>{fmt(t.checks.details[c.key], c.facts)}</small>
+              <small className={s.detail}>{detailOf(c)}</small>
             </li>
           ))}
         </ul>

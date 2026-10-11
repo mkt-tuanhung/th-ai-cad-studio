@@ -11,6 +11,7 @@ param(
   [string]$SignCmd = ""
 )
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"  # the progress bar slows Invoke-WebRequest to a crawl
 # native tools do not throw on failure: stop on the first non-zero exit code
 function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE)" } }
 $Native = Resolve-Path "$PSScriptRoot\..\.."
@@ -67,16 +68,23 @@ $Zip = Fetch "$Rel/libredwg-0.14.8601-win64.zip" "439CD08D888F3BC2F643CABADE0374
 $Src = Fetch "$Rel/libredwg-0.14.8601.tar.xz" "F1140A219D6EDB291E55FAD740BE6C5E49C046FEE558860575AEEF110CAA4EF9"
 $Tmp = "$Build\libredwg"
 Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue
+Write-Host "   downloaded"
 Expand-Archive $Zip -DestinationPath $Tmp
 New-Item -ItemType Directory -Force "$Stage\libredwg", "$Stage\licenses\libredwg" | Out-Null
+# imports checked: dwg2dxf.exe -> libredwg-0.dll -> libiconv-2.dll (+ KERNEL32, msvcrt)
 foreach ($f in "dwg2dxf.exe", "libredwg-0.dll", "libiconv-2.dll") { Copy-Item "$Tmp\$f" "$Stage\libredwg\" }
 Copy-Item $Src "$Stage\licenses\libredwg\"
-# Windows bsdtar: Git's GNU tar would read "D:\..." as a remote host and wait forever
-& "$env:SystemRoot\System32\tar.exe" -xJf $Src -C $Tmp "libredwg-0.14.8601/COPYING"; Check "tar COPYING"
-Copy-Item "$Tmp\libredwg-0.14.8601\COPYING" "$Stage\licenses\libredwg\COPYING"
+# COPYING from the source tarball via Python's tarfile: Git's GNU tar reads "D:\..." as a remote host and
+# Windows bsdtar has no built-in xz (it pipes through an external xz) — both hung the CI job
+python -c "import sys, tarfile; t = tarfile.open(sys.argv[1], 'r:xz'); open(sys.argv[2], 'wb').write(t.extractfile('libredwg-0.14.8601/COPYING').read())" $Src "$Stage\licenses\libredwg\COPYING"; Check "extract COPYING"
+Write-Host "   license staged"
 Copy-Item "$Native\third_party\libredwg\README.md" "$Stage\licenses\libredwg\"
 Copy-Item "$Native\..\THIRD_PARTY_NOTICES.md" "$Stage\licenses\"
-& "$Stage\libredwg\dwg2dxf.exe" --version; Check "dwg2dxf --version"
+# smoke-run with a hard timeout so a loader problem fails the build instead of hanging it
+$P = Start-Process -FilePath "$Stage\libredwg\dwg2dxf.exe" -ArgumentList "--version" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\dwg2dxf-version.txt"
+if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "dwg2dxf --version timed out" }
+if ($P.ExitCode -ne 0) { throw "dwg2dxf --version failed (exit $($P.ExitCode))" }
+Get-Content "$Build\dwg2dxf-version.txt" | Write-Host
 
 # 6) Optional signing, then the installer
 Write-Host "== Installer (Inno Setup)"

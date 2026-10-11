@@ -25,6 +25,8 @@ interface MepState extends Undoable<MepModel> {
   /** Schedules show the current level only (mockup: Level 2) unless "View all". */
   allLevels: boolean
   checkedAt: number | null
+  /** Desktop app: exact OCCT intersections of the shown level (beam–beam joints excluded). */
+  nativeOverlaps: { level: LevelId; pairs: { a: string; b: string; m3: number }[] } | null
   edit: (label: string, fn: (d: MepModel) => MepModel) => string | null
   undo: () => string | null
   redo: () => string | null
@@ -62,6 +64,7 @@ export const useMep = create<MepState>()(
       browserSel: 'v-coord',
       checked: [],
       allLevels: false,
+      nativeOverlaps: null,
       checkedAt: null,
       ...undoableActions<MepModel, MepState>(get, set, validateMep),
       set: (p) => set(p),

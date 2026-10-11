@@ -18,6 +18,9 @@ interface MechState extends Undoable<MechModel> {
   bomAll: boolean
   exploded: boolean
   checked: string[]
+  /** Desktop app: exact volumes (m³) from the OCCT scene and impeller∩casing overlap (m³). */
+  nativeVolumes: Record<string, number> | null
+  nativeOverlap: number | null
   edit: (label: string, fn: (d: MechModel) => MechModel) => string | null
   undo: () => string | null
   redo: () => string | null
@@ -48,6 +51,8 @@ export const useMech = create<MechState>()(
       bomAll: false,
       exploded: false,
       checked: [],
+      nativeVolumes: null,
+      nativeOverlap: null,
       ...undoableActions<MechModel, MechState>(get, set, validateMech),
       set: (p) => set(p),
       reset: () => set({ doc: createPump(), undoStack: [], redoStack: [], sel: 'casing' }),

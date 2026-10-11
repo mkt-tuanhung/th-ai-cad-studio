@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { CABINETS, ITEMS, MATERIALS, ROOMS, type Cabinet, type Item, type Room } from '../interior/model'
+import { CABINETS, ITEMS, MATERIALS, ROOMS, roomOverlap, type Cabinet, type Item, type Room } from '../interior/model'
 import { undoableActions, type Undoable } from './undoable'
 
 export interface InteriorDoc {
@@ -33,6 +33,8 @@ interface InteriorState extends Undoable<InteriorDoc> {
   checked: string[]
   filter: string | null
   appliedPreset: string | null
+  /** Desktop app: exact volumes (m³) of the OCCT scene items (cabinets are checked against the cut list). */
+  nativeVolumes: Record<string, number> | null
 
   edit: (label: string, fn: (d: InteriorDoc) => InteriorDoc) => string | null
   undo: () => string | null
@@ -61,6 +63,8 @@ export function validateInterior(d: InteriorDoc): string | null {
     if (c.doors && c.w / c.doors < 250) return `${c.name}: doors`
   }
   for (const r of d.rooms) if (!(r.ceilingHeight >= 2200 && r.ceilingHeight <= 6000)) return `${r.name}: ceiling height`
+  for (let i = 0; i < d.rooms.length; i++)
+    for (let j = i + 1; j < d.rooms.length; j++) if (roomOverlap(d.rooms[i].outline, d.rooms[j].outline) > 0) return `${d.rooms[i].name} / ${d.rooms[j].name}: overlap`
   return null
 }
 
@@ -86,13 +90,19 @@ export const useInterior = create<InteriorState>()(
       checked: [],
       filter: null,
       appliedPreset: null,
+      nativeVolumes: null,
       ...undoableActions<InteriorDoc, InteriorState>(get, set, validateInterior),
       set: (p) => set(p),
       reset: () => set({ doc: initialDoc(), undoStack: [], redoStack: [], sel: null, appliedPreset: null }),
     }),
     {
       name: 'thcad.interior',
-      version: 1,
+      version: 2,
+      // v2: corrected sample outlines (Bedroom 1 / Laundry overlapped their neighbours)
+      migrate: (s, v) => {
+        const st = s as { doc?: InteriorDoc }
+        return (v < 2 && st.doc ? { ...st, doc: { ...st.doc, rooms: ROOMS } } : st) as InteriorState
+      },
       partialize: (s) => ({ doc: s.doc, bottom: s.bottom, right: s.right, mode: s.mode, scale: s.scale, room: s.room, styles: s.styles, appliedPreset: s.appliedPreset }),
     },
   ),

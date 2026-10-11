@@ -32,7 +32,7 @@ await step('opens like the mockup: Design tab, Living Room active, AI Assistant 
   assert.equal(await page.getByRole('tab', { name: 'AI Assistant' }).getAttribute('aria-selected'), 'true')
   assert.ok(await page.locator('[aria-current="true"]').filter({ hasText: 'Living Room' }).isVisible())
   assert.equal(await rows('Furniture & Items').count(), 7) // header + 6
-  assert.ok(await page.getByText('DEMO render · interior engine not connected').isVisible())
+  assert.ok(await page.getByText('DEMO render · the OCCT 3D engine runs in the desktop app').isVisible())
   assert.equal(await page.getByText('Model Ready').count(), 0)
 })
 

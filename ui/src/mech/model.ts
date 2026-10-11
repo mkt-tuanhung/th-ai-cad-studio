@@ -133,7 +133,7 @@ export const matOf = (name: string) => MATERIALS.find((x) => x.name === name)
 /* ---------------- checks ---------------- */
 
 const DN = [25, 32, 40, 50, 65, 80, 100, 125, 150, 200, 250, 300]
-const CASING_BORE = 236 // mm, volute cut-water circle of the casing pattern
+export const CASING_BORE = 236 // mm, volute cut-water circle of the casing pattern
 const BEARING_6208_BORE = 40 // mm
 const DESIGN_PRESSURE = 1.6 // MPa (PN16)
 

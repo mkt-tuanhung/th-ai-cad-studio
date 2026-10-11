@@ -3,7 +3,7 @@ import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useMech, type MechRight as Tab } from '../../state/mech'
 import { PRow, PSelect, PanelTabs, Section, wsStyles as w } from '../../components/workspace/Workspace'
-import { MATERIALS, massOf, type Component } from '../../mech/model'
+import { MATERIALS, matOf, type Component } from '../../mech/model'
 import s from './Mechanical.module.css'
 
 export function MechRight() {
@@ -29,13 +29,17 @@ export function MechRight() {
 function Props() {
   const t = useT().mechanical
   const p = t.props
-  const { doc, sel, edit } = useMech()
+  const { doc, sel, edit, nativeVolumes } = useMech()
   const c = doc.components.find((x) => x.id === sel) ?? doc.components[0]
   const up = (label: string, patch: Partial<Component>) => {
     const err = edit(`${c.file}: ${label}`, (m) => ({ ...m, components: m.components.map((x) => (x.id === c.id ? { ...x, ...patch } : x)) }))
     if (err) toast(fmt(t.toast.invalid, { why: err }), 'warning')
   }
-  const mass = massOf(c)
+  // desktop app: exact OCCT volume of the parametric solid; browser: the sample file's value
+  const occtV = nativeVolumes?.[c.id]
+  const volume = occtV !== undefined && occtV > 0 ? occtV : c.volume
+  const rho = matOf(c.material)?.density
+  const mass = rho ? volume * rho : null
   return (
     <>
       <div className={w.elem}>
@@ -64,11 +68,11 @@ function Props() {
       </Section>
       <Section title={p.mass}>
         <PRow label={p.massL}><span>{mass === null ? '—' : `${mass.toFixed(3)} kg`}</span></PRow>
-        <PRow label={p.volume}><span>{c.volume.toFixed(5)} m³</span></PRow>
+        <PRow label={p.volume}><span>{volume.toFixed(5)} m³{occtV !== undefined ? ' · OCCT' : ''}</span></PRow>
         <PRow label={p.area}><span>{c.area.toFixed(3)} m²</span></PRow>
         <PRow label={p.com}><span>{c.com.map((v) => v.toFixed(3)).join(', ')} m</span></PRow>
       </Section>
-      <p className={s.note}>{p.geomNote}</p>
+      <p className={s.note}>{occtV !== undefined ? p.geomNoteOcct : p.geomNote}</p>
     </>
   )
 }

@@ -70,6 +70,7 @@ OffscreenView::OffscreenView() : d(std::make_unique<Impl>()) {
   d->view->SetWindow(d->window);
   d->view->SetBgGradientColors(Quantity_Color(0.933, 0.945, 0.957, Quantity_TOC_RGB), Quantity_Color(0.88, 0.898, 0.914, Quantity_TOC_RGB), Aspect_GradientFillMethod_Vertical);
   d->view->SetProj(V3d_XposYnegZpos);
+  d->view->SetUp(0, 0, 1);
   d->ok = true;
 }
 
@@ -117,6 +118,9 @@ void OffscreenView::zoom(int x, int y, double delta) {
 void OffscreenView::fit() { d->view->FitAll(0.06, false); }
 void OffscreenView::preset(const std::string& p) {
   d->view->SetProj(p == "top" ? V3d_Zpos : p == "front" ? V3d_Yneg : p == "right" ? V3d_Xpos : V3d_XposYnegZpos);
+  // world Z is up (OCCT keeps the previous / default +Y up otherwise); plan view keeps north (+Y) up
+  if (p == "top") d->view->SetUp(0, 1, 0);
+  else d->view->SetUp(0, 0, 1);
   fit();
 }
 
@@ -132,8 +136,8 @@ std::vector<unsigned char> OffscreenView::renderRgba(int w, int h) {
   if (!d->view->ToPixMap(img, w, h)) return {};
   std::vector<unsigned char> out(static_cast<size_t>(w) * h * 4);
   for (int y = 0; y < h; ++y) {
-    const int src = img.IsTopDown() ? y : h - 1 - y;
-    std::memcpy(out.data() + static_cast<size_t>(y) * w * 4, img.Row(src), static_cast<size_t>(w) * 4);
+    // Image_PixMap::Row(r) already walks top-down whatever the storage order (TopToDown)
+    std::memcpy(out.data() + static_cast<size_t>(y) * w * 4, img.Row(y), static_cast<size_t>(w) * 4);
   }
   d->ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   return out;

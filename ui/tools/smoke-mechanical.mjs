@@ -29,7 +29,7 @@ await step('opens like the mockup: Assembly tab, Pump_Casing.asm selected, Param
   assert.ok(await page.getByText('Pump_Casing.asm').first().isVisible())
   assert.ok(await page.getByText('Parameters (8)').isVisible())
   assert.ok(await page.getByText('Bill of Materials (24)').isVisible())
-  assert.ok(await page.getByText('DEMO render · mechanical 3D kernel not connected').isVisible())
+  assert.ok(await page.getByText('DEMO render · the OCCT 3D kernel runs in the desktop app').isVisible())
 })
 
 await step('mass = volume × density: 0.00158 m³ × 8000 kg/m³ = 12.640 kg; switching to Duplex 2205 recomputes', async () => {

@@ -14,6 +14,7 @@
 #include "thcad/core/ops_json.hpp"
 #ifdef THCAD_HAS_OCCT
 #include "thcad/occt/geometry.hpp"
+#include "thcad/occt/scene.hpp"
 #endif
 
 using namespace thcad;
@@ -204,6 +205,19 @@ int main(int argc, char** argv) {
   if (cmd == "bim-check") return cmdBim();
 #ifdef THCAD_HAS_OCCT
   if (cmd == "extrude" && argc >= 6) return cmdExtrude(argv[2], argv[3], std::atof(argv[4]), argv[5]);
+  if (cmd == "scene" && argc >= 3) {
+    // scene <file.json> [--overlaps]: exact volumes (and pairwise overlaps) of a UI scene
+    std::ifstream f(argv[2]);
+    std::stringstream ss;
+    ss << f.rdbuf();
+    auto parsed = json::parse(ss.str());
+    if (auto* e = std::get_if<json::ParseError>(&parsed)) { std::fprintf(stderr, "%s\n", e->message.c_str()); return 1; }
+    const auto items = occt::sceneFromJson(std::get<json::Value>(parsed));
+    const auto r = occt::analyzeScene(items, argc >= 4 && std::string(argv[3]) == "--overlaps");
+    for (const auto& i : r.items) std::printf("%-14s %s %.6f m3\n", i.id.c_str(), i.built ? "ok  " : "FAIL", i.volume);
+    for (const auto& o : r.overlaps) std::printf("overlap %s x %s = %.3f cm3\n", o.a.c_str(), o.b.c_str(), o.volume * 1e6);
+    return 0;
+  }
 #endif
   if (cmd == "models") {
     const std::string def = ai::discoverModel();

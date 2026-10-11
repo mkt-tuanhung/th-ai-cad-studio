@@ -123,7 +123,7 @@ export function InteriorScreen() {
         <InteriorBrowser />
       </div>
       <div className={s.viewer}>
-        {st.tab === 'schedule' ? <InteriorBottom full /> : <InteriorViewport max={max} onMax={() => setMax(!max)} />}
+        {st.tab === 'schedule' ? <InteriorBottom full /> : <InteriorViewport max={max} onMax={() => setMax(!max)} onLoaded={(r) => st.set({ nativeVolumes: r.volumes ?? null })} />}
       </div>
       {!max && st.tab !== 'schedule' && (
         <div className={s.bottom}>

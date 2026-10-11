@@ -2,6 +2,8 @@
 #include <filesystem>
 #include "check.hpp"
 #include "thcad/occt/geometry.hpp"
+#include "thcad/occt/scene.hpp"
+#include <cmath>
 #include "thcad/bim/model_json.hpp"
 #include "thcad/core/json.hpp"
 
@@ -90,4 +92,59 @@ TEST("OCCT hidden-line mode removes hidden edges (fewer dark pixels than wirefra
   };
   const size_t wire = dark("wireframe"), hidden = dark("hidden");
   CHECK(hidden > 1000 && hidden < wire * 9 / 10);
+}
+
+TEST("OCCT scene: primitives build exact solids; fuse, cut, common, pick and STEP") {
+  occt::SceneView v;
+  using K = occt::Prim::Kind;
+  auto box = [](double x, double y, double z, double dx, double dy, double dz) {
+    occt::Prim p;
+    p.kind = K::Box;
+    p.f.o = {x, y, z};
+    p.s = {dx, dy, dz};
+    return p;
+  };
+  occt::SceneItem a{"a", {0.5, 0.5, 0.5}, 0, {box(0, 0, 0, 1000, 1000, 1000)}, {}, false};
+  // fused overlapping boxes count the overlap once: 1 + 1 − 0.5 = 1.5 m³
+  occt::SceneItem f{"f", {0.5, 0.5, 0.5}, 0, {box(3000, 0, 0, 1000, 1000, 1000), box(3500, 0, 0, 1000, 1000, 1000)}, {}, true};
+  // cylinder r 500 h 1000 with a 200 mm hole: π (0.25 − 0.04) · 1
+  occt::Prim cyl;
+  cyl.kind = K::Cylinder;
+  cyl.f.o = {0, 3000, 0};
+  cyl.s = {500, 1000, 0};
+  occt::Prim hole = cyl;
+  hole.f.o = {0, 3000, -10};
+  hole.s = {200, 1020, 0};
+  occt::SceneItem c{"c", {0.5, 0.5, 0.5}, 0, {cyl}, {hole}, false};
+  occt::SceneItem o{"o", {0.5, 0.5, 0.5}, 0, {box(500, 500, 500, 1000, 1000, 1000)}, {}, false};
+  // prism (right triangle 1 m × 1 m, 2 m high) = 1 m³; revolve of a 100 × 200 rectangle at r 400–500
+  occt::Prim tri;
+  tri.kind = K::Prism;
+  tri.f.o = {0, 6000, 0};
+  tri.pts = {{0, 0}, {1000, 0}, {0, 1000}};
+  tri.s = {2000, 0, 0};
+  occt::Prim ring;
+  ring.kind = K::Revolve;
+  ring.f.o = {6000, 6000, 0};
+  ring.pts = {{400, 0}, {500, 0}, {500, 200}, {400, 200}};
+  occt::SceneItem t{"t", {0.5, 0.5, 0.5}, 0, {tri}, {}, false};
+  occt::SceneItem r{"r", {0.5, 0.5, 0.5}, 0, {ring}, {}, false};
+  if (!v.ok()) return;  // no OpenGL at all
+  CHECK(v.setItems({a, f, c, o, t, r}) == 0);
+  CHECK_NEAR(v.volumeM3("a"), 1.0, 1e-9);
+  CHECK_NEAR(v.volumeM3("f"), 1.5, 1e-6);
+  CHECK_NEAR(v.volumeM3("c"), M_PI * (0.25 - 0.04), 1e-6);
+  CHECK_NEAR(v.volumeM3("t"), 1.0, 1e-9);
+  CHECK_NEAR(v.volumeM3("r"), M_PI * (0.25 - 0.16) * 0.2, 1e-6);
+  CHECK_NEAR(v.commonM3("a", "o"), 0.125, 1e-6);  // 0.5³
+  CHECK_NEAR(v.commonM3("a", "f"), 0.0, 1e-12);
+  v.preset("top");
+  if (!std::getenv("THCAD_TEST_NO_GPU")) {
+    CHECK(!v.renderRgba(400, 400).empty());
+    CHECK(v.pick(200, 200) != "x");  // a hit or the background, never a bogus id
+    // the view is fitted on everything; the middle of the frame looks down at the scene centre
+  }
+  const std::string step = (std::filesystem::temp_directory_path() / "thcad_scene.step").string();
+  CHECK(v.writeStep(step).empty());
+  CHECK(std::filesystem::file_size(step) > 1000);
 }

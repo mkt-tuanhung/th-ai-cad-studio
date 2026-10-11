@@ -1,6 +1,7 @@
 #pragma once
 // QWebChannel object exposed to the web UI as `window.thcadHost` (see ui/src/services/host.ts).
 // Every drawing mutation goes through the native CommandBus; AI output only ever becomes a proposal.
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
 #include <memory>
@@ -10,7 +11,10 @@
 #include "thcad/core/command_bus.hpp"
 #include "thcad/core/proposal.hpp"
 
-namespace thcad::occt { class OffscreenView; }
+#include <map>
+#include <QString>
+
+namespace thcad::occt { class OffscreenView; class SceneView; }
 
 namespace thcad::app {
 
@@ -48,6 +52,21 @@ class HostBridge : public QObject {
   Q_INVOKABLE QJsonObject bim3dFrame(int w, int h, const QString& mode, const QString& selectedWall);
   /** action: orbitStart | orbit | pan | zoom | fit | home | top | front | right */
   Q_INVOKABLE void bim3dCamera(const QString& action, double a, double b, double c, double d);
+  /** Discipline 3D scenes (Interior, MEP, Mechanical): exact OCCT solids from UI primitives.
+   *  key names the scene; json = {items:[{id, rgb:[r,g,b], transparency, fuse, parts:[prim], cuts:[prim]}]}.
+   *  Returns {ok, items, failures, ms, volumes:{id: m³}}. */
+  Q_INVOKABLE QJsonObject scene3dLoad(const QString& key, const QString& json);
+  /** Renders w×h device pixels: {ok, url, ms}. mode: shaded | wireframe | hidden | clay. */
+  Q_INVOKABLE QJsonObject scene3dFrame(const QString& key, int w, int h, const QString& mode, const QString& selected, const QString& highlightedCsv);
+  Q_INVOKABLE void scene3dCamera(const QString& key, const QString& action, double a, double b, double c);
+  /** Item id under device pixel (x, y) of the last frame ("" if none). */
+  Q_INVOKABLE QString scene3dPick(const QString& key, int x, int y);
+  /** Boolean common volume of two items in m³ (0 = no overlap, −1 = unknown). */
+  Q_INVOKABLE double scene3dCommon(const QString& key, const QString& a, const QString& b);
+  /** All intersecting item pairs of a scene: [{a, b, m3}]. */
+  Q_INVOKABLE QJsonArray scene3dOverlaps(const QString& key);
+  /** Save dialog → STEP AP214 of the scene. {ok, path, error}. */
+  Q_INVOKABLE QJsonObject scene3dExportStep(const QString& key, const QString& suggestedName);
   /** DWG bytes (base64) → DXF bytes via the bundled LibreDWG helper. Async: emits dwgResult
    *  ({id, ok, dxf: base64, ms, warnings, error}); returns the id. */
   Q_INVOKABLE QString dwgToDxf(const QString& base64, const QString& name);
@@ -86,6 +105,8 @@ class HostBridge : public QObject {
   std::unique_ptr<occt::OffscreenView> offscreen_;
   bool offscreenLoaded_ = false;
   occt::OffscreenView* offscreen();
+  std::map<QString, std::unique_ptr<occt::SceneView>> scenes_;
+  occt::SceneView* scene(const QString& key);
 };
 
 }  // namespace thcad::app
