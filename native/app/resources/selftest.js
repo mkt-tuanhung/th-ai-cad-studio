@@ -46,7 +46,7 @@
       let rdone = null
       h.on('renderProgress', (p) => { if (p.done && p.id === 'selftest-render') rdone = p })
       const rs = await h.renderStart(JSON.stringify({ id: 'selftest-render', name: 'selftest', save: false, denoise: true, scene: { items: [box('a', 0), box('b', 500)] }, params: { w: 64, h: 48, samples: 8, bounces: 2, engine: 'path', camera: { eye: [4000, -4000, 3000], at: [750, 500, 500], fov: 45 } }, fx: {}, format: 'png' }))
-      if (!rs.ok && /ray-tracing/.test(rs.error || '')) console.log('SELFTEST SKIP renderer: ' + rs.error)
+      if (!rs.ok && /ray-tracing|OpenGL unavailable/.test(rs.error || '')) console.log('SELFTEST SKIP renderer: ' + rs.error)
       else {
         for (let i = 0; i < 100 && !rdone; i++) await new Promise((r) => setTimeout(r, 100))
         check('renderer: path-traced image produced', rs.ok && !!rdone && rdone.ok && rdone.samples >= 8 && String(rdone.preview).startsWith('data:image/'))

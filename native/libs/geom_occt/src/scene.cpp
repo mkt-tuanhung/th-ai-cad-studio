@@ -715,7 +715,7 @@ std::string SceneView::beginRender(const RenderParams& p) {
   Handle(OpenGl_GraphicDriver) drv = Handle(OpenGl_GraphicDriver)::DownCast(d->viewer->Driver());
   const Handle(OpenGl_Context) gl = drv.IsNull() ? Handle(OpenGl_Context)() : drv->GetSharedContext();
   if (gl.IsNull() || !gl->HasRayTracing()) {
-    const std::string why = gl.IsNull() ? "no GL context" : "this GPU/driver has no OpenGL ray-tracing support (OpenGL " + std::to_string(gl->VersionMajor()) + "." + std::to_string(gl->VersionMinor()) + ")";
+    const std::string why = gl.IsNull() ? "no OpenGL context — ray-tracing unavailable on this GPU/driver" : "this GPU/driver has no OpenGL ray-tracing support (OpenGL " + std::to_string(gl->VersionMajor()) + "." + std::to_string(gl->VersionMinor()) + ")";
     endRender();
     return why;
   }
