@@ -1,7 +1,15 @@
 #include "thcad/occt/scene.hpp"
+#include "thcad/occt/geometry.hpp"
 
 #include <AIS_InteractiveContext.hxx>
 #include <AIS_Shape.hxx>
+#include <Aspect_SkydomeBackground.hxx>
+#include <Graphic3d_BSDF.hxx>
+#include <Graphic3d_CubeMapPacked.hxx>
+#include <Graphic3d_MaterialAspect.hxx>
+#include <OpenGl_Context.hxx>
+#include <V3d_AmbientLight.hxx>
+#include <V3d_DirectionalLight.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
@@ -36,7 +44,11 @@
 #include <gp_Ax3.hxx>
 #include <gp_Lin.hxx>
 
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -44,8 +56,11 @@
 #include <set>
 
 #include "platform_window.hpp"
+#include "solid_impl.hpp"
+#include <BRepBuilderAPI_Transform.hxx>
 
 namespace thcad::occt {
+namespace { constexpr double kPiScene = 3.14159265358979323846; }
 
 namespace {
 
@@ -204,6 +219,7 @@ std::vector<SceneItem> sceneFromJson(const json::Value& v) {
     it.rgb = v3(io.get("rgb"), {0.8, 0.8, 0.8});
     if (const json::Value* t = io.get("transparency"); t && t->num()) it.transparency = *t->num();
     if (const json::Value* f = io.get("fuse"); f && f->boolean()) it.fuse = *f->boolean();
+    if (const json::Value* m = io.get("mat"); m && m->str()) it.mat = *m->str();
     if (const json::Value* ps = io.get("parts"); ps && ps->arr())
       for (const auto& p : *ps->arr()) it.parts.push_back(primFromJson(p));
     if (const json::Value* cs = io.get("cuts"); cs && cs->arr())
@@ -262,6 +278,10 @@ struct SceneView::Impl {
   int w = 0, h = 0;
   double ms = 0, buildMs = 0;
   bool ok = false, fitted = false;
+  // final render state
+  Handle(Standard_Transient) fbo;
+  RenderParams rp;
+  int passes = 0;
 
   void applyStyle() {
     const bool wire = mode == "wireframe" || mode == "hidden";
@@ -281,10 +301,12 @@ struct SceneView::Impl {
   }
 };
 
-SceneView::SceneView() : d(std::make_unique<Impl>()) {
+SceneView::SceneView(bool pathTracing) : d(std::make_unique<Impl>()) {
   ensureCocoaApplication();
   Handle(Aspect_DisplayConnection) disp = new Aspect_DisplayConnection();
   Handle(OpenGl_GraphicDriver) driver = new OpenGl_GraphicDriver(disp, false);
+  // macOS only offers GL 4.1 (needed by the ray tracer) as a core profile; the default is legacy 2.1
+  if (pathTracing) driver->ChangeOptions().contextCompatible = false;
   d->viewer = new V3d_Viewer(driver);
   d->viewer->SetDefaultLights();
   d->viewer->SetLightOn();
@@ -304,7 +326,9 @@ SceneView::SceneView() : d(std::make_unique<Impl>()) {
   d->ok = true;
 }
 
-SceneView::~SceneView() = default;
+SceneView::~SceneView() {
+  if (d) endRender();
+}
 bool SceneView::ok() const { return d->ok; }
 double SceneView::lastRenderMs() const { return d->ms; }
 double SceneView::lastBuildMs() const { return d->buildMs; }
@@ -329,6 +353,61 @@ int SceneView::setItems(const std::vector<SceneItem>& items) {
   d->applyStyle();
   d->buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   return failures;
+}
+
+int SceneView::addBuilding(const bim::Model& m, bool ground) {
+  auto add = [&](const std::string& id, const TopoDS_Shape& s, std::array<double, 3> rgb, const char* mat) {
+    if (s.IsNull()) return;
+    Impl::Entry e;
+    e.item.id = id;
+    e.item.rgb = rgb;
+    e.item.mat = mat;
+    e.shape = s;
+    e.ais = new AIS_Shape(s);
+    d->ctx->Display(e.ais, AIS_Shaded, -1, false);
+    d->items[id] = std::move(e);
+  };
+  struct Box2 { double x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18; };
+  std::map<std::string, Box2> spans;  // level id → plan extent of the walls that start or end there
+  int n = 0;
+  for (const auto& w : m.walls) {
+    const bim::WallType* t = m.type(w.typeId);
+    const bim::Level* base = m.level(w.baseLevel);
+    const double th = t ? t->thickness : 200;
+    gp_Trsf center, rot, move;
+    center.SetTranslation(gp_Vec(0, -th / 2, 0));
+    rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DZ()), w.angleDeg * kPiScene / 180);
+    move.SetTranslation(gp_Vec(w.x, w.y, (base ? base->elevation : 0) + w.baseOffset));
+    const gp_Trsf place = move * rot * center;
+    Solid s = wallWithOpenings(m, w);
+    if (s.isNull()) continue;
+    const bool ext = th >= 200;
+    add(w.id, BRepBuilderAPI_Transform(s.impl->shape, place, true).Shape(), ext ? std::array<double, 3>{0.88, 0.87, 0.84} : std::array<double, 3>{0.93, 0.93, 0.92}, "matte");
+    ++n;
+    // glazing: a 20 mm pane in the middle of each window opening
+    for (const auto& o : m.windows)
+      if (o.hostWall == w.id) {
+        TopoDS_Shape pane = BRepPrimAPI_MakeBox(gp_Pnt(o.offset, th / 2 - 10, o.sill), o.width, 20, o.height).Shape();
+        add("glass:" + o.id, BRepBuilderAPI_Transform(pane, place, true).Shape(), {0.55, 0.7, 0.78}, "glass");
+      }
+    const double a = w.angleDeg * kPiScene / 180;
+    const double ex = w.x + std::cos(a) * w.length, ey = w.y + std::sin(a) * w.length;
+    if (ext)
+      for (const std::string& lv : {w.baseLevel, w.topLevel}) {
+        Box2& b = spans[lv];
+        b.x0 = std::min({b.x0, w.x, ex}), b.x1 = std::max({b.x1, w.x, ex});
+        b.y0 = std::min({b.y0, w.y, ey}), b.y1 = std::max({b.y1, w.y, ey});
+      }
+  }
+  for (const auto& [lv, b] : spans) {
+    const bim::Level* l = m.level(lv);
+    if (!l || b.x1 <= b.x0) continue;
+    // slab top at the level, outer face of the 200 mm exterior walls
+    add("slab:" + lv, BRepPrimAPI_MakeBox(gp_Pnt(b.x0 - 100, b.y0 - 100, l->elevation - 200), b.x1 - b.x0 + 200, b.y1 - b.y0 + 200, 200).Shape(), {0.8, 0.79, 0.77}, "matte");
+  }
+  if (ground) add("ground", BRepPrimAPI_MakeBox(gp_Pnt(-40000, -40000, -350), 94000, 90000, 200).Shape(), {0.5, 0.56, 0.42}, "matte");
+  d->applyStyle();
+  return n;
 }
 
 void SceneView::setMode(const std::string& mode) {
@@ -466,6 +545,226 @@ std::string SceneView::writeStep(const std::string& path) const {
   if (w.Transfer(c, STEPControl_AsIs) != IFSelect_RetDone) return "STEP transfer failed";
   if (w.Write(path.c_str()) != IFSelect_RetDone) return "cannot write " + path;
   return {};
+}
+
+namespace {
+constexpr double kPi = 3.14159265358979323846;
+
+/** Sky light as a packed cubemap (6 tiles in a row: +X −X +Y −Y +Z −Z, GL face convention), Z up:
+ *  zenith-to-horizon gradient, ground below, a glow around the sun (the sun itself is a directional
+ *  light). Values are display-referred 8-bit; the path tracer uses them as environment radiance. */
+Handle(Image_PixMap) skyCubemap(const std::string& kind, const gp_Dir& sun, float clouds) {
+  const int n = 256;
+  Handle(Image_PixMap) img = new Image_PixMap();
+  img->InitZero(Image_Format_RGB, size_t(6 * n), size_t(n));
+  const bool night = kind == "night", studio = kind == "studio";
+  for (int f = 0; f < 6; ++f)
+    for (int y = 0; y < n; ++y)
+      for (int x = 0; x < n; ++x) {
+        const double u = 2 * (x + 0.5) / n - 1, v = 2 * (y + 0.5) / n - 1;
+        double dx, dy, dz;
+        switch (f) {
+          case 0: dx = 1, dy = -v, dz = -u; break;
+          case 1: dx = -1, dy = -v, dz = u; break;
+          case 2: dx = u, dy = 1, dz = v; break;
+          case 3: dx = u, dy = -1, dz = -v; break;
+          case 4: dx = u, dy = -v, dz = 1; break;
+          default: dx = -u, dy = -v, dz = -1; break;
+        }
+        // GL cube faces are Y-up; the scene is Z-up: world (x, y, z) = (dx, −dz, dy)
+        const double l = std::sqrt(dx * dx + dy * dy + dz * dz);
+        const double wx = dx / l, wy = -dz / l, wz = dy / l;
+        double r, g, b;
+        if (studio) {
+          const double k = 0.78 + 0.18 * std::max(0.0, wz);
+          r = g = b = k;
+        } else if (night) {
+          const double k = std::max(0.0, wz);
+          r = 0.02 + 0.03 * k, g = 0.03 + 0.04 * k, b = 0.07 + 0.08 * k;
+        } else if (wz >= 0) {
+          const double t = std::pow(wz, 0.45);
+          // clear: deep blue zenith → pale horizon; overcast: bright grey
+          const double zr = 0.22, zg = 0.42, zb = 0.78, hr = 0.78, hg = 0.86, hb = 0.95;
+          r = hr + (zr - hr) * t, g = hg + (zg - hg) * t, b = hb + (zb - hb) * t;
+          const double cos = wx * sun.X() + wy * sun.Y() + wz * sun.Z();
+          const double glow = std::pow(std::max(0.0, cos), 24) * 0.6;
+          r += glow, g += glow * 0.9, b += glow * 0.7;
+          const double grey = 0.72 + 0.2 * t;
+          r += (grey - r) * clouds, g += (grey - g) * clouds, b += (grey - b) * clouds;
+        } else {
+          // ground: warm grey, darker straight down
+          const double k = 0.42 + 0.12 * (1 + wz);
+          r = k * 0.95, g = k * 0.9, b = k * 0.82;
+        }
+        Standard_Byte* px = img->ChangeRawValue(size_t(y), size_t(f * n + x));
+        px[0] = Standard_Byte(std::lround(std::clamp(r, 0.0, 1.0) * 255));
+        px[1] = Standard_Byte(std::lround(std::clamp(g, 0.0, 1.0) * 255));
+        px[2] = Standard_Byte(std::lround(std::clamp(b, 0.0, 1.0) * 255));
+      }
+  return img;
+}
+
+Graphic3d_BSDF bsdfFor(const SceneItem& it) {
+  const Graphic3d_Vec3 c(float(it.rgb[0]), float(it.rgb[1]), float(it.rgb[2]));
+  if (it.mat == "metal") return Graphic3d_BSDF::CreateMetallic(c, Graphic3d_Fresnel::CreateSchlick(c), 0.18f);
+  if (it.mat == "glass") return Graphic3d_BSDF::CreateGlass(Graphic3d_Vec3(0.92f), c, 0.05f, 1.5f);
+  Graphic3d_BSDF b = Graphic3d_BSDF::CreateDiffuse(c * 0.9f);
+  if (it.mat == "glossy") {
+    // varnished wood, stone, lacquer: a clear dielectric coat over the diffuse base
+    b.Kc = Graphic3d_Vec4(1.f, 1.f, 1.f, 0.12f);
+    b.FresnelCoat = Graphic3d_Fresnel::CreateDielectric(1.5f);
+  }
+  if (it.mat == "emissive") b.Le = c * 4.f;
+  if (it.transparency > 0 && it.mat != "glass") {
+    b.Kt = Graphic3d_Vec3(float(it.transparency));
+    b.Kd *= float(1 - it.transparency);
+  }
+  b.Normalize();
+  return b;
+}
+}  // namespace
+
+std::string SceneView::beginRender(const RenderParams& p) {
+  if (!d->ok) return "OpenGL unavailable";
+  if (d->items.empty()) return "empty scene";
+  endRender();
+  d->rp = p;
+  d->passes = 0;
+  // materials: physically based surfaces, no edge overlay
+  d->ctx->DefaultDrawer()->SetFaceBoundaryDraw(false);
+  for (auto& [id, e] : d->items) {
+    Graphic3d_MaterialAspect m(Graphic3d_NameOfMaterial_UserDefined);
+    const Quantity_Color c(e.item.rgb[0], e.item.rgb[1], e.item.rgb[2], Quantity_TOC_RGB);
+    m.SetColor(c);
+    m.SetBSDF(bsdfFor(e.item));
+    e.ais->Attributes()->SetFaceBoundaryDraw(false);
+    e.ais->SetMaterial(m);
+    e.ais->SetColor(c);
+    e.ais->SetTransparency(e.item.mat == "glass" ? 0.6 : e.item.transparency);
+    d->ctx->SetDisplayMode(e.ais, AIS_Shaded, false);
+    d->ctx->Redisplay(e.ais, false);
+  }
+  d->view->SetComputedMode(false);
+  // camera
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective);
+  cam->SetAspect(double(p.w) / p.h);
+  if (p.hasCamera) {
+    cam->SetEye(gp_Pnt(p.eye[0], p.eye[1], p.eye[2]));
+    cam->SetCenter(gp_Pnt(p.at[0], p.at[1], p.at[2]));
+    cam->SetUp(gp::DZ());
+    cam->SetFOVy(p.fovDeg);
+    cam->SetZRange(1, 1e7);
+    d->view->AutoZFit();
+  } else {
+    d->view->SetProj(V3d_XposYnegZpos);
+    d->view->SetUp(0, 0, 1);
+    cam->SetFOVy(p.fovDeg);
+    d->view->FitAll(0.04, false);
+  }
+  // light: sun (soft shadows) + sky dome as the environment light
+  for (V3d_ListOfLightIterator it(d->viewer->DefinedLightIterator()); it.More();) {
+    Handle(V3d_Light) l = it.Value();
+    it.Next();
+    d->viewer->DelLight(l);
+  }
+  const double az = p.sunAzimuthDeg * kPi / 180, el = std::max(2.0, p.sunElevationDeg) * kPi / 180;
+  const gp_Dir toSun(std::cos(el) * std::sin(az), std::cos(el) * std::cos(az), std::sin(el));
+  if (p.sun && p.sunIntensity > 0 && p.sky != "night") {
+    Handle(V3d_DirectionalLight) sun = new V3d_DirectionalLight(toSun.Reversed(), Quantity_NOC_WHITE);
+    // irradiance E on a surface facing the sun; the path tracer treats a directional light as a disc
+    // of half-angle a with radiance Le (E = Le · Ω, Ω = 2π(1 − cos a)), the Whitted tracer uses E as is
+    const double E = p.sunIntensity * 2.5, half = 1.0 * kPi / 180;
+    const bool gi = p.engine != "raytrace";
+    sun->SetIntensity(float(gi ? E / (2 * kPi * (1 - std::cos(half))) : E));
+    sun->SetSmoothAngle(float(gi ? half : 0.0));
+    sun->SetCastShadows(true);
+    d->viewer->AddLight(sun);
+    d->viewer->SetLightOn(sun);
+  }
+  Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(Quantity_NOC_WHITE);
+  amb->SetIntensity(p.sky == "night" ? 0.05f : 0.2f);
+  d->viewer->AddLight(amb);
+  d->viewer->SetLightOn(amb);
+  const float clouds = p.sky == "overcast" ? 0.85f : p.sky == "studio" ? 1.f : 0.15f;
+  const gp_Dir skySun = p.sky == "night" ? gp_Dir(0.3, 0.2, -0.93) : toSun;
+  // sky: our own cubemap (OCCT's skydome shader needs GLSL 1.30, which macOS core profiles reject)
+  d->view->SetBackgroundCubeMap(new Graphic3d_CubeMapPacked(skyCubemap(p.sky, skySun, clouds)), false);
+  // ray / path tracing parameters
+  Graphic3d_RenderingParams& rp = d->view->ChangeRenderingParams();
+  rp.Method = Graphic3d_RM_RAYTRACING;
+  rp.IsGlobalIlluminationEnabled = p.engine != "raytrace";
+  rp.RaytracingDepth = std::clamp(p.bounces, 1, 10);
+  rp.IsShadowEnabled = true;
+  rp.IsReflectionEnabled = true;
+  rp.IsAntialiasingEnabled = true;
+  rp.IsTransparentShadowEnabled = true;
+  rp.UseEnvironmentMapBackground = true;
+  rp.TwoSidedBsdfModels = true;
+  rp.RadianceClampingValue = 30.f;
+  rp.ToneMappingMethod = Graphic3d_ToneMappingMethod_Filmic;
+  rp.Exposure = float(p.exposure);
+  rp.WhitePoint = 4.f;
+  rp.CoherentPathTracingMode = false;
+  // render target
+  const Handle(Graphic3d_CView)& cv = d->view->View();
+  d->fbo = cv->FBOCreate(p.w, p.h);
+  if (d->fbo.IsNull()) return "cannot allocate a " + std::to_string(p.w) + " x " + std::to_string(p.h) + " render target";
+  cv->SetFBO(d->fbo);
+  d->view->Redraw();
+  ++d->passes;
+  Handle(OpenGl_GraphicDriver) drv = Handle(OpenGl_GraphicDriver)::DownCast(d->viewer->Driver());
+  const Handle(OpenGl_Context) gl = drv.IsNull() ? Handle(OpenGl_Context)() : drv->GetSharedContext();
+  if (gl.IsNull() || !gl->HasRayTracing()) {
+    const std::string why = gl.IsNull() ? "no GL context" : "this GPU/driver has no OpenGL ray-tracing support (OpenGL " + std::to_string(gl->VersionMajor()) + "." + std::to_string(gl->VersionMinor()) + ")";
+    endRender();
+    return why;
+  }
+  return {};
+}
+
+int SceneView::renderPasses(int maxMs) {
+  if (d->fbo.IsNull()) return d->passes;
+  const int target = d->rp.engine == "raytrace" ? std::min(d->rp.samples, 16) : d->rp.samples;
+  const auto t0 = std::chrono::steady_clock::now();
+  while (d->passes < target && std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() < maxMs) {
+    d->view->Redraw();
+    ++d->passes;
+  }
+  return d->passes;
+}
+
+int SceneView::renderedSamples() const { return d->passes; }
+
+std::vector<unsigned char> SceneView::renderedImage(bool sixteenBit) {
+  if (d->fbo.IsNull()) return {};
+  const int w = d->rp.w, h = d->rp.h;
+  if (sixteenBit) {
+    Image_PixMap img;
+    if (!img.InitZero(Image_Format_RGBAF, w, h)) return {};
+    if (!d->view->View()->BufferDump(img, Graphic3d_BT_RGBA)) return {};
+    std::vector<unsigned char> out(static_cast<size_t>(w) * h * 8);
+    auto* o = reinterpret_cast<uint16_t*>(out.data());
+    for (int y = 0; y < h; ++y) {
+      const float* row = reinterpret_cast<const float*>(img.Row(y));
+      for (int x = 0; x < w * 4; ++x) *o++ = static_cast<uint16_t>(std::lround(std::clamp(row[x], 0.f, 1.f) * 65535.f));
+    }
+    return out;
+  }
+  Image_PixMap img;
+  if (!img.InitZero(Image_Format_RGBA, w, h)) return {};
+  if (!d->view->View()->BufferDump(img, Graphic3d_BT_RGBA)) return {};
+  std::vector<unsigned char> out(static_cast<size_t>(w) * h * 4);
+  for (int y = 0; y < h; ++y) std::memcpy(out.data() + static_cast<size_t>(y) * w * 4, img.Row(y), static_cast<size_t>(w) * 4);
+  return out;
+}
+
+void SceneView::endRender() {
+  if (d->fbo.IsNull()) return;
+  const Handle(Graphic3d_CView)& cv = d->view->View();
+  cv->SetFBO(Handle(Standard_Transient)());
+  cv->FBORelease(d->fbo);
+  d->fbo.Nullify();
 }
 
 }  // namespace thcad::occt

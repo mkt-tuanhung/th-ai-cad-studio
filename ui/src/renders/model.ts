@@ -1,8 +1,16 @@
 /**
- * Render studio data (Villa Riverside). No renderer is connected in this build: jobs are queued with
- * their real settings and stay "Waiting for renderer" — nothing is ever shown as rendering or done.
- * Estimates use plain arithmetic (pixel counts, bytes per pixel); no render-time guesses.
+ * Render studio data (Villa Riverside). In the desktop app jobs are rendered by the OCCT path tracer
+ * (renders/runner.ts); in a plain browser they stay "Waiting" — nothing is ever shown as rendered that
+ * was not. Estimates use plain arithmetic (pixel counts, bytes per pixel); no render-time guesses.
  */
+
+/** Where a camera stands: exterior views see the BIM building, interior views the interior model. */
+export interface CameraView {
+  scene: 'exterior' | 'interior'
+  eye: [number, number, number]
+  at: [number, number, number]
+  fov: number
+}
 
 export interface Camera {
   id: string
@@ -12,7 +20,18 @@ export interface Camera {
   w: number
   h: number
   thumb: string
+  view?: CameraView
 }
+
+/** Camera placements of the sample project (mm; BIM origin at the front-left corner, interior plan origin at the living room). */
+export const CAMERA_VIEWS: Record<string, CameraView> = {
+  cam1: { scene: 'exterior', eye: [-7000, -15500, 1700], at: [6900, 4900, 3800], fov: 50 },
+  cam2: { scene: 'exterior', eye: [24000, 21000, 2200], at: [6900, 4900, 3600], fov: 50 },
+  cam3: { scene: 'interior', eye: [7350, 3450, 1600], at: [2000, 900, 900], fov: 68 },
+  cam4: { scene: 'interior', eye: [4150, 3950, 1600], at: [1400, 7200, 600], fov: 68 },
+  cam5: { scene: 'exterior', eye: [32000, -24000, 27000], at: [6900, 4900, 3000], fov: 38 },
+}
+export const viewOf = (c: Camera): CameraView => c.view ?? CAMERA_VIEWS[c.id] ?? (c.kind.startsWith('Interior') ? CAMERA_VIEWS.cam3 : CAMERA_VIEWS.cam1)
 
 export type Resolution = '1920x1080' | '2560x1440' | '3840x2160' | '7680x4320' | '1080x1080' | '1080x1920'
 export const RESOLUTIONS: { key: Resolution; label: string; tag: string }[] = [
@@ -71,6 +90,28 @@ export interface Job {
   output: string
   status: 'waiting'
   created: number
+  /** Camera and settings captured when the job was queued (what gets rendered). */
+  cameraId?: string
+  cfg?: { settings: RenderSettings; fx: PostFx }
+}
+
+/** Live state of a job in the desktop renderer (not part of the undoable document). */
+export interface JobRun {
+  status: 'waiting' | 'rendering' | 'done' | 'failed' | 'cancelled'
+  samples?: number
+  total?: number
+  ms?: number
+  path?: string
+  error?: string
+  finished?: number
+}
+
+/** Quality presets: choosing one sets samples and bounces (both stay editable). */
+export const QUALITY_PRESETS: Record<(typeof QUALITIES)[number], { samples: number; bounces: number }> = {
+  Draft: { samples: 64, bounces: 3 },
+  Medium: { samples: 256, bounces: 4 },
+  High: { samples: 1024, bounces: 8 },
+  Ultra: { samples: 4096, bounces: 12 },
 }
 
 export interface Variation {

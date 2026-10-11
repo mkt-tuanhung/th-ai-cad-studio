@@ -28,6 +28,11 @@
 #include "thcad/occt/scene.hpp"
 #endif
 #include <QBuffer>
+#include <QDateTime>
+#include <QRegularExpression>
+#include <QImageWriter>
+#include <QTimer>
+#include <cmath>
 #include <QImage>
 
 namespace thcad::app {
@@ -344,6 +349,208 @@ QJsonObject HostBridge::scene3dExportStep(const QString& key, const QString& sug
   if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
   return {{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
 }
+namespace {
+/** Post-processing on the final image (the same controls as the UI's Post Production panel). */
+template <typename T>
+void postFx(T* px, int w, int h, const QJsonObject& fx) {
+  const double maxv = sizeof(T) == 1 ? 255.0 : 65535.0;
+  const double contrast = fx.value("contrast").toDouble(100) / 100, sat = fx.value("saturation").toDouble(100) / 100;
+  const double temp = fx.value("temperature").toDouble(0) / 100, vig = fx.value("vignette").toDouble(0) / 100;
+  if (contrast == 1 && sat == 1 && temp == 0 && vig == 0) return;
+  for (int y = 0; y < h; ++y)
+    for (int x = 0; x < w; ++x) {
+      T* p = px + (static_cast<size_t>(y) * w + x) * 4;
+      double r = p[0] / maxv, g = p[1] / maxv, b = p[2] / maxv;
+      const double l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      r = l + (r - l) * sat, g = l + (g - l) * sat, b = l + (b - l) * sat;
+      r = (r - 0.5) * contrast + 0.5, g = (g - 0.5) * contrast + 0.5, b = (b - 0.5) * contrast + 0.5;
+      r *= 1 + 0.12 * temp, b *= 1 - 0.12 * temp;
+      if (vig > 0) {
+        const double dx = (x + 0.5) / w - 0.5, dy = (y + 0.5) / h - 0.5;
+        const double k = 1 - vig * std::min(1.0, (dx * dx + dy * dy) * 1.6);
+        r *= k, g *= k, b *= k;
+      }
+      p[0] = static_cast<T>(std::lround(std::clamp(r, 0.0, 1.0) * maxv));
+      p[1] = static_cast<T>(std::lround(std::clamp(g, 0.0, 1.0) * maxv));
+      p[2] = static_cast<T>(std::lround(std::clamp(b, 0.0, 1.0) * maxv));
+    }
+}
+
+/** Edge-preserving denoise of the path-traced image (bilateral filter, 5 × 5): averages neighbours of
+ *  similar colour, so Monte-Carlo grain is smoothed while edges stay sharp. Not an AI denoiser. */
+template <typename T>
+void denoise(T* px, int w, int h) {
+  const double maxv = sizeof(T) == 1 ? 255.0 : 65535.0;
+  std::vector<T> src(px, px + static_cast<size_t>(w) * h * 4);
+  const double ss = 2 * 1.6 * 1.6, sr = 2 * 0.09 * 0.09;
+  double ws[5][5];
+  for (int j = -2; j <= 2; ++j)
+    for (int i = -2; i <= 2; ++i) ws[j + 2][i + 2] = std::exp(-(i * i + j * j) / ss);
+  for (int y = 0; y < h; ++y)
+    for (int x = 0; x < w; ++x) {
+      const T* c = &src[(static_cast<size_t>(y) * w + x) * 4];
+      double acc[3] = {0, 0, 0}, wsum = 0;
+      for (int j = -2; j <= 2; ++j) {
+        const int yy = std::clamp(y + j, 0, h - 1);
+        for (int i = -2; i <= 2; ++i) {
+          const int xx = std::clamp(x + i, 0, w - 1);
+          const T* q = &src[(static_cast<size_t>(yy) * w + xx) * 4];
+          const double dr = (q[0] - c[0]) / maxv, dg = (q[1] - c[1]) / maxv, db = (q[2] - c[2]) / maxv;
+          const double wt = ws[j + 2][i + 2] * std::exp(-(dr * dr + dg * dg + db * db) / sr);
+          acc[0] += wt * q[0], acc[1] += wt * q[1], acc[2] += wt * q[2], wsum += wt;
+        }
+      }
+      T* o = px + (static_cast<size_t>(y) * w + x) * 4;
+      for (int k = 0; k < 3; ++k) o[k] = static_cast<T>(std::lround(acc[k] / wsum));
+    }
+}
+
+std::array<double, 3> arr3(const QJsonValue& v, std::array<double, 3> def) {
+  const QJsonArray a = v.toArray();
+  return a.size() == 3 ? std::array<double, 3>{a[0].toDouble(), a[1].toDouble(), a[2].toDouble()} : def;
+}
+
+QString previewUrl(const QImage& img, const QJsonObject& fx) {
+  QImage small = img.scaledToWidth(std::min(img.width(), 960), Qt::SmoothTransformation).convertToFormat(QImage::Format_RGBA8888);
+  postFx(small.bits(), small.width(), small.height(), fx);
+  QByteArray bytes;
+  QBuffer buf(&bytes);
+  buf.open(QIODevice::WriteOnly);
+  small.save(&buf, "JPG", 88);
+  return QStringLiteral("data:image/jpeg;base64,") + QString::fromLatin1(bytes.toBase64());
+}
+
+QString previewUrl(std::vector<unsigned char> rgba, int w, int h, const QJsonObject& fx) {
+  return previewUrl(QImage(rgba.data(), w, h, w * 4, QImage::Format_RGBA8888), fx);
+}
+}  // namespace
+
+QJsonObject HostBridge::renderStart(const QString& jobJson) {
+  if (rendering_) return {{"ok", false}, {"error", "busy"}};
+  const QJsonObject job = QJsonDocument::fromJson(jobJson.toUtf8()).object();
+  const QString fmt = job.value("format").toString("png");
+  if (fmt == "exr") return {{"ok", false}, {"error", "OpenEXR output is not included in this build (choose PNG 16-bit for high bit depth)"}};
+  if (fmt == "tiff" && !QImageWriter::supportedImageFormats().contains("tiff")) return {{"ok", false}, {"error", "TIFF writer not available in this build"}};
+  if (!renderer_) renderer_ = std::make_unique<occt::SceneView>(true);
+  if (!renderer_->ok()) return {{"ok", false}, {"error", "OpenGL unavailable"}};
+  auto parsed = json::parse(QJsonDocument(job.value("scene").toObject()).toJson(QJsonDocument::Compact).toStdString());
+  if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+  int failures = renderer_->setItems(occt::sceneFromJson(std::get<json::Value>(parsed)));
+  // exterior views: the BIM building held by the host (the same model the BIM workspace edits)
+  if (job.value("scene").toObject().value("bim").toBool()) renderer_->addBuilding(bim_, job.value("scene").toObject().value("ground").toBool(true));
+  const QJsonObject pj = job.value("params").toObject();
+  occt::RenderParams p;
+  p.w = std::clamp(pj.value("w").toInt(1920), 16, 8192);
+  p.h = std::clamp(pj.value("h").toInt(1080), 16, 8192);
+  p.samples = std::clamp(pj.value("samples").toInt(64), 1, 16384);
+  p.bounces = pj.value("bounces").toInt(4);
+  p.engine = pj.value("engine").toString("path").toStdString();
+  p.exposure = pj.value("exposure").toDouble(0);
+  p.sun = pj.value("sun").toBool(true);
+  p.sunIntensity = pj.value("sunIntensity").toDouble(1.2);
+  p.sunAzimuthDeg = pj.value("sunAzimuth").toDouble(320);
+  p.sunElevationDeg = pj.value("sunElevation").toDouble(40);
+  p.sky = pj.value("sky").toString("clear").toStdString();
+  if (pj.contains("camera")) {
+    const QJsonObject c = pj.value("camera").toObject();
+    p.hasCamera = true;
+    p.eye = arr3(c.value("eye"), {0, 0, 0});
+    p.at = arr3(c.value("at"), {0, 0, 0});
+    p.fovDeg = c.value("fov").toDouble(55);
+  }
+  const std::string err = renderer_->beginRender(p);
+  if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+  renderJob_ = job;
+  rendering_ = true;
+  renderStartMs_ = QDateTime::currentMSecsSinceEpoch();
+  renderPreviewMs_ = 0;
+  QTimer::singleShot(0, this, &HostBridge::renderTick);
+  return {{"ok", true}, {"failures", failures}, {"w", p.w}, {"h", p.h}, {"samples", p.samples}};
+}
+
+void HostBridge::renderCancel(const QString& id) {
+  if (rendering_ && renderJob_.value("id").toString() == id) renderFinish(false, QStringLiteral("cancelled"));
+}
+
+void HostBridge::renderTick() {
+  if (!rendering_) return;
+  const QJsonObject pj = renderJob_.value("params").toObject();
+  const int total = pj.value("engine").toString() == "raytrace" ? std::min(pj.value("samples").toInt(64), 16) : pj.value("samples").toInt(64);
+  // short slices (at least one pass) with idle gaps keep the UI — same thread as the GL context — responsive
+  const int done = renderer_->renderPasses(25);
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  QJsonObject prog{{"id", renderJob_.value("id")}, {"samples", done}, {"total", total}, {"ms", static_cast<double>(now - renderStartMs_)}};
+  if (done >= total) return renderFinish(true, {});
+  if (now - renderPreviewMs_ > 1500) {
+    renderPreviewMs_ = now;
+    prog["preview"] = previewUrl(renderer_->renderedImage(false), pj.value("w").toInt(1920), pj.value("h").toInt(1080), renderJob_.value("fx").toObject());
+  }
+  emit renderProgress(prog);
+  QTimer::singleShot(20, this, &HostBridge::renderTick);
+}
+
+void HostBridge::renderFinish(bool ok, const QString& error) {
+  const QJsonObject job = renderJob_;
+  const QJsonObject pj = job.value("params").toObject();
+  const int w = std::clamp(pj.value("w").toInt(1920), 16, 8192), h = std::clamp(pj.value("h").toInt(1080), 16, 8192);
+  QJsonObject res{{"id", job.value("id")}, {"done", true}, {"samples", renderer_->renderedSamples()}, {"ms", static_cast<double>(QDateTime::currentMSecsSinceEpoch() - renderStartMs_)}};
+  if (ok) {
+    const QString fmt = job.value("format").toString("png");
+    const QJsonObject fx = job.value("fx").toObject();
+    const bool sixteen = fmt == "png16";
+    std::vector<unsigned char> px = renderer_->renderedImage(sixteen);
+    const bool dn = job.value("denoise").toBool(false);
+    QString path;
+    if (px.empty()) ok = false, res["error"] = QStringLiteral("could not read the rendered image back");
+    else {
+      QImage img;
+      if (sixteen) {
+        auto* p16 = reinterpret_cast<uint16_t*>(px.data());
+        if (dn) denoise(p16, w, h);
+        postFx(p16, w, h, fx);
+        img = QImage(px.data(), w, h, w * 8, QImage::Format_RGBA64).copy();
+        res["preview"] = previewUrl(img.convertToFormat(QImage::Format_RGBA8888), {});
+      } else {
+        if (dn) denoise(px.data(), w, h);
+        postFx(px.data(), w, h, fx);
+        img = QImage(px.data(), w, h, w * 4, QImage::Format_RGBA8888).convertToFormat(QImage::Format_RGB888);
+        res["preview"] = previewUrl(QImage(px.data(), w, h, w * 4, QImage::Format_RGBA8888), {});
+      }
+      res["denoised"] = dn;
+      if (!job.value("save").toBool(true)) {
+        res["ok"] = true;  // self-test: image produced and read back, nothing written
+        renderer_->endRender();
+        rendering_ = false;
+        renderJob_ = {};
+        emit renderProgress(res);
+        return;
+      }
+      const double dpm = job.value("dpi").toDouble(300) / 0.0254;
+      img.setDotsPerMeterX(static_cast<int>(std::lround(dpm)));
+      img.setDotsPerMeterY(static_cast<int>(std::lround(dpm)));
+      QString dir = qEnvironmentVariable("THCAD_RENDER_OUT");  // QA
+      if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/TH AI CAD Studio/Renders");
+      QDir().mkpath(dir);
+      QString base = job.value("name").toString(QStringLiteral("Render"));
+      base.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("-"));
+      const QString ext = fmt == "jpg" ? QStringLiteral("jpg") : fmt == "tiff" ? QStringLiteral("tiff") : QStringLiteral("png");
+      path = dir + "/" + base + "." + ext;
+      for (int n = 2; QFileInfo::exists(path); ++n) path = dir + "/" + base + QStringLiteral(" (%1).").arg(n) + ext;
+      QImageWriter wr(path);
+      if (fmt == "jpg") wr.setQuality(95);
+      if (!wr.write(img)) ok = false, res["error"] = wr.errorString();
+      else res["path"] = path, res["bytes"] = static_cast<double>(QFileInfo(path).size());
+    }
+  } else {
+    res["error"] = error;
+  }
+  res["ok"] = ok;
+  renderer_->endRender();
+  rendering_ = false;
+  renderJob_ = {};
+  emit renderProgress(res);
+}
+
 #else
 QJsonObject HostBridge::scene3dLoad(const QString&, const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::scene3dFrame(const QString&, int, int, const QString&, const QString&, const QString&) { return {{"ok", false}}; }
@@ -351,6 +558,10 @@ void HostBridge::scene3dCamera(const QString&, const QString&, double, double, d
 QString HostBridge::scene3dPick(const QString&, int, int) { return {}; }
 double HostBridge::scene3dCommon(const QString&, const QString&, const QString&) { return -1; }
 QJsonArray HostBridge::scene3dOverlaps(const QString&) { return {}; }
+QJsonObject HostBridge::renderStart(const QString&) { return {{"ok", false}, {"error", "no 3D engine in this build"}}; }
+void HostBridge::renderCancel(const QString&) {}
+void HostBridge::renderTick() {}
+void HostBridge::renderFinish(bool, const QString&) {}
 QJsonObject HostBridge::scene3dExportStep(const QString&, const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::bim3dLoad(const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::bim3dFrame(int, int, const QString&, const QString&) { return {{"ok", false}}; }

@@ -28,7 +28,7 @@ await step('opens like the mockup: Render Studio, Cam 01 selected, Rendered mode
   assert.equal(await page.getByRole('tab', { name: 'Render Studio' }).getAttribute('aria-selected'), 'true')
   assert.equal(await page.getByRole('button', { name: /^Cam 01 Exterior/ }).getAttribute('aria-pressed'), 'true')
   assert.equal(await page.getByRole('radio', { name: 'Rendered' }).getAttribute('aria-checked'), 'true')
-  assert.ok(await page.getByText('DEMO preview · renderer not connected').isVisible())
+  assert.ok(await page.getByText('DEMO preview · the OCCT renderer runs in the desktop app').isVisible())
 })
 
 await step('no fake progress: the 3 queued jobs wait for the renderer at 0 %, nothing “Rendering”', async () => {

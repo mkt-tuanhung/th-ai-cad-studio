@@ -21,6 +21,8 @@ export interface SceneItem {
   rgb: V3
   transparency?: number
   fuse?: boolean
+  /** Surface model for the path tracer (default matte). */
+  mat?: 'matte' | 'glossy' | 'metal' | 'glass' | 'emissive'
   parts: Prim[]
   cuts?: Prim[]
 }

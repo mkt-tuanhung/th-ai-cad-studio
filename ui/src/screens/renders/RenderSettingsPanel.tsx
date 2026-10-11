@@ -5,7 +5,7 @@ import { toast } from '../../state/toast'
 import { useRenders } from '../../state/renders'
 import { PanelTabs, wsStyles as w } from '../../components/workspace/Workspace'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
-import { DEFAULT_FX, ENGINES, FORMATS, HDRIS, QUALITIES, RESOLUTIONS, dims, fileSizeMb, printCm, type PostFx, type RenderSettings } from '../../renders/model'
+import { DEFAULT_FX, ENGINES, FORMATS, HDRIS, QUALITIES, QUALITY_PRESETS, RESOLUTIONS, dims, fileSizeMb, printCm, type PostFx, type RenderSettings } from '../../renders/model'
 import s from './Renders.module.css'
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -83,7 +83,7 @@ export function RenderSettingsPanel({ onRender, onRenderAll }: { onRender: () =>
                 <Row label={c.samples}><Slider label={c.samples} value={S.samples} min={16} max={4096} step={16} onChange={(v) => up(c.samples, { samples: v })} /></Row>
                 <Row label={c.denoise}><Toggle label={c.denoise} on={S.denoise} onChange={(v) => up(c.denoise, { denoise: v })} /></Row>
                 <Row label={c.bounces}><Sel label={c.bounces} value={String(S.bounces)} onChange={(v) => up(c.bounces, { bounces: Number(v) })} options={[2, 4, 6, 8, 12, 16, 32].map((n) => ({ value: String(n), label: String(n) }))} /></Row>
-                <Row label={c.quality}><Sel label={c.quality} value={S.quality} onChange={(v) => up(c.quality, { quality: v })} options={QUALITIES.map((q) => ({ value: q, label: c.qualities[q] }))} /></Row>
+                <Row label={c.quality}><Sel label={c.quality} value={S.quality} onChange={(v) => up(c.quality, { quality: v, ...QUALITY_PRESETS[v as keyof typeof QUALITY_PRESETS] })} options={QUALITIES.map((q) => ({ value: q, label: c.qualities[q] }))} /></Row>
               </>
             ))}
             {sec('environment', c.environment, (

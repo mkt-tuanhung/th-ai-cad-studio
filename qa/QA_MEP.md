@@ -38,7 +38,7 @@ Mọi ảnh nằm trong `qa/v2/08_mep/`.
 |---|---|
 | SA-01 600 × 400, 1200 L/s: "Velocity 6.5 m/s" | **5.00 m/s** (Q / A = 1.2 / 0.24) |
 | "Pressure Drop 45.0 Pa/m" (phi thực tế với ống gió) | **0.57 Pa/m**. Tính bằng Darcy–Weisbach với hệ số ma sát Haaland, đường kính tương đương 533 mm (Huebscher), tôn mạ kẽm ε = 0.15 mm |
-| "Clash Detection (8)" | Số va chạm tính bằng phép giao hộp bao 3D giữa ống gió (gồm cả bảo ôn), ống nước và dầm 300 × 600. Mẫu hiện có **5** va chạm |
+| "Clash Detection (8)" | Số va chạm tính bằng phép giao hộp bao 3D giữa ống gió (gồm cả bảo ôn), ống nước và dầm 300 × 600. Mẫu hiện có **29** va chạm (từ 2026-10-12 thêm luật ống gió × ống gió và ống nước × ống nước theo kết quả kiểm tra OCCT; trước đó là 5) |
 | "Equipment (18)" | **32**: tổng số thiết bị trong cây (AHU 4 + FCU 12 + Bơm 6 + Chiller 2 + Tủ điện 8). Con số 18 trong mockup mâu thuẫn với chính cây của nó |
 | Nhãn ribbon "O" (lỗi do AI vẽ) | "Visibility" |
 | AI Recommendations (văn bản cố định) | Danh sách vấn đề tính thật (va chạm, kiểm tra thiết kế). Nút "Apply Suggestion" hạ ống gió đang va chạm xuống dưới đáy dầm. Có ghi rõ: kiểm tra theo quy tắc, AI cục bộ chưa nối với MEP |

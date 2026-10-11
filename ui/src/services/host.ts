@@ -40,6 +40,8 @@ export interface HostApi {
   scene3dPick(key: string, x: number, y: number): Promise<string>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
   scene3dOverlaps(key: string): Promise<{ a: string; b: string; m3: number }[]>
+  renderStart(jobJson: string): Promise<{ ok: boolean; error?: string; w?: number; h?: number; samples?: number }>
+  renderCancel(id: string): Promise<void>
   scene3dExportStep(key: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; error?: string; cancelled?: boolean }>
   bimSummary(): Promise<{ walls: { mark: string; area: number; volume: number; netVolume?: number }[]; checks: number[] }>
   setViewportSlot(kind: string, x: number, y: number, w: number, h: number, visible: boolean): Promise<void>
@@ -53,7 +55,7 @@ export interface HostApi {
   pickFolder(title: string, start: string): Promise<string>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'documentChanged' | 'dwgResult', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'documentChanged' | 'dwgResult' | 'renderProgress', fn: (payload: unknown) => void): void
 }
 
 export interface HostSystemInfo {

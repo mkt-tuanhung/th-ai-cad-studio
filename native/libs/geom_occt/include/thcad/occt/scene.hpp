@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "thcad/bim/model.hpp"
 #include "thcad/core/json.hpp"
 
 namespace thcad::occt {
@@ -39,6 +40,27 @@ struct SceneItem {
   std::vector<Prim> cuts;
   /** Fuse parts into one solid (exact volume for overlapping parts); otherwise a compound. */
   bool fuse = false;
+  /** Surface model for the path tracer: "matte" | "glossy" | "metal" | "glass" | "emissive". */
+  std::string mat = "matte";
+};
+
+/** Final-quality render of a scene (OCCT ray / path tracing, offscreen, progressive). */
+struct RenderParams {
+  int w = 1920, h = 1080;
+  int samples = 64;  // samples per pixel (one per progressive pass)
+  int bounces = 4;   // path depth
+  /** "path" (physically based GI) | "raytrace" (Whitted: direct light, shadows, reflections) */
+  std::string engine = "path";
+  double exposure = 0;  // EV, filmic tone mapping
+  bool sun = true;
+  double sunIntensity = 1.2;
+  double sunAzimuthDeg = 320, sunElevationDeg = 40;
+  /** Sky dome: "clear" | "overcast" | "studio" (uniform soft light) | "night". */
+  std::string sky = "clear";
+  /** Perspective camera; when absent the scene is framed from the default iso direction. */
+  bool hasCamera = false;
+  std::array<double, 3> eye{0, 0, 0}, at{0, 0, 0};
+  double fovDeg = 55;
 };
 
 /** {items:[{id, rgb, transparency, fuse, parts:[{k, o, z, x, s, pts}], cuts:[…]}]} → items (see ui/src/engine3d/scene.ts). */
@@ -55,11 +77,15 @@ SceneReport analyzeScene(const std::vector<SceneItem>& items, bool overlaps);
 
 class SceneView {
  public:
-  SceneView();
+  /** pathTracing: request a core-profile GL context (needed for ray tracing on macOS). */
+  explicit SceneView(bool pathTracing = false);
   ~SceneView();
   bool ok() const;
   /** Builds every item; returns the number of solids that failed to build. */
   int setItems(const std::vector<SceneItem>& items);
+  /** Adds the BIM building (walls with their openings cut, glazing in the windows, floor / roof
+   *  slabs spanning each level's walls) and optionally a ground plane. Returns the walls added. */
+  int addBuilding(const bim::Model& m, bool ground);
   /** "shaded" | "wireframe" | "hidden" | "clay" */
   void setMode(const std::string& mode);
   void setSelected(const std::string& id);
@@ -83,6 +109,16 @@ class SceneView {
   std::vector<SceneReport::Overlap> overlaps() const;
   /** STEP AP214 of the whole scene; empty string on success, else the error. */
   std::string writeStep(const std::string& path) const;
+
+  /** Sets up a final render (camera, sun + sky, materials, ray-tracing parameters). Empty string on
+   *  success, else why it cannot render (e.g. the GPU has no ray-tracing support). */
+  std::string beginRender(const RenderParams& p);
+  /** Adds progressive passes for up to `maxMs`; returns the samples accumulated so far. */
+  int renderPasses(int maxMs);
+  int renderedSamples() const;
+  /** Current accumulated image, top-down RGBA8 (or RGBA16 when `sixteenBit`, 8 bytes per pixel). */
+  std::vector<unsigned char> renderedImage(bool sixteenBit = false);
+  void endRender();
 
  private:
   struct Impl;

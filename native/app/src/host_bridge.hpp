@@ -67,6 +67,12 @@ class HostBridge : public QObject {
   Q_INVOKABLE QJsonArray scene3dOverlaps(const QString& key);
   /** Save dialog → STEP AP214 of the scene. {ok, path, error}. */
   Q_INVOKABLE QJsonObject scene3dExportStep(const QString& key, const QString& suggestedName);
+  /** Final render of one job (OCCT path tracing, progressive, on the GUI thread in short slices):
+   *  {id, name, scene:{items}, params:{w,h,samples,bounces,engine,exposure,sun,sunIntensity,
+   *  sunAzimuth,sunElevation,sky,camera:{eye,at,fov}}, fx:{contrast,saturation,temperature,vignette},
+   *  format:'png'|'png16'|'jpg'|'tiff', dpi}. Progress and the result arrive on 'renderProgress'. */
+  Q_INVOKABLE QJsonObject renderStart(const QString& jobJson);
+  Q_INVOKABLE void renderCancel(const QString& id);
   /** DWG bytes (base64) → DXF bytes via the bundled LibreDWG helper. Async: emits dwgResult
    *  ({id, ok, dxf: base64, ms, warnings, error}); returns the id. */
   Q_INVOKABLE QString dwgToDxf(const QString& base64, const QString& name);
@@ -91,6 +97,8 @@ class HostBridge : public QObject {
   void aiResult(const QJsonObject& result);
   void documentChanged(const QJsonObject& document);
   void dwgResult(const QJsonObject& result);
+  /** {id, samples, total, ms, preview?} while running; {id, done:true, ok, path?, error?, …} at the end. */
+  void renderProgress(const QJsonObject& progress);
 
  private:
   QJsonObject proposalJson(const Proposal& p) const;
@@ -107,6 +115,13 @@ class HostBridge : public QObject {
   occt::OffscreenView* offscreen();
   std::map<QString, std::unique_ptr<occt::SceneView>> scenes_;
   occt::SceneView* scene(const QString& key);
+  // final render job
+  std::unique_ptr<occt::SceneView> renderer_;
+  QJsonObject renderJob_;
+  qint64 renderStartMs_ = 0, renderPreviewMs_ = 0;
+  bool rendering_ = false;
+  void renderTick();
+  void renderFinish(bool ok, const QString& error);
 };
 
 }  // namespace thcad::app

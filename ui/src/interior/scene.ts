@@ -34,6 +34,11 @@ const LAYOUT: Record<string, { room: string; at: Place[] }> = {
 }
 
 const color = (material: string) => hex(MATERIALS.find((m) => m.name === material)?.color ?? '#c8c8c8')
+/** Path-tracer surface per finish: varnished wood / stone / tile get a clear coat, metal is metallic. */
+function matOf(material: string): SceneItem['mat'] {
+  const kind = MATERIALS.find((m) => m.name === material)?.kind
+  return kind === 'metal' ? 'metal' : kind === 'wood' || kind === 'board' || kind === 'stone' || kind === 'tile' ? 'glossy' : 'matte'
+}
 
 /** Primitives in a furniture-local frame (origin = footprint centre, −Y = front), placed in plan. */
 function local(p: Place) {
@@ -141,10 +146,11 @@ function furniture(i: Item, at: Place, ceiling: number): Prim[] {
   }
 }
 
-export function interiorScene(doc: InteriorDoc): Scene {
+/** fullWalls: walls to ceiling height (renders) instead of the plan-section cut; furniture: include items. */
+export function interiorScene(doc: InteriorDoc, opts: { fullWalls?: boolean; furniture?: boolean } = {}): Scene {
   const items: SceneItem[] = []
   for (const r of doc.rooms) {
-    items.push({ id: `room:${r.id}`, rgb: color(r.floorFinish), parts: [prism([0, 0, -40], r.outline.map((p) => [p.x, p.y]), 40)] })
+    items.push({ id: `room:${r.id}`, rgb: color(r.floorFinish), mat: matOf(r.floorFinish), parts: [prism([0, 0, -40], r.outline.map((p) => [p.x, p.y]), 40)] })
     const walls: Prim[] = []
     const n = r.outline.length
     for (let k = 0; k < n; k++) {
@@ -153,13 +159,13 @@ export function interiorScene(doc: InteriorDoc): Scene {
       // inward normal of a counter-clockwise outline = left of the edge
       const nx = -(q.y - p.y) / len, ny = (q.x - p.x) / len
       const rot = (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI
-      walls.push(boxAt((p.x + q.x) / 2 + (nx * WALL_T) / 2, (p.y + q.y) / 2 + (ny * WALL_T) / 2, 0, len, WALL_T, Math.min(WALL_CUT, r.ceilingHeight), rot))
+      walls.push(boxAt((p.x + q.x) / 2 + (nx * WALL_T) / 2, (p.y + q.y) / 2 + (ny * WALL_T) / 2, 0, len, WALL_T, opts.fullWalls ? r.ceilingHeight : Math.min(WALL_CUT, r.ceilingHeight), rot))
     }
     items.push({ id: `walls:${r.id}`, rgb: color(r.wallFinish), parts: walls })
   }
 
   const auto: Record<string, number> = {}
-  for (const i of doc.items) {
+  for (const i of opts.furniture === false ? [] : doc.items) {
     const room = doc.rooms.find((r) => r.id === i.room)
     if (!room) continue
     const lay = LAYOUT[i.id]
@@ -175,7 +181,7 @@ export function interiorScene(doc: InteriorDoc): Scene {
     }
     const cab = i.cabinet ? doc.cabinets.find((c) => c.id === i.cabinet) : undefined
     const parts = at.flatMap((p) => (cab ? cabinetParts(cab, p) : furniture(i, p, room.ceilingHeight)))
-    items.push({ id: i.id, rgb: color(cab ? cab.front : i.material), transparency: i.status === 'planned' ? 0.35 : 0, parts })
+    items.push({ id: i.id, rgb: color(cab ? cab.front : i.material), mat: matOf(cab ? cab.front : i.material), transparency: i.status === 'planned' ? 0.35 : 0, parts })
   }
   return { items, volumes: true }
 }

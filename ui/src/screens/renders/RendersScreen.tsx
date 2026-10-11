@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FolderOpen, Square } from 'lucide-react'
 import {
   Camera as CameraIcon, ChevronsLeft, Crosshair, Ellipsis, Expand, Focus, Hand, Maximize, Play, Plus, RefreshCcw, Save, ScanSearch, Search, Share, Trash2,
   ZoomIn, ZoomOut, Box,
@@ -12,6 +13,8 @@ import { Modes, Select, ToolStrip, WsButton, WsHeader, downloadFile, wsStyles as
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
 import { MATERIALS, VARIATIONS, fxFilter } from '../../renders/model'
 import { RenderSettingsPanel } from './RenderSettingsPanel'
+import { useHost } from '../../services/host'
+import { attachRunner, cancelJob, startJob, startNext } from '../../renders/runner'
 import s from './Renders.module.css'
 
 const MODES: { key: RenderMode; w: number }[] = [
@@ -32,8 +35,18 @@ export function RendersScreen() {
   const cam = st.doc.cameras.find((c) => c.id === st.camera) ?? st.doc.cameras[0]
   const variation = VARIATIONS.find((v) => v.key === st.variation)!
   // the large DEMO render exists only for Cam 01 / Original; other cameras and variations show their thumbnails
-  const img = cam.id === 'cam1' ? (st.variation === 'original' ? '/assets/v2/renders/viewport.png' : variation.img) : cam.thumb
-  const lowRes = img !== '/assets/v2/renders/viewport.png'
+  const demoImg = cam.id === 'cam1' ? (st.variation === 'original' ? '/assets/v2/renders/viewport.png' : variation.img) : cam.thumb
+  const host = useHost()
+  useEffect(() => {
+    if (host) attachRunner(host)
+  }, [host])
+  // desktop: the latest real render of this camera (in progress or finished this session) replaces the DEMO image
+  const realJob = host ? [...st.doc.queue].reverse().find((j) => j.cameraId === cam.id && st.previews[j.id] && ['rendering', 'done'].includes(st.runs[j.id]?.status ?? '')) : undefined
+  const realRun = realJob ? st.runs[realJob.id] : undefined
+  const img = realJob ? st.previews[realJob.id] : demoImg
+  const lowRes = !realJob && img !== '/assets/v2/renders/viewport.png'
+  const clock = (ms = 0) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
+  const fileName = (p?: string) => (p ? (p.split(/[\\/]/).pop() ?? p) : '')
 
   useEffect(() => {
     const onKey = undoKeys(st.undo, st.redo, (label, redo) => toast(label ? fmt(redo ? t.toast.redone : t.toast.undone, { label }) : t.toast.nothing))
@@ -50,7 +63,21 @@ export function RendersScreen() {
     st.set({ camera: id })
     toast(fmt(t.toast.cameraAdded, { name }), 'success')
   }
-  const queue = (ids: string[]) => toast(fmt(t.toast.queued, { n: st.enqueue(ids) }))
+  const queue = async (ids: string[]) => {
+    const n = st.enqueue(ids)
+    if (!host) return toast(fmt(t.toast.queued, { n }))
+    toast(fmt(t.toast.started, { n }))
+    // the view just asked for renders first; the rest of the queue follows
+    const fresh = useRenders.getState().doc.queue.slice(-n)[0]
+    const err = fresh ? await startJob(host, fresh.id) : await startNext(host)
+    if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: err }), 'warning')
+  }
+  const startOne = async (id: string) => {
+    if (!host) return native(t.queue.start)
+    const err = await startJob(host, id)
+    if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: err }), 'warning')
+  }
+  const reveal = (path?: string) => host && path && host.revealFolder(path.replace(/[\\/][^\\/]*$/, ''))
 
   const tabs = (['studio', 'panorama', 'video', 'ai', 'batch'] as RenderTab[]).map((k) => ({ key: k, label: t.tabs[k] }))
   const filteredMats = useMemo(() => MATERIALS.filter((m) => !q || t.mats[m].toLowerCase().includes(q.toLowerCase()) || m.includes(q.toLowerCase())), [q, t])
@@ -70,7 +97,7 @@ export function RendersScreen() {
               <WsButton icon={<Save size={16} strokeWidth={1.6} />} label={t.saveView} width={130} menu={[
                 { label: t.saveItems.camera, onSelect: () => addCamera() },
                 { label: t.saveItems.settings, onSelect: () => { downloadFile('Villa Riverside - render settings.json', JSON.stringify({ camera: cam, settings: st.doc.settings, post: st.doc.fx }, null, 2), 'application/json'); toast(fmt(t.toast.exported, { file: 'Villa Riverside - render settings.json' }), 'success') } },
-                { label: t.saveItems.image, onSelect: () => { const a = document.createElement('a'); a.href = img; a.download = `${cam.name} - DEMO preview.png`; a.click() } },
+                { label: t.saveItems.image, onSelect: () => { const a = document.createElement('a'); a.href = img; a.download = realJob ? `${cam.name} - preview.jpg` : `${cam.name} - DEMO preview.png`; a.click() } },
               ]} />
               <WsButton primary icon={<Play size={16} strokeWidth={1.8} />} label={t.render} width={120} onClick={() => queue([cam.id])} />
             </>
@@ -178,9 +205,17 @@ export function RendersScreen() {
           <svg width="0" height="0" className={w.defs} aria-hidden="true">
             <filter id="wsWire"><feColorMatrix type="saturate" values="0" /><feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 8 -1 -1 -1 -1" preserveAlpha="true" /><feComponentTransfer><feFuncR type="linear" slope="-3" intercept="1" /><feFuncG type="linear" slope="-3" intercept="1" /><feFuncB type="linear" slope="-3" intercept="1" /></feComponentTransfer></filter>
           </svg>
-          <img className={`${w.vpImg} ${lowRes ? s.lowRes : ''}`} src={img} alt={`${cam.name} (DEMO)`} draggable={false} style={st.mode === 'rendered' ? { filter: fxFilter(st.doc.fx) } : undefined} />
-          {st.mode === 'rendered' && st.doc.fx.vignette > 0 && <div className={s.vignette} style={{ opacity: st.doc.fx.vignette / 100 }} />}
-          <span className={w.demoBadge} style={{ left: 10, top: 10 }}>{t.viewer.demo}</span>
+          <img className={`${w.vpImg} ${lowRes ? s.lowRes : ''}`} src={img} alt={realJob ? cam.name : `${cam.name} (DEMO)`} draggable={false} data-testid={realJob ? 'render-real' : 'render-demo'} style={st.mode === 'rendered' && !realJob ? { filter: fxFilter(st.doc.fx) } : undefined} />
+          {st.mode === 'rendered' && !realJob && st.doc.fx.vignette > 0 && <div className={s.vignette} style={{ opacity: st.doc.fx.vignette / 100 }} />}
+          {realJob && realRun ? (
+            <span className={w.demoBadge} style={{ left: 10, top: 10, background: 'rgba(16, 92, 96, 0.9)', color: '#fff', borderColor: 'transparent' }}>
+              {realRun.status === 'rendering'
+                ? fmt(t.viewer.rendering, { s: realRun.samples ?? 0, n: realRun.total ?? 0, time: clock(realRun.ms) })
+                : fmt(t.viewer.rendered, { s: realRun.samples ?? 0, time: clock(realRun.ms), file: fileName(realRun.path) })}
+            </span>
+          ) : (
+            <span className={w.demoBadge} style={{ left: 10, top: 10 }}>{host ? t.viewer.demoDesktop : t.viewer.demo}</span>
+          )}
           <ToolStrip vertical style={{ right: 8, top: 12 }} items={[
             tool(t.viewer.target, <Crosshair size={16} strokeWidth={1.6} />),
             tool(t.viewer.region, <ScanSearch size={16} strokeWidth={1.6} />),
@@ -224,29 +259,63 @@ export function RendersScreen() {
       <section className={`${w.card} ${s.queue}`} aria-label={fmt(t.queue.title, { n: st.doc.queue.length })}>
         <div className={s.qtabs} role="tablist">
           <button type="button" role="tab" aria-selected={st.bottom === 'queue'} className={st.bottom === 'queue' ? s.qtabOn : undefined} onClick={() => st.set({ bottom: 'queue' })}>{fmt(t.queue.title, { n: st.doc.queue.length })}</button>
-          <button type="button" role="tab" aria-selected={st.bottom === 'history'} className={st.bottom === 'history' ? s.qtabOn : undefined} onClick={() => st.set({ bottom: 'history' })}>{fmt(t.queue.history, { n: 0 })}</button>
-          <button type="button" className={w.link} onClick={() => toast(t.toast.cleared)}>{t.queue.clear}</button>
+          <button type="button" role="tab" aria-selected={st.bottom === 'history'} className={st.bottom === 'history' ? s.qtabOn : undefined} onClick={() => st.set({ bottom: 'history' })}>{fmt(t.queue.history, { n: st.history.length })}</button>
+          <button type="button" className={w.link} onClick={() => {
+            const finished = st.doc.queue.filter((j) => ['done', 'failed', 'cancelled'].includes(st.runs[j.id]?.status ?? ''))
+            if (finished.length) st.edit(t.queue.clear, (d) => ({ ...d, queue: d.queue.filter((j) => !finished.includes(j)) }))
+            toast(t.toast.cleared)
+          }}>{t.queue.clear}</button>
         </div>
         {st.bottom === 'queue' ? (
           <div className={s.qtable} role="table" aria-label={t.queue.title.replace(' ({n})', '')}>
             <div className={s.qrow} role="row">
               {[t.queue.n, t.queue.camera, t.queue.settings, t.queue.output, t.queue.status, t.queue.progress, t.queue.actions].map((h) => <span key={h} role="columnheader">{h}</span>)}
             </div>
-            {st.doc.queue.map((j, i) => (
-              <div key={j.id} className={s.qrow} role="row">
+            {st.doc.queue.map((j, i) => {
+              const run = st.runs[j.id]
+              const status = host ? (run?.status ?? 'waiting') : 'waiting'
+              const pct = status === 'done' ? 100 : status === 'rendering' && run?.total ? Math.floor(((run.samples ?? 0) / run.total) * 100) : 0
+              return (
+                <div key={j.id} className={s.qrow} role="row" data-status={status}>
+                  <span role="cell">{i + 1}</span>
+                  <span role="cell">{j.camera}</span>
+                  <span role="cell">{j.settings}</span>
+                  <span role="cell">{j.output}</span>
+                  <span role="cell" className={s.waiting} title={run?.error ?? run?.path ?? undefined}><i />{status === 'waiting' ? (host ? t.queue.waitingDesktop : t.queue.waiting) : t.queue[status]}</span>
+                  <span role="cell" className={s.prog}><i><b style={{ width: `${pct}%` }} /></i>{pct}%</span>
+                  <span role="cell" className={s.acts}>
+                    {status === 'rendering' ? (
+                      <button type="button" aria-label={t.queue.cancel} title={t.queue.cancel} onClick={() => host && cancelJob(host, j.id)}><Square size={13} strokeWidth={2} /></button>
+                    ) : status === 'done' ? (
+                      <button type="button" aria-label={t.queue.folder} title={run?.path ?? t.queue.folder} onClick={() => reveal(run?.path)}><FolderOpen size={15} strokeWidth={1.7} /></button>
+                    ) : (
+                      <button type="button" aria-label={t.queue.start} title={t.queue.start} onClick={() => { if (host && (status === 'failed' || status === 'cancelled')) st.setRun(j.id, { status: 'waiting' }); void startOne(j.id) }}><Play size={15} strokeWidth={1.8} /></button>
+                    )}
+                    <button type="button" aria-label={t.queue.remove} title={t.queue.remove} disabled={status === 'rendering'} onClick={() => st.edit(`${t.queue.remove} ${j.camera}`, (d) => ({ ...d, queue: d.queue.filter((x) => x.id !== j.id) }))}><Trash2 size={14} strokeWidth={1.7} /></button>
+                  </span>
+                </div>
+              )
+            })}
+            {st.doc.queue.length === 0 && <p className={s.empty}>{t.queue.empty}</p>}
+          </div>
+        ) : st.history.length ? (
+          <div className={s.qtable} role="table" aria-label={t.queue.history.replace(' ({n})', '')}>
+            <div className={s.qrow} role="row">
+              {[t.queue.n, t.queue.camera, t.queue.settings, t.queue.file, t.queue.time, '', t.queue.actions].map((h, k) => <span key={k} role="columnheader">{h}</span>)}
+            </div>
+            {st.history.map((h, i) => (
+              <div key={h.jobId + h.finished} className={s.qrow} role="row">
                 <span role="cell">{i + 1}</span>
-                <span role="cell">{j.camera}</span>
-                <span role="cell">{j.settings}</span>
-                <span role="cell">{j.output}</span>
-                <span role="cell" className={s.waiting}><i />{t.queue.waiting}</span>
-                <span role="cell" className={s.prog}><i><b style={{ width: '0%' }} /></i>0%</span>
+                <span role="cell">{h.camera}</span>
+                <span role="cell">{h.w} × {h.h} · {h.samples}</span>
+                <span role="cell" title={h.path}>{fileName(h.path)}</span>
+                <span role="cell">{clock(h.ms)}</span>
+                <span role="cell" />
                 <span role="cell" className={s.acts}>
-                  <button type="button" aria-label={t.queue.start} title={t.queue.start} onClick={() => native(t.queue.start)}><Play size={15} strokeWidth={1.8} /></button>
-                  <button type="button" aria-label={t.queue.remove} title={t.queue.remove} onClick={() => st.edit(`${t.queue.remove} ${j.camera}`, (d) => ({ ...d, queue: d.queue.filter((x) => x.id !== j.id) }))}><Trash2 size={14} strokeWidth={1.7} /></button>
+                  <button type="button" aria-label={t.queue.folder} title={h.path} onClick={() => reveal(h.path)}><FolderOpen size={15} strokeWidth={1.7} /></button>
                 </span>
               </div>
             ))}
-            {st.doc.queue.length === 0 && <p className={s.empty}>{t.queue.empty}</p>}
           </div>
         ) : (
           <p className={s.empty}>{t.queue.noHistory}</p>

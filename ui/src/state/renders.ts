@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { CAMERAS, DEFAULT_FX, DEFAULT_SETTINGS, settingsSummary, FORMATS, type Camera, type Job, type PostFx, type RenderSettings, type Variation } from '../renders/model'
+import { CAMERAS, DEFAULT_FX, DEFAULT_SETTINGS, settingsSummary, FORMATS, type Camera, type Job, type JobRun, type PostFx, type RenderSettings, type Variation } from '../renders/model'
 import { undoableActions, type Undoable } from './undoable'
 
 export type RenderTab = 'studio' | 'panorama' | 'video' | 'ai' | 'batch'
@@ -28,10 +28,15 @@ interface RenderState extends Undoable<RenderDoc> {
   preview: 'high' | 'medium' | 'draft'
   layers: Record<string, boolean>
   open: Record<string, boolean>
+  /** Desktop renderer: live state per job id, finished renders (history) and in-memory previews. */
+  runs: Record<string, JobRun>
+  history: { jobId: string; camera: string; cameraId?: string; path: string; ms: number; samples: number; finished: number; w: number; h: number }[]
+  previews: Record<string, string>
+  setRun: (id: string, patch: Partial<JobRun>) => void
   edit: (label: string, fn: (d: RenderDoc) => RenderDoc) => string | null
   undo: () => string | null
   redo: () => string | null
-  set: (p: Partial<Omit<RenderState, 'doc' | 'undoStack' | 'redoStack' | 'edit' | 'undo' | 'redo' | 'set' | 'reset' | 'enqueue'>>) => void
+  set: (p: Partial<Omit<RenderState, 'doc' | 'undoStack' | 'redoStack' | 'edit' | 'undo' | 'redo' | 'set' | 'reset' | 'enqueue' | 'setRun'>>) => void
   enqueue: (cameraIds: string[]) => number
   reset: () => void
 }
@@ -50,7 +55,7 @@ export function validateRender(d: RenderDoc): string | null {
 
 let seq = 0
 // Sample project: three views were queued (as in the mockup). They stay waiting — no renderer is connected.
-const SEED_QUEUE: Job[] = CAMERAS.slice(0, 3).map((c, i) => ({ id: `seed-${i}`, camera: `${c.name} - ${c.kind.replace('Exterior - ', '').replace('Interior - ', '')}`.replace('Cam 01 - Front View', 'Cam 01 - Exterior Front View'), settings: settingsSummary(DEFAULT_SETTINGS), output: 'PNG', status: 'waiting', created: 0 }))
+const SEED_QUEUE: Job[] = CAMERAS.slice(0, 3).map((c, i) => ({ id: `seed-${i}`, cameraId: c.id, cfg: { settings: DEFAULT_SETTINGS, fx: DEFAULT_FX }, camera: `${c.name} - ${c.kind.replace('Exterior - ', '').replace('Interior - ', '')}`.replace('Cam 01 - Front View', 'Cam 01 - Exterior Front View'), settings: settingsSummary(DEFAULT_SETTINGS), output: 'PNG', status: 'waiting', created: 0 }))
 const initial = (): RenderDoc => ({ cameras: CAMERAS, settings: DEFAULT_SETTINGS, fx: DEFAULT_FX, queue: SEED_QUEUE })
 
 export const useRenders = create<RenderState>()(
@@ -71,6 +76,10 @@ export const useRenders = create<RenderState>()(
       preview: 'high',
       layers: { architecture: true, landscape: true, furniture: true, people: false },
       open: { output: true, rendering: true, environment: true, ai: true },
+      runs: {},
+      history: [],
+      previews: {},
+      setRun: (id, patch) => set((s) => ({ runs: { ...s.runs, [id]: { ...(s.runs[id] ?? { status: 'waiting' }), ...patch } } })),
       ...undoableActions<RenderDoc, RenderState>(get, set, validateRender),
       set: (p) => set(p),
       enqueue: (ids) => {
@@ -78,13 +87,17 @@ export const useRenders = create<RenderState>()(
         const fmt = FORMATS.find((f) => f.key === d.settings.format)!
         const jobs: Job[] = ids.map((id) => {
           const c = d.cameras.find((x) => x.id === id)!
-          return { id: `job-${Date.now()}-${seq++}`, camera: `${c.name} - ${c.kind}`, settings: settingsSummary(d.settings), output: fmt.ext, status: 'waiting', created: Date.now() }
+          return { id: `job-${Date.now()}-${seq++}`, cameraId: c.id, camera: `${c.name} - ${c.kind}`, settings: settingsSummary(d.settings), output: fmt.ext, status: 'waiting', created: Date.now(), cfg: { settings: d.settings, fx: d.fx } }
         })
         get().edit(`Queue ${jobs.length} render(s)`, (x) => ({ ...x, queue: [...x.queue, ...jobs] }))
         return jobs.length
       },
       reset: () => set({ doc: initial(), undoStack: [], redoStack: [], camera: 'cam1', variation: 'original' }),
     }),
-    { name: 'thcad.renders', version: 1, partialize: (s) => ({ doc: s.doc, camera: s.camera, variation: s.variation, mode: s.mode }) },
+    {
+      name: 'thcad.renders',
+      version: 1,
+      partialize: (s) => ({ doc: s.doc, camera: s.camera, variation: s.variation, mode: s.mode, history: s.history, runs: Object.fromEntries(Object.entries(s.runs).filter(([, r]) => r.status !== 'rendering')) }),
+    },
   ),
 )
