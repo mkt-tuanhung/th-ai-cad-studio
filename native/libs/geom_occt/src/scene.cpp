@@ -664,11 +664,9 @@ std::string SceneView::beginRender(const RenderParams& p) {
     d->view->FitAll(0.04, false);
   }
   // light: sun (soft shadows) + sky dome as the environment light
-  for (V3d_ListOfLightIterator it(d->viewer->DefinedLightIterator()); it.More();) {
-    Handle(V3d_Light) l = it.Value();
-    it.Next();
-    d->viewer->DelLight(l);
-  }
+  std::vector<Handle(Graphic3d_CLight)> old;  // V3d_Light is Graphic3d_CLight (OCCT 7.9 and 8)
+  for (const auto& l : d->viewer->DefinedLights()) old.push_back(l);
+  for (const auto& l : old) d->viewer->DelLight(l);
   const double az = p.sunAzimuthDeg * kPi / 180, el = std::max(2.0, p.sunElevationDeg) * kPi / 180;
   const gp_Dir toSun(std::cos(el) * std::sin(az), std::cos(el) * std::cos(az), std::sin(el));
   if (p.sun && p.sunIntensity > 0 && p.sky != "night") {
