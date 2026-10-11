@@ -37,3 +37,5 @@
 | mep/viewport.png | 08 | crop 08_MEP.png (499,244)–(1243,737), UI overlays inpainted | DEMO | mockup |
 | mep/duct-thumb.png | 08 | crop (1262,296)–(1330,340) | DEMO | mockup |
 | civil/plan.png | 10 | crop 10_Civil.png (507,261)–(1233,548), nav strip inpainted | DEMO | mockup |
+| mechanical/viewport.png | 11 | crop 11_Mechanical.png (499,245)–(1253,699), overlays inpainted | DEMO | mockup |
+| mechanical/casing-thumb.png | 11 | crop (1272,293)–(1340,356) | DEMO | mockup |

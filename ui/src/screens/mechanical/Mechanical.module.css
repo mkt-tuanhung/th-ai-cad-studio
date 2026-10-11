@@ -1,0 +1,419 @@
+/* Mechanical workspace — mockup 11. Page px: browser 272–490 · viewer 498–1254 (244–700) · right 1262–1555 (244–740);
+   bottom tabs 708–737 · cards 742–970 (params 500–784, BOM 790–1124, checks 1140–1545). */
+.screen {
+  display: grid;
+  grid-template-columns: 218px minmax(0, 1fr) 293px;
+  grid-template-rows: 37px 30px 77px minmax(0, 1fr) 31px 228px;
+  column-gap: 8px;
+  row-gap: 0;
+  grid-template-areas:
+    'header header header'
+    'docs docs docs'
+    'ribbon ribbon ribbon'
+    'browser viewer right'
+    'browser btabs right'
+    'browser cards cards';
+  height: 100%;
+  padding: 0 3px 6px 5px;
+  background: var(--chrome-bg);
+}
+
+.header {
+  grid-area: header;
+  min-width: 0;
+  margin: 0 -3px 0 -5px;
+  z-index: 2;
+}
+
+.docs {
+  grid-area: docs;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  min-width: 0;
+  margin-left: 0;
+}
+
+.docTab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 28px;
+  padding: 0 10px 0 13px;
+  border: 1px solid #e3e8ee;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1f2734;
+}
+
+.docTab button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 10px;
+  border-radius: 4px;
+  color: #3a4352;
+}
+
+.docTab button:hover,
+.docNew:hover {
+  background: #eef2f5;
+}
+
+.docNew {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 26px;
+  margin-bottom: 1px;
+  border: 1px solid #e3e8ee;
+  border-radius: 7px;
+  background: #fbfcfd;
+  color: #3a4352;
+}
+
+.ribbon {
+  position: relative;
+  grid-area: ribbon;
+  min-width: 0;
+  margin: 0 -3px 0 -6px;
+}
+
+.holeCaret {
+  position: absolute;
+  left: 420px;
+  top: 20px;
+  color: #3a4352;
+  pointer-events: none;
+}
+
+.browser {
+  grid-area: browser;
+  min-height: 0;
+  margin-top: 4px;
+}
+
+.viewer {
+  grid-area: viewer;
+  min-width: 0;
+  min-height: 0;
+  margin: 4px 0 8px;
+}
+
+.triad {
+  position: absolute;
+  left: 26px;
+  bottom: 18px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.btabs {
+  grid-area: btabs;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+  margin-top: -4px;
+  padding-left: 7px;
+  border-bottom: 1px solid #e8ecf0;
+}
+
+.btabs button {
+  padding: 0 13px;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  color: #3a4352;
+  white-space: nowrap;
+}
+
+.btabs .btabOn {
+  font-weight: 600;
+  color: #11606a;
+  border-bottom-color: #1a8a8c;
+}
+
+.cards {
+  grid-area: cards;
+  display: grid;
+  grid-template-columns: 285px 334px minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  margin: -3px 4px 0 0;
+}
+
+.cards > :last-child {
+  margin-left: 15px;
+}
+
+.cards [role='table'] {
+  padding-left: 5px;
+}
+
+.right {
+  grid-area: right;
+  min-height: 0;
+  margin: 4px 0 4px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #e6eaee;
+  border-radius: 10px;
+  background: #fbfcfd;
+  overflow: hidden;
+}
+
+.focus {
+  box-shadow: 0 0 0 1px #b9dcdc;
+}
+
+.card > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 38px;
+  padding: 0 12px 0 10px;
+}
+
+.card > header b {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-strong);
+  white-space: nowrap;
+}
+
+.cardBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 27px;
+  padding: 0 10px;
+  border: 1px solid #e3e7ec;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 11.5px;
+  color: #1f2734;
+  white-space: nowrap;
+}
+
+.cardBtn:hover,
+.sq:hover {
+  background: #f2f6f8;
+}
+
+.sq {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid #e3e7ec;
+  border-radius: 6px;
+  background: #fff;
+  color: #2b3341;
+}
+
+.small {
+  font-size: 9.6px;
+}
+
+.tiny {
+  font-size: 8.4px;
+  letter-spacing: -0.02em;
+}
+
+.checks ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 9px;
+  list-style: none;
+}
+
+.checks li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 168px) minmax(0, 1fr) 14px;
+  align-items: center;
+  height: 27px;
+  padding: 0 4px 0 6px;
+  border: 1px solid #edf0f3;
+  border-radius: 7px;
+  background: #fff;
+  font-size: 11px;
+}
+
+.checks li b {
+  font-weight: 500;
+  color: #1f2734;
+}
+
+.checks li:hover .detail {
+  display: block;
+}
+
+.detail {
+  position: absolute;
+  right: 6px;
+  bottom: 28px;
+  z-index: 3;
+  display: none;
+  max-width: 320px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #fff;
+  background: rgba(28, 35, 49, 0.94);
+}
+
+.ckIcon {
+  display: grid;
+  place-items: center;
+  color: #17767c;
+}
+
+.k_strength {
+  color: #d97706;
+}
+
+.res {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 10.6px;
+  white-space: nowrap;
+}
+
+.res svg {
+  flex: none;
+}
+
+.checks li b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ok {
+  color: #13a35f;
+}
+
+.warn {
+  color: #d97706;
+}
+
+.err {
+  color: #e5383f;
+}
+
+.chev {
+  color: #3a4352;
+}
+
+.ran {
+  font-size: 10px;
+  color: #6b7383;
+}
+
+.note {
+  margin: 6px 10px 0;
+  font-size: 9.6px;
+  line-height: 1.4;
+  color: #8a6512;
+}
+
+.rcard {
+  height: 100%;
+}
+
+.rbody {
+  padding: 8px 4px 6px 2px;
+}
+
+.rbody [class*='_elem_'] {
+  height: 74px;
+  padding-left: 11px;
+}
+
+.rbody [class*='_elemThumb_'] {
+  width: 60px;
+  height: 60px;
+}
+
+.rbody [class*='_elemText_'] span {
+  margin-top: 6px;
+}
+
+.rbody [class*='_section_'] {
+  margin-top: 10px;
+}
+
+.rbody [class*='_secHead_'] {
+  height: 24px;
+}
+
+.rbody [class*='_secTitle_'] {
+  font-size: 12.5px;
+}
+
+.rbody [class*='_prow_'] {
+  grid-template-columns: 110px minmax(0, 1fr);
+  min-height: 23.3px;
+  font-size: 11.2px;
+}
+
+.thumbNone {
+  flex: none;
+  width: 56px;
+  height: 46px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(135deg, #eef1f4 0 5px, #e5e9ed 5px 10px);
+}
+
+.dots,
+.pencil {
+  flex: none;
+  color: #2a3140;
+}
+
+.wrap {
+  white-space: normal !important;
+  line-height: 1.4;
+  padding: 5px 0;
+}
+
+.swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #8a8f98;
+  border-radius: 3px;
+}
+
+.slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: #1a8a8c;
+}
+
+.pct {
+  flex: none !important;
+}
+
+.active {
+  font-weight: 600;
+  color: #13a35f;
+}

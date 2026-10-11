@@ -59,7 +59,7 @@ tr5.mark                     mock x548 y929 w26 h8 | dx+0 dy+1 dw+0 dh-1
 rp.props                     mock x1268 y255 w56 h13 | dx+4 dy+2 dw-3 dh-1  <--
 rp.sys                       mock x1366 y256 w64 h12 | dx+2 dy+1 dw+0 dh+0  <--
 rp.ai                        mock x1470 y256 w59 h10 | dx+1 dy+2 dw+2 dh-2  <--
-rp.name                      mock x1340 y300 w97 h13 | dx+1 dy-6 dw-5 dh-6  <--
+rp.name                      mock x1340 y300 w97 h13 | dx+1 dy+0 dw-5 dh-1  <--
 rp.sub                       mock x1339 y320 w128 h12 | dx+1 dy-1 dw-13 dh-2  <--
 rp.identity                  mock x1271 y356 w65 h12 | dx-4 dy+0 dw+8 dh+0  <--
 rp.family.l                  mock x1270 y379 w31 h12 | dx+2 dy+1 dw+0 dh-1  <--

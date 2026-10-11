@@ -123,11 +123,11 @@
   padding: 8px 4px 6px 2px;
 }
 
-.rbody [class*='elem'] {
+.rbody [class*='_elem_'] {
   height: 56px;
 }
 
-.rbody [class*='plabel'] {
+.rbody [class*='_plabel_'] {
   padding-left: 9px;
 }
 
@@ -135,7 +135,7 @@
   padding-left: 16px;
 }
 
-.rbody [class*='prow'] {
+.rbody [class*='_prow_'] {
   min-height: 23.5px;
 }
 

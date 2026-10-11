@@ -75,11 +75,11 @@
   margin-right: 7px;
 }
 
-.rbody [class*='plabel'] {
+.rbody [class*='_plabel_'] {
   padding-left: 12px;
 }
 
-.rbody [class*='prow'] {
+.rbody [class*='_prow_'] {
   grid-template-columns: 111px minmax(0, 1fr);
 }
 
@@ -285,15 +285,15 @@
   padding: 8px 4px 6px 2px;
 }
 
-.rbody [class*='prow'] {
+.rbody [class*='_prow_'] {
   min-height: 24.2px;
 }
 
-.rbody [class*='secHead'] {
+.rbody [class*='_secHead_'] {
   height: 25px;
 }
 
-.rbody [class*='secTitle'] {
+.rbody [class*='_secTitle_'] {
   font-size: 12.5px;
 }
 

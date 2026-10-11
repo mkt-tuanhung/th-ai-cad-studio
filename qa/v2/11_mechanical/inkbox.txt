@@ -1,0 +1,73 @@
+crumb.projects               mock x304 y105 w39 h12 | dx-4 dy+0 dw+8 dh+0  <--
+crumb.group                  mock x381 y105 w107 h12 | dx+2 dy+0 dw+2 dh-1  <--
+crumb.project                mock x525 y105 w85 h12 | dx-2 dy+0 dw+6 dh+0  <--
+crumb.current                mock x645 y105 w51 h12 | dx+0 dy-1 dw+4 dh+1  <--
+tab.part                     mock x762 y123 w21 h9 | dx+0 dy+1 dw-1 dh-1
+tab.assembly                 mock x844 y122 w52 h13 | dx-2 dy+1 dw-1 dh-1  <--
+tab.drawing                  mock x952 y123 w42 h12 | dx-3 dy+1 dw-2 dh-2  <--
+btn.share                    mock x1246 y111 w29 h10 | dx+1 dy+2 dw+2 dh-1  <--
+btn.export                   mock x1344 y111 w34 h12 | dx-3 dy+2 dw+0 dh+0  <--
+btn.ai                       mock x1463 y112 w66 h10 | dx-2 dy+2 dw+2 dh-1  <--
+doc.file                     mock x311 y141 w177 h12 | dx+1 dy+3 dw+3 dh+0  <--
+rib.select                   mock x294 y211 w31 h10 | dx+0 dy+2 dw-1 dh-1  <--
+rib.part                     mock x369 y211 w21 h10 | dx+0 dy+1 dw-1 dh-2  <--
+rib.sketch                   mock x424 y211 w35 h10 | dx+0 dy+0 dw-1 dh-1
+rib.extrude                  mock x497 y211 w39 h10 | dx+0 dy+0 dw-1 dh-1
+rib.revolve                  mock x565 y211 w40 h10 | dx+0 dy+0 dw-1 dh-1
+rib.hole                     mock x645 y211 w22 h10 | dx-2 dy+0 dw+1 dh-1  <--
+rib.fillet                   mock x739 y211 w23 h10 | dx-1 dy+0 dw+1 dh-1
+rib.chamfer                  mock x798 y211 w44 h10 | dx-1 dy+0 dw+0 dh-1
+rib.pattern                  mock x883 y211 w37 h10 | dx+0 dy+1 dw-1 dh-2  <--
+rib.assembly                 mock x959 y211 w50 h12 | dx+0 dy+0 dw+0 dh+0
+rib.constraint               mock x1047 y211 w53 h10 | dx+0 dy+1 dw-1 dh-2  <--
+rib.explode                  mock x1139 y211 w40 h12 | dx-1 dy+0 dw+0 dh-1
+rib.dimension                mock x1218 y211 w52 h10 | dx-2 dy+1 dw+2 dh-2  <--
+rib.cam                      mock x1308 y211 w52 h12 | dx+0 dy+1 dw-2 dh-1  <--
+rib.more                     mock x1419 y211 w74 h10 | dx+0 dy-2 dw-3 dh-1  <--
+mb.title                     mock x284 y254 w91 h12 | dx+0 dy+2 dw-3 dh-2  <--
+mb.search                    mock x317 y286 w147 h12 | dx+1 dy+2 dw-3 dh-2  <--
+mb.root                      mock x320 y317 w147 h12 | dx+0 dy+1 dw+4 dh+0  <--
+mb.gcs                       mock x331 y339 w133 h13 | dx+0 dy+0 dw-8 dh-3  <--
+mb.planes                    mock x331 y360 w34 h10 | dx+0 dy+0 dw-2 dh-2  <--
+mb.xy                        mock x351 y380 w44 h10 | dx+1 dy+0 dw+0 dh-2  <--
+mb.origin                    mock x331 y441 w30 h12 | dx-4 dy+1 dw-3 dh-2  <--
+mb.asm                       mock x334 y464 w82 h13 | dx-4 dy+1 dw-12 dh-2  <--
+mb.casing                    mock x359 y488 w95 h12 | dx-2 dy+0 dw-5 dh-2  <--
+mb.impeller                  mock x359 y511 w65 h12 | dx-2 dy+0 dw-3 dh-2  <--
+mb.fast                      mock x359 y673 w74 h12 | dx-2 dy-1 dw-5 dh-1  <--
+mb.mates                     mock x335 y702 w53 h12 | dx-4 dy-2 dw-8 dh-1  <--
+mb.concentric                mock x353 y728 w72 h11 | dx-1 dy+0 dw-3 dh+0  <--
+mb.parallel                  mock x354 y829 w54 h11 | dx-1 dy-1 dw-3 dh+0  <--
+bt.params                    mock x521 y716 w60 h10 | dx-2 dy+2 dw+1 dh-1  <--
+bt.bom                       mock x616 y716 w81 h10 | dx-1 dy+2 dw+1 dh-1  <--
+bt.mates                     mock x731 y716 w107 h11 | dx+2 dy+2 dw-3 dh-1  <--
+bt.checks                    mock x874 y716 w103 h12 | dx-2 dy+2 dw-3 dh+0  <--
+pc.title                     mock x511 y754 w79 h12 | dx-1 dy+0 dw+0 dh+0
+pc.add                       mock x680 y755 w92 h11 | dx+2 dy-1 dw-15 dh-2  <--
+pc.h.name                    mock x536 y785 w24 h8 | dx+0 dy+1 dw+1 dh-1
+pc.r1.name                   mock x536 y806 w28 h10 | dx+1 dy+3 dw-1 dh-1  <--
+pc.r1.desc                   mock x676 y806 w84 h11 | dx+5 dy+3 dw+3 dh-1  <--
+pc.r6.name                   mock x535 y924 w59 h9 | dx+1 dy+4 dw-5 dh-1  <--
+bom.title                    mock x802 y754 w107 h12 | dx-1 dy+0 dw+1 dh+0
+bom.viewall                  mock x1006 y755 w38 h10 | dx-2 dy-1 dw+1 dh-1  <--
+bom.h.part                   mock x832 y784 w46 h8 | dx-4 dy+2 dw-2 dh-1  <--
+bom.r1.part                  mock x833 y806 w57 h11 | dx-5 dy+4 dw+1 dh-2  <--
+bom.r6.part                  mock x833 y928 w39 h11 | dx-5 dy-2 dw-1 dh-1  <--
+ck.title                     mock x1151 y755 w87 h13 | dx+4 dy-1 dw+2 dh-1  <--
+ck.run                       mock x1472 y757 w56 h9 | dx+1 dy-3 dw-2 dh+0  <--
+ck.r1                        mock x1194 y789 w89 h10 | dx-4 dy-2 dw+1 dh-2  <--
+ck.r1.res                    mock x1382 y790 w67 h9 | dx-5 dy-4 dw+4 dh-1  <--
+ck.r5                        mock x1194 y911 w122 h12 | dx-5 dy-1 dw-5 dh+0  <--
+rp.props                     mock x1281 y254 w54 h12 | dx+0 dy+2 dw-1 dh+0  <--
+rp.configs                   mock x1372 y254 w73 h12 | dx+1 dy+2 dw+1 dh+0  <--
+rp.display                   mock x1486 y254 w37 h12 | dx+7 dy+2 dw-3 dh+0  <--
+rp.name                      mock x1351 y304 w103 h13 | dx-1 dy+2 dw-4 dh-1  <--
+rp.sub                       mock x1351 y324 w104 h11 | dx-2 dy+4 dw-1 dh-1  <--
+rp.general                   mock x1279 y375 w39 h10 | dx+0 dy+1 dw+4 dh+0  <--
+rp.name.l                    mock x1275 y399 w29 h9 | dx+3 dy+2 dw-2 dh-1  <--
+rp.name.v                    mock x1378 y399 w87 h11 | dx+8 dy+2 dw-3 dh+0  <--
+rp.appearance                mock x1279 y525 w62 h12 | dx+0 dy+0 dw+5 dh+0  <--
+rp.material.v                mock x1381 y549 w98 h9 | dx+4 dy+0 dw+3 dh+0  <--
+rp.mass                      mock x1279 y637 w83 h12 | dx+1 dy-6 dw+6 dh+0  <--
+rp.massv                     mock x1381 y661 w49 h12 | dx+5 dy-7 dw-5 dh-1  <--
+rp.com.v                     mock x1381 y729 w114 h11 | dx+4 dy-4 dw-4 dh-1  <--

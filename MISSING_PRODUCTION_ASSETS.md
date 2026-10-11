@@ -46,6 +46,8 @@ Coordinates are in mockup pixels (x, y, w, h). "Needed" is the minimum clean siz
 | 08-01 | 08 MEP | 499, 244, 744 × 493 | MEP coordination 3D render (viewport) — overlays inpainted | 1488 × 986 or the live MEP engine | DEMO crop |
 | 08-02 | 08 MEP | 1262, 296, 68 × 44 | Rectangular duct thumbnail (Properties) | 136 × 88 | DEMO crop |
 | 10-01 | 10 Civil | 507, 261, 726 × 287 | Aerial imagery with CANAL-01 linework, labels, legend, scale (plan view) — nav strip inpainted | GIS basemap + live alignment from the civil engine | DEMO crop; contains AI artefacts (duplicate 0+100 label) |
+| 11-01 | 11 Mechanical | 499, 245, 754 × 454 | Pump assembly 3D render (viewport) — toolbar, cube, triad and display modes inpainted | live 3D kernel view | DEMO crop |
+| 11-02 | 11 Mechanical | 1272, 293, 68 × 63 | Pump casing thumbnail (Properties) | 136 × 126 | DEMO crop |
 
 The table will be extended for screens 08–12 as they are built. Screens 08–12 need the most:
 MEP / interior / mechanical / render viewports, satellite map, material swatches, component

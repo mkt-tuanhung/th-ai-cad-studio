@@ -24,7 +24,7 @@ Mọi ảnh nằm trong `qa/v2/08_mep/`.
 | 3–5 px | 13 |
 | 6–8 px | 4 |
 
-**56/73 phần tử ≤ 2 px; 69/73 ≤ 5 px.**
+**57/73 phần tử ≤ 2 px; 70/73 ≤ 5 px** (đo lại sau khi sửa bộ chọn CSS dùng chung).
 
 4 phần tử lệch 6–8 px:
 - `pb.hvac`: chấm màu hệ thống nằm cạnh chữ.

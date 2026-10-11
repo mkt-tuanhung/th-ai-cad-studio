@@ -195,6 +195,8 @@ export interface TreeNode {
   open?: boolean
   /** Extra space above this row (px), overriding groupGap. */
   gap?: number
+  /** Row height for this node's children (px), overriding rowH. */
+  childH?: number
 }
 
 export function WsTree({
@@ -240,13 +242,13 @@ export function WsTree({
       </section>
     )
 
-  const render = (n: TreeNode, depth: number, index = 0): ReactNode => {
+  const render = (n: TreeNode, depth: number, index = 0, h = rowH): ReactNode => {
     if (!matches(n)) return null
     const leaf = !n.children
     const isOpen = needle ? true : !(closed[n.key] ?? n.open === false)
     return (
       <li key={n.key} style={n.gap !== undefined ? { marginTop: n.gap } : groupGap && depth === 1 && index > 0 && !leaf ? { marginTop: groupGap } : undefined}>
-        <div className={`${s.trow} ${depth === 0 ? s.troot : ''} ${active === n.key ? s.tactive : ''}`} style={{ height: rowH, paddingLeft: Math.max(0, indent.base + depth * indent.step + (leaf ? indent.leaf : 0)) }}>
+        <div className={`${s.trow} ${depth === 0 ? s.troot : ''} ${active === n.key ? s.tactive : ''}`} style={{ height: h, paddingLeft: Math.max(0, indent.base + depth * indent.step + (leaf ? indent.leaf : 0)) }}>
           {!leaf && (
             <button type="button" className={s.twisty} aria-label={n.label} aria-expanded={isOpen} onClick={() => setClosed((c) => ({ ...c, [n.key]: isOpen }))}>
               {isOpen ? <ChevronDown size={13} strokeWidth={2} /> : <ChevronRight size={13} strokeWidth={2} />}
@@ -258,7 +260,7 @@ export function WsTree({
           </button>
           {n.count && <span className={s.tcount}>{n.count}</span>}
         </div>
-        {!leaf && isOpen && <ul>{n.children!.map((c, i) => render(c, depth + 1, i))}</ul>}
+        {!leaf && isOpen && <ul>{n.children!.map((c, i) => render(c, depth + 1, i, n.childH ?? rowH))}</ul>}
       </li>
     )
   }
