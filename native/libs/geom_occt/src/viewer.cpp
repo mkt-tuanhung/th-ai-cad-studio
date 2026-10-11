@@ -7,6 +7,8 @@
 #include <AIS_Shape.hxx>
 #include <AIS_ViewController.hxx>
 #include <AIS_ViewCube.hxx>
+#include <Graphic3d_TransformPers.hxx>
+#include <Graphic3d_Vec2.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <Prs3d_Drawer.hxx>

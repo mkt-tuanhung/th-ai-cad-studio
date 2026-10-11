@@ -9,6 +9,25 @@ on:
     tags: ['v*']
 
 jobs:
+  # fast feedback (~3 min): the engine core + unit tests with MSVC, no Qt / OCCT / llama.cpp
+  core-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Build and test the core with MSVC
+        shell: pwsh
+        run: |
+          choco install ninja -y --no-progress
+          cmake -S native -B build-core -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHCAD_WITH_QT=OFF -DTHCAD_WITH_OCCT=OFF -DTHCAD_WITH_LLAMA=OFF
+          if ($LASTEXITCODE) { throw "configure" }
+          cmake --build build-core
+          if ($LASTEXITCODE) { throw "build" }
+          ctest --test-dir build-core --output-on-failure
+          if ($LASTEXITCODE) { throw "tests" }
+
   build:
     runs-on: windows-2022
     timeout-minutes: 300
@@ -28,18 +47,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: vcpkg binary cache
-        uses: actions/cache@v4
+      # restore/save split: the caches are kept even when a later step fails (Open CASCADE takes ~1.5 h)
+      - name: Restore vcpkg binary cache
+        uses: actions/cache/restore@v4
         with:
           path: vcpkg-cache
-          key: vcpkg-${{ hashFiles('native/packaging/windows/vcpkg.json') }}
-          restore-keys: vcpkg-
+          key: vcpkg-${{ hashFiles('native/packaging/windows/vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: vcpkg-${{ hashFiles('native/packaging/windows/vcpkg.json') }}-
 
-      - name: Qt cache
-        uses: actions/cache@v4
+      - name: Restore Qt cache
+        id: qtcache
+        uses: actions/cache/restore@v4
         with:
           path: C:\Qt
-          key: qt-6.11.2-msvc2022_64-webengine
+          key: qt-6.10.3-msvc2022_64-webengine
 
       - name: MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -58,6 +79,20 @@ jobs:
           $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
           New-Item -ItemType Directory -Force vcpkg-cache | Out-Null
           ./native/packaging/windows/build_windows.ps1
+
+      - name: Save vcpkg binary cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: vcpkg-cache
+          key: vcpkg-${{ hashFiles('native/packaging/windows/vcpkg.json') }}-${{ github.run_id }}
+
+      - name: Save Qt cache
+        if: always() && steps.qtcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: C:\Qt
+          key: qt-6.10.3-msvc2022_64-webengine
 
       - name: In-app self-test (bridge, engine, BIM, OCCT; no AI model on the runner)
         shell: pwsh

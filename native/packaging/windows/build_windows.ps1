@@ -5,11 +5,14 @@
 # Prerequisites (all free): Visual Studio 2022 Build Tools (C++), CMake ≥ 3.24, Ninja, Node.js 20+,
 # Python 3 (for aqtinstall), Git, vcpkg (VCPKG_ROOT set), Inno Setup 6 (iscc on PATH).
 param(
-  [string]$QtVersion = "6.11.2",
+  # 6.10.3: newest Qt whose online repository layout aqtinstall 3.3 can read (6.11.x moved to a new layout)
+  [string]$QtVersion = "6.10.3",
   [string]$QtRoot = "C:\Qt",
   [string]$SignCmd = ""
 )
 $ErrorActionPreference = "Stop"
+# native tools do not throw on failure: stop on the first non-zero exit code
+function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LASTEXITCODE)" } }
 $Native = Resolve-Path "$PSScriptRoot\..\.."
 $Ui = Resolve-Path "$Native\..\ui"
 $Build = "$Native\build-win"
@@ -18,29 +21,29 @@ $Stage = "$Native\dist-win\TH AI CAD Studio"
 # 1) Qt 6 + WebEngine (MSVC 2022 x64) via aqtinstall
 $QtDir = "$QtRoot\$QtVersion\msvc2022_64"
 if (-not (Test-Path "$QtDir\bin\qmake.exe")) {
-  python -m pip install --upgrade aqtinstall
-  python -m aqt install-qt windows desktop $QtVersion win64_msvc2022_64 -O $QtRoot -m qtwebengine qtwebchannel qtpositioning
+  python -m pip install --upgrade aqtinstall; Check "pip"
+  python -m aqt install-qt windows desktop $QtVersion win64_msvc2022_64 -O $QtRoot -m qtwebengine qtwebchannel qtpositioning; Check "aqt install-qt"
 }
 
 # 2) Open CASCADE + llama.cpp via vcpkg (manifest: vcpkg.json next to this script)
-& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows --x-manifest-root "$PSScriptRoot" --x-install-root "$Build\vcpkg"
+& "$env:VCPKG_ROOT\vcpkg.exe" install --triplet x64-windows --x-manifest-root "$PSScriptRoot" --x-install-root "$Build\vcpkg"; Check "vcpkg install"
 $VcpkgPrefix = "$Build\vcpkg\x64-windows"
 
 # 3) Web UI
-Push-Location $Ui; npm ci; npm run build; Pop-Location
+Push-Location $Ui; npm ci; Check "npm ci"; npm run build; Check "npm run build"; Pop-Location
 
 # 4) Native build
 cmake -S $Native -B $Build -G Ninja -DCMAKE_BUILD_TYPE=Release `
-  "-DCMAKE_PREFIX_PATH=$QtDir;$VcpkgPrefix" -DTHCAD_BUILD_TESTS=ON
-cmake --build $Build
-ctest --test-dir $Build --output-on-failure
+  "-DCMAKE_PREFIX_PATH=$QtDir;$VcpkgPrefix" -DTHCAD_BUILD_TESTS=ON; Check "cmake configure"
+cmake --build $Build; Check "cmake build"
+ctest --test-dir $Build --output-on-failure; Check "ctest"
 
 # 5) Stage: exe + Qt runtime (windeployqt) + OCCT/llama DLLs + ggml backends + UI
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Stage | Out-Null
 Copy-Item "$Build\app\TH AI CAD Studio.exe" $Stage
 Copy-Item -Recurse "$Build\app\ui" "$Stage\ui"
-& "$QtDir\bin\windeployqt.exe" --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$Stage\TH AI CAD Studio.exe"
+& "$QtDir\bin\windeployqt.exe" --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$Stage\TH AI CAD Studio.exe"; Check "windeployqt"
 Copy-Item "$VcpkgPrefix\bin\*.dll" $Stage
 New-Item -ItemType Directory -Force "$Stage\ggml" | Out-Null
 Get-ChildItem "$VcpkgPrefix\bin\ggml-*.dll" -ErrorAction SilentlyContinue | Copy-Item -Destination "$Stage\ggml"
@@ -68,12 +71,12 @@ tar -xJf $Src -C $Tmp "libredwg-0.14.8601/COPYING"
 Copy-Item "$Tmp\libredwg-0.14.8601\COPYING" "$Stage\licenses\libredwg\COPYING"
 Copy-Item "$Native\third_party\libredwg\README.md" "$Stage\licenses\libredwg\"
 Copy-Item "$Native\..\THIRD_PARTY_NOTICES.md" "$Stage\licenses\"
-& "$Stage\libredwg\dwg2dxf.exe" --version
+& "$Stage\libredwg\dwg2dxf.exe" --version; Check "dwg2dxf --version"
 
 # 6) Optional signing, then the installer
 if ($SignCmd) { Invoke-Expression "$SignCmd `"$Stage\TH AI CAD Studio.exe`"" }
 $Version = (Select-String -Path "$Native\CMakeLists.txt" -Pattern 'VERSION (\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
-iscc "/DAppVersion=$Version" "/DStageDir=$Stage" "/O$Native\dist-win" "$PSScriptRoot\installer.iss"
+iscc "/DAppVersion=$Version" "/DStageDir=$Stage" "/O$Native\dist-win" "$PSScriptRoot\installer.iss"; Check "iscc"
 $Setup = "$Native\dist-win\TH-AI-CAD-Studio-Setup-$Version.exe"
 if ($SignCmd) { Invoke-Expression "$SignCmd `"$Setup`"" }
 Write-Host "Installer: $Setup"
