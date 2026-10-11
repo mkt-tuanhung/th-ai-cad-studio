@@ -36,6 +36,8 @@ Push-Location $Ui; npm ci; Check "npm ci"; npm run build; Check "npm run build";
 cmake -S $Native -B $Build -G Ninja -DCMAKE_BUILD_TYPE=Release `
   "-DCMAKE_PREFIX_PATH=$QtDir;$VcpkgPrefix" -DTHCAD_BUILD_TESTS=ON; Check "cmake configure"
 cmake --build $Build; Check "cmake build"
+# the test executables load the OCCT / llama.cpp / Qt DLLs from vcpkg and Qt
+$env:PATH = "$VcpkgPrefix\bin;$QtDir\bin;$env:PATH"
 ctest --test-dir $Build --output-on-failure; Check "ctest"
 
 # 5) Stage: exe + Qt runtime (windeployqt) + OCCT/llama DLLs + ggml backends + UI

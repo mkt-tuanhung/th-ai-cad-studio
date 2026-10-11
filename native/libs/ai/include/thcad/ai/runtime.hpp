@@ -3,6 +3,7 @@
 // No cloud API, no Python, no API key: models are GGUF files on disk, inference runs in-process
 // on Metal. Mirrors the UI contract in ui/src/services/localAi.ts.
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -48,6 +49,8 @@ class Runtime {
 std::unique_ptr<Runtime> createRuntime();
 /** First *.gguf in $THCAD_MODEL or ~/Library/Application Support/TH AI CAD Studio/models. */
 std::string discoverModel();
+/** The models folder: $THCAD_MODELS_DIR, else the per-user default. */
+std::filesystem::path modelsDir();
 /** All loadable models in the models folder (first shard only for split GGUF). */
 std::vector<std::string> listModels();
 uint64_t physicalMemoryBytes();

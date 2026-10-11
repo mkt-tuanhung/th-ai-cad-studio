@@ -2,8 +2,12 @@
 #include <ggml-backend.h>
 #include <llama.h>
 #if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
@@ -87,7 +91,9 @@ class LlamaRuntime final : public Runtime {
     error_.clear();
     if (!std::filesystem::exists(p)) { error_ = "model file not found"; return false; }
     llama_model_params mp = llama_model_default_params();
-    mp.n_gpu_layers = -1;  // offload everything to Metal
+    // Settings → Performance → "Use GPU for AI inference" (THCAD_AI_GPU=0 keeps the model on the CPU)
+    const char* gpu = std::getenv("THCAD_AI_GPU");
+    mp.n_gpu_layers = gpu && std::string(gpu) == "0" ? 0 : -1;  // -1: offload everything (Metal / CUDA / Vulkan)
     model_ = llama_model_load_from_file(p.c_str(), mp);
     if (!model_) error_ = "failed to load GGUF";
     return model_ != nullptr;

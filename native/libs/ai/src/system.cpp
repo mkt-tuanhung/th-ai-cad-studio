@@ -1,6 +1,10 @@
 #if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <sys/sysctl.h>
@@ -33,6 +37,8 @@ uint64_t physicalMemoryBytes() {
 }
 
 std::filesystem::path modelsDir() {
+  // Settings → AI Models → Model Storage Folder (set by the host)
+  if (const char* dir = std::getenv("THCAD_MODELS_DIR"); dir && *dir) return std::filesystem::path(dir);
 #if defined(_WIN32)
   // %LOCALAPPDATA%\TH AI CAD Studio\models (models are large; keep them out of the roaming profile)
   const wchar_t* base = _wgetenv(L"LOCALAPPDATA");
