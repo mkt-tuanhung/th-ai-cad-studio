@@ -74,6 +74,7 @@ jobs:
           "C:\Program Files (x86)\Inno Setup 6" | Out-File -Append $env:GITHUB_PATH
 
       - name: Build, test and package
+        timeout-minutes: 90
         shell: pwsh
         run: |
           # GitHub's Windows runners have no GPU: the offscreen-3D pixel checks are skipped there

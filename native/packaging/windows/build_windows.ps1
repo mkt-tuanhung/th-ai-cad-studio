@@ -45,6 +45,7 @@ Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Stage | Out-Null
 Copy-Item "$Build\app\TH AI CAD Studio.exe" $Stage
 Copy-Item -Recurse "$Build\app\ui" "$Stage\ui"
+Write-Host "== Stage (windeployqt)"
 & "$QtDir\bin\windeployqt.exe" --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$Stage\TH AI CAD Studio.exe"; Check "windeployqt"
 Copy-Item "$VcpkgPrefix\bin\*.dll" $Stage
 New-Item -ItemType Directory -Force "$Stage\ggml" | Out-Null
@@ -52,6 +53,7 @@ Get-ChildItem "$VcpkgPrefix\bin\ggml-*.dll" -ErrorAction SilentlyContinue | Copy
 
 # 5b) DWG reader: LibreDWG dwg2dxf as a separate GPL-3.0 program (child process, never linked),
 #     with its license and the complete source of the shipped version (third_party/libredwg/README.md)
+Write-Host "== DWG reader (LibreDWG)"
 $Dl = "$Native\third_party\downloads"
 New-Item -ItemType Directory -Force $Dl | Out-Null
 function Fetch($url, $sha) {
@@ -69,13 +71,15 @@ Expand-Archive $Zip -DestinationPath $Tmp
 New-Item -ItemType Directory -Force "$Stage\libredwg", "$Stage\licenses\libredwg" | Out-Null
 foreach ($f in "dwg2dxf.exe", "libredwg-0.dll", "libiconv-2.dll") { Copy-Item "$Tmp\$f" "$Stage\libredwg\" }
 Copy-Item $Src "$Stage\licenses\libredwg\"
-tar -xJf $Src -C $Tmp "libredwg-0.14.8601/COPYING"
+# Windows bsdtar: Git's GNU tar would read "D:\..." as a remote host and wait forever
+& "$env:SystemRoot\System32\tar.exe" -xJf $Src -C $Tmp "libredwg-0.14.8601/COPYING"; Check "tar COPYING"
 Copy-Item "$Tmp\libredwg-0.14.8601\COPYING" "$Stage\licenses\libredwg\COPYING"
 Copy-Item "$Native\third_party\libredwg\README.md" "$Stage\licenses\libredwg\"
 Copy-Item "$Native\..\THIRD_PARTY_NOTICES.md" "$Stage\licenses\"
 & "$Stage\libredwg\dwg2dxf.exe" --version; Check "dwg2dxf --version"
 
 # 6) Optional signing, then the installer
+Write-Host "== Installer (Inno Setup)"
 if ($SignCmd) { Invoke-Expression "$SignCmd `"$Stage\TH AI CAD Studio.exe`"" }
 $Version = (Select-String -Path "$Native\CMakeLists.txt" -Pattern 'VERSION (\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
 iscc "/DAppVersion=$Version" "/DStageDir=$Stage" "/O$Native\dist-win" "$PSScriptRoot\installer.iss"; Check "iscc"
