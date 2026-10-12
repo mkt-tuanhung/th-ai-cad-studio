@@ -29,11 +29,15 @@ function doc(name: string, layers: Layer[], entities: Entity[]): CadDocument {
 const PLAN_LAYERS = [
   lay('A-WALL', '#111827', 0.5), lay('A-DOOR', '#0f766e', 0.25), lay('A-GLAZ', '#2563eb', 0.25), lay('A-COLS', '#111827', 0.35),
   lay('A-AREA', '#1f2937', 0.18), lay('A-GRID', '#9aa1ab', 0.13, 'DashDot'), lay('A-ANNO-DIMS', '#3f4654', 0.13), lay('A-ANNO-TEXT', '#1f2937', 0.25), lay('A-FURN', '#9aa1ab', 0.13),
+  lay('A-SECT', '#111827', 0.5),
 ]
 
+/** A section's cutting plane on the plan: a plane of constant `axis` at `at` mm, looked at towards +axis. */
+export interface PlanCut { axis: 'x' | 'y'; at: number; label: string }
+
 /** Floor plan of one level at the plan cut: walls (poche) broken at their openings, doors with swings, windows,
- *  columns, room names and areas, grids, overall dimensions and the title. */
-export function planDocument(m: BimModel, levelId: string, title: string): CadDocument {
+ *  columns, room names and areas, grids, overall dimensions, the section cuts and the title. */
+export function planDocument(m: BimModel, levelId: string, title: string, cuts: PlanCut[] = []): CadDocument {
   const out: Entity[] = []
   const v = (p: [number, number]): Vec2 => ({ x: p[0], y: p[1] })
   const walls = wallsOn(m, levelId)
@@ -78,7 +82,11 @@ export function planDocument(m: BimModel, levelId: string, title: string): CadDo
   }
   for (const r of m.rooms.filter((r) => r.level === levelId && r.outline && r.outline.length >= 3)) {
     const ip = interiorPoint(r.outline!)
-    out.push(T('A-AREA', { x: ip[0], y: ip[1] + 120 }, 220, r.name, 'center'), T('A-AREA', { x: ip[0], y: ip[1] - 260 }, 180, `S = ${r.area.toFixed(2)} m²`, 'center'))
+    // text shrunk to the room's width so names in small rooms (WC, store) do not run into the next room
+    const xs = r.outline!.map((p) => p[0]), width = Math.max(...xs) - Math.min(...xs)
+    const fit = (s: string, h: number) => Math.max(90, Math.min(h, (0.85 * width) / (0.6 * Math.max(1, s.length))))
+    const area = `S = ${r.area.toFixed(2)} m²`
+    out.push(T('A-AREA', { x: ip[0], y: ip[1] + 120 }, fit(r.name, 220), r.name, 'center'), T('A-AREA', { x: ip[0], y: ip[1] - 260 }, fit(area, 180), area, 'center'))
   }
   for (const f of m.components.filter((c) => c.level === levelId)) {
     const a = (f.rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a)
@@ -94,9 +102,22 @@ export function planDocument(m: BimModel, levelId: string, title: string): CadDo
     out.push(C('A-GRID', end, 400), T('A-GRID', { x: end.x, y: end.y - 120 }, 300, g.label, 'center'))
   }
   out.push(D('A-ANNO-DIMS', { x: x0, y: y0 }, { x: x1, y: y0 }, -1400, 250), D('A-ANNO-DIMS', { x: x0, y: y0 }, { x: x0, y: y1 }, 1400, 250))
+  // section cuts, as drawn by hand: a thick stroke outside the building at both ends, an arrow towards the side
+  // that is seen and the section number
+  for (const c of cuts) {
+    const lo = c.axis === 'y' ? x0 : y0, hi = c.axis === 'y' ? x1 : y1
+    const pt = (along: number, across: number): Vec2 => (c.axis === 'y' ? { x: along, y: c.at + across } : { x: c.at + across, y: along })
+    // the low side (left / bottom) is past the overall dimensions; the high side before the grid bubbles
+    for (const [e0, e1] of [[lo - 4200, lo - 2600], [hi + 1000, hi + 2600]]) {
+      out.push(L('A-SECT', pt(e0, 0), pt(e1, 0)))
+      const mid = (e0 + e1) / 2
+      out.push(L('A-SECT', pt(mid, 0), pt(mid, 700)), P('A-SECT', [pt(mid - 180, 650), pt(mid + 180, 650), pt(mid, 1000)], true, true))
+      out.push(T('A-ANNO-TEXT', pt(mid, -600), 400, c.label, 'center'))
+    }
+  }
   const lv = levelOf(m, levelId)
   const el = lv ? (lv.elevation === 0 ? '±0.000' : `${lv.elevation > 0 ? '+' : '−'}${(Math.abs(lv.elevation) / 1000).toFixed(3)}`) : ''
-  out.push(T('A-ANNO-TEXT', { x: (x0 + x1) / 2, y: y0 - 3200 }, 450, `${title.toUpperCase()}  ${el}`, 'center'))
+  out.push(T('A-ANNO-TEXT', { x: (x0 + x1) / 2, y: y0 - (cuts.length ? 5600 : 3200) }, 450, `${title.toUpperCase()}  ${el}`, 'center'))
   return doc(title, PLAN_LAYERS, out)
 }
 

@@ -54,6 +54,8 @@ await step('a house DXF: read, recognised and built by itself — building summa
   assert.match(h, /3 levels · 18 walls · 9 doors · 13 windows · 10 rooms · 12 columns · 18 furniture/)
   assert.match(h, /Interior \(Tầng 1\): 5 rooms · 9 items · 4 cabinets → \d+ parts on \d+ sheets · \d+ CNC programs/)
   assert.match(h, /Model checks: all passed/)
+  // elevations and sections are drawn by the OCCT kernel: the browser says so instead of pretending
+  assert.match(h, /Elevations and sections need the desktop app/)
   assert.match(await page.getByTestId('auto-files').innerText(), /files in one ZIP/)
   await page.getByRole('dialog').screenshot({ path: SHOTS + 'auto_house_review.png' })
 })

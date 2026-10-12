@@ -40,6 +40,10 @@
     for (const id of ['auto-house', 'auto-route']) { const el = dlg.querySelector(`[data-testid=${id}]`); if (el) log(el.innerText.replace(/\n/g, ' | ')) }
     log('files: ' + (dlg.querySelector('[data-testid=auto-files]')?.textContent ?? ''))
     check('the drawing was read, recognised and built by itself', !!ready && !!kind && kind !== 'Nothing to build', kind || 'timeout')
+    if (/Building/.test(kind ?? '')) {
+      const h = dlg.querySelector('[data-testid=auto-house]')?.innerText ?? ''
+      check('elevations (named by their grids) and sections by the OCCT kernel', /Drawings: 4 elevations · 2 sections/.test(h), h.replace(/\n/g, ' | '))
+    }
     await h.qaGrab(qa + `auto_${/route/i.test(kind ?? '') ? 'route' : 'house'}_review_desktop.png`)
     document.querySelector('[data-testid=auto-approve]').click()
     const done = await until(() => document.querySelector('[data-testid=auto-done]'), 600000)

@@ -13,6 +13,9 @@ import { validateInterior } from '../../src/state/interior'
 import { cutList } from '../../src/interior/model'
 import { layerGrammar, parseLayerRoles } from '../../src/ai/layerRoles'
 import { fromCadEn } from '../../src/i18n/ws/fromCad'
+import { autoVi } from '../../src/i18n/ws/auto'
+import { viewRequests } from '../../src/auto/views'
+import { planDocument } from '../../src/auto/drawings'
 
 // the harness bundles for the browser: Node's fs is taken at run time (run from ui/)
 const proc = (globalThis as unknown as { process: { cwd(): string; getBuiltinModule(m: string): { readFileSync(p: string, enc: string): string } } }).process
@@ -82,6 +85,11 @@ export function run(file?: string) {
     check(`${label}: interior data valid (rooms, placed items, cabinets for the cut list)`, validateInterior({ rooms: int.rooms, items: int.items, cabinets: int.cabinets }) === null && int.rooms.length === 5 && int.cabinets.length === 4 && int.items.every((x) => x.at?.length === x.qty),
       `${int.items.length} items, cabinets ${int.cabinets.map((c) => `${c.name} ${c.w}×${c.d}×${c.h} (${cutList(c).reduce((s, p) => s + p.qty, 0)} parts)`).join('; ')}`)
     if (label === 'straight') out.push(`  straight wall volume used as reference: ${vol.toFixed(3)}`)
+    // one command: elevations named by the grids they show (Vietnamese convention), sections 1-1 / 2-2 marked on the plans
+    const titles = viewRequests(m, autoVi.viewWords).map((r) => r.title)
+    check(`${label}: elevations named by their grids, sections 1-1 and 2-2`, /^Mặt đứng trục 1-\d+$/.test(titles[0]) && /^Mặt đứng trục A-[B-Z]$/.test(titles[1]) && /^Mặt đứng trục \d+-1$/.test(titles[2]) && /^Mặt đứng trục [B-Z]-A$/.test(titles[3]) && titles[4] === 'Mặt cắt 1-1' && titles[5] === 'Mặt cắt 2-2', titles.join(' | '))
+    const plan = planDocument(m, 'L1', 'Mặt bằng tầng 1', [{ axis: 'y', at: 4500, label: '1' }, { axis: 'x', at: 6000, label: '2' }])
+    check(`${label}: section cuts drawn on the floor plan (both ends, arrow, number)`, plan.entities.filter((e) => e.layer === 'A-SECT').length === 12 && plan.entities.filter((e) => e.kind === 'text' && (e.value === '1' || e.value === '2') && e.layer === 'A-ANNO-TEXT').length === 4)
   }
   if (file) out.push(...villa(file).lines)
   out.push(fails ? `FAILED ${fails}` : 'ALL PASS')

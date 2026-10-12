@@ -14,6 +14,7 @@ import { readDrawing } from '../../cad/batch'
 import type { CadDocument } from '../../cad/types'
 import { runAuto, withRoute, type AutoResult, type AutoStep } from '../../auto/pipeline'
 import { makePackage, writePackage, type Written } from '../../auto/package'
+import { houseViews } from '../../auto/views'
 import { reportHtml } from '../../auto/report'
 import { cutList } from '../../interior/model'
 import { nest, piecesOf } from '../../cam/nesting'
@@ -22,8 +23,8 @@ import { applyBim, applyInterior, buildNames } from '../bim/fromCadActions'
 import s from './Auto.module.css'
 
 type Phase = 'pick' | 'run' | 'review' | 'write' | 'done'
-type StepKey = 'read' | AutoStep
-const STEPS: StepKey[] = ['read', 'layers', 'ai', 'house', 'route', 'build', 'check']
+type StepKey = 'read' | AutoStep | 'views'
+const STEPS: StepKey[] = ['read', 'layers', 'ai', 'house', 'route', 'build', 'check', 'views']
 const n0 = (v: number) => Math.round(v).toLocaleString('en-US')
 
 /**
@@ -66,10 +67,17 @@ export function AutoDialog() {
       setAiOn(useAi)
       const seen: StepKey[] = ['read']
       setSteps({ read: 'done' })
-      const r = await runAuto(d, {
+      let r = await runAuto(d, {
         host, useAi, names: buildNames(T.bim.fromCad), levelName: (n) => fmt(T.bim.fromCad.levelDefault, { n }), civilBase: useCivil.getState().doc,
         onStep: (st) => { seen.push(st); setSteps(Object.fromEntries(seen.map((k, i) => [k, i === seen.length - 1 ? 'run' : 'done']))) },
       })
+      // elevations and sections: the OCCT kernel of the desktop app
+      if (host && r.house) {
+        seen.push('views')
+        setSteps(Object.fromEntries(seen.map((k, i) => [k, i === seen.length - 1 ? 'run' : 'done'])))
+        const v = await houseViews(host, r.house.built.model, t.viewWords)
+        r = { ...r, house: { ...r.house, views: v }, ms: r.ms + v.ms }
+      }
       setSteps(Object.fromEntries(STEPS.map((k) => [k, seen.includes(k) ? 'done' : 'skip'])))
       setRes(r)
       setKeep({ house: !!r.house, interior: !!r.house?.interior, route: !!r.route, files: r.kind !== 'none' })
@@ -84,7 +92,7 @@ export function AutoDialog() {
   // the package and the numbers shown before approval (same code as the files written)
   const cam = useInterior((st) => st.cam)
   const camSetup = useMemo(() => ({ nest: nestSettings(cam), cnc: cam.cnc }), [cam])
-  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t])
+  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t])
   const files = useMemo(() => (res ? makePackage(res, camSetup, pkgText, keep) : []), [res, camSetup, pkgText, keep])
   const nesting = useMemo(() => (res?.house?.interior?.cabinets.length ? nest(piecesOf(res.house.interior.cabinets), camSetup.nest) : null), [res, camSetup])
 
@@ -101,6 +109,10 @@ export function AutoDialog() {
         const parts = it.cabinets.flatMap(cutList).reduce((a, p) => a + p.qty, 0)
         house.push(fmt(t.interior, { level: res.house.built.model.levels[res.house.interiorLevel ?? 0]?.name ?? '', rooms: it.rooms.length, items: it.items.length, cabinets: it.cabinets.length, parts, sheets: nesting?.sheets.length ?? 0, programs: files.filter((f) => / - CNC /.test(f.name)).length }))
       } else house.push(t.noInterior)
+      const v = res.house.views
+      if (v?.views.length) house.push(fmt(t.views, { e: v.views.filter((x) => x.kind === 'elev').length, s: v.views.filter((x) => x.kind === 'section').length, t: (v.ms / 1000).toFixed(1) }))
+      if (v?.error) warnings.push(fmt(t.viewsFailed, { why: v.error }))
+      if (!desktop) house.push(t.viewsBrowser)
       const bad = res.house.checks.filter((k) => k.status === 'error' || k.status === 'warning')
       checks = bad.length ? fmt(t.checksBad, { n: bad.reduce((a, k) => a + k.count, 0), what: bad.map((k) => T.bim.coord.rows[k.key]).join(', ') }) : t.checksOk
       res.house.recs.forEach((r, i) => r.warnings.forEach((w) => warnings.push(`${res.house!.built.model.levels[i]?.name ?? ''}: ${fmt(W.warn[w.code], 'n' in w ? { n: w.n } : {})}`)))
@@ -120,7 +132,7 @@ export function AutoDialog() {
     }
     const ai = !res.ai ? (aiOn ? t.aiNotNeeded : t.noAi) : res.ai.set.length ? fmt(t.aiDone, { n: res.ai.set.length, m: res.ai.asked, s: res.ai.seconds.toFixed(1) }) : fmt(t.aiNone, { m: res.ai.asked, s: res.ai.seconds.toFixed(1) })
     return { house, route, warnings, checks, ai }
-  }, [res, t, T, files, nesting, aiOn])
+  }, [res, t, T, files, nesting, aiOn, desktop])
 
   const approve = async () => {
     if (!res || !summary) return

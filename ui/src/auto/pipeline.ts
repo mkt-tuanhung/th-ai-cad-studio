@@ -12,6 +12,7 @@
  * Every number comes from code; nothing is written until the user approves (src/screens/auto/AutoDialog.tsx).
  */
 import type { HostApi } from '../services/host'
+import type { HouseViews } from './views'
 import type { CadDocument } from '../cad/types'
 import { DEFAULT_REC, findPlans, layerStats, recognize, roofElevation, type LayerRole, type LayerStat, type PlanRegion, type Recognition } from '../bim/fromCad'
 import { DEFAULT_BUILD, buildBimModel, buildInterior, type BuildNames, type BuildResult, type InteriorBuild } from '../bim/fromCadBuild'
@@ -31,6 +32,8 @@ export interface AutoHouse {
   interior: InteriorBuild | null
   /** Index (in sorted levels) of the level the Interior data comes from. */
   interiorLevel: number | null
+  /** Elevations and sections by the OCCT kernel (desktop; added after the run by src/auto/views.ts). */
+  views?: HouseViews
 }
 
 export interface AutoRoute {

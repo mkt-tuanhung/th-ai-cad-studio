@@ -32,6 +32,8 @@ export type OutFile =
 
 export interface PackageText {
   plan: (level: string) => string
+  /** the PDF of the elevations and sections */
+  views: string
   profile: string
   sections: string
   report: (body: string) => string
@@ -55,7 +57,8 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
   const drawing = (title: string, doc: CadDocument, pages: Page[]) => {
     out.push({ name: `${base} - ${title}.dxf`, kind: 'text', text: toDxf2000(doc) })
     out.push({ name: `${base} - ${title}.dwg`, kind: 'dwg', doc })
-    pages.push({ ...plotPage(doc, 'A3'), name: title })
+    // a sheet with its own scale (elevations, sections: 1:100) plots at it; the others at the scale that fits
+    pages.push({ ...plotPage(doc, 'A3', doc.layouts?.[0]?.scale ?? undefined), name: title })
   }
   if (r.house && include.house) {
     const m = r.house.built.model
@@ -66,8 +69,13 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     add('Doors and windows.csv', csv([['Mark', 'Kind', 'Family', 'Level', 'Host wall', 'Width (mm)', 'Height (mm)', 'Sill (mm)'], ...[...m.doors, ...m.windows].map((o) => [o.mark, o.category, o.family, levelOf(m, host(o.hostWall)?.baseLevel ?? '')?.name ?? '', o.hostWall, Math.round(o.width), Math.round(o.height), Math.round(o.sill)])]))
     if (m.components.length) add('Furniture (BIM).csv', csv([['Mark', 'Name', 'Level', 'W (mm)', 'D (mm)', 'H (mm)', 'X (mm)', 'Y (mm)', 'Rotation (°)'], ...m.components.map((c) => [c.mark, c.name, levelOf(m, c.level)?.name ?? '', c.w, c.d, c.h, c.x.toFixed(0), c.y.toFixed(0), c.rot])]))
     const pages: Page[] = []
-    for (const lv of m.levels) if (m.walls.some((w) => w.baseLevel === lv.id)) drawing(t.plan(lv.name), planDocument(m, lv.id, t.plan(lv.name)), pages)
+    const views = r.house.views?.views ?? []
+    const cuts = views.flatMap((v) => (v.cut ? [v.cut] : []))
+    for (const lv of m.levels) if (m.walls.some((w) => w.baseLevel === lv.id)) drawing(t.plan(lv.name), planDocument(m, lv.id, t.plan(lv.name), cuts), pages)
     if (pages.length) out.push({ name: `${base} - ${t.plan('').replace(/\s*$/, '')}.pdf`, kind: 'pdf', pages })
+    const vp: Page[] = []
+    for (const v of views) drawing(v.title, v.doc, vp)
+    if (vp.length) out.push({ name: `${base} - ${t.views}.pdf`, kind: 'pdf', pages: vp })
   }
   if (r.house?.interior && include.interior) {
     const d = r.house.interior

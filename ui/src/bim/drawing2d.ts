@@ -51,7 +51,6 @@ export function nativeRequest(r: DrawingReq, b3: number[]) {
 }
 
 const SCALE = 100
-const T = 2.5 * SCALE / 1 // 2.5 mm text on paper at 1:100
 
 const LAYERS: Layer[] = [
   { name: 'A-ELEV', color: '#111827', visible: true, locked: false, linetype: 'Continuous', lineweight: 0.25 },
@@ -64,7 +63,10 @@ const LAYERS: Layer[] = [
 
 const elevText = (mm: number) => (Math.abs(mm) < 0.5 ? '±0.000' : `${mm > 0 ? '+' : '−'}${(Math.abs(mm) / 1000).toFixed(3)}`)
 
-export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawing, cutAt?: number): CadDocument {
+/** `opt.name`: the document (file) name; `opt.scale`: the sheet scale 1:N (text 2.5 mm on paper at that scale). */
+export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawing, cutAt?: number, opt: { name?: string; scale?: number } = {}): CadDocument {
+  const scale = opt.scale ?? SCALE
+  const T = 2.5 * scale
   let n = 0
   const id = () => `d2-${++n}`
   const base = { color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0 } as const
@@ -137,19 +139,23 @@ export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawin
       const us = o.map((p) => uOf(p[0], p[1]))
       const lvl = model.levels.find((l) => l.id === room.level)
       if (!lvl) continue
-      text('A-ANNO-TEXT', (Math.min(...us) + Math.max(...us)) / 2, lvl.elevation + 1100, T, `${room.number} ${room.name}`.trim(), 'center')
+      // number above the name, the name shrunk to the room's width (narrow rooms side by side do not overlap)
+      const width = Math.max(...us) - Math.min(...us), cu = (Math.min(...us) + Math.max(...us)) / 2
+      const fit = (s: string, h: number) => Math.min(h, (0.9 * width) / (0.6 * Math.max(1, s.length)))
+      if (room.number) text('A-ANNO-TEXT', cu, lvl.elevation + 1100 + T * 1.4, fit(room.number, T * 0.85), room.number, 'center')
+      text('A-ANNO-TEXT', cu, lvl.elevation + 1100, fit(room.name, T), room.name, 'center')
     }
   }
 
   // title under the drawing
   text('A-ANNO-TEXT', u0, ground - 3300, T * 1.6, r.title.toUpperCase())
-  text('A-ANNO-TEXT', u0, ground - 3300 - T * 2, T, `1:${SCALE}`)
+  text('A-ANNO-TEXT', u0, ground - 3300 - T * 2, T, `1:${scale}`)
 
-  const doc = createBlankDocument(`Villa Riverside - ${r.title}.dwg`)
+  const doc = createBlankDocument(opt.name ?? `Villa Riverside - ${r.title}.dwg`)
   doc.layers = [...doc.layers.filter((l) => !LAYERS.some((x) => x.name === l.name)), ...LAYERS]
   doc.currentLayer = 'A-ELEV'
   doc.entities = ents
-  doc.layouts = [{ id: 'sheet', name: r.title, paper: 'A3', scale: SCALE }]
+  doc.layouts = [{ id: 'sheet', name: r.title, paper: 'A3', scale }]
   doc.source = 'bim-drawing'
   return doc
 }
