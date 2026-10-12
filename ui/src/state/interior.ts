@@ -8,7 +8,12 @@ export interface InteriorDoc {
   rooms: Room[]
   items: Item[]
   cabinets: Cabinet[]
+  /** Plan dimensions (a → b, mm) and tags (target = item or room id). */
+  notes?: { id: string; kind: 'dimension' | 'tag'; a: [number, number]; b?: [number, number]; target?: string }[]
 }
+
+/** Plan views of the interior: furniture layout (floor), reflected ceiling, finishes. */
+export type InteriorPlan = 'floor' | 'ceiling' | 'finish'
 
 export type InteriorTab = 'design' | 'renders' | 'drawings' | 'schedule'
 export type InteriorBottom = 'furniture' | 'materials' | 'cutlist' | 'quantities'
@@ -36,6 +41,11 @@ interface InteriorState extends Undoable<InteriorDoc> {
   level: string
   scale: string
   view: string
+  plan: InteriorPlan | null
+  /** Plan tools. */
+  itool: 'dimension' | 'tag' | null
+  /** Elevation / section shown in 3D (browser key, e.g. elev-living, sec-a). */
+  cut: string | null
   sel: Selection
   /** Project Browser highlight (mockup: Living Room). */
   browserSel: string
@@ -97,6 +107,9 @@ export const useInterior = create<InteriorState>()(
       level: 'L1',
       scale: '1 : 50',
       view: 'perspective',
+      plan: null,
+      itool: null,
+      cut: null,
       sel: null,
       browserSel: 'room-living',
       room: 'living',

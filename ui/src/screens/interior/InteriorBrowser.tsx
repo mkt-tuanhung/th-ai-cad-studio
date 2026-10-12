@@ -95,7 +95,10 @@ export function InteriorBrowser() {
     }
     const meta = (n as TreeNode & { meta?: { bottom: InteriorBottom; filter: string | null } }).meta
     if (meta) return set({ browserSel: n.key, bottom: meta.bottom, filter: meta.filter, tab: 'design' })
-    if (n.key === 'v3d') return set({ browserSel: n.key, view: 'perspective', tab: 'design' })
+    if (n.key === 'v3d') return set({ browserSel: n.key, view: 'perspective', tab: 'design', plan: null, cut: null })
+    if (n.key === 'vexp' || n.key === 'vwalk') return set({ browserSel: n.key, view: n.key === 'vexp' ? 'exploded' : 'walk', tab: 'design', plan: null, cut: null, mode: useInterior.getState().mode === 'realistic' ? 'shaded' : useInterior.getState().mode })
+    if (n.key === 'layout-a' || n.key === 'ceiling-l1' || n.key === 'finish-l1') return set({ browserSel: n.key, tab: 'design', plan: n.key === 'ceiling-l1' ? 'ceiling' : n.key === 'finish-l1' ? 'finish' : 'floor' })
+    if (n.key.startsWith('elev-') || n.key.startsWith('sec-')) return set({ browserSel: n.key, tab: 'design', plan: null, cut: n.key, view: 'perspective', mode: useInterior.getState().mode === 'realistic' ? 'shaded' : useInterior.getState().mode })
     if (n.key === 'vrender') return navigate('renders')
     toast(fmt(t.toast.native, { what: n.label }))
   }

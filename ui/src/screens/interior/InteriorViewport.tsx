@@ -26,13 +26,13 @@ const MODES: { key: InteriorMode; w: number }[] = [
 export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax: () => void; onLoaded?: (r: SceneLoad) => void }) {
   const T = useT()
   const t = T.interior.viewer
-  const { mode, view, level, scale, sel, doc, edit, set, room } = useInterior()
+  const { mode, view, level, scale, sel, doc, edit, set, room, cut } = useInterior()
   const native = (what: string) => toast(fmt(T.interior.toast.native, { what }))
   const host = useHost()
   const live = !!host && mode !== 'realistic'
   const cam = useRef<SceneCamera | null>(null)
   // the walkthrough needs walls to the ceiling; the other views cut them at plan-section height
-  const base = useMemo(() => interiorScene(doc, { fullWalls: view === 'walk' }), [doc, view])
+  const base = useMemo(() => interiorScene(doc, { fullWalls: view === 'walk' || !!cut }), [doc, view, cut])
   // exploded: furniture lifts and cabinets open up panel by panel; rooms and walls stay
   const scene = useMemo(() => (view === 'exploded' ? explodeScene(base, (i) => !i.id.startsWith('room:') && !i.id.startsWith('walls:')) : base), [base, view])
   const tools = useSceneTools(`Villa Riverside - interior`)
@@ -45,6 +45,50 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
     const [x0, y0, , x1, y1, z1] = b
     tools.ctl.current?.command({ cmd: 'camera', eye: [x0 + (x1 - x0) * 0.15, y0 + (y1 - y0) * 0.15, z1 + 1600], at: [x1, y1, z1 + 1100], fov: 65 })
   }
+  // elevations and sections from the browser: clip planes + a camera looking at the cut
+  useEffect(() => {
+    if (!live) return
+    if (!cut) {
+      if (tools.section.planes) tools.setSection({ on: false, around: [] })
+      return
+    }
+    const R = (id: string) => {
+      const o = doc.rooms.find((r) => r.id === id)?.outline ?? []
+      return { x0: Math.min(...o.map((p) => p.x)), x1: Math.max(...o.map((p) => p.x)), y0: Math.min(...o.map((p) => p.y)), y1: Math.max(...o.map((p) => p.y)) }
+    }
+    const all = { x0: Math.min(...doc.rooms.flatMap((r) => r.outline.map((p) => p.x))), x1: Math.max(...doc.rooms.flatMap((r) => r.outline.map((p) => p.x))), y0: Math.min(...doc.rooms.flatMap((r) => r.outline.map((p) => p.y))), y1: Math.max(...doc.rooms.flatMap((r) => r.outline.map((p) => p.y))) }
+    let planes: number[][], eye: number[], at: number[]
+    if (cut === 'elev-living' || cut === 'elev-kitchen') {
+      const b = R(cut === 'elev-living' ? 'living' : 'dining')
+      const north = cut === 'elev-living'
+      planes = north
+        ? [[0, 1, 0, -(b.y0 + 300)], [0, -1, 0, b.y1 + 300], [1, 0, 0, -(b.x0 - 100)], [-1, 0, 0, b.x1 + 100]]
+        : [[1, 0, 0, -(b.x0 + 300)], [-1, 0, 0, b.x1 + 300], [0, 1, 0, -(b.y0 - 100)], [0, -1, 0, b.y1 + 100]]
+      eye = north ? [(b.x0 + b.x1) / 2, b.y0 - 9000, 1500] : [b.x0 - 9000, (b.y0 + b.y1) / 2, 1500]
+      at = north ? [(b.x0 + b.x1) / 2, b.y1, 1400] : [b.x1, (b.y0 + b.y1) / 2, 1400]
+    } else if (cut === 'sec-a') {
+      const y = (all.y0 + all.y1) / 2
+      planes = [[0, 1, 0, -y]]
+      eye = [(all.x0 + all.x1) / 2, all.y0 - 16000, 2500]
+      at = [(all.x0 + all.x1) / 2, y, 1400]
+    } else {
+      const x = (all.x0 + all.x1) / 2
+      planes = [[1, 0, 0, -x]]
+      eye = [all.x0 - 16000, (all.y0 + all.y1) / 2, 2500]
+      at = [x, (all.y0 + all.y1) / 2, 1400]
+    }
+    tools.setSection({ on: true, around: [], planes })
+    const id = setTimeout(() => tools.ctl.current?.command({ cmd: 'camera', eye, at, fov: 40 }), 400)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cut, live])
+  // removing the section box (chip) leaves the elevation / section
+  const cutWasOn = useRef(false)
+  useEffect(() => {
+    if (cutWasOn.current && !tools.section.on && cut) set({ cut: null })
+    cutWasOn.current = tools.section.on
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tools.section.on])
   useEffect(() => {
     if (!live) return
     if (view === 'walk') {
@@ -93,6 +137,7 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
         />
       )}
       {live && <tools.Chips />}
+      {live && cut && <span className={s.cutLabel} data-testid="interior-cut">{T.interior.plan.cuts[cut as keyof typeof T.interior.plan.cuts] ?? cut}</span>}
       <Select
         label={t.camera}
         value={view}
@@ -115,7 +160,7 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
       <section className={`${w.inset} ${s.inset}`}>
         <header className={w.insetHead}>
           <span>{t.inset}</span>
-          <button type="button" className={w.insetBtn} aria-label={t.openPlan} title={t.openPlan} onClick={liveOr(() => (cam.current?.('top'), cam.current?.('fit')), t.openPlan)}>
+          <button type="button" className={w.insetBtn} aria-label={t.openPlan} title={t.openPlan} onClick={() => set({ plan: 'floor' })}>
             <Maximize2 size={13} strokeWidth={1.8} />
           </button>
         </header>

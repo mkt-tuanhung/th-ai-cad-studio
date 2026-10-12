@@ -13,7 +13,7 @@ export const WALL_CUT = 1100
 const WALL_T = 50 // each room draws its half of a 100 mm partition, inside its own outline
 
 /** Default furniture placement (plan centre + rotation; front faces −Y before rotation). */
-interface Place {
+export interface Place {
   x: number
   y: number
   rot: number
@@ -146,6 +146,29 @@ function furniture(i: Item, at: Place, ceiling: number): Prim[] {
   }
 }
 
+/** Where each item instance stands in plan: the sample layout, else a 1.2 m grid around its room centre. */
+export function itemPlacements(doc: InteriorDoc): { item: Item; room: Room; at: Place[] }[] {
+  const auto: Record<string, number> = {}
+  const out: { item: Item; room: Room; at: Place[] }[] = []
+  for (const i of doc.items) {
+    const room = doc.rooms.find((r) => r.id === i.room)
+    if (!room) continue
+    const lay = LAYOUT[i.id]
+    const at: Place[] = []
+    for (let k = 0; k < i.qty; k++) {
+      if (lay && lay.room === i.room && lay.at[k]) at.push(lay.at[k])
+      else {
+        // items without a layout yet: a 1.2 m grid around the room centre (shown where they will be placed)
+        const b = bbox(room)
+        const n = (auto[room.id] = (auto[room.id] ?? 0) + 1) - 1
+        at.push({ x: (b.x0 + b.x1) / 2 + ((n % 3) - 1) * 1200, y: (b.y0 + b.y1) / 2 + (Math.floor(n / 3) - 0.5) * 1200, rot: 0 })
+      }
+    }
+    out.push({ item: i, room, at })
+  }
+  return out
+}
+
 /** fullWalls: walls to ceiling height (renders) instead of the plan-section cut; furniture: include items. */
 export function interiorScene(doc: InteriorDoc, opts: { fullWalls?: boolean; furniture?: boolean } = {}): Scene {
   const items: SceneItem[] = []
@@ -164,21 +187,7 @@ export function interiorScene(doc: InteriorDoc, opts: { fullWalls?: boolean; fur
     items.push({ id: `walls:${r.id}`, rgb: color(r.wallFinish), parts: walls })
   }
 
-  const auto: Record<string, number> = {}
-  for (const i of opts.furniture === false ? [] : doc.items) {
-    const room = doc.rooms.find((r) => r.id === i.room)
-    if (!room) continue
-    const lay = LAYOUT[i.id]
-    const at: Place[] = []
-    for (let k = 0; k < i.qty; k++) {
-      if (lay && lay.room === i.room && lay.at[k]) at.push(lay.at[k])
-      else {
-        // items without a layout yet: a 1.2 m grid around the room centre (shown where they will be placed)
-        const b = bbox(room)
-        const n = (auto[room.id] = (auto[room.id] ?? 0) + 1) - 1
-        at.push({ x: (b.x0 + b.x1) / 2 + ((n % 3) - 1) * 1200, y: (b.y0 + b.y1) / 2 + (Math.floor(n / 3) - 0.5) * 1200, rot: 0 })
-      }
-    }
+  for (const { item: i, room, at } of opts.furniture === false ? [] : itemPlacements(doc)) {
     const cab = i.cabinet ? doc.cabinets.find((c) => c.id === i.cabinet) : undefined
     const parts = at.flatMap((p) => (cab ? cabinetParts(cab, p) : furniture(i, p, room.ceilingHeight)))
     items.push({ id: i.id, rgb: color(cab ? cab.front : i.material), mat: matOf(cab ? cab.front : i.material), transparency: i.status === 'planned' ? 0.35 : 0, parts })

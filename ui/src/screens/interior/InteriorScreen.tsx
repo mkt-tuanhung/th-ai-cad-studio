@@ -12,6 +12,7 @@ import { WsButton, WsHeader, WsRibbon, csv, downloadFile } from '../../component
 import { cutList, dimsLabel, roomQuantities } from '../../interior/model'
 import { InteriorBrowser } from './InteriorBrowser'
 import { InteriorViewport } from './InteriorViewport'
+import { InteriorPlan } from './InteriorPlan'
 import { InteriorBottom } from './InteriorBottom'
 import { InteriorRight } from './InteriorRight'
 import { CabinetDialog } from './CabinetDialog'
@@ -27,7 +28,6 @@ export function InteriorScreen() {
   const st = useInterior()
   const [cabOpen, setCabOpen] = useState(false)
   const [max, setMax] = useState(false)
-  const native = (what: string) => toast(fmt(t.toast.native, { what }))
 
   useEffect(() => {
     const onKey = undoKeys(st.undo, st.redo, (label, redo) => toast(label ? fmt(redo ? t.toast.redone : t.toast.undone, { label }) : t.toast.nothing))
@@ -100,8 +100,8 @@ export function InteriorScreen() {
             { key: 'material', label: t.tools.material, Icon: LayoutGrid, c: 334, onClick: () => st.set({ right: 'materials' }) },
             { key: 'lighting', label: t.tools.lighting, Icon: Lightbulb, c: 429, onClick: () => st.set({ bottom: 'furniture', filter: 'lighting' }) },
             { key: 'decor', label: t.tools.decor, Icon: Sprout, c: 516, onClick: () => navigate('components') },
-            { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 612, w: 80, onClick: () => native(t.tools.dimension) },
-            { key: 'tag', label: t.tools.tag, Icon: TagToolIcon, c: 705, onClick: () => native(t.tools.tag) },
+            { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 612, w: 80, active: st.itool === 'dimension', onClick: () => st.set({ itool: st.itool === 'dimension' ? null : 'dimension', plan: st.plan ?? 'floor', tab: 'design' }) },
+            { key: 'tag', label: t.tools.tag, Icon: TagToolIcon, c: 705, active: st.itool === 'tag', onClick: () => st.set({ itool: st.itool === 'tag' ? null : 'tag', plan: st.plan ?? 'floor', tab: 'design' }) },
             { key: 'cabinetParam', label: t.tools.cabinetParam, Icon: Box, c: 817, w: 120, onClick: () => setCabOpen(true) },
             { key: 'cutList', label: t.tools.cutList, Icon: Layers, c: 928, w: 80, onClick: () => st.set({ bottom: 'cutlist' }) },
           ]}
@@ -112,6 +112,7 @@ export function InteriorScreen() {
               { label: t.moreItems.edge, onSelect: () => st.set({ bottom: 'cutlist' }) },
               { label: t.moreItems.nesting, onSelect: () => st.set({ nestingOpen: true }) },
               { label: t.moreItems.toolpath, onSelect: () => st.set({ nestingOpen: true }) },
+              ...((st.doc.notes ?? []).length ? [{ label: t.plan.clear, onSelect: () => { st.edit(t.plan.clear, (d) => ({ ...d, notes: [] })); toast(t.plan.cleared) } }] : []),
               { label: t.moreItems.undo, onSelect: () => toast(st.undo() ? fmt(t.toast.undone, { label: '' }) : t.toast.nothing) },
               { label: t.moreItems.redo, onSelect: () => toast(st.redo() ? fmt(t.toast.redone, { label: '' }) : t.toast.nothing) },
               { label: t.moreItems.reset, onSelect: () => { st.reset(); toast(t.toast.reset) } },
@@ -124,7 +125,7 @@ export function InteriorScreen() {
         <InteriorBrowser />
       </div>
       <div className={s.viewer}>
-        {st.tab === 'schedule' ? <InteriorBottom full /> : <InteriorViewport max={max} onMax={() => setMax(!max)} onLoaded={(r) => st.set({ nativeVolumes: r.volumes ?? null })} />}
+        {st.tab === 'schedule' ? <InteriorBottom full /> : st.plan ? <InteriorPlan /> : <InteriorViewport max={max} onMax={() => setMax(!max)} onLoaded={(r) => st.set({ nativeVolumes: r.volumes ?? null })} />}
       </div>
       {!max && st.tab !== 'schedule' && (
         <div className={s.bottom}>

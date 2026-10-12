@@ -182,6 +182,12 @@ export const interiorEn = {
   roomNames: {} as Record<string, string>,
   matNames: {} as Record<string, string>,
   cabinet: { title: 'New parametric cabinet', name: 'Name', width: 'Width (mm)', depth: 'Depth (mm)', height: 'Height (mm)', doors: 'Doors', shelves: 'Shelves', add: 'Add cabinet', cancel: 'Cancel', defaultName: 'Cabinet {n}' },
+  plan: {
+    titles: { floor: 'Level 1 - Interior (Plan)', ceiling: 'Level 1 - Reflected Ceiling Plan', finish: 'Level 1 - Finish Plan' },
+    back3d: '3D view', hint: { select: 'Click a room or an item · drag to pan · wheel to zoom', dimension: 'Click two points (snaps to room corners and furniture) to dimension', tag: 'Click an item or a room to tag it' },
+    ceilingH: 'CH {h}', added: 'Added {what}', cleared: 'Plan dimensions and tags removed', clear: 'Remove dimensions and tags', lightsOnly: 'Lights and ceiling heights',
+    cuts: { 'elev-living': 'Living room — north wall elevation', 'elev-kitchen': 'Kitchen — east wall elevation', 'sec-a': 'Section A-A (east–west)', 'sec-b': 'Section B-B (north–south)' }, cutOff: 'Back to perspective',
+  },
   toast: {
     native: '{what}: needs the interior engine (not connected in this build)',
     shareOffline: 'Sharing needs the project server (PWA module, later). The project stays on this computer.',
@@ -410,6 +416,12 @@ export const interiorVi: typeof interiorEn = {
     'HDF 6 - White': 'HDF 6 - Trắng',
   },
   cabinet: { title: 'Tủ tham số mới', name: 'Tên', width: 'Rộng (mm)', depth: 'Sâu (mm)', height: 'Cao (mm)', doors: 'Số cánh', shelves: 'Số đợt', add: 'Thêm tủ', cancel: 'Huỷ', defaultName: 'Tủ {n}' },
+  plan: {
+    titles: { floor: 'Tầng 1 - Mặt bằng nội thất', ceiling: 'Tầng 1 - Mặt bằng trần', finish: 'Tầng 1 - Mặt bằng hoàn thiện' },
+    back3d: 'Khung 3D', hint: { select: 'Bấm phòng hoặc đồ vật · kéo để dời · cuộn để thu phóng', dimension: 'Bấm hai điểm (bắt góc phòng và đồ vật) để ghi kích thước', tag: 'Bấm một đồ vật hoặc phòng để gắn nhãn' },
+    ceilingH: 'CT {h}', added: 'Đã thêm {what}', cleared: 'Đã xoá kích thước và nhãn trên mặt bằng', clear: 'Xoá kích thước và nhãn', lightsOnly: 'Đèn và cao độ trần',
+    cuts: { 'elev-living': 'Phòng khách — mặt đứng tường bắc', 'elev-kitchen': 'Bếp — mặt đứng tường đông', 'sec-a': 'Mặt cắt A-A (đông–tây)', 'sec-b': 'Mặt cắt B-B (bắc–nam)' }, cutOff: 'Về phối cảnh',
+  },
   toast: {
     native: '{what}: cần engine nội thất (chưa kết nối trong bản này)',
     shareOffline: 'Chia sẻ cần máy chủ dự án (mô-đun PWA, làm sau). Dự án vẫn nằm trên máy này.',
