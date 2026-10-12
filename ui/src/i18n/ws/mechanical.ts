@@ -47,7 +47,7 @@ export const mechEn = {
       standard: 'Suction DN{din} / discharge DN{dout} (EN 1092-1 series, discharge ≤ suction).',
       dfm: 'Casing wall {t} mm (sand casting min 6 mm).',
     },
-    note: 'Rule-based engineering checks — the local AI is not connected to Mechanical yet.',
+    note: 'Rule-based engineering checks. Changes by request: AI Assistant (local model, desktop app, proposals you approve).',
   },
   right: { properties: 'Properties', configurations: 'Configurations', display: 'Display' },
   props: {
@@ -121,7 +121,7 @@ export const mechVi: typeof mechEn = {
       standard: 'Cửa hút DN{din} / cửa đẩy DN{dout} (dãy EN 1092-1, cửa đẩy ≤ cửa hút).',
       dfm: 'Thành thân {t} mm (đúc khuôn cát tối thiểu 6 mm).',
     },
-    note: 'Kiểm tra kỹ thuật theo quy tắc — AI cục bộ chưa kết nối với Cơ khí.',
+    note: 'Kiểm tra kỹ thuật theo quy tắc. Thay đổi theo yêu cầu: nút Trợ lý AI (model cục bộ, app desktop, đề xuất để bạn duyệt).',
   },
   right: { properties: 'Thuộc tính', configurations: 'Cấu hình', display: 'Hiển thị' },
   props: {

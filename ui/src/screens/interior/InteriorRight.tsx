@@ -5,6 +5,8 @@ import { toast } from '../../state/toast'
 import { useInterior, type InteriorRight as Tab } from '../../state/interior'
 import { DemoTag, NumField, PRow, PSelect, PanelTabs, Section, Select, wsStyles as w } from '../../components/workspace/Workspace'
 import { MATERIALS, PRESETS, area, cutList, cutTotals, dimsLabel, perimeter, type Cabinet, type Item, type ItemCategory, type Room } from '../../interior/model'
+import { AiResult, useAiAssist } from '../../components/ai/AiAssist'
+import { interiorAi } from '../../ai/disciplines/interior'
 import s from './Interior.module.css'
 
 const n1 = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 })
@@ -233,6 +235,12 @@ function AiTab() {
   const { rn, mn } = useNames()
   const [sub, setSub] = useState<'suggestions' | 'generate' | 'modify'>('suggestions')
   const [sent, setSent] = useState(false)
+  // desktop: the brief goes to the local model, which proposes changes to approve (see components/ai)
+  const ai = useAiAssist(interiorAi, doc, (label, next) => edit(label, () => next))
+  const brief = () => {
+    const styleText = styles.length ? ` (${styles.map((k) => a.styles[k as 'modern']).join(', ')})` : ''
+    return `${prompt ?? a.defaultPrompt}${styleText} — room: ${r.id}`
+  }
   const r = doc.rooms.find((x) => x.id === room) ?? doc.rooms[0]
   const applyPreset = (key: (typeof PRESETS)[number]['key']) => {
     const pr = PRESETS.find((p) => p.key === key)!
@@ -280,11 +288,11 @@ function AiTab() {
         </div>
         <div className={s.prompt}>
           <textarea value={prompt ?? a.defaultPrompt} onChange={(e) => { set({ prompt: e.target.value }); setSent(false) }} aria-label={a.context} />
-          <button type="button" className={s.send} aria-label={a.send} title={a.send} onClick={() => { setSent(true); toast(t.toast.brief) }}>
+          <button type="button" className={s.send} aria-label={a.send} title={a.send} disabled={ai.busy} onClick={() => { setSent(true); if (ai.host) void ai.send(brief()); else toast(t.toast.brief) }}>
             <Send size={15} strokeWidth={1.8} />
           </button>
         </div>
-        {(sent || sub !== 'suggestions') && <p className={s.note}>{sub === 'generate' ? a.generateNote : sub === 'modify' ? a.modifyNote : a.notConnected}</p>}
+        {ai.host ? <AiResult a={ai} /> : (sent || sub !== 'suggestions') && <p className={s.note}>{sub === 'generate' ? a.generateNote : sub === 'modify' ? a.modifyNote : a.notConnected}</p>}
       </div>
 
       <section className={s.sugg}>

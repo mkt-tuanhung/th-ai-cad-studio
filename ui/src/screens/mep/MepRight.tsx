@@ -5,6 +5,8 @@ import { useMep, type MepRight as Tab } from '../../state/mep'
 import { NumField, PRow, PanelTabs, Section, wsStyles as w } from '../../components/workspace/Workspace'
 import { LEVELS, clearElevation, designChecks, type Clash, type Duct, type Finding, type LevelId } from '../../mep/model'
 import { cableCheck, ductLoss, pipeCheck } from '../../mep/calc'
+import { AiAssist } from '../../components/ai/AiAssist'
+import { mepAi } from '../../ai/disciplines/mep'
 import s from './Mep.module.css'
 
 export function MepRight({ clashes }: { clashes: Clash[] }) {
@@ -209,10 +211,13 @@ function AiCard({ clashes }: { clashes: Clash[] }) {
 }
 
 function AiList({ clashes }: { clashes: Clash[] }) {
-  const t = useT().mep
+  const T = useT()
+  const t = T.mep
   const issues = useIssues(clashes)
+  const { doc, edit } = useMep()
   return (
     <>
+      <AiAssist d={mepAi} model={doc} apply={(label, next) => edit(label, () => next)} example={T.aiAssist.examples.mep} compact />
       <p className={s.calcNote}>{t.aiCard.note}</p>
       <ul className={s.issues}>
         {issues.map((i) => (

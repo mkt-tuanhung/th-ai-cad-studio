@@ -34,6 +34,11 @@ class HostBridge : public QObject {
   Q_INVOKABLE bool loadModel(const QString& path);
   /** Async: emits aiResult({ok, message, proposal?}). */
   Q_INVOKABLE void aiRequest(const QString& request);
+  /** Generic structured generation for the discipline assistants (the UI builds prompt + GBNF and
+   *  validates / applies the result as a proposal): {id, system, prompt, grammar?, maxTokens?}.
+   *  Runs off the UI thread; the result arrives on 'aiTaskResult' {id, ok, text, seconds, tokens,
+   *  tokensPerSecond, error?}. Returns false when no model is ready (nothing is generated). */
+  Q_INVOKABLE bool aiTask(const QString& taskJson);
   /** Replaces the engine document with the UI's open drawing (JSON, see documentToJson). */
   Q_INVOKABLE QJsonObject cadLoad(const QString& documentJson);
 
@@ -95,6 +100,7 @@ class HostBridge : public QObject {
 
  signals:
   void aiResult(const QJsonObject& result);
+  void aiTaskResult(const QJsonObject& result);
   void documentChanged(const QJsonObject& document);
   void dwgResult(const QJsonObject& result);
   /** {id, samples, total, ms, preview?} while running; {id, done:true, ok, path?, error?, …} at the end. */

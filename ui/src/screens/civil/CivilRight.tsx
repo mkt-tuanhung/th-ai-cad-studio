@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, ChevronRight, Lightbulb, Minus, Pencil, X } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
@@ -6,6 +7,8 @@ import { NumField, PRow, PSelect, PanelTabs, Section, wsStyles as w } from '../.
 import { checks, hydraulics, narrowerOption, sta, type DesignParams } from '../../civil/model'
 import { tinOf } from '../../civil/surveyModel'
 import { removeSurvey, setMaxEdge } from './surveyActions'
+import { AiAssistModal } from '../../components/ai/AiAssist'
+import { civilAi } from '../../ai/disciplines/civil'
 import s from './Civil.module.css'
 
 /** Station with millimetres, e.g. 0+619.992. */
@@ -161,9 +164,11 @@ function Refs() {
 }
 
 function AiCard() {
-  const t = useT().civil
+  const T = useT()
+  const t = T.civil
   const a = t.aiPanel
   const { doc, aiTab, aiOpen, set, edit } = useCivil()
+  const [ask, setAsk] = useState(false)
   if (!aiOpen) return null
   const k = checks(doc)
   const opt = narrowerOption(doc)
@@ -221,6 +226,8 @@ function AiCard() {
         </button>
       ))}
       <p className={s.aiNote}>{a.note}</p>
+      <button type="button" className={w.link} style={{ margin: '4px 10px 8px', alignSelf: 'flex-start' }} onClick={() => setAsk(true)} data-testid="civil-ai-ask">{T.aiAssist.open}</button>
+      {ask && <AiAssistModal d={civilAi} model={doc} apply={(label, next) => edit(label, () => next)} example={T.aiAssist.examples.civil} onClose={() => setAsk(false)} />}
     </section>
   )
 }

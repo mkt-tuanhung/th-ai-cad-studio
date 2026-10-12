@@ -12,6 +12,7 @@
 #include <QJsonDocument>
 #include <QThread>
 
+#include <algorithm>
 #include <chrono>
 #include <QSysInfo>
 #include <QWidget>
@@ -126,6 +127,34 @@ void HostBridge::aiRequest(const QString& request) {
   });
   connect(t, &QThread::finished, t, &QObject::deleteLater);
   t->start();
+}
+
+bool HostBridge::aiTask(const QString& taskJson) {
+  const QJsonObject task = QJsonDocument::fromJson(taskJson.toUtf8()).object();
+  const QString id = task.value("id").toString();
+  if (!runtime_->status().ready) return false;
+  QThread* t = QThread::create([this, task, id] {
+    ai::GenerateOptions opt;
+    opt.system = task.value("system").toString().toStdString();
+    opt.grammar = task.value("grammar").toString().toStdString();
+    opt.maxTokens = std::clamp(task.value("maxTokens").toInt(512), 16, 2048);
+    opt.temperature = 0;
+    const auto t0 = std::chrono::steady_clock::now();
+    const std::string text = runtime_->generate(task.value("prompt").toString().toStdString(), opt);
+    const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    const bool grammarError = opt.grammarError;
+    const int tokens = opt.producedTokens;
+    QMetaObject::invokeMethod(this, [this, id, text, secs, grammarError, tokens] {
+      const ai::RuntimeStatus st = runtime_->status();
+      QJsonObject r{{"id", id}, {"ok", !grammarError && !text.empty()}, {"text", QString::fromStdString(text)}, {"seconds", secs},
+                    {"tokens", tokens}, {"tokensPerSecond", st.lastTokensPerSecond}, {"model", QString::fromStdString(st.modelName)}};
+      if (grammarError) r["error"] = "grammar failed to compile";
+      emit aiTaskResult(r);
+    }, Qt::QueuedConnection);
+  });
+  connect(t, &QThread::finished, t, &QObject::deleteLater);
+  t->start();
+  return true;
 }
 
 QJsonObject HostBridge::cadLoad(const QString& documentJson) {

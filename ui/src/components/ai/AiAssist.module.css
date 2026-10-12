@@ -1,0 +1,146 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 11px;
+  border: 1px solid #dbe6ea;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f5fbfb, #fff);
+  font-size: 12px;
+  color: #2a3340;
+}
+
+.box header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #0f6b70;
+  font-size: 12.5px;
+}
+
+.input {
+  position: relative;
+}
+
+.input textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 46px;
+  padding: 7px 34px 7px 8px;
+  border: 1px solid #cfd8de;
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.send {
+  position: absolute;
+  right: 6px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: #0f6b70;
+  color: #fff;
+  cursor: pointer;
+}
+
+.send:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.note {
+  margin: 0;
+  color: #5a6474;
+  line-height: 1.4;
+}
+
+.err {
+  margin: 0;
+  color: #b42d2d;
+  line-height: 1.4;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #e3e9ee;
+}
+
+.result ul {
+  margin: 2px 0;
+  padding-left: 16px;
+  line-height: 1.45;
+}
+
+.title {
+  font-size: 12.5px;
+}
+
+.meta {
+  color: #8a93a0;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.approve,
+.reject {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.approve {
+  border: 0;
+  background: #0f6b70;
+  color: #fff;
+}
+
+.reject {
+  border: 1px solid #cfd8de;
+  background: #fff;
+  color: #3a4352;
+}
+
+.result pre {
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 10.5px;
+  background: #f4f6f8;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.compact {
+  padding: 8px 9px;
+}

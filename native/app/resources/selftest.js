@@ -53,6 +53,15 @@
         check('renderer: path-traced image produced', rs.ok && !!rdone && rdone.ok && rdone.samples >= 8 && String(rdone.preview).startsWith('data:image/'))
       }
     }
+    // discipline assistants: generic grammar-constrained generation (refused when no model is installed)
+    let taskRes = null
+    h.on('aiTaskResult', (p) => { if (p.id === 'selftest-task') taskRes = p })
+    const started = await h.aiTask(JSON.stringify({ id: 'selftest-task', system: 'Reply with JSON only.', prompt: 'Give {"ok": true}.', grammar: 'root ::= "{" ws "\\"ok\\"" ws ":" ws ("true" | "false") ws "}"\nws ::= [ ]{0,2}', maxTokens: 24 }))
+    if (!ai.ready) check('aiTask without a model is refused (nothing generated)', started === false)
+    else {
+      for (let i = 0; i < 600 && !taskRes; i++) await new Promise((r) => setTimeout(r, 100))
+      check('aiTask: grammar-constrained JSON from the local model', !!taskRes && taskRes.ok && /^\{\s*"ok"\s*:\s*(true|false)\s*\}$/.test(taskRes.text.trim()))
+    }
     let result = null
     h.on('aiResult', (r) => { result = r; out('aiResult', { ok: r.ok, message: r.message, proposal: r.proposal && { added: r.proposal.added, status: r.proposal.status } }) })
     const docBefore = (await h.cadDocument()).entities.length

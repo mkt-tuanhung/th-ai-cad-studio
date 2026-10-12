@@ -9,7 +9,8 @@ import { CroppedImage } from '../../components/ui/CroppedImage'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
 import { Modal } from '../../components/ui/Modal'
 import { ActionButton } from '../../components/ui/Button'
-import { AiSparkIcon } from '../../components/icons'
+import { AiAssist } from '../../components/ai/AiAssist'
+import { bimAi } from '../../ai/disciplines/bim'
 import s from './PropertiesPanel.module.css'
 
 const TABS: BimRightTab[] = ['properties', 'ai', 'comments']
@@ -319,13 +320,14 @@ function Recommendations() {
 }
 
 function AiTab() {
-  const t = useT().bim.ai
+  const T = useT()
+  const t = T.bim.ai
   const navigate = useRouter((st) => st.navigate)
+  const { model, edit } = useBim()
   return (
     <div className={s.aiTab}>
-      <AiSparkIcon size={28} strokeWidth={1.5} className={s.aiIcon} />
-      <p>{t.notConnected}</p>
-      <ActionButton variant="primary" onClick={() => navigate('ai-studio')}>
+      <AiAssist d={bimAi} model={model} apply={(label, next) => edit(label, () => next)} example={T.aiAssist.examples.bim} />
+      <ActionButton onClick={() => navigate('ai-studio')}>
         {t.open}
       </ActionButton>
     </div>

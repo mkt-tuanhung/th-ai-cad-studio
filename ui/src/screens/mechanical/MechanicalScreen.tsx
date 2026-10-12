@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box, Boxes, Camera, ChevronDown, Circle, CircleDot, Expand, FileBox, Focus, Grid2x2, Hand, Layers, MousePointer2, Plus, RefreshCcw, Scaling, Settings, Share, Spline,
   SquareDashed, Trash2, Triangle, X, ZoomOut, Disc, Move3d,
@@ -17,6 +17,8 @@ import { NativeScene, type SceneCamera } from '../../components/workspace/Native
 import { MechBrowser } from './MechBrowser'
 import { MechBottom } from './MechBottom'
 import { MechRight } from './MechRight'
+import { AiAssistModal } from '../../components/ai/AiAssist'
+import { mechAi } from '../../ai/disciplines/mechanical'
 import s from './Mechanical.module.css'
 
 const MODES: { key: MechMode; w: number }[] = [
@@ -36,6 +38,7 @@ export function MechanicalScreen() {
   const host = useHost()
   const live = !!host && st.mode !== 'realistic'
   const cam = useRef<SceneCamera | null>(null)
+  const [askAi, setAskAi] = useState(false)
   const scene = useMemo(() => pumpScene(st.doc, st.exploded ? 140 : 0), [st.doc, st.exploded])
   // camera tools act on the live OCCT view; in the browser they explain that the kernel runs in the desktop app
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
@@ -83,7 +86,7 @@ export function MechanicalScreen() {
             <>
               <WsButton icon={<Share size={15} strokeWidth={1.7} />} label={t.share} width={79} onClick={() => toast(t.toast.shareOffline)} />
               <WsButton icon={<ExportToolIcon size={19} strokeWidth={1.5} />} label={t.export} width={106} menu={[...(['bom', 'params', 'checks'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) })), { label: t.exportItems.step, onSelect: () => void exportStep() }]} />
-              <WsButton primary icon={<AiSparkIcon size={19} strokeWidth={1.7} />} label={t.ai} width={130} onClick={() => st.set({ bottom: 'checks' })} />
+              <WsButton primary icon={<AiSparkIcon size={19} strokeWidth={1.7} />} label={t.ai} width={130} onClick={() => { st.set({ bottom: 'checks' }); setAskAi(true) }} />
             </>
           }
         />
@@ -185,6 +188,7 @@ export function MechanicalScreen() {
       <div className={s.right}>
         <MechRight />
       </div>
+      {askAi && <AiAssistModal d={mechAi} model={st.doc} apply={(label, next) => st.edit(label, () => next)} example={T.aiAssist.examples.mechanical} onClose={() => setAskAi(false)} />}
     </div>
   )
 }

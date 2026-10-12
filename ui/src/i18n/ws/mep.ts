@@ -58,7 +58,7 @@ export const mepEn = {
   sysData: { title: 'System totals', airflow: 'Supply airflow', ductLen: 'Duct length', pipeLen: 'Pipe length', waterFlow: 'Chilled water flow', load: 'Connected load', circuits: 'Circuits', equipment: 'Equipment', byLevel: 'By level' },
   aiCard: {
     title: 'AI Recommendations', rules: 'Design checks', apply: 'Apply Suggestion', details: 'View Details', none: 'No open issues on the checked elements.',
-    note: 'Checks are rule-based engineering calculations; the local AI is not connected to MEP yet (Demo UI / Not connected).',
+    note: 'The list below is rule-based engineering checks. Requests in the box above go to the local AI (desktop app) as proposals you approve.',
     clashText: '{a} clashes with {b} on {level} ({depth} mm overlap). Lower the run below the beam soffit.',
     findingText: '{target}: {rule} — {value} (limit {limit}).',
   },
@@ -130,7 +130,7 @@ export const mepVi: typeof mepEn = {
   sysData: { title: 'Tổng hệ thống', airflow: 'Lưu lượng gió cấp', ductLen: 'Chiều dài ống gió', pipeLen: 'Chiều dài đường ống', waterFlow: 'Lưu lượng nước lạnh', load: 'Phụ tải lắp đặt', circuits: 'Số mạch', equipment: 'Thiết bị', byLevel: 'Theo tầng' },
   aiCard: {
     title: 'Gợi ý AI', rules: 'Kiểm tra thiết kế', apply: 'Áp dụng gợi ý', details: 'Xem chi tiết', none: 'Không còn lỗi trên các đối tượng đã kiểm tra.',
-    note: 'Các kiểm tra là tính toán kỹ thuật theo quy tắc; AI cục bộ chưa kết nối với MEP (Demo UI / Chưa kết nối).',
+    note: 'Danh sách dưới đây là kiểm tra kỹ thuật theo quy tắc. Yêu cầu ở ô phía trên do AI cục bộ (app desktop) xử lý thành đề xuất để bạn duyệt.',
     clashText: '{a} va chạm với {b} ở {level} (chồng lấn {depth} mm). Hạ tuyến xuống dưới đáy dầm.',
     findingText: '{target}: {rule} — {value} (giới hạn {limit}).',
   },

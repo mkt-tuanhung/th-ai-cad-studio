@@ -25,6 +25,8 @@ export interface HostApi {
   cadExecute(opsJson: string): Promise<{ ok: boolean; error?: { code: string; detail: string } }>
   proposeOps(title: string, opsJson: string): Promise<{ ok: boolean; message: string }>
   aiRequest(request: string): Promise<void>
+  /** Discipline assistants: generic generation (see ui/src/ai/discipline.ts); false = no model ready. */
+  aiTask(taskJson: string): Promise<boolean>
   cadLoad(documentJson: string): Promise<{ ok: boolean; entities?: number; error?: string }>
   cadUndo(): Promise<{ ok: boolean; label?: string; document?: { entities: unknown[] } }>
   cadRedo(): Promise<{ ok: boolean; label?: string; document?: { entities: unknown[] } }>
@@ -55,7 +57,7 @@ export interface HostApi {
   pickFolder(title: string, start: string): Promise<string>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'documentChanged' | 'dwgResult' | 'renderProgress', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress', fn: (payload: unknown) => void): void
 }
 
 export interface HostSystemInfo {

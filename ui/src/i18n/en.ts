@@ -992,6 +992,14 @@ export const en = {
   time: {
     justNow: 'just now',
   },
+  aiAssist: {
+    title: 'Ask the local AI', placeholder: 'Describe the change, e.g. {example}', send: 'Send to the local AI', thinking: 'Local model is working… ({s} s)',
+    browser: 'The local AI runs in the desktop app — here only the rule-based suggestions are available.', noModel: 'No local model installed — add one in Settings → Local AI.',
+    proposal: 'Proposal', changes: '{n} change(s) — nothing is applied until you approve', none: 'The assistant proposes no change: {title}',
+    approve: 'Approve & Apply', reject: 'Reject', applied: 'Applied “{title}” — ⌘Z to undo', rejected: 'Proposal rejected — the model is unchanged',
+    invalid: 'The reply could not be applied: {why}', meta: '{model} · {s} s{retry}', retry: ' · retried under the grammar', raw: 'Model output', open: 'Ask the local AI…',
+    examples: { mep: 'resize SA-01 on level 2 to 700 × 400', interior: 'make the sofa olive fabric', civil: 'fix the flat segments with the minimum slope', mechanical: 'shaft diameter 45 mm', bim: 'make window WN1 2400 wide' },
+  },
 }
 
 type Widen<T> = T extends string

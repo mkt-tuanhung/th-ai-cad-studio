@@ -19,6 +19,7 @@
 #include <chrono>
 #include <filesystem>
 #include <mutex>
+#include <algorithm>
 #include <vector>
 
 #include "thcad/ai/runtime.hpp"
@@ -57,6 +58,7 @@ class LlamaRuntime final : public Runtime {
     llama_backend_init();
   }
   ~LlamaRuntime() override {
+    if (ctx_) llama_free(ctx_);
     if (model_) llama_model_free(model_);
     llama_backend_free();
   }
@@ -86,6 +88,7 @@ class LlamaRuntime final : public Runtime {
   bool load(const std::string& p) override {
     std::lock_guard gen(genMu_);
     std::lock_guard lock(mu_);
+    if (ctx_) { llama_free(ctx_); ctx_ = nullptr; cached_.clear(); }
     if (model_) { llama_model_free(model_); model_ = nullptr; }
     path_ = p;
     error_.clear();
@@ -126,14 +129,33 @@ class LlamaRuntime final : public Runtime {
     std::vector<llama_token> tokens(nTok);
     if (llama_tokenize(vocab, formatted.c_str(), static_cast<int32_t>(formatted.size()), tokens.data(), nTok, true, true) < 0) return {};
 
-    llama_context_params cp = llama_context_default_params();
-    cp.n_ctx = static_cast<uint32_t>(tokens.size() + opt.maxTokens + 16);
-    cp.n_batch = cp.n_ctx;
-    llama_context* ctx = llama_init_from_model(model_, cp);
+    // one persistent context: the KV cache of the previous prompt is reused up to the first token that
+    // differs (system prompt + model context stay the same between requests on the same model)
+    const uint32_t needed = static_cast<uint32_t>(tokens.size() + opt.maxTokens + 16);
+    if (!ctx_ || needed > ctxSize_) {
+      if (ctx_) llama_free(ctx_);
+      llama_context_params cp = llama_context_default_params();
+      // headroom: a warm-up (prefill only) and the request that follows must fit the same context
+      cp.n_ctx = std::max<uint32_t>(needed + 2048, 12288);
+      cp.n_batch = 2048;
+      ctx_ = llama_init_from_model(model_, cp);
+      ctxSize_ = ctx_ ? cp.n_ctx : 0;
+      cached_.clear();
+    }
+    llama_context* ctx = ctx_;
     if (!ctx) {
       std::lock_guard lock(mu_);
       error_ = "failed to create context";
       return {};
+    }
+    size_t keep = 0;
+    while (keep < cached_.size() && keep < tokens.size() && cached_[keep] == tokens[keep]) ++keep;
+    if (keep == tokens.size()) --keep;  // at least one token must be decoded to sample from
+    llama_memory_seq_rm(llama_get_memory(ctx), -1, static_cast<llama_pos>(keep), -1);
+    cached_.assign(tokens.begin(), tokens.begin() + static_cast<std::ptrdiff_t>(keep));
+    {
+      std::lock_guard lock(mu_);
+      lastReused_ = keep;
     }
 
     llama_sampler* smpl = llama_sampler_chain_init(llama_sampler_chain_default_params());
@@ -150,12 +172,17 @@ class LlamaRuntime final : public Runtime {
 
     const auto t0 = std::chrono::steady_clock::now();
     std::string out;
-    llama_batch batch = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
+    // prefill the new part of the prompt in batch-sized chunks
+    bool ok = true;
+    for (size_t i = keep; i < tokens.size() && ok; i += 2048) {
+      const int32_t n = static_cast<int32_t>(std::min<size_t>(2048, tokens.size() - i));
+      ok = llama_decode(ctx, llama_batch_get_one(tokens.data() + i, n)) == 0;
+      if (ok) cached_.insert(cached_.end(), tokens.begin() + static_cast<std::ptrdiff_t>(i), tokens.begin() + static_cast<std::ptrdiff_t>(i + n));
+    }
     llama_token tok = 0;
     int produced = 0;
     double firstTokenAt = 0;
-    for (; produced < opt.maxTokens; ++produced) {
-      if (llama_decode(ctx, batch) != 0) break;
+    for (; ok && produced < opt.maxTokens; ++produced) {
       tok = llama_sampler_sample(smpl, ctx, -1);
       if (produced == 0) firstTokenAt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
       if (llama_vocab_is_eog(vocab, tok)) break;
@@ -166,8 +193,10 @@ class LlamaRuntime final : public Runtime {
         out += s;
         if (onToken && !onToken(s)) break;
       }
-      batch = llama_batch_get_one(&tok, 1);
+      if (llama_decode(ctx, llama_batch_get_one(&tok, 1)) != 0) break;
+      cached_.push_back(tok);
     }
+    if (!ok) cached_.clear();
     const double total = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
     opt.producedTokens = produced;
     {
@@ -176,7 +205,6 @@ class LlamaRuntime final : public Runtime {
       tps_ = total > firstTokenAt && produced > 1 ? (produced - 1) / (total - firstTokenAt) : 0;
     }
     llama_sampler_free(smpl);
-    llama_free(ctx);
     return out;
   }
 
@@ -184,6 +212,10 @@ class LlamaRuntime final : public Runtime {
   mutable std::mutex mu_;
   std::mutex genMu_;
   llama_model* model_ = nullptr;
+  llama_context* ctx_ = nullptr;
+  uint32_t ctxSize_ = 0;
+  std::vector<llama_token> cached_;
+  size_t lastReused_ = 0;
   std::string path_, error_;
   double tps_ = 0, latency_ = 0;
 };

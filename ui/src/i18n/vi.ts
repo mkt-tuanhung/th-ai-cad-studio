@@ -1000,4 +1000,12 @@ export const vi: Messages = {
   time: {
     justNow: 'vừa xong',
   },
+  aiAssist: {
+    title: 'Hỏi AI cục bộ', placeholder: 'Mô tả thay đổi, ví dụ: {example}', send: 'Gửi cho AI cục bộ', thinking: 'Model cục bộ đang xử lý… ({s} s)',
+    browser: 'AI cục bộ chạy trong app desktop — ở đây chỉ có gợi ý theo quy tắc.', noModel: 'Chưa cài model cục bộ — thêm trong Cài đặt → AI cục bộ.',
+    proposal: 'Đề xuất', changes: '{n} thay đổi — chưa áp dụng gì cho đến khi bạn duyệt', none: 'Trợ lý không đề xuất thay đổi nào: {title}',
+    approve: 'Duyệt & áp dụng', reject: 'Từ chối', applied: 'Đã áp dụng “{title}” — ⌘Z để hoàn tác', rejected: 'Đã từ chối đề xuất — mô hình giữ nguyên',
+    invalid: 'Không áp dụng được câu trả lời: {why}', meta: '{model} · {s} s{retry}', retry: ' · đã chạy lại theo grammar', raw: 'Đầu ra của model', open: 'Hỏi AI cục bộ…',
+    examples: { mep: 'đổi ống gió SA-01 tầng 2 thành 700 × 400', interior: 'đổi sofa sang vải xanh ô liu', civil: 'sửa các đoạn dốc phẳng theo độ dốc tối thiểu', mechanical: 'đường kính trục 45 mm', bim: 'mở rộng cửa sổ WN1 thành 2400' },
+  },
 }

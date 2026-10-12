@@ -61,7 +61,7 @@ export const civilEn = {
     slopeTitle: 'Slope Check Warning', slopeText: '{n} segments have slope < {min}', slopeOk: 'All segments within {min} – {max}',
     complianceTitle: 'Design Compliance', complianceOk: 'Velocity {v} m/s, Froude {fr}, freeboard {fb} m — within limits', complianceBad: 'Check: {what}',
     optTitle: 'Optimization Suggestion', optText: 'Bottom width {b} m would cut earthwork by ~{p} % (depth {y} m, velocity {v} m/s).',
-    apply: 'Apply', note: 'Rule-based engineering checks. Local AI not connected to Civil yet.',
+    apply: 'Apply', note: 'Rule-based engineering checks. Requests: “Ask the local AI…” (desktop app, proposals you approve).',
   },
   toast: {
     native: '{what}: needs the civil engine (not connected in this build)',
@@ -133,7 +133,7 @@ export const civilVi: typeof civilEn = {
     slopeTitle: 'Cảnh báo độ dốc', slopeText: '{n} đoạn có độ dốc < {min}', slopeOk: 'Mọi đoạn trong khoảng {min} – {max}',
     complianceTitle: 'Đáp ứng thiết kế', complianceOk: 'Vận tốc {v} m/s, Froude {fr}, độ cao an toàn {fb} m — trong giới hạn', complianceBad: 'Cần kiểm tra: {what}',
     optTitle: 'Gợi ý tối ưu', optText: 'Bề rộng đáy {b} m giảm đào đắp ~{p} % (sâu {y} m, vận tốc {v} m/s).',
-    apply: 'Áp dụng', note: 'Kiểm tra kỹ thuật theo quy tắc. AI cục bộ chưa kết nối với hạ tầng.',
+    apply: 'Áp dụng', note: 'Kiểm tra kỹ thuật theo quy tắc. Yêu cầu: “Hỏi AI cục bộ…” (app desktop, đề xuất để bạn duyệt).',
   },
   toast: {
     native: '{what}: cần engine hạ tầng (chưa kết nối trong bản này)',
