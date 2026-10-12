@@ -22,7 +22,7 @@ export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
   }
   const [discOpen, setDiscOpen, discRef] = useDismissable<HTMLDivElement>()
   const [expOpen, setExpOpen, expRef] = useDismissable<HTMLDivElement>()
-  const views: { k: BimView; icon: React.ReactNode }[] = [
+  const views: { k: Exclude<BimView, 'drawing'>; icon: React.ReactNode }[] = [
     { k: 'plan', icon: <PlanViewIcon size={17} strokeWidth={1.6} /> },
     { k: '3d', icon: <CubeSolidIcon size={17} /> },
     { k: 'schedule', icon: <CalendarDays size={16} strokeWidth={1.6} /> },

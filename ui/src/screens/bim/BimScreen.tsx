@@ -1,3 +1,4 @@
+import { BimDrawing } from './BimDrawing'
 import { useEffect } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useBim } from '../../state/bim'
@@ -55,6 +56,7 @@ export function BimScreen() {
       <div className={s.viewer}>
         {view === '3d' && <Viewer3D />}
         {view === 'plan' && <BimPlan />}
+        {view === 'drawing' && <BimDrawing />}
         {view === 'schedule' && (
           <section className={s.fullSchedule}>
             <CategoryPills />

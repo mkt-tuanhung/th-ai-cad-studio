@@ -29,6 +29,7 @@
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepPrimAPI_MakeTorus.hxx>
 #include <BRep_Builder.hxx>
+#include <BRep_Tool.hxx>
 #include <Bnd_Box.hxx>
 #include <GProp_GProps.hxx>
 #include <Graphic3d_Camera.hxx>
@@ -62,6 +63,20 @@
 #include "solid_impl.hpp"
 #include "part_impl.hpp"
 #include <BRepBuilderAPI_Transform.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepTools.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <GCPnts_TangentialDeflection.hxx>
+#include <HLRAlgo_Projector.hxx>
+#include <HLRBRep_Algo.hxx>
+#include <HLRBRep_HLRToShape.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <gp_Pnt2d.hxx>
 
 namespace thcad::occt {
 namespace { constexpr double kPiScene = 3.14159265358979323846; }
@@ -564,6 +579,93 @@ std::array<double, 6> SceneView::bounds(const std::vector<std::string>& ids) con
   double x0, y0, z0, x1, y1, z1;
   b.Get(x0, y0, z0, x1, y1, z1);
   return {x0, y0, z0, x1, y1, z1};
+}
+
+SceneView::Drawing2D SceneView::drawing2d(const std::array<double, 3>& toViewer, const std::array<double, 3>& xDir, const std::array<double, 4>* cut) const {
+  Drawing2D out;
+  const auto t0 = std::chrono::steady_clock::now();
+  try {
+    const gp_Dir z(toViewer[0], toViewer[1], toViewer[2]), x(xDir[0], xDir[1], xDir[2]);
+    const HLRAlgo_Projector proj(gp_Ax2(gp_Pnt(0, 0, 0), z, x));
+    // what is drawn: the shown items, without the ground plate
+    std::vector<TopoDS_Shape> shapes;
+    for (const auto& [id, e] : d->items)
+      if (id != "ground" && !e.shape.IsNull() && d->ctx->IsDisplayed(e.ais)) shapes.push_back(e.shape);
+    // section: keep what lies beyond the plane (a box from the plane to the far side of the bounds)
+    gp_Dir n;
+    double off = 0;
+    if (cut) {
+      Bnd_Box b;
+      for (const TopoDS_Shape& s : shapes) BRepBndLib::Add(s, b);
+      double x0, y0, z0, x1, y1, z1;
+      b.Get(x0, y0, z0, x1, y1, z1);
+      x0 -= 1000, y0 -= 1000, z0 -= 1000, x1 += 1000, y1 += 1000, z1 += 1000;
+      const auto& c = *cut;
+      const int axis = std::abs(c[0]) > 0.5 ? 0 : std::abs(c[1]) > 0.5 ? 1 : 2;
+      const double k = c[axis], at = -c[3] / k;  // plane coordinate on that axis
+      double lo[3] = {x0, y0, z0}, hi[3] = {x1, y1, z1};
+      if (k > 0) lo[axis] = at;
+      else hi[axis] = at;
+      const TopoDS_Shape keep = BRepPrimAPI_MakeBox(gp_Pnt(lo[0], lo[1], lo[2]), gp_Pnt(hi[0], hi[1], hi[2])).Shape();
+      n = gp_Dir(c[0], c[1], c[2]);
+      off = c[3];
+      std::vector<TopoDS_Shape> kept;
+      for (const TopoDS_Shape& s : shapes) {
+        BRepAlgoAPI_Common common(s, keep);
+        if (!common.IsDone()) continue;
+        const TopoDS_Shape r = common.Shape();
+        bool any = false;
+        for (TopExp_Explorer f(r, TopAbs_FACE); f.More(); f.Next()) {
+          any = true;
+          // a face on the cutting plane = cut material
+          BRepAdaptor_Surface surf(TopoDS::Face(f.Current()));
+          if (surf.GetType() != GeomAbs_Plane) continue;
+          const gp_Pln pl = surf.Plane();
+          if (!pl.Axis().Direction().IsParallel(n, 1e-6)) continue;
+          const gp_Pnt o = pl.Location();
+          if (std::abs(n.X() * o.X() + n.Y() * o.Y() + n.Z() * o.Z() + off) > 0.5) continue;
+          std::vector<std::array<double, 2>> poly;
+          for (BRepTools_WireExplorer w(BRepTools::OuterWire(TopoDS::Face(f.Current()))); w.More(); w.Next()) {
+            gp_Pnt2d p;
+            proj.Project(BRep_Tool::Pnt(w.CurrentVertex()), p);
+            poly.push_back({p.X(), p.Y()});
+          }
+          if (poly.size() >= 3) out.cut.push_back(std::move(poly));
+        }
+        if (any) kept.push_back(r);
+      }
+      shapes = std::move(kept);
+    }
+    Handle(HLRBRep_Algo) algo = new HLRBRep_Algo();
+    for (const TopoDS_Shape& s : shapes) algo->Add(s);
+    algo->Projector(proj);
+    algo->Update();
+    algo->Hide();
+    HLRBRep_HLRToShape hlr(algo);
+    double u0 = 1e300, v0 = 1e300, u1 = -1e300, v1 = -1e300;
+    for (const TopoDS_Shape& comp : {hlr.VCompound(), hlr.OutLineVCompound()}) {
+      if (comp.IsNull()) continue;
+      for (TopExp_Explorer ex(comp, TopAbs_EDGE); ex.More(); ex.Next()) {
+        BRepAdaptor_Curve curve(TopoDS::Edge(ex.Current()));
+        std::vector<std::array<double, 2>> pl;
+        if (curve.GetType() == GeomAbs_Line) {
+          const gp_Pnt a = curve.Value(curve.FirstParameter()), b = curve.Value(curve.LastParameter());
+          pl = {{a.X(), a.Y()}, {b.X(), b.Y()}};
+        } else {
+          GCPnts_TangentialDeflection td(curve, 0.1, 1.0);
+          for (int i = 1; i <= td.NbPoints(); ++i) pl.push_back({td.Value(i).X(), td.Value(i).Y()});
+        }
+        if (pl.size() < 2) continue;
+        for (const auto& p : pl) u0 = std::min(u0, p[0]), v0 = std::min(v0, p[1]), u1 = std::max(u1, p[0]), v1 = std::max(v1, p[1]);
+        out.lines.push_back(std::move(pl));
+      }
+    }
+    if (u1 >= u0) out.bounds = {u0, v0, u1, v1};
+  } catch (const Standard_Failure& e) {
+    out.error = e.GetMessageString() ? e.GetMessageString() : "HLR failed";
+  }
+  out.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  return out;
 }
 
 void SceneView::setSectionBox(bool on, const std::vector<std::string>& around, double topZ) {

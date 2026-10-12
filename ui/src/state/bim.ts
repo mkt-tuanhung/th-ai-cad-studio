@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { createVillaBim, runModelChecks, upgradeModel, type BimModel, type CheckResult, type Comment, type ElementRef, type Wall } from '../bim/model'
 
-export type BimView = 'plan' | '3d' | 'schedule'
+export type BimView = 'plan' | '3d' | 'schedule' | 'drawing'
 export type DisplayMode = 'realistic' | 'shaded' | 'wireframe' | 'hidden'
 export type ScheduleCat = 'walls' | 'doors' | 'windows' | 'rooms' | 'levels'
 export type BimRightTab = 'properties' | 'ai' | 'comments'
@@ -42,6 +42,8 @@ interface BimState {
   /** Component library → the next Component click places this (real size); autoAlign turns it parallel to
    *  the nearest wall within 1 m. Session only. */
   pendingComponent: { name: string; w: number; d: number; h: number; rot: number; autoAlign: boolean } | null
+  /** Project Browser → 2D elevation / section drawing (view 'drawing'). */
+  drawing: import('../bim/drawing2d').DrawingReq | null
   /** Project Browser → 3D view request (session only): an elevation (orthographic side view), a section
    *  (clip plane through the building centre), or a named 3D view. `n` makes repeated requests distinct. */
   viewReq: { kind: 'elev' | 'section' | 'home' | 'sectionBox' | 'exterior'; face?: 'front' | 'back' | 'left' | 'right'; axis?: 'x' | 'y'; n: number } | null
@@ -53,7 +55,7 @@ interface BimState {
   undo: () => string | null
   redo: () => string | null
   runChecks: () => void
-  set: (patch: Partial<Pick<BimState, 'view' | 'display' | 'level' | 'scale' | 'scheduleCat' | 'checked' | 'selection' | 'rightTab' | 'browserCollapsed' | 'maximized' | 'appliedRecommendation' | 'browserSel' | 'tool' | 'wallType' | 'discipline' | 'pendingComponent'>>) => void
+  set: (patch: Partial<Pick<BimState, 'view' | 'display' | 'level' | 'scale' | 'scheduleCat' | 'checked' | 'selection' | 'rightTab' | 'browserCollapsed' | 'maximized' | 'appliedRecommendation' | 'browserSel' | 'tool' | 'wallType' | 'discipline' | 'pendingComponent' | 'drawing'>>) => void
   /** Deletes the selected element (a wall takes its doors and windows with it). Returns its label or null. */
   deleteSelection: () => string | null
   toggleBrowser: (key: string) => void
@@ -68,6 +70,7 @@ export const useBim = create<BimState>()(
     (set, get) => ({
       viewReq: null,
       pendingComponent: null,
+      drawing: null,
       requestView: (r) => set({ view: '3d', viewReq: { ...r, n: (get().viewReq?.n ?? 0) + 1 } }),
       model: initial,
       undoStack: [],
@@ -167,7 +170,7 @@ export const useBim = create<BimState>()(
       },
       partialize: (s) => ({
         model: s.model,
-        view: s.view,
+        view: (s.view === 'drawing' ? '3d' : s.view) as BimView,
         display: s.display,
         level: s.level,
         scale: s.scale,

@@ -21,7 +21,9 @@ export const dxfStr = (s: string) => [...s].map((ch) => (ch.charCodeAt(0) < 128 
 
 type G = (code: number, value: string | number) => void
 
-export function toDxf2000(doc: CadDocument): string {
+/** `leftText`: write centred TEXT as left-aligned at its computed start (for LibreDWG dxf2dwg, which loses the
+ *  alignment point of centred text when it builds the DWG; width from the Standard font's ~0.62 h advance). */
+export function toDxf2000(doc: CadDocument, opts: { leftText?: boolean } = {}): string {
   const o: string[] = []
   const g: G = (code, value) => o.push(String(code).padStart(3, ' '), typeof value === 'number' ? num(value) : value)
   let next = 0x20
@@ -48,6 +50,10 @@ export function toDxf2000(doc: CadDocument): string {
       head('LINE', 'AcDbLine'); g(10, ax); g(20, ay); g(30, 0); g(11, bx); g(21, by); g(31, 0)
     }
     const text = (x: number, y: number, hgt: number, value: string, rot: number, center: boolean) => {
+      if (center && opts.leftText) {
+        const half = (hgt * 0.62 * [...value].length) / 2, a = (rot * Math.PI) / 180
+        ;(x -= half * Math.cos(a)), (y -= half * Math.sin(a)), (center = false)
+      }
       head('TEXT', 'AcDbText'); g(10, x); g(20, y); g(30, 0); g(40, hgt); g(1, dxfStr(value)); g(50, rot)
       if (center) { g(72, 1); g(11, x); g(21, y); g(31, 0) }
       g(100, 'AcDbText')

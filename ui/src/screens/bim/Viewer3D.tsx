@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { bimExtras, nativeBuildingModel, nonStructuralIds } from '../../bim/scene'
-import { getHost, type HostApi } from '../../services/host'
+import { getHost, isDesktopHost, type HostApi } from '../../services/host'
 import { NativeScene, type SceneCamera } from '../../components/workspace/NativeScene'
 import { useSceneTools } from '../../components/workspace/sceneTools'
 import { useNativeSlot } from '../../lib/useNativeSlot'
@@ -46,12 +46,22 @@ export function Viewer3D() {
     if (!boxOn) viewSection(view3d)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view3d, cutAt])
-  // Project Browser → elevation / section / named 3D view
+  // Project Browser → elevation / section / named 3D view — applied once the scene is loaded (a fresh load
+  // resets the camera, e.g. when this view opens from a 2D drawing)
+  const [loadedTick, setLoadedTick] = useState(0)
+  const applied = useRef(0)
   useEffect(() => {
-    if (!viewReq) return
-    if (!host) return native(T.bim.browser.views3d)
+    if (!viewReq || applied.current === viewReq.n) return
+    if (!host) {
+      // the host arrives asynchronously in the desktop app; only a plain browser has none
+      if (isDesktopHost()) return
+      applied.current = viewReq.n
+      return native(T.bim.browser.views3d)
+    }
     // the approved render is a still: show the live model (elevations / sections read best as hidden line)
-    if (display === 'realistic') set({ display: viewReq.kind === 'elev' || viewReq.kind === 'section' ? 'hidden' : 'shaded' })
+    if (display === 'realistic') return set({ display: viewReq.kind === 'elev' || viewReq.kind === 'section' ? 'hidden' : 'shaded' })
+    if (!loadedTick) return
+    applied.current = viewReq.n
     let tries = 0
     const run = async () => {
       if (!camRef.current) return void (++tries < 40 && setTimeout(run, 150))
@@ -76,7 +86,7 @@ export function Viewer3D() {
     }
     void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewReq?.n])
+  }, [viewReq?.n, loadedTick, display, host])
   const selId = !selection || selection.category === 'level' || selection.category === 'room' ? '' : selection.category === 'door' || selection.category === 'window' ? `glass:${selection.id}` : selection.id
   const liveOr = (fn: () => void, label: string) => () => (live ? fn() : native(label))
   const modelJson = useMemo(() => JSON.stringify(nativeBuildingModel(model)), [model])
@@ -116,6 +126,7 @@ export function Viewer3D() {
           mode={display as 'shaded' | 'wireframe' | 'hidden'}
           selected={selId}
           cameraRef={camRef}
+          onLoaded={() => setLoadedTick((n) => n + 1)}
           {...tools.props}
           hidden={discipline === 'structure' ? [...tools.hidden, ...nonStructuralIds(model)] : tools.hidden}
           label="Villa Riverside — live OCCT model"

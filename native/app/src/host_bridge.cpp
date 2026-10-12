@@ -439,6 +439,25 @@ QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) 
   else if (cmd == "window") v->windowFit(o["x0"].toInt(), o["y0"].toInt(), o["x1"].toInt(), o["y1"].toInt());
   else if (cmd == "camera") v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55));
   else if (cmd == "walk") v->walk(o["forward"].toDouble(), o["right"].toDouble(), o["yaw"].toDouble(), o["pitch"].toDouble());
+  else if (cmd == "drawing2d") {
+    const std::array<double, 3> z = vec3("toViewer"), x = vec3("xDir");
+    std::array<double, 4> plane{};
+    const QJsonArray c = o["cut"].toArray();
+    if (c.size() == 4) plane = {c[0].toDouble(), c[1].toDouble(), c[2].toDouble(), c[3].toDouble()};
+    const auto dr = v->drawing2d(z, x, c.size() == 4 ? &plane : nullptr);
+    if (!dr.error.empty()) return {{"ok", false}, {"error", QString::fromStdString(dr.error)}};
+    auto polys = [](const std::vector<std::vector<std::array<double, 2>>>& ps) {
+      QJsonArray a;
+      for (const auto& p : ps) {
+        QJsonArray flat;
+        for (const auto& q : p) flat << std::round(q[0] * 10) / 10 << std::round(q[1] * 10) / 10;
+        a.append(flat);
+      }
+      return a;
+    };
+    return {{"ok", true}, {"lines", polys(dr.lines)}, {"cut", polys(dr.cut)},
+            {"bounds", QJsonArray{dr.bounds[0], dr.bounds[1], dr.bounds[2], dr.bounds[3]}}, {"ms", dr.ms}};
+  }
   else if (cmd == "getCamera") {
     const auto c = v->camera();
     return {{"ok", true}, {"eye", QJsonArray{c[0], c[1], c[2]}}, {"at", QJsonArray{c[3], c[4], c[5]}}, {"fov", c[6]}};

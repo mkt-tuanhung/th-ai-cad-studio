@@ -115,7 +115,7 @@ export interface CadDocument {
   createdAt: number
   savedAt: number | null
   /** Where the document came from — shown in References. */
-  source: 'seed' | 'new' | 'dxf-import'
+  source: 'seed' | 'new' | 'dxf-import' | 'bim-drawing'
   /** Paper-space layouts (paper size and plot scale; scale null = the largest standard scale that fits). */
   layouts?: Layout[]
 }

@@ -125,6 +125,18 @@ class SceneView {
   void walk(double forward, double right, double yawDeg, double pitchDeg);
   /** Axis-aligned bounds of the items (all when empty): x0 y0 z0 x1 y1 z1 (mm). */
   std::array<double, 6> bounds(const std::vector<std::string>& ids) const;
+  /** 2D drawing of the shown items by exact hidden-line removal (HLR): visible edges and outlines,
+   *  projected on the plane facing `toViewer` with `xDir` as the drawing's x (y = toViewer × xDir).
+   *  With `cut` (a·x + b·y + c·z + d ≥ 0 kept, axis-aligned): a section — only what lies beyond the
+   *  plane, and the faces the plane cuts as closed polygons (poche). Units: mm. */
+  struct Drawing2D {
+    std::vector<std::vector<std::array<double, 2>>> lines;
+    std::vector<std::vector<std::array<double, 2>>> cut;
+    std::array<double, 4> bounds{};  // u0 v0 u1 v1
+    double ms = 0;
+    std::string error;
+  };
+  Drawing2D drawing2d(const std::array<double, 3>& toViewer, const std::array<double, 3>& xDir, const std::array<double, 4>* cut) const;
   std::vector<unsigned char> renderRgba(int w, int h);
   double lastRenderMs() const;
   double lastBuildMs() const;

@@ -4,6 +4,7 @@ import { fmt, useT } from '../../i18n'
 import { useBim, type BimView, type ScheduleCat } from '../../state/bim'
 import { toast } from '../../state/toast'
 import { PlanViewIcon } from '../../components/icons'
+import type { DrawingReq } from '../../bim/drawing2d'
 import s from './ProjectBrowser.module.css'
 
 interface Node {
@@ -12,7 +13,7 @@ interface Node {
   icon: ReactNode
   children?: Node[]
   /** Leaf action: a plan / schedule, or a 3D view request (elevation, section, named 3D view). */
-  open?: { view: BimView; level?: string; cat?: ScheduleCat; req?: Parameters<ReturnType<typeof useBim.getState>['requestView']>[0]; sheet?: string }
+  open?: { view: BimView; level?: string; cat?: ScheduleCat; req?: Parameters<ReturnType<typeof useBim.getState>['requestView']>[0]; drawing?: DrawingReq; sheet?: string }
   depth?: number
 }
 
@@ -50,15 +51,15 @@ export function ProjectBrowser() {
             key: 'elev',
             label: t.elevations,
             icon: <FolderClosed {...I} />,
-            // the camera on that side looking at the building (East = from +X, North = from +Y), orthographic
-            children: ([['East Elevation', 'right'], ['West Elevation', 'left'], ['North Elevation', 'back'], ['South Elevation', 'front']] as const).map(([n, face]) => ({ key: n, label: n, icon: <Home {...I} />, open: { view: '3d' as const, req: { kind: 'elev' as const, face } } })),
+            // 2D drawings by hidden-line removal from that side (East = seen from +X, North = from +Y)
+            children: ([['East Elevation', 'right'], ['West Elevation', 'left'], ['North Elevation', 'back'], ['South Elevation', 'front']] as const).map(([n, face]) => ({ key: n, label: n, icon: <Home {...I} />, open: { view: 'drawing' as const, drawing: { kind: 'elev' as const, face, title: n } } })),
           },
           {
             key: 'sect',
             label: t.sections,
             icon: <FolderClosed {...I} />,
             // Section 1: cut along X through the centre, seen from the south; Section 2: cut along Y, seen from the west
-            children: ([['Section 1', 'y', 'front'], ['Section 2', 'x', 'left']] as const).map(([n, axis, face]) => ({ key: n, label: n, icon: <SectionIcon />, open: { view: '3d' as const, req: { kind: 'section' as const, axis, face } } })),
+            children: ([['Section 1', 'y', 'front'], ['Section 2', 'x', 'left']] as const).map(([n, axis, face]) => ({ key: n, label: n, icon: <SectionIcon />, open: { view: 'drawing' as const, drawing: { kind: 'section' as const, axis, face, title: n } } })),
           },
         ],
       },
@@ -80,8 +81,8 @@ export function ProjectBrowser() {
         // each sheet opens the view placed on it
         children: [
           { key: 'A101 - Floor Plan', label: 'A101 - Floor Plan', icon: <Sheet {...I} />, open: { view: 'plan' as const, level: model.levels[0]?.id, sheet: model.levels[0]?.name } },
-          { key: 'A201 - Elevations', label: 'A201 - Elevations', icon: <Sheet {...I} />, open: { view: '3d' as const, req: { kind: 'elev' as const, face: 'front' as const }, sheet: 'South Elevation' } },
-          { key: 'A301 - Sections', label: 'A301 - Sections', icon: <Sheet {...I} />, open: { view: '3d' as const, req: { kind: 'section' as const, axis: 'y' as const, face: 'front' as const }, sheet: 'Section 1' } },
+          { key: 'A201 - Elevations', label: 'A201 - Elevations', icon: <Sheet {...I} />, open: { view: 'drawing' as const, drawing: { kind: 'elev' as const, face: 'front' as const, title: 'South Elevation' }, sheet: 'South Elevation' } },
+          { key: 'A301 - Sections', label: 'A301 - Sections', icon: <Sheet {...I} />, open: { view: 'drawing' as const, drawing: { kind: 'section' as const, axis: 'y' as const, face: 'front' as const, title: 'Section 1' }, sheet: 'Section 1' } },
         ],
       },
     ],
@@ -94,7 +95,7 @@ export function ProjectBrowser() {
 
   const activate = (n: Node) => {
     if (!n.open) return
-    set({ browserSel: n.key, view: n.open.view, ...(n.open.level ? { level: n.open.level } : {}), ...(n.open.cat ? { scheduleCat: n.open.cat } : {}) })
+    set({ browserSel: n.key, view: n.open.view, ...(n.open.level ? { level: n.open.level } : {}), ...(n.open.cat ? { scheduleCat: n.open.cat } : {}), ...(n.open.drawing ? { drawing: n.open.drawing } : {}) })
     if (n.open.req) requestView(n.open.req)
     if (n.open.sheet) toast(fmt(T.bim.toast.sheetView, { sheet: n.label, view: n.open.sheet }))
   }

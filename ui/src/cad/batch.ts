@@ -102,7 +102,7 @@ export async function runBatch(
           } else outs.push({ name: `${base}.pdf`, error: 'desktop-only' })
         } else if (o === 'dwg') {
           if (host && dir) {
-            let d = await host.dwgWriteDxfTo(toDxf2000(doc), dir, `${base}.dwg`)
+            let d = await host.dwgWriteDxfTo(toDxf2000(doc, { leftText: true }), dir, `${base}.dwg`)
             if (d.error === 'no-writer') d = await host.dwgWriteTo(toDwgAdd(doc).script, dir, `${base}.dwg`)
             outs.push(written(`${base}.dwg`, d))
           } else outs.push({ name: `${base}.dwg`, error: 'desktop-only' })

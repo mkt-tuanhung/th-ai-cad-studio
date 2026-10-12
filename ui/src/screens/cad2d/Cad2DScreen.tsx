@@ -71,7 +71,7 @@ export function Cad2DScreen() {
     const host = await getHost()
     if (!host) return toast(T.cad.toast.dwgDesktop, 'info')
     // with layouts: DXF 2000 → LibreDWG dxf2dwg; an older helper set without dxf2dwg: model only via dwgadd
-    let r = await host.dwgWriteDxf(toDxf2000(doc), `${baseName()}.dwg`)
+    let r = await host.dwgWriteDxf(toDxf2000(doc, { leftText: true }), `${baseName()}.dwg`)
     if (r.error === 'no-writer') r = await host.dwgWrite(toDwgAdd(doc).script, `${baseName()}.dwg`)
     if (r.cancelled) return
     if (!r.ok) return toast(fmt(T.cad.toast.dwgSaveFailed, { why: r.error === 'no-writer' ? 'LibreDWG dxf2dwg / dwgadd not found' : r.error ?? '' }), 'warning')

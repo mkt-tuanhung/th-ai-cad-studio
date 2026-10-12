@@ -72,6 +72,14 @@ await step('Check Model re-runs deterministic checks', async () => {
   assert.ok((await bim()).checkedAt > 0)
 })
 
+await step('Elevations / sections open the 2D drawing view; in a browser it explains the kernel draws them in the desktop app', async () => {
+  await page.getByRole('button', { name: 'South Elevation', exact: true }).click()
+  assert.ok(await page.getByTestId('bim-drawing').isVisible())
+  assert.ok(await page.getByText(/drawn by the OCCT kernel \(hidden-line removal\) in the desktop app/).isVisible())
+  assert.equal((await bim()).view, 'drawing')
+  await page.getByRole('tab', { name: '3D', exact: true }).click()
+})
+
 await step('Coordination settings: a check can be turned off (shows “Off”) and back on; auto-check after edits', async () => {
   await page.getByRole('button', { name: 'Coordination settings' }).click()
   await page.getByRole('menuitemcheckbox', { name: 'Clash Detection' }).click()
