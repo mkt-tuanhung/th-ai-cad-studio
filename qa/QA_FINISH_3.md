@@ -32,6 +32,10 @@ Build: macOS arm64 (M1 Max). Bản Windows được build và chạy tự kiểm
   - Thời gian: 1,6 s.
   - Sai đúng 1 chữ ("bậu" → "bẩu"). Văn bản chỉ nằm trong ô để người dùng kiểm tra, không tự gửi.
 - `e2e_speechmodel.js` 4/4: thư mục mô hình trống → Tải → 14 s → sha256 khớp → sẵn sàng.
+- Lần chạy đầu của một bản `whisper-cli` mới phải biên dịch shader Metal, mất khoảng 30 s hoặc hơn.
+  - App "làm nóng" Whisper ngay khi bắt đầu thu âm. Lệnh nhận dạng thật xếp hàng chờ lượt làm nóng, nên không có hai tiến trình tranh GPU.
+  - Kiểm bằng DMG mới, ngay lần chạy đầu: `e2e_voice` 3/3.
+- macOS (hardened runtime): đã thêm entitlement `com.apple.security.device.audio-input`. Thiếu nó thì micro thật bị chặn âm thầm; micro giả trong kiểm thử không lộ ra lỗi này. Đã kiểm bằng `codesign -d --entitlements`.
 
 ## 1b. Ảnh quét → vector (Scan to CAD) — chạy offline
 
