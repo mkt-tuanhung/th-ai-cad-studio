@@ -82,3 +82,20 @@ export const revolve = (o: V3, z: V3, profile: [number, number][], x?: V3): Prim
 
 /** Extruded polygon (local XY) of height h. */
 export const prism = (o: V3, pts: [number, number][], h: number): Prim => ({ k: 'prism', o, s: [h, 0, 0], pts })
+
+/**
+ * Exploded view: every part of the matching items moves away from its item's centre by `factor` × its
+ * offset (cabinets open up panel by panel) and the items lift by `lift` mm. Other items stay put.
+ */
+export function explodeScene(scene: Scene, match: (item: SceneItem) => boolean, factor = 0.6, lift = 600): Scene {
+  return {
+    ...scene,
+    volumes: false,
+    items: scene.items.map((it) => {
+      if (!match(it) || !it.parts.length) return it
+      const c = it.parts.reduce<V3>((a, p) => [a[0] + p.o[0] / it.parts.length, a[1] + p.o[1] / it.parts.length, a[2] + p.o[2] / it.parts.length], [0, 0, 0])
+      const move = (p: Prim): Prim => ({ ...p, o: [p.o[0] + (p.o[0] - c[0]) * factor, p.o[1] + (p.o[1] - c[1]) * factor, p.o[2] + (p.o[2] - c[2]) * factor + lift] })
+      return { ...it, parts: it.parts.map(move), cuts: it.cuts?.map(move) }
+    }),
+  }
+}

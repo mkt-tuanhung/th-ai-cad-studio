@@ -19,7 +19,7 @@ export const mechEn = {
   },
   viewer: {
     label: 'Mechanical 3D view', demo: 'DEMO render · the OCCT 3D kernel runs in the desktop app', demoRealistic: 'DEMO render (Realistic) · switch to Shaded for the live OCCT model',
-    orbit: 'Orbit', pan: 'Pan', zoom: 'Zoom', fit: 'Zoom to fit', snapshot: 'Snapshot', remove: 'Delete', isolate: 'Isolate', settings: 'View settings',
+    orbit: 'Orbit', pan: 'Pan', zoom: 'Zoom', fit: 'Zoom to fit', snapshot: 'Snapshot', remove: 'Remove from view', isolate: 'Isolate', settings: 'View settings',
     cube: { top: 'TOP', front: 'FRONT', right: 'RIGHT' },
     modes: { shaded: 'Shaded', wireframe: 'Wireframe', hidden: 'Hidden Line', realistic: 'Realistic' }, modeLabel: 'Display mode',
   },
@@ -96,7 +96,7 @@ export const mechVi: typeof mechEn = {
   },
   viewer: {
     label: 'Khung nhìn 3D cơ khí', demo: 'Ảnh DEMO · kernel 3D OCCT chạy trong app desktop', demoRealistic: 'Ảnh DEMO (Chân thực) · chọn Tô bóng để xem mô hình OCCT thật',
-    orbit: 'Xoay', pan: 'Kéo', zoom: 'Thu phóng', fit: 'Vừa khung', snapshot: 'Chụp ảnh', remove: 'Xoá', isolate: 'Tách riêng', settings: 'Thiết lập khung nhìn',
+    orbit: 'Xoay', pan: 'Kéo', zoom: 'Thu phóng', fit: 'Vừa khung', snapshot: 'Chụp ảnh', remove: 'Bỏ khỏi khung nhìn', isolate: 'Tách riêng', settings: 'Thiết lập khung nhìn',
     cube: { top: 'TRÊN', front: 'TRƯỚC', right: 'PHẢI' },
     modes: { shaded: 'Tô bóng', wireframe: 'Khung dây', hidden: 'Nét khuất', realistic: 'Chân thực' }, modeLabel: 'Chế độ hiển thị',
   },

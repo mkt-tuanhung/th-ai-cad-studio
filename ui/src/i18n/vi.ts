@@ -1015,4 +1015,9 @@ export const vi: Messages = {
     invalid: 'Không áp dụng được câu trả lời: {why}', meta: '{model} · {s} s{retry}', retry: ' · đã chạy lại theo grammar', raw: 'Đầu ra của model', open: 'Hỏi AI cục bộ…',
     examples: { mep: 'đổi ống gió SA-01 tầng 2 thành 700 × 400', interior: 'đổi sofa sang vải xanh ô liu', civil: 'sửa các đoạn dốc phẳng theo độ dốc tối thiểu', mechanical: 'đường kính trục 45 mm', bim: 'mở rộng cửa sổ WN1 thành 2400' },
   },
+  view3d: {
+    hidden: 'Đang ẩn {n}', isolated: 'Đang cô lập — hiện {n}', showAll: 'Hiện tất cả', section: 'Hộp cắt', sectionOff: 'Bỏ hộp cắt',
+    pan: 'Di chuyển — kéo để dời khung nhìn', zoomRegion: 'Phóng vùng — kéo một hình chữ nhật', walk: 'Đi bộ — W A S D / phím mũi tên để đi, kéo để nhìn, cuộn để tiến / lùi', done: 'Xong (Esc)',
+    snapshot: 'Đã lưu ảnh chụp — {file} ({w} × {h} px)', snapshotFailed: 'Chụp ảnh thất bại: {why}', selectFirst: 'Hãy chọn một đối tượng trước', hiddenOne: 'Đã ẩn {name} — bấm Hiện tất cả để hiện lại',
+  },
 }

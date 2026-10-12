@@ -1,6 +1,11 @@
 #include "main_window.hpp"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QFileDialog>
+#include <QStandardPaths>
+#include <QWebEngineDownloadRequest>
 #include <QTimer>
 #include <QWebChannel>
 #include <QWebEnginePage>
@@ -79,6 +84,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   auto* profile = new QWebEngineProfile(QStringLiteral("thcad"), this);  // persistent: localStorage survives restarts
   profile->installUrlSchemeHandler("thcad", new UiSchemeHandler(UiSchemeHandler::locateUi(), profile));
   auto* page = new LoggingPage(profile, this);
+  // Browser-style downloads (CSV, G-code, ZIP, PNG…): a save dialog, like a browser asking where to save.
+  // THCAD_DOWNLOAD_DIR (QA) saves without asking.
+  connect(profile, &QWebEngineProfile::downloadRequested, this, [this](QWebEngineDownloadRequest* d) {
+    const QString qaDir = qEnvironmentVariable("THCAD_DOWNLOAD_DIR");
+    QString path;
+    if (!qaDir.isEmpty()) path = QDir(qaDir).filePath(d->suggestedFileName());
+    else {
+      const QString start = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/" + d->suggestedFileName();
+      path = QFileDialog::getSaveFileName(this, tr("Save file"), start);
+    }
+    if (path.isEmpty()) return d->cancel();
+    const QFileInfo fi(path);
+    d->setDownloadDirectory(fi.absolutePath());
+    d->setDownloadFileName(fi.fileName());
+    connect(d, &QWebEngineDownloadRequest::isFinishedChanged, this, [d, path] {
+      if (d->isFinished()) qInfo().noquote() << "DOWNLOAD" << (d->state() == QWebEngineDownloadRequest::DownloadCompleted ? "saved" : "failed") << path << QFileInfo(path).size();
+    });
+    d->accept();
+  });
   page->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
   page->setBackgroundColor(QColor(0xf1, 0xf4, 0xf7));
 

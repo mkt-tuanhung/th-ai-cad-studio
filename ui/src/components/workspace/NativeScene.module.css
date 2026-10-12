@@ -28,3 +28,80 @@
   color: #4b5563;
   background: rgba(255, 255, 255, 0.8);
 }
+
+.pan,
+.pan:active {
+  cursor: move;
+}
+
+.region,
+.region:active,
+.walk,
+.walk:active {
+  cursor: crosshair;
+}
+
+.view:focus {
+  outline: none;
+}
+
+.rect {
+  position: absolute;
+  border: 1.5px dashed #0f766e;
+  background: rgba(15, 118, 110, 0.08);
+  pointer-events: none;
+}
+
+.hint {
+  position: absolute;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #fff;
+  background: rgba(17, 24, 39, 0.78);
+  white-space: nowrap;
+}
+
+.hint button,
+.chips button {
+  border: 0;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font: inherit;
+  cursor: pointer;
+  color: #0f766e;
+  background: #fff;
+}
+
+.chips {
+  position: absolute;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.chips span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 9px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: #111827;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.chips button {
+  color: #fff;
+  background: #0f766e;
+}

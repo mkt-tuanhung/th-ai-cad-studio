@@ -1,5 +1,5 @@
 import { Box, Camera, Expand, Focus, Hand, Home, Maximize2, Minimize2, RefreshCcw, ScanSearch, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useInterior, type InteriorMode } from '../../state/interior'
@@ -7,6 +7,8 @@ import { Modes, Select, ToolStrip, Viewport, wsStyles as w } from '../../compone
 import { NativeScene, type SceneCamera, type SceneLoad } from '../../components/workspace/NativeScene'
 import { useHost } from '../../services/host'
 import { interiorScene, interiorSceneId } from '../../interior/scene'
+import { explodeScene } from '../../engine3d/scene'
+import { useSceneTools } from '../../components/workspace/sceneTools'
 import s from './Interior.module.css'
 
 const MODES: { key: InteriorMode; w: number }[] = [
@@ -24,12 +26,36 @@ const MODES: { key: InteriorMode; w: number }[] = [
 export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax: () => void; onLoaded?: (r: SceneLoad) => void }) {
   const T = useT()
   const t = T.interior.viewer
-  const { mode, view, level, scale, sel, doc, edit, set } = useInterior()
+  const { mode, view, level, scale, sel, doc, edit, set, room } = useInterior()
   const native = (what: string) => toast(fmt(T.interior.toast.native, { what }))
   const host = useHost()
   const live = !!host && mode !== 'realistic'
   const cam = useRef<SceneCamera | null>(null)
-  const scene = useMemo(() => interiorScene(doc), [doc])
+  // the walkthrough needs walls to the ceiling; the other views cut them at plan-section height
+  const base = useMemo(() => interiorScene(doc, { fullWalls: view === 'walk' }), [doc, view])
+  // exploded: furniture lifts and cabinets open up panel by panel; rooms and walls stay
+  const scene = useMemo(() => (view === 'exploded' ? explodeScene(base, (i) => !i.id.startsWith('room:') && !i.id.startsWith('walls:')) : base), [base, view])
+  const tools = useSceneTools(`Villa Riverside - interior`)
+  const selId = interiorSceneId(doc, sel)
+  const liveOr = (fn: () => void, label: string) => () => (live && host ? fn() : native(label))
+  // walkthrough: eye 1.6 m above the floor in the current room, looking across it
+  const enterWalk = async () => {
+    const b = (await tools.ctl.current?.command({ cmd: 'bounds', ids: [`room:${room}`] }))?.bounds
+    if (!b) return
+    const [x0, y0, , x1, y1, z1] = b
+    tools.ctl.current?.command({ cmd: 'camera', eye: [x0 + (x1 - x0) * 0.15, y0 + (y1 - y0) * 0.15, z1 + 1600], at: [x1, y1, z1 + 1100], fov: 65 })
+  }
+  useEffect(() => {
+    if (!live) return
+    if (view === 'walk') {
+      tools.setTool('walk')
+      // the camera is set once the scene is up
+      const id = setTimeout(enterWalk, 50)
+      return () => clearTimeout(id)
+    }
+    if (tools.tool === 'walk') tools.setTool('orbit')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, live])
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
   const removeSel = () => {
     if (sel?.kind !== 'item') return native(t.remove)
@@ -55,6 +81,8 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
           mode={mode as 'shaded' | 'wireframe' | 'hidden'}
           selected={interiorSceneId(doc, sel)}
           cameraRef={cam}
+          {...tools.props}
+          onToolDone={() => (view === 'walk' ? (set({ view: 'perspective' }), cam.current?.('home')) : tools.setTool('orbit'))}
           label={t.label}
           onLoaded={onLoaded}
           onPick={(id) => {
@@ -64,10 +92,11 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
           }}
         />
       )}
+      {live && <tools.Chips />}
       <Select
         label={t.camera}
         value={view}
-        onChange={(v) => (v === 'perspective' ? set({ view: v }) : native(t.views[v as 'exploded' | 'walk']))}
+        onChange={(v) => (live ? (set({ view: v }), v === 'perspective' && cam.current?.('home')) : native(t.views[v as 'exploded' | 'walk']))}
         options={(['perspective', 'exploded', 'walk'] as const).map((v) => ({ value: v, label: t.views[v] }))}
         style={{ left: 15, top: 12, width: 146 }}
       />
@@ -75,18 +104,18 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
         style={{ left: 271, top: 10 }}
         items={[
           { label: t.orbit, icon: <RefreshCcw size={18} strokeWidth={1.7} />, onClick: camOr('home', t.orbit) },
-          { label: t.pan, icon: <Hand size={18} strokeWidth={1.7} />, onClick: () => native(t.pan) },
+          { label: t.pan, icon: <Hand size={18} strokeWidth={1.7} />, on: tools.tool === 'pan', onClick: liveOr(() => tools.toggleTool('pan'), t.pan) },
           { label: t.zoom, icon: <ZoomOut size={18} strokeWidth={1.7} />, onClick: camOr('zoom', t.zoom, 400, 300, -2) },
           { label: t.fit, icon: <Expand size={17} strokeWidth={1.7} />, onClick: camOr('fit', t.fit) },
-          { label: t.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: () => native(t.snapshot) },
+          { label: t.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: liveOr(tools.snapshot, t.snapshot) },
           { label: t.remove, icon: <Trash2 size={17} strokeWidth={1.7} />, onClick: removeSel },
-          { label: t.isolate, icon: <Focus size={17} strokeWidth={1.7} />, onClick: () => native(t.isolate) },
+          { label: t.isolate, icon: <Focus size={17} strokeWidth={1.7} />, on: tools.isolated, onClick: liveOr(() => tools.isolate(selId ? (sel?.kind === 'room' ? [selId, `walls:${sel.id}`] : [selId]) : []), t.isolate) },
         ]}
       />
       <section className={`${w.inset} ${s.inset}`}>
         <header className={w.insetHead}>
           <span>{t.inset}</span>
-          <button type="button" className={w.insetBtn} aria-label={t.openPlan} title={t.openPlan} onClick={() => native(t.openPlan)}>
+          <button type="button" className={w.insetBtn} aria-label={t.openPlan} title={t.openPlan} onClick={liveOr(() => (cam.current?.('top'), cam.current?.('fit')), t.openPlan)}>
             <Maximize2 size={13} strokeWidth={1.8} />
           </button>
         </header>
@@ -98,9 +127,9 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
         items={[
           { label: t.home, icon: <Home size={17} strokeWidth={1.6} />, onClick: () => (live && cam.current ? cam.current('home') : set({ mode: 'realistic' })) },
           { label: t.zoomIn, icon: <ZoomIn size={17} strokeWidth={1.6} />, onClick: camOr('zoom', t.zoomIn, 400, 300, 2) },
-          { label: t.zoomRegion, icon: <ScanSearch size={17} strokeWidth={1.6} />, onClick: () => native(t.zoomRegion) },
+          { label: t.zoomRegion, icon: <ScanSearch size={17} strokeWidth={1.6} />, on: tools.tool === 'zoomRegion', onClick: liveOr(() => tools.toggleTool('zoomRegion'), t.zoomRegion) },
           { label: t.zoomOut, icon: <ZoomOut size={17} strokeWidth={1.6} />, onClick: camOr('zoom', t.zoomOut, 400, 300, -2) },
-          { label: t.box, icon: <Box size={17} strokeWidth={1.6} />, onClick: () => native(t.box) },
+          { label: t.box, icon: <Box size={17} strokeWidth={1.6} />, on: tools.section.on, onClick: liveOr(() => tools.toggleSection(selId ? [selId] : []), t.box) },
         ]}
       />
       <Modes label={t.modeLabel} style={{ left: 6, bottom: 6 }} value={mode} onChange={(m) => set({ mode: m })} items={MODES.map((m) => ({ ...m, label: t.modes[m.key] }))} />

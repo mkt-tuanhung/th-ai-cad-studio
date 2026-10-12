@@ -1007,6 +1007,11 @@ export const en = {
     invalid: 'The reply could not be applied: {why}', meta: '{model} · {s} s{retry}', retry: ' · retried under the grammar', raw: 'Model output', open: 'Ask the local AI…',
     examples: { mep: 'resize SA-01 on level 2 to 700 × 400', interior: 'make the sofa olive fabric', civil: 'fix the flat segments with the minimum slope', mechanical: 'shaft diameter 45 mm', bim: 'make window WN1 2400 wide' },
   },
+  view3d: {
+    hidden: '{n} hidden', isolated: 'Isolated — {n} shown', showAll: 'Show all', section: 'Section box', sectionOff: 'Remove section box',
+    pan: 'Pan — drag to move the view', zoomRegion: 'Zoom region — drag a rectangle', walk: 'Walk — W A S D / arrows move, drag to look, wheel forward / back', done: 'Done (Esc)',
+    snapshot: 'Snapshot saved — {file} ({w} × {h} px)', snapshotFailed: 'Snapshot failed: {why}', selectFirst: 'Select an element first', hiddenOne: '{name} hidden — Show all brings it back',
+  },
 }
 
 type Widen<T> = T extends string

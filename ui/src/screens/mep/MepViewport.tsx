@@ -7,6 +7,7 @@ import { LEVELS, type Clash, type LevelId } from '../../mep/model'
 import { clashIds, mepScene, type MepView } from '../../mep/scene'
 import { NativeScene, type SceneCamera } from '../../components/workspace/NativeScene'
 import { useHost } from '../../services/host'
+import { useSceneTools } from '../../components/workspace/sceneTools'
 import { Modes, Select, ToolStrip, ViewCube, Viewport, wsStyles as w } from '../../components/workspace/Workspace'
 
 const MODES: { key: MepMode; w: number }[] = [
@@ -36,6 +37,9 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
     if (nativeOverlaps?.level === level) for (const p of nativeOverlaps.pairs) ids.add(p.a).add(p.b)
     return [...ids]
   }, [clashes, level, nativeOverlaps])
+  const tools = useSceneTools(`Villa Riverside - MEP L${level.slice(1)}`)
+  const selId = sel && (sel.kind === 'duct' || sel.kind === 'pipe') ? sel.id : ''
+  const liveOr = (fn: () => void, label: string) => () => (live && host ? fn() : native(label))
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
   const lv = (id: LevelId) => fmt(t.levelName, { n: id.slice(1) })
   return (
@@ -52,9 +56,10 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
           sceneKey="mep"
           scene={scene}
           mode={mode as 'shaded' | 'wireframe' | 'hidden'}
-          selected={sel && (sel.kind === 'duct' || sel.kind === 'pipe') ? sel.id : ''}
+          selected={selId}
           highlighted={hi}
           cameraRef={cam}
+          {...tools.props}
           label={t.label}
           onLoaded={async () => {
             // exact clash check of everything drawn; beam–beam joints at the grid are structure, not clashes
@@ -67,6 +72,7 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
           }}
         />
       )}
+      {live && <tools.Chips />}
       <Select
         label={t.camera}
         value={view}
@@ -78,12 +84,12 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
         style={{ left: 272, top: 9 }}
         items={[
           { label: t.orbit, icon: <RefreshCcw size={18} strokeWidth={1.7} />, onClick: camOr('home', t.orbit) },
-          { label: t.pan, icon: <Hand size={18} strokeWidth={1.7} />, onClick: () => native(t.pan) },
+          { label: t.pan, icon: <Hand size={18} strokeWidth={1.7} />, on: tools.tool === 'pan', onClick: liveOr(() => tools.toggleTool('pan'), t.pan) },
           { label: t.zoom, icon: <ZoomOut size={18} strokeWidth={1.7} />, onClick: camOr('zoom', t.zoom, 400, 300, -2) },
           { label: t.fit, icon: <Expand size={17} strokeWidth={1.7} />, onClick: camOr('fit', t.fit) },
-          { label: t.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: () => native(t.snapshot) },
-          { label: t.hide, icon: <EyeOff size={17} strokeWidth={1.7} />, onClick: () => native(t.hide) },
-          { label: t.isolate, icon: <Focus size={17} strokeWidth={1.7} />, onClick: () => native(t.isolate) },
+          { label: t.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: liveOr(tools.snapshot, t.snapshot) },
+          { label: t.hide, icon: <EyeOff size={17} strokeWidth={1.7} />, onClick: liveOr(() => (tools.hide(selId || undefined), selId && set({ sel: null })), t.hide) },
+          { label: t.isolate, icon: <Focus size={17} strokeWidth={1.7} />, on: tools.isolated, onClick: liveOr(() => tools.isolate(selId ? [selId] : hi), t.isolate) },
         ]}
       />
       <ViewCube style={{ right: 12, top: 18 }} labels={t.cube} onFace={(f) => (live && cam.current ? cam.current(f) : native(`${t.cube[f]} view`))} />
@@ -93,9 +99,9 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
         items={[
           { label: t.home, icon: <Home size={17} strokeWidth={1.6} />, onClick: () => (live && cam.current ? cam.current('home') : set({ mode: 'realistic' })) },
           { label: t.zoomIn, icon: <ZoomIn size={17} strokeWidth={1.6} />, onClick: camOr('zoom', t.zoomIn, 400, 300, 2) },
-          { label: t.zoomRegion, icon: <ScanSearch size={17} strokeWidth={1.6} />, onClick: () => native(t.zoomRegion) },
+          { label: t.zoomRegion, icon: <ScanSearch size={17} strokeWidth={1.6} />, on: tools.tool === 'zoomRegion', onClick: liveOr(() => tools.toggleTool('zoomRegion'), t.zoomRegion) },
           { label: t.zoomOut, icon: <ZoomOut size={17} strokeWidth={1.6} />, onClick: camOr('zoom', t.zoomOut, 400, 300, -2) },
-          { label: t.box, icon: <Box size={17} strokeWidth={1.6} />, onClick: () => native(t.box) },
+          { label: t.box, icon: <Box size={17} strokeWidth={1.6} />, on: tools.section.on, onClick: liveOr(() => tools.toggleSection(selId ? [selId] : hi), t.box) },
         ]}
       />
       <Modes label={t.modeLabel} style={{ left: 7, bottom: 11 }} value={mode} onChange={(m) => set({ mode: m })} items={MODES.map((m) => ({ ...m, label: t.modes[m.key] }))} />

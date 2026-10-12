@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { getHost, type HostApi } from '../../services/host'
-import { NativeModelView, nativeCamera } from './NativeModelView'
+import { NativeScene, type SceneCamera } from '../../components/workspace/NativeScene'
+import { useSceneTools } from '../../components/workspace/sceneTools'
 import { useNativeSlot } from '../../lib/useNativeSlot'
 import { Box, Camera, ChevronDown, Expand, EyeOff, Focus, Hand, Home, Maximize2, Minimize2, RefreshCcw, ScanSearch, ZoomIn, ZoomOut } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
@@ -21,7 +22,7 @@ export const SCALES = ['1 : 50', '1 : 100', '1 : 200']
 export function Viewer3D() {
   const T = useT()
   const t = T.bim.viewer
-  const { display, set, level, scale, model, maximized } = useBim()
+  const { display, set, level, scale, model, maximized, selection } = useBim()
   const native = (what: string) => toast(fmt(T.bim.toast.native, { what }))
   const lvl = model.levels.find((l) => l.id === level)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -32,9 +33,23 @@ export function Viewer3D() {
     getHost().then(setHost)
   }, [])
   const live = !!host && display !== 'realistic'
-  const cam = (action: string, a = 0, b = 0, c = 0) => (live && nativeCamera.current ? (nativeCamera.current(action, a, b, c), true) : false)
-  const tool = (label: string, icon: ReactNode, onClick?: () => void) => (
-    <button type="button" className={s.tbtn} aria-label={label} title={label} onClick={onClick ?? (() => native(label))}>
+  const camRef = useRef<SceneCamera | null>(null)
+  const cam = (action: string, a = 0, b = 0, c = 0) => (live && camRef.current ? (camRef.current(action, a, b, c), true) : false)
+  const tools = useSceneTools('Villa Riverside - BIM')
+  // "3D - Section view" cuts the building 1.5 m above the current level (a dollhouse of that floor); "Exterior" shows it whole
+  const [view3d, setView3d] = useState<'section' | 'exterior'>('section')
+  const cutAt = (lvl?.elevation ?? 0) + 1500
+  const boxOn = tools.section.on && tools.section.top === undefined
+  const viewSection = (v: 'section' | 'exterior') => tools.setSection(v === 'section' ? { on: true, around: [], top: cutAt } : { on: false, around: [] })
+  useEffect(() => {
+    if (!boxOn) viewSection(view3d)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view3d, cutAt])
+  const selId = selection?.category === 'wall' ? selection.id : selection && (selection.category === 'door' || selection.category === 'window') ? `glass:${selection.id}` : ''
+  const liveOr = (fn: () => void, label: string) => () => (live ? fn() : native(label))
+  const modelJson = JSON.stringify(model)
+  const tool = (label: string, icon: ReactNode, onClick?: () => void, on?: boolean) => (
+    <button type="button" className={`${s.tbtn} ${on ? s.tbtnOn : ''}`} aria-label={label} title={label} aria-pressed={on} onClick={onClick ?? (() => native(label))}>
       {icon}
     </button>
   )
@@ -61,28 +76,43 @@ export function Viewer3D() {
         </filter>
       </svg>
       {live ? (
-        <NativeModelView host={host!} mode={display as 'shaded' | 'wireframe' | 'hidden'} />
+        <NativeScene
+          host={host!}
+          sceneKey="bim"
+          loader={{ loadKey: modelJson, run: () => host!.scene3dLoadBim('bim', modelJson) }}
+          mode={display as 'shaded' | 'wireframe' | 'hidden'}
+          selected={selection?.category === 'wall' ? selection.id : ''}
+          cameraRef={camRef}
+          {...tools.props}
+          label="Villa Riverside — live OCCT model"
+          onPick={(id) => {
+            if (model.walls.some((w) => w.id === id)) return set({ selection: { category: 'wall', id } })
+            const o = id.startsWith('glass:') ? [...model.doors, ...model.windows].find((x) => x.id === id.slice(6)) : undefined
+            if (o) set({ selection: { category: o.category, id: o.id } })
+          }}
+        />
       ) : (
         <img className={s.render} src="/assets/bim_main_3d_model.png" alt="Villa Riverside — 3D section view" draggable={false} />
       )}
 
+      {live && <tools.Chips />}
       <label className={s.viewSelect}>
-        <span>{t.sectionView}</span>
+        <span>{view3d === 'section' ? t.sectionView : '3D - Exterior'}</span>
         <ChevronDown size={15} strokeWidth={1.8} />
-        <select aria-label={t.sectionView} value="section" onChange={() => native('3D view')}>
+        <select aria-label={t.sectionView} value={view3d} onChange={(e) => (live ? setView3d(e.target.value as 'section' | 'exterior') : native('3D view'))}>
           <option value="section">{t.sectionView}</option>
           <option value="exterior">3D - Exterior</option>
         </select>
       </label>
 
       <div className={s.toolbar} role="toolbar">
-        {tool(t.orbit, <RefreshCcw size={18} strokeWidth={1.7} />)}
-        {tool(t.pan, <Hand size={18} strokeWidth={1.7} />)}
-        {tool(t.zoom, <ZoomOut size={18} strokeWidth={1.7} />)}
+        {tool(t.orbit, <RefreshCcw size={18} strokeWidth={1.7} />, () => cam('home') || native(t.orbit))}
+        {tool(t.pan, <Hand size={18} strokeWidth={1.7} />, liveOr(() => tools.toggleTool('pan'), t.pan), tools.tool === 'pan')}
+        {tool(t.zoom, <ZoomOut size={18} strokeWidth={1.7} />, () => cam('zoom', 370, 265, -2) || native(t.zoom))}
         {tool(t.fit, <Expand size={17} strokeWidth={1.7} />, () => cam('fit') || native(t.fit))}
-        {tool(t.snapshot, <Camera size={17} strokeWidth={1.7} />)}
-        {tool(t.hide, <EyeOff size={17} strokeWidth={1.7} />)}
-        {tool(t.isolate, <Focus size={17} strokeWidth={1.7} />)}
+        {tool(t.snapshot, <Camera size={17} strokeWidth={1.7} />, liveOr(tools.snapshot, t.snapshot))}
+        {tool(t.hide, <EyeOff size={17} strokeWidth={1.7} />, liveOr(() => tools.hide(selId || undefined, selection?.id), t.hide))}
+        {tool(t.isolate, <Focus size={17} strokeWidth={1.7} />, liveOr(() => tools.isolate(selId ? [selId] : []), t.isolate), tools.isolated)}
       </div>
 
       <section className={s.plan}>
@@ -108,9 +138,9 @@ export function Viewer3D() {
       <div className={s.nav}>
         {tool(t.home, <Home size={17} strokeWidth={1.6} />, () => cam('home') || set({ display: 'realistic' }))}
         {tool(t.zoomIn, <ZoomIn size={17} strokeWidth={1.6} />, () => cam('zoom', 370, 265, 2) || native(t.zoomIn))}
-        {tool(t.zoomRegion, <ScanSearch size={17} strokeWidth={1.6} />)}
+        {tool(t.zoomRegion, <ScanSearch size={17} strokeWidth={1.6} />, liveOr(() => tools.toggleTool('zoomRegion'), t.zoomRegion), tools.tool === 'zoomRegion')}
         {tool(t.zoomOut, <ZoomOut size={17} strokeWidth={1.6} />, () => cam('zoom', 370, 265, -2) || native(t.zoomOut))}
-        {tool(t.box, <Box size={17} strokeWidth={1.6} />)}
+        {tool(t.box, <Box size={17} strokeWidth={1.6} />, liveOr(() => (boxOn ? viewSection(view3d) : tools.setSection({ on: true, around: selId ? [selId] : [] })), t.box), boxOn)}
       </div>
 
       <div className={s.modes} role="radiogroup" aria-label="Display mode">

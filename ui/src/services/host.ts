@@ -40,6 +40,8 @@ export interface HostApi {
   scene3dFrame(key: string, w: number, h: number, mode: string, selected: string, highlightedCsv: string): Promise<{ ok: boolean; url?: string; ms?: number }>
   scene3dCamera(key: string, action: string, a: number, b: number, c: number): Promise<void>
   scene3dPick(key: string, x: number, y: number): Promise<string>
+  scene3dLoadBim(key: string, modelJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
+  scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
   scene3dOverlaps(key: string): Promise<{ a: string; b: string; m3: number }[]>
   renderStart(jobJson: string): Promise<{ ok: boolean; error?: string; w?: number; h?: number; samples?: number }>

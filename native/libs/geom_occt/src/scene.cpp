@@ -4,6 +4,8 @@
 #include <AIS_InteractiveContext.hxx>
 #include <AIS_Shape.hxx>
 #include <Graphic3d_BSDF.hxx>
+#include <Graphic3d_ClipPlane.hxx>
+#include <gp_Pln.hxx>
 #include <Graphic3d_CubeMapPacked.hxx>
 #include <Graphic3d_Vec3.hxx>
 #include <Graphic3d_Vec4.hxx>
@@ -279,6 +281,7 @@ struct SceneView::Impl {
   int w = 0, h = 0;
   double ms = 0, buildMs = 0;
   bool ok = false, fitted = false;
+  std::vector<Handle(Graphic3d_ClipPlane)> clips;
   // final render state
   Handle(Standard_Transient) fbo;
   RenderParams rp;
@@ -363,6 +366,7 @@ int SceneView::addBuilding(const bim::Model& m, bool ground) {
     e.item.id = id;
     e.item.rgb = rgb;
     e.item.mat = mat;
+    if (std::string(mat) == "glass") e.item.transparency = 0.6;
     e.shape = s;
     e.ais = new AIS_Shape(s);
     d->ctx->Display(e.ais, AIS_Shaded, -1, false);
@@ -423,15 +427,67 @@ void SceneView::setHighlighted(const std::vector<std::string>& ids) {
   d->highlighted = std::set<std::string>(ids.begin(), ids.end());
   d->applyStyle();
 }
-void SceneView::orbit(int x0, int y0, int x1, int y1, bool start) {
-  if (start) d->view->StartRotation(x0, y0);
-  d->view->Rotation(x1, y1);
+// Camera moves are computed on the camera itself: the offscreen GL window is a fixed 64 × 64 stub (frames
+// render into FBOs of any size), so V3d's pixel-based Rotation / Pan / ZoomAtPoint / WindowFit would read
+// device pixels against the wrong window size.
+namespace {
+/** World vector of a screen offset (device px, y down) at the camera's target depth. */
+gp_Vec screenVec(const Handle(Graphic3d_Camera)& cam, double dx, double dy, int w, int h) {
+  const gp_XYZ dim = cam->ViewDimensions();
+  const gp_Dir up = cam->OrthogonalizedUp();
+  const gp_Dir right = cam->Direction().Crossed(up);
+  return gp_Vec(right) * (dx / std::max(1, w) * dim.X()) + gp_Vec(up) * (-dy / std::max(1, h) * dim.Y());
 }
-void SceneView::pan(int dx, int dy) { d->view->Pan(dx, -dy, 1.0, false); }
+void shift(const Handle(Graphic3d_Camera)& cam, const gp_Vec& v) { cam->SetEyeAndCenter(cam->Eye().Translated(v), cam->Center().Translated(v)); }
+}  // namespace
+
+void SceneView::orbit(int x0, int y0, int x1, int y1, bool start) {
+  static thread_local int lx = 0, ly = 0;
+  if (start) {
+    lx = x0, ly = y0;
+    return;
+  }
+  const double dx = x1 - lx, dy = y1 - ly;
+  lx = x1, ly = y1;
+  // turntable about world Z through the target, then tilt about the screen's horizontal axis
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  const gp_Pnt c = cam->Center();
+  const double k = 0.3 * M_PI / 180;  // per device pixel
+  gp_Trsf yaw, pitch;
+  yaw.SetRotation(gp_Ax1(c, gp::DZ()), -dx * k);
+  gp_Vec eye(c, cam->Eye());
+  gp_Dir up = cam->OrthogonalizedUp();
+  eye.Transform(yaw);
+  up.Transform(yaw);
+  const gp_Dir right = gp_Dir(gp_Vec(eye).Reversed().Crossed(gp_Vec(up)));
+  pitch.SetRotation(gp_Ax1(c, right), -dy * k);
+  gp_Vec eye2 = eye.Transformed(pitch);
+  gp_Dir up2 = up.Transformed(pitch);
+  if (up2.Z() < 0.02 && std::abs(eye2.Normalized().Z()) > 0.98) eye2 = eye, up2 = up;  // stop at the poles
+  cam->SetEye(c.Translated(eye2));
+  cam->SetUp(up2);
+  d->view->AutoZFit();
+}
+void SceneView::pan(int dx, int dy) {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  shift(cam, screenVec(cam, -dx, -dy, d->w, d->h));
+  d->view->AutoZFit();
+}
 void SceneView::zoom(int x, int y, double delta) {
-  d->view->StartZoomAtPoint(x, y);
-  const int k = static_cast<int>(std::lround(delta * 40));
-  d->view->ZoomAtPoint(x, y, x + k, y + k);
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  const double f = std::pow(0.85, delta);  // < 1 = closer
+  // keep the point under the cursor where it is
+  const gp_Vec s = screenVec(cam, x - d->w / 2.0, y - d->h / 2.0, d->w, d->h);
+  shift(cam, s * (1 - f));
+  cam->SetScale(cam->Scale() * f);
+  d->view->AutoZFit();
+}
+void SceneView::windowFit(int x0, int y0, int x1, int y1) {
+  if (std::abs(x1 - x0) < 4 || std::abs(y1 - y0) < 4 || d->w <= 0 || d->h <= 0) return;
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  shift(cam, screenVec(cam, (x0 + x1) / 2.0 - d->w / 2.0, (y0 + y1) / 2.0 - d->h / 2.0, d->w, d->h));
+  cam->SetScale(cam->Scale() * std::max(std::abs(x1 - x0) / double(d->w), std::abs(y1 - y0) / double(d->h)));
+  d->view->AutoZFit();
 }
 void SceneView::fit() { d->view->FitAll(0.06, false); }
 void SceneView::preset(const std::string& p) {
@@ -440,6 +496,92 @@ void SceneView::preset(const std::string& p) {
   if (p == "top") d->view->SetUp(0, 1, 0);
   else d->view->SetUp(0, 0, 1);
   fit();
+}
+
+void SceneView::setHidden(const std::vector<std::string>& ids, const std::vector<std::string>& keepOnly) {
+  const std::set<std::string> hide(ids.begin(), ids.end()), keep(keepOnly.begin(), keepOnly.end());
+  for (auto& [id, e] : d->items) {
+    if (hide.count(id) || (!keep.empty() && !keep.count(id))) d->ctx->Erase(e.ais, false);
+    else if (!d->ctx->IsDisplayed(e.ais)) d->ctx->Display(e.ais, false);
+  }
+  d->applyStyle();
+}
+
+int SceneView::visibleCount() const {
+  int n = 0;
+  for (const auto& [id, e] : d->items) n += d->ctx->IsDisplayed(e.ais) ? 1 : 0;
+  return n;
+}
+
+std::array<double, 6> SceneView::bounds(const std::vector<std::string>& ids) const {
+  Bnd_Box b;
+  for (const auto& [id, e] : d->items)
+    if (ids.empty() || std::find(ids.begin(), ids.end(), id) != ids.end()) BRepBndLib::Add(e.shape, b);
+  if (b.IsVoid()) return {0, 0, 0, 0, 0, 0};
+  double x0, y0, z0, x1, y1, z1;
+  b.Get(x0, y0, z0, x1, y1, z1);
+  return {x0, y0, z0, x1, y1, z1};
+}
+
+void SceneView::setSectionBox(bool on, const std::vector<std::string>& around, double topZ) {
+  for (const Handle(Graphic3d_ClipPlane)& p : d->clips) d->view->RemoveClipPlane(p);
+  d->clips.clear();
+  if (on) {
+    auto b = bounds(around);
+    if (around.empty()) {
+      // whole model: cut away everything above topZ (mid-height by default); a hair of margin elsewhere
+      b[5] = std::isnan(topZ) ? b[2] + (b[5] - b[2]) * 0.5 : topZ;
+      b = {b[0] - 1, b[1] - 1, b[2] - 1, b[3] + 1, b[4] + 1, b[5]};
+    }
+    else {
+      const double m = 0.15 * std::max({b[3] - b[0], b[4] - b[1], b[5] - b[2]});
+      b = {b[0] - m, b[1] - m, b[2] - m, b[3] + m, b[4] + m, b[5] + m};
+    }
+    // planes keep the inside of the box: n · p + d >= 0
+    const double eq[6][4] = {{1, 0, 0, -b[0]}, {-1, 0, 0, b[3]}, {0, 1, 0, -b[1]}, {0, -1, 0, b[4]}, {0, 0, 1, -b[2]}, {0, 0, -1, b[5]}};
+    for (const auto& q : eq) {
+      Handle(Graphic3d_ClipPlane) p = new Graphic3d_ClipPlane(gp_Pln(q[0], q[1], q[2], q[3]));
+      p->SetCapping(true);
+      p->SetCappingColor(Quantity_Color(0.55, 0.57, 0.6, Quantity_TOC_RGB));
+      d->view->AddClipPlane(p);
+      d->clips.push_back(p);
+    }
+  }
+  d->view->Update();
+}
+
+
+void SceneView::setCamera(const std::array<double, 3>& eye, const std::array<double, 3>& at, double fovDeg) {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective);
+  cam->SetEye(gp_Pnt(eye[0], eye[1], eye[2]));
+  cam->SetCenter(gp_Pnt(at[0], at[1], at[2]));
+  cam->SetUp(gp::DZ());
+  cam->SetFOVy(fovDeg);
+  d->fitted = true;
+  d->view->AutoZFit();
+}
+
+void SceneView::walk(double forward, double right, double yawDeg, double pitchDeg) {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  if (cam->ProjectionType() != Graphic3d_Camera::Projection_Perspective) cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective);
+  gp_Pnt eye = cam->Eye();
+  gp_Dir dir = cam->Direction();
+  // yaw about Z, pitch about the horizontal right axis
+  const double yaw = yawDeg * M_PI / 180, pitch = pitchDeg * M_PI / 180;
+  gp_Vec v(dir);
+  v.Rotate(gp_Ax1(gp::Origin(), gp::DZ()), yaw);
+  const gp_Dir rightDir = gp_Dir(gp_Vec(v).Crossed(gp_Vec(gp::DZ())));
+  v.Rotate(gp_Ax1(gp::Origin(), rightDir), pitch);
+  const double z = std::clamp(v.Z(), -0.95, 0.95);
+  v.SetZ(z);
+  const gp_Dir nd(v);
+  const gp_Dir horiz(nd.X(), nd.Y(), 0);
+  eye.Translate(gp_Vec(horiz) * forward + gp_Vec(rightDir) * right);
+  cam->SetEye(eye);
+  cam->SetCenter(eye.Translated(gp_Vec(nd) * 1000));
+  cam->SetUp(gp::DZ());
+  d->view->AutoZFit();
 }
 
 std::vector<unsigned char> SceneView::renderRgba(int w, int h) {
@@ -474,15 +616,23 @@ std::string SceneView::pick(int x, int y) const {
   std::string best;
   double bestT = std::numeric_limits<double>::max();
   for (const auto& [id, e] : d->items) {
-    if (e.item.transparency >= 0.9) continue;
+    if (e.item.transparency >= 0.9 || !d->ctx->IsDisplayed(e.ais)) continue;
     Bnd_Box box;
     BRepBndLib::Add(e.shape, box);
     if (box.IsOut(ray)) continue;
     IntCurvesFace_ShapeIntersector isect;
     isect.Load(e.shape, 1e-3);
-    isect.Perform(ray, -1e12, 1e12);
+    // perspective (walk): only what is in front of the eye; orthographic: the whole line of sight
+    isect.Perform(ray, cam->IsOrthographic() ? -1e12 : 0.0, 1e12);
     if (!isect.IsDone()) continue;
     for (int i = 1; i <= isect.NbPnt(); ++i) {
+      const gp_Pnt q = isect.Pnt(i);
+      bool clipped = false;  // cut away by the section box
+      for (const Handle(Graphic3d_ClipPlane)& p : d->clips) {
+        const Graphic3d_Vec4d& eq = p->GetEquation();
+        if (eq.x() * q.X() + eq.y() * q.Y() + eq.z() * q.Z() + eq.w() < -1e-6) clipped = true;
+      }
+      if (clipped) continue;
       if (isect.WParameter(i) < bestT) {
         bestT = isect.WParameter(i);
         best = id;

@@ -5,6 +5,7 @@
 // pipeline as the BIM view), picks with exact ray–face intersection, measures volumes and checks
 // overlaps with boolean common. Public API is OCCT-free (pimpl).
 #include <array>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -96,6 +97,21 @@ class SceneView {
   void zoom(int x, int y, double delta);
   void fit();
   void preset(const std::string& name);  // "home" | "top" | "front" | "right"
+  /** Items not drawn (isolate = hide everything else). */
+  void setHidden(const std::vector<std::string>& ids, const std::vector<std::string>& keepOnly = {});
+  /** Number of items drawn. */
+  int visibleCount() const;
+  /** Section box: 6 clipping planes with capped cut faces; empty `around` = model box cut at `topZ`
+   *  (mid-height when NaN). */
+  void setSectionBox(bool on, const std::vector<std::string>& around, double topZ = std::numeric_limits<double>::quiet_NaN());
+  /** Zoom to a window in device pixels of the last frame. */
+  void windowFit(int x0, int y0, int x1, int y1);
+  /** Perspective camera (mm). */
+  void setCamera(const std::array<double, 3>& eye, const std::array<double, 3>& at, double fovDeg);
+  /** First-person walk: move forward / right (mm) in the horizontal plane, turn (yaw) and look (pitch) in degrees. */
+  void walk(double forward, double right, double yawDeg, double pitchDeg);
+  /** Axis-aligned bounds of the items (all when empty): x0 y0 z0 x1 y1 z1 (mm). */
+  std::array<double, 6> bounds(const std::vector<std::string>& ids) const;
   std::vector<unsigned char> renderRgba(int w, int h);
   double lastRenderMs() const;
   double lastBuildMs() const;

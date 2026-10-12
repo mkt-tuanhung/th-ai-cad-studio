@@ -352,6 +352,62 @@ void HostBridge::scene3dCamera(const QString& key, const QString& action, double
   else v->preset(action.toStdString());
 }
 
+QJsonObject HostBridge::scene3dLoadBim(const QString& key, const QString& modelJson) {
+  auto* v = scene(key);
+  if (!v) return {{"ok", false}, {"error", "OpenGL unavailable"}};
+  auto parsed = json::parse(modelJson.toStdString());
+  if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+  std::string err;
+  auto m = bim::modelFromJson(std::get<json::Value>(parsed), bim::villaRiverside(), &err);
+  if (!m) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+  const auto t0 = std::chrono::steady_clock::now();
+  v->setItems({});
+  const int n = v->addBuilding(*m, false);
+  const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  return {{"ok", true}, {"items", n}, {"failures", 0}, {"ms", ms}};
+}
+
+QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) {
+  auto* v = scene(key);
+  if (!v) return {{"ok", false}, {"error", "no scene"}};
+  const QJsonObject o = QJsonDocument::fromJson(json.toUtf8()).object();
+  const QString cmd = o["cmd"].toString();
+  auto ids = [&](const char* k) {
+    std::vector<std::string> out;
+    for (const auto& x : o[k].toArray()) out.push_back(x.toString().toStdString());
+    return out;
+  };
+  auto vec3 = [&](const char* k) {
+    const QJsonArray a = o[k].toArray();
+    return std::array<double, 3>{a.at(0).toDouble(), a.at(1).toDouble(), a.at(2).toDouble()};
+  };
+  if (cmd == "hide") {
+    v->setHidden(ids("ids"), ids("keep"));
+    return {{"ok", true}, {"visible", v->visibleCount()}};
+  }
+  else if (cmd == "section") v->setSectionBox(o["on"].toBool(), ids("around"), o.contains("top") ? o["top"].toDouble() : std::numeric_limits<double>::quiet_NaN());
+  else if (cmd == "window") v->windowFit(o["x0"].toInt(), o["y0"].toInt(), o["x1"].toInt(), o["y1"].toInt());
+  else if (cmd == "camera") v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55));
+  else if (cmd == "walk") v->walk(o["forward"].toDouble(), o["right"].toDouble(), o["yaw"].toDouble(), o["pitch"].toDouble());
+  else if (cmd == "bounds") {
+    const auto b = v->bounds(ids("ids"));
+    QJsonArray a;
+    for (double x : b) a.append(x);
+    return {{"ok", true}, {"bounds", a}};
+  } else if (cmd == "snapshot") {
+    const int w = std::clamp(o["w"].toInt(1920), 64, 8192), h = std::clamp(o["h"].toInt(1080), 64, 8192);
+    std::vector<unsigned char> px = v->renderRgba(w, h);
+    if (px.empty()) return {{"ok", false}, {"error", "render failed"}};
+    QImage img(px.data(), w, h, w * 4, QImage::Format_RGBA8888);
+    QByteArray bytes;
+    QBuffer buf(&bytes);
+    buf.open(QIODevice::WriteOnly);
+    img.convertToFormat(QImage::Format_RGB888).save(&buf, "PNG");
+    return {{"ok", true}, {"url", QStringLiteral("data:image/png;base64,") + QString::fromLatin1(bytes.toBase64())}, {"w", w}, {"h", h}, {"bytes", static_cast<double>(bytes.size())}};
+  } else return {{"ok", false}, {"error", "unknown command " + cmd}};
+  return {{"ok", true}};
+}
+
 QString HostBridge::scene3dPick(const QString& key, int x, int y) {
   auto* v = scene(key);
   return v ? QString::fromStdString(v->pick(x, y)) : QString();
@@ -589,6 +645,8 @@ void HostBridge::renderFinish(bool ok, const QString& error) {
 QJsonObject HostBridge::scene3dLoad(const QString&, const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::scene3dFrame(const QString&, int, int, const QString&, const QString&, const QString&) { return {{"ok", false}}; }
 void HostBridge::scene3dCamera(const QString&, const QString&, double, double, double) {}
+QJsonObject HostBridge::scene3dCommand(const QString&, const QString&) { return {{"ok", false}}; }
+QJsonObject HostBridge::scene3dLoadBim(const QString&, const QString&) { return {{"ok", false}}; }
 QString HostBridge::scene3dPick(const QString&, int, int) { return {}; }
 double HostBridge::scene3dCommon(const QString&, const QString&, const QString&) { return -1; }
 QJsonArray HostBridge::scene3dOverlaps(const QString&) { return {}; }

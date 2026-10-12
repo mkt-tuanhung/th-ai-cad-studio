@@ -13,6 +13,7 @@ import { Modes, ToolStrip, ViewCube, Viewport, WsButton, WsHeader, WsRibbon, csv
 import { designChecks } from '../../mech/model'
 import { pumpScene } from '../../mech/scene'
 import { useHost } from '../../services/host'
+import { useSceneTools } from '../../components/workspace/sceneTools'
 import { NativeScene, type SceneCamera } from '../../components/workspace/NativeScene'
 import { MechBrowser } from './MechBrowser'
 import { MechBottom } from './MechBottom'
@@ -42,6 +43,8 @@ export function MechanicalScreen() {
   const [askAi, setAskAi] = useState(false)
   const scene = useMemo(() => pumpScene(st.doc, st.exploded ? 140 : 0), [st.doc, st.exploded])
   // camera tools act on the live OCCT view; in the browser they explain that the kernel runs in the desktop app
+  const tools = useSceneTools('Centrifugal pump assembly')
+  const liveOr = (fn: () => void, label: string) => () => (live && host ? fn() : native(label))
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
   const exportStep = async () => {
     if (!host) return native('STEP')
@@ -145,6 +148,7 @@ export function MechanicalScreen() {
               mode={st.mode as 'shaded' | 'wireframe' | 'hidden'}
               selected={st.sel}
               cameraRef={cam}
+              {...tools.props}
               label={t.viewer.label}
               onPick={(id) => st.set({ sel: id, browserSel: `c-${id}`, right: 'properties' })}
               onLoaded={async (r) => {
@@ -153,16 +157,17 @@ export function MechanicalScreen() {
               }}
             />
           )}
+          {live && <tools.Chips />}
           <ToolStrip
             style={{ left: 'calc(50% - 108px)', top: 6 }}
             items={[
               { label: t.viewer.orbit, icon: <RefreshCcw size={18} strokeWidth={1.7} />, onClick: camOr('home', t.viewer.orbit) },
-              { label: t.viewer.pan, icon: <Hand size={18} strokeWidth={1.7} />, onClick: () => native(t.viewer.pan) },
+              { label: t.viewer.pan, icon: <Hand size={18} strokeWidth={1.7} />, on: tools.tool === 'pan', onClick: liveOr(() => tools.toggleTool('pan'), t.viewer.pan) },
               { label: t.viewer.zoom, icon: <ZoomOut size={18} strokeWidth={1.7} />, onClick: camOr('zoom', t.viewer.zoom, 400, 300, -2) },
               { label: t.viewer.fit, icon: <Expand size={17} strokeWidth={1.7} />, onClick: camOr('fit', t.viewer.fit) },
-              { label: t.viewer.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.snapshot) },
-              { label: t.viewer.remove, icon: <Trash2 size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.remove) },
-              { label: t.viewer.isolate, icon: <Focus size={17} strokeWidth={1.7} />, onClick: () => native(t.viewer.isolate) },
+              { label: t.viewer.snapshot, icon: <Camera size={17} strokeWidth={1.7} />, onClick: liveOr(tools.snapshot, t.viewer.snapshot) },
+              { label: t.viewer.remove, icon: <Trash2 size={17} strokeWidth={1.7} />, onClick: liveOr(() => tools.hide(scene.items.some((i) => i.id === st.sel) ? st.sel : undefined, st.sel), t.viewer.remove) },
+              { label: t.viewer.isolate, icon: <Focus size={17} strokeWidth={1.7} />, on: tools.isolated, onClick: liveOr(() => tools.isolate(scene.items.some((i) => i.id === st.sel) ? [st.sel] : []), t.viewer.isolate) },
               { label: t.viewer.settings, icon: <Settings size={17} strokeWidth={1.7} />, onClick: () => st.set({ right: 'display' }) },
             ]}
           />

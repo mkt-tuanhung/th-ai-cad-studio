@@ -44,8 +44,13 @@
     const sel = await nextFrame(home)
     check('selecting W7 in the schedule highlights it in the 3D model', sel !== home)
     // model edit (Top Level of W1 → Level 3) → solids rebuilt; then undo
+    // the default "3D - Section View" cuts 1.5 m above the level — look at the whole building for this edit
+    { const v = document.querySelector('select[aria-label="3D - Section View"]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(v, 'exterior'); v.dispatchEvent(new Event('change', { bubbles: true })); await nextFrame(frame()) }
     ;[...document.querySelectorAll('[role=row]')].find((r) => /^\s*W1Generic/.test(r.textContent) || r.textContent.trim().startsWith('W1G'))?.click()
     await sleep(300)
+    // isolate W1 so the change is not hidden behind the other walls and slabs
+    document.querySelector('button[aria-label="Isolate selection"]').click()
+    await nextFrame(frame()); await sleep(300)
     const before = frame()
     document.querySelector('button[aria-label="Edit Top Level"]').click()
     const selEl = await until(() => [...document.querySelectorAll('select')].find((x) => [...x.options].some((o) => o.value === 'L3') && x.closest('[class*=value]')))
@@ -59,6 +64,7 @@
     const undone = await nextFrame(after)
     check('⌘Z restores the model and the 3D view', undone !== after)
     await sleep(300); await h.qaGrab(qa + 'native_bim3d_selected.png')
+    btn('Show all')?.click()
     const ms = document.querySelector('[class*=badge]')?.textContent
     log('render time ' + ms)
     btn('Realistic').click()
