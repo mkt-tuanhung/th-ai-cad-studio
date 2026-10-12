@@ -15,6 +15,7 @@ import { InteriorViewport } from './InteriorViewport'
 import { InteriorBottom } from './InteriorBottom'
 import { InteriorRight } from './InteriorRight'
 import { CabinetDialog } from './CabinetDialog'
+import { NestingDialog } from './NestingDialog'
 import s from './Interior.module.css'
 
 /** Interior workspace — mockup 09 (Design). */
@@ -109,8 +110,8 @@ export function InteriorScreen() {
             label: t.tools.more,
             items: [
               { label: t.moreItems.edge, onSelect: () => st.set({ bottom: 'cutlist' }) },
-              { label: t.moreItems.nesting, onSelect: () => native(t.moreItems.nesting) },
-              { label: t.moreItems.toolpath, onSelect: () => native(t.moreItems.toolpath) },
+              { label: t.moreItems.nesting, onSelect: () => st.set({ nestingOpen: true }) },
+              { label: t.moreItems.toolpath, onSelect: () => st.set({ nestingOpen: true }) },
               { label: t.moreItems.undo, onSelect: () => toast(st.undo() ? fmt(t.toast.undone, { label: '' }) : t.toast.nothing) },
               { label: t.moreItems.redo, onSelect: () => toast(st.redo() ? fmt(t.toast.redone, { label: '' }) : t.toast.nothing) },
               { label: t.moreItems.reset, onSelect: () => { st.reset(); toast(t.toast.reset) } },
@@ -134,6 +135,7 @@ export function InteriorScreen() {
         <InteriorRight />
       </div>
       {cabOpen && <CabinetDialog onClose={() => setCabOpen(false)} />}
+      {st.nestingOpen && <NestingDialog onClose={() => st.set({ nestingOpen: false })} />}
     </div>
   )
 }

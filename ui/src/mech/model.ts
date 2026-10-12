@@ -10,6 +10,8 @@
  *  - manufacturability: minimum sand-cast wall 6 mm.
  */
 
+import { DEFAULT_SHAFT, shaftFea, type ShaftInputs, type ShaftReport } from './fea'
+
 export interface Param {
   name: string
   value: number
@@ -23,17 +25,20 @@ export interface Material {
   name: string
   density: number // kg/m³
   allowable: number // MPa (design shear for shafts / tensile for casings)
+  /** Young's modulus (GPa) and yield / 0.2 % proof strength (MPa, 0 = brittle or not applicable). */
+  E: number
+  yieldMPa: number
 }
 
 export const MATERIALS: Material[] = [
-  { name: 'Stainless Steel - 316', density: 8000, allowable: 138 },
-  { name: 'Stainless Steel - 304', density: 7930, allowable: 138 },
-  { name: 'Cast Iron - GG25', density: 7200, allowable: 60 },
-  { name: 'Duplex 2205', density: 7800, allowable: 207 },
-  { name: 'AISI 1045', density: 7850, allowable: 40 },
-  { name: 'Steel', density: 7850, allowable: 120 },
-  { name: 'SiC/Carbon', density: 2600, allowable: 0 },
-  { name: 'Bronze', density: 8800, allowable: 70 },
+  { name: 'Stainless Steel - 316', density: 8000, allowable: 138, E: 193, yieldMPa: 205 },
+  { name: 'Stainless Steel - 304', density: 7930, allowable: 138, E: 193, yieldMPa: 215 },
+  { name: 'Cast Iron - GG25', density: 7200, allowable: 60, E: 110, yieldMPa: 0 },
+  { name: 'Duplex 2205', density: 7800, allowable: 207, E: 200, yieldMPa: 450 },
+  { name: 'AISI 1045', density: 7850, allowable: 40, E: 205, yieldMPa: 310 },
+  { name: 'Steel', density: 7850, allowable: 120, E: 200, yieldMPa: 235 },
+  { name: 'SiC/Carbon', density: 2600, allowable: 0, E: 410, yieldMPa: 0 },
+  { name: 'Bronze', density: 8800, allowable: 70, E: 110, yieldMPa: 125 },
 ]
 
 export interface Component {
@@ -146,7 +151,18 @@ export interface DesignCheck {
   facts: Record<string, string>
 }
 
-export function designChecks(m: MechModel): DesignCheck[] {
+const feaCache = new WeakMap<MechModel, Map<string, ShaftReport>>()
+/** Shaft FEA of the model (memoised per model and inputs). */
+export function feaOf(m: MechModel, inp: ShaftInputs = DEFAULT_SHAFT): ShaftReport {
+  const key = JSON.stringify(inp)
+  let per = feaCache.get(m)
+  if (!per) feaCache.set(m, (per = new Map()))
+  let r = per.get(key)
+  if (!r) per.set(key, (r = shaftFea(m, inp)))
+  return r
+}
+
+export function designChecks(m: MechModel, fea: ShaftInputs = DEFAULT_SHAFT): DesignCheck[] {
   const imp = param(m, 'Impeller_Dia'), shaft = param(m, 'Shaft_Dia'), t = param(m, 'Casing_Thickness')
   const P = param(m, 'Motor_Power') * 1000, n = param(m, 'Speed'), din = param(m, 'D_inlet'), dout = param(m, 'D_outlet')
   const radial = (CASING_BORE - imp) / 2
@@ -158,13 +174,25 @@ export function designChecks(m: MechModel): DesignCheck[] {
   const tauAllow = shaftMat.allowable * 0.75
   const casingMat = matOf(m.components.find((c) => c.id === 'casing')!.material)!
   const hoop = (DESIGN_PRESSURE * (imp + 2 * t)) / (2 * t)
-  const strengthWarns = [tau > tauAllow, hoop > casingMat.allowable].filter(Boolean).length
+  // shaft: beam FEA (stress with torque, seal deflection, first critical speed); casing: hoop-stress hand calc
+  const F = feaOf(m, fea)
+  const strengthWarns = [!F.pass.stress, !F.pass.deflection, !F.pass.critical, hoop > casingMat.allowable].filter(Boolean).length
+  void tau
+  void tauAllow
   const stdOk = DN.includes(din) && DN.includes(dout) && dout <= din
   const dfmOk = t >= 6
   return [
     { key: 'interference', tone: interference ? 'err' : 'ok', detail: interference ? 'interference' : 'none', facts: { radial: radial.toFixed(1), fit: fitBearing > 0 ? `+${fitBearing}` : '0' } },
     { key: 'clearance', tone: radial < 2 ? 'warn' : 'ok', detail: radial < 2 ? 'small' : 'ok', facts: { radial: radial.toFixed(1) } },
-    { key: 'strength', tone: strengthWarns ? 'warn' : 'ok', detail: String(strengthWarns), facts: { tau: tau.toFixed(1), tauAllow: tauAllow.toFixed(0), hoop: hoop.toFixed(1), allow: String(casingMat.allowable), T: T.toFixed(1) } },
+    {
+      key: 'strength',
+      tone: strengthWarns ? 'warn' : 'ok',
+      detail: String(strengthWarns),
+      facts: {
+        nodes: String(F.res.x.length), svm: F.sigmaVM.toFixed(1), sf: F.safety ? F.safety.toFixed(1) : '—', seal: (F.sealDeflection * 1e6).toFixed(0), fr: F.loads.Fr.toFixed(0),
+        crit: F.critical1.toFixed(0), margin: (F.margin * 100).toFixed(0), hoop: hoop.toFixed(1), allow: String(casingMat.allowable), T: T.toFixed(1),
+      },
+    },
     { key: 'standard', tone: stdOk ? 'ok' : 'warn', detail: stdOk ? 'ok' : 'bad', facts: { din: String(din), dout: String(dout) } },
     { key: 'dfm', tone: dfmOk ? 'ok' : 'warn', detail: dfmOk ? 'ok' : 'thin', facts: { t: String(t) } },
   ]

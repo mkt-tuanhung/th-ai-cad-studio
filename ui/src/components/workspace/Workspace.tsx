@@ -565,8 +565,8 @@ export function DemoTag({ children = 'DEMO' }: { children?: ReactNode }) {
   return <em className={s.tag}>{children}</em>
 }
 
-export function downloadFile(name: string, text: string, type = 'text/csv') {
-  const url = URL.createObjectURL(new Blob([text], { type }))
+export function downloadFile(name: string, text: string | Uint8Array, type = 'text/csv') {
+  const url = URL.createObjectURL(new Blob([text as BlobPart], { type }))
   const a = document.createElement('a')
   a.href = url
   a.download = name

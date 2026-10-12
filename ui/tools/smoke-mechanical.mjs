@@ -40,9 +40,9 @@ await step('mass = volume × density: 0.00158 m³ × 8000 kg/m³ = 12.640 kg; sw
   assert.ok(await page.getByText('12.640 kg').isVisible())
 })
 
-await step('design checks are computed: all five pass with the sample parameters', async () => {
+await step('design checks are computed: shaft FEA flags the seal deflection at shut-off load (63 µm > 50), the rest pass', async () => {
   const t = await checks().innerText()
-  assert.match(t, /No interference/); assert.match(t, /All clearances OK/); assert.match(t, /Hand check OK/); assert.match(t, /ISO 5199/); assert.match(t, /Good for manufacturing/)
+  assert.match(t, /No interference/); assert.match(t, /All clearances OK/); assert.match(t, /Strength Check \(FEA\)\s*1 warning/); assert.match(await checks().textContent(), /seal deflection 63 µm \(API 610 ≤ 50\)/); assert.match(t, /ISO 5199/); assert.match(t, /Good for manufacturing/)
 })
 
 await step('Impeller_Dia 240 → interference (casing bore 236) and clearance warning; ⌘Z clears it', async () => {
@@ -54,15 +54,14 @@ await step('Impeller_Dia 240 → interference (casing bore 236) and clearance wa
   assert.match(await checks().innerText(), /No interference/)
 })
 
-await step('Shaft_Dia 20 + Motor_Power 30 kW → torsion warning (τ ≈ 63 MPa > 30); out-of-range 5 rejected', async () => {
+await step('Shaft_Dia 55 → shaft FEA passes (seal deflection under 50 µm); 20 mm → more warnings; out-of-range 5 rejected', async () => {
   const p = param('Shaft_Dia')
   await p.fill('5'); await p.press('Enter')
   assert.equal(await p.inputValue(), '40')
+  await p.fill('55'); await p.press('Enter')
+  assert.match(await checks().innerText(), /FEA OK/)
   await p.fill('20'); await p.press('Enter')
-  assert.match(await checks().innerText(), /Hand check OK/, 'τ = 23 MPa still below 30 at 11 kW')
-  const kw = param('Motor_Power')
-  await kw.fill('30'); await kw.press('Enter')
-  assert.match(await checks().innerText(), /1 warning/)
+  assert.match(await checks().innerText(), /Strength Check \(FEA\)\s*[234] warnings/)
   await blank(); await page.keyboard.press('Meta+z'); await page.keyboard.press('Meta+z')
 })
 
@@ -75,7 +74,7 @@ await step('Casing_Thickness 4 → manufacturability warning', async () => {
 
 await step('Run Check reports the counts; Add Parameter adds a 9th parameter', async () => {
   await page.getByRole('button', { name: 'Run Check' }).click()
-  assert.ok(await page.getByText(/Design checks: 5 OK, 0 warnings, 0 errors/).isVisible())
+  assert.ok(await page.getByText(/Design checks: 4 OK, 1 warnings, 0 errors/).isVisible())
   await page.getByRole('button', { name: 'Add Parameter' }).click()
   assert.ok(await page.getByText('Parameters (9)').isVisible())
   await blank(); await page.keyboard.press('Meta+z')
@@ -119,6 +118,23 @@ await step('VI: tabs, checks and descriptions are translated', async () => {
   assert.ok(await page.getByText('Kiểm tra va chạm').isVisible())
   assert.ok(await page.getByText('Đường kính trục').isVisible())
   await page.getByRole('radio', { name: 'EN', exact: true }).click()
+})
+
+await step('Strength Check (FEA) opens the shaft FEA: seal deflection 63.1 µm not met, safety 15.68, critical 10,264 rpm; Shaft_Dia 55 → seal deflection met', async () => {
+  await page.getByTestId('check-strength').click()
+  const r = page.getByTestId('fea-results')
+  await r.waitFor()
+  const t = await r.innerText()
+  assert.match(t, /Deflection at the seal\s+63\.1 µm\s+API 610 ≤ 50 µm — not met/)
+  assert.match(t, /Safety on yield\s+[\d.]+/)
+  assert.match(t, /10,264 rpm/)
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+  const p = param('Shaft_Dia')
+  await p.fill('55'); await p.press('Enter')
+  await page.getByTestId('check-strength').click()
+  assert.match(await page.getByTestId('fea-results').innerText(), /Deflection at the seal\s+[\d.]+ µm\s+API 610 ≤ 50 µm — pass/)
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+  await blank(); await page.keyboard.press('Meta+z')
 })
 
 for (const [r, n] of results) console.log(`${r}  ${n}`)

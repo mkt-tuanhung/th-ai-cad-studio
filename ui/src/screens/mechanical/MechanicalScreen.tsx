@@ -18,6 +18,7 @@ import { MechBrowser } from './MechBrowser'
 import { MechBottom } from './MechBottom'
 import { MechRight } from './MechRight'
 import { AiAssistModal } from '../../components/ai/AiAssist'
+import { FeaDialog } from './FeaDialog'
 import { mechAi } from '../../ai/disciplines/mechanical'
 import s from './Mechanical.module.css'
 
@@ -60,7 +61,7 @@ export function MechanicalScreen() {
     let rows: (string | number)[][]
     if (kind === 'bom') rows = [['#', 'Part Name', 'Part Number', 'Material', 'Qty'], ...m.bom.map((b) => [b.n, b.name, b.partNo, b.material, b.qty])]
     else if (kind === 'params') rows = [['Name', 'Value', 'Unit', 'Description'], ...m.params.map((p) => [p.name, p.value, p.unit, p.description])]
-    else rows = [['Check', 'Result', 'Detail'], ...designChecks(m).map((c) => [t.checks.names[c.key], c.tone, fmt(t.checks.details[c.key], c.facts)])]
+    else rows = [['Check', 'Result', 'Detail'], ...designChecks(m, useMech.getState().fea).map((c) => [t.checks.names[c.key], c.tone, fmt(t.checks.details[c.key], c.facts)])]
     const file = `Centrifugal Pump - ${t.exportItems[kind].replace(/ \(CSV\)$/, '')}.csv`
     downloadFile(file, csv(rows))
     toast(fmt(t.toast.exported, { file }), 'success')
@@ -188,6 +189,7 @@ export function MechanicalScreen() {
       <div className={s.right}>
         <MechRight />
       </div>
+      {st.feaOpen && <FeaDialog onClose={() => st.set({ feaOpen: false })} />}
       {askAi && <AiAssistModal d={mechAi} model={st.doc} apply={(label, next) => st.edit(label, () => next)} example={T.aiAssist.examples.mechanical} onClose={() => setAskAi(false)} />}
     </div>
   )

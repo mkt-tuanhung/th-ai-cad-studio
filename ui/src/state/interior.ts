@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CABINETS, ITEMS, MATERIALS, ROOMS, roomOverlap, type Cabinet, type Item, type Room } from '../interior/model'
 import { undoableActions, type Undoable } from './undoable'
+import { DEFAULT_CAM, type CamSettings } from '../cam/gcode'
 
 export interface InteriorDoc {
   rooms: Room[]
@@ -13,6 +14,18 @@ export type InteriorTab = 'design' | 'renders' | 'drawings' | 'schedule'
 export type InteriorBottom = 'furniture' | 'materials' | 'cutlist' | 'quantities'
 export type InteriorRight = 'properties' | 'materials' | 'ai'
 export type InteriorMode = 'realistic' | 'shaded' | 'wireframe' | 'hidden'
+export interface CamPrefs {
+  /** Stock size per board material (mm, length along the grain × width). */
+  stock: Record<string, { l: number; w: number }>
+  trim: number
+  /** Web between neighbouring cutter paths (mm); the part gap is cutter Ø + web. */
+  web: number
+  grain: boolean
+  cnc: CamSettings
+}
+
+export const DEFAULT_CAM_PREFS: CamPrefs = { stock: {}, trim: 10, web: 4, grain: true, cnc: DEFAULT_CAM }
+
 export type Selection = { kind: 'item' | 'room' | 'cabinet'; id: string } | null
 
 interface InteriorState extends Undoable<InteriorDoc> {
@@ -35,6 +48,9 @@ interface InteriorState extends Undoable<InteriorDoc> {
   appliedPreset: string | null
   /** Desktop app: exact volumes (m³) of the OCCT scene items (cabinets are checked against the cut list). */
   nativeVolumes: Record<string, number> | null
+  /** Nesting & CNC settings (persisted with the workspace, not part of the design undo history). */
+  cam: CamPrefs
+  nestingOpen: boolean
 
   edit: (label: string, fn: (d: InteriorDoc) => InteriorDoc) => string | null
   undo: () => string | null
@@ -91,6 +107,8 @@ export const useInterior = create<InteriorState>()(
       filter: null,
       appliedPreset: null,
       nativeVolumes: null,
+      cam: DEFAULT_CAM_PREFS,
+      nestingOpen: false,
       ...undoableActions<InteriorDoc, InteriorState>(get, set, validateInterior),
       set: (p) => set(p),
       reset: () => set({ doc: initialDoc(), undoStack: [], redoStack: [], sel: null, appliedPreset: null }),
@@ -103,7 +121,7 @@ export const useInterior = create<InteriorState>()(
         const st = s as { doc?: InteriorDoc }
         return (v < 2 && st.doc ? { ...st, doc: { ...st.doc, rooms: ROOMS } } : st) as InteriorState
       },
-      partialize: (s) => ({ doc: s.doc, bottom: s.bottom, right: s.right, mode: s.mode, scale: s.scale, room: s.room, styles: s.styles, appliedPreset: s.appliedPreset }),
+      partialize: (s) => ({ doc: s.doc, bottom: s.bottom, right: s.right, mode: s.mode, scale: s.scale, room: s.room, styles: s.styles, appliedPreset: s.appliedPreset, cam: s.cam }),
     },
   ),
 )

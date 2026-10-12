@@ -11,7 +11,7 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
   const T = useT()
   const t = T.mechanical
   const lang = useLang()
-  const { doc, bottom, bomAll, checkedAt, checked, edit, set, nativeOverlap } = useMech()
+  const { doc, bottom, bomAll, checkedAt, checked, edit, set, nativeOverlap, fea } = useMech()
   const [moreOpen, setMoreOpen, moreRef] = useDismissable<HTMLDivElement>()
   const up = (p: Param, v: number) => {
     const err = edit(`${p.name} = ${v} ${p.unit}`, (m) => ({ ...m, params: m.params.map((x) => (x.name === p.name ? { ...x, value: v } : x)) }))
@@ -35,7 +35,7 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
     { key: 'm', label: t.bom.material, w: '72px', render: (b) => b.material },
     { key: 'q', label: t.bom.qty, w: 'minmax(30px,1fr)', render: (b) => b.qty },
   ]
-  const checks = designChecks(doc).map((c) => {
+  const checks = designChecks(doc, fea).map((c) => {
     // desktop: the exact OCCT boolean common decides interference between impeller and casing
     if (c.key !== 'interference' || nativeOverlap === null) return c
     const hit = nativeOverlap > 1e-9
@@ -105,7 +105,7 @@ export function MechBottom({ onExport }: { onExport: (k: 'bom' | 'params' | 'che
         </header>
         <ul>
           {checks.map((c) => (
-            <li key={c.key} title={detailOf(c)}>
+            <li key={c.key} title={detailOf(c)} onClick={c.key === 'strength' ? () => set({ feaOpen: true }) : undefined} style={c.key === 'strength' ? { cursor: 'pointer' } : undefined} data-testid={`check-${c.key}`}>
               <span className={`${s.ckIcon} ${s[`k_${c.key}`]}`}>{ICON[c.key]}</span>
               <b>{t.checks.names[c.key]}</b>
               <span className={`${s.res} ${s[c.tone]}`}>

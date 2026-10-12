@@ -1,6 +1,7 @@
 // Interaction smoke test — Interior workspace (mockup 09). Fresh profile, dev server :5173.
 import { chromium } from 'playwright'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 const browser = await chromium.launch()
 const ctx = await browser.newContext({ viewport: { width: 1586, height: 992 }, acceptDownloads: true })
@@ -142,6 +143,22 @@ await step('VI: workspace, tabs, rooms and default brief are translated', async 
   assert.match(await page.locator('textarea').inputValue(), /^Gợi ý phòng khách/)
   assert.ok(await page.locator('[aria-current="true"]').filter({ hasText: 'Phòng khách' }).isVisible())
   await page.getByRole('radio', { name: 'EN', exact: true }).click()
+})
+
+await step('Cut list → Nesting & CNC: real sheets, verified programs, G-code ZIP download', async () => {
+  await page.getByRole('tab', { name: 'Cut List (Production)' }).click()
+  assert.match(await page.locator('[class*=cutSum]').innerText(), /Sheets \(nested, 2440 × 1830\): MFC 18 - Walnut × \d+/)
+  await page.getByTestId('open-nesting').click()
+  const d = page.getByTestId('nesting-dialog')
+  await d.waitFor()
+  assert.match(await page.getByTestId('nesting-summary').innerText(), /\d+ parts on \d+ sheets/)
+  assert.match(await d.innerText(), /\d+ part\(s\) larger than the stock/)
+  assert.ok((await d.innerText()).includes('✓') && !(await d.innerText()).includes('✗'))
+  const [dl] = await Promise.all([page.waitForEvent('download'), d.getByRole('button', { name: /G-code \(ZIP\)/ }).click()])
+  const buf = readFileSync(await dl.path())
+  assert.equal(buf.readUInt32LE(0), 0x04034b50) // ZIP local header
+  assert.ok(buf.includes(Buffer.from('G21 G90 G17 G94')))
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
 })
 
 for (const [r, n] of results) console.log(`${r}  ${n}`)

@@ -6,6 +6,8 @@ import { useInterior, type InteriorBottom as Tab } from '../../state/interior'
 import { Status, TabCard, Table, wsStyles as w, type Column } from '../../components/workspace/Workspace'
 import { MATERIALS, cutList, cutTotals, dimsLabel, roomQuantities, type CutPart, type Item, type Material, type RoomQty } from '../../interior/model'
 import { cutListVolume } from '../../interior/scene'
+import { nest, piecesOf } from '../../cam/nesting'
+import { nestSettings } from './NestingDialog'
 import s from './Interior.module.css'
 
 const n2 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -15,7 +17,12 @@ export function InteriorBottom({ full }: { full?: boolean }) {
   const t = T.interior
   const c = t.cols
   const navigate = useRouter((st) => st.navigate)
-  const { doc, bottom, sel, filter, checked, edit, set, nativeVolumes } = useInterior()
+  const { doc, bottom, sel, filter, checked, edit, set, nativeVolumes, cam } = useInterior()
+  // real nesting of the cut lists (same engine as the Nesting & CNC dialog)
+  const nested = useMemo(() => {
+    const ns = nestSettings(cam)
+    return { r: nest(piecesOf(doc.cabinets), ns), stock: `${ns.sheetL} × ${ns.sheetW}` }
+  }, [doc.cabinets, cam])
   const [all, setAll] = useState(false)
   const rn = (id: string) => {
     const r = doc.rooms.find((x) => x.id === id)
@@ -135,8 +142,11 @@ export function InteriorBottom({ full }: { full?: boolean }) {
       {bottom === 'cutlist' && (
         <>
           <p className={s.cutSum}>
-            {fmt(t.cut.totals, { parts: tot.parts, area: n2(tot.boardArea), edge: n2(tot.edge) })} · {fmt(t.cut.sheets, { list: Object.entries(tot.sheets).map(([m, n]) => `${mn(m)} × ${n}`).join(', ') })}
-            <em>{t.cut.note}</em>
+            {fmt(t.cut.totals, { parts: tot.parts, area: n2(tot.boardArea), edge: n2(tot.edge) })} · {fmt(t.cam.nested, { stock: `${nested.stock}`, list: Object.entries(nested.r.byMaterial).map(([m, v]) => `${mn(m)} × ${v.sheets}`).join(', ') + (nested.r.unplaced.length ? ` · +${nested.r.unplaced.length} oversize` : '') })}
+            <em>
+              {t.cut.note}{' '}
+              <button type="button" className={w.link} onClick={() => set({ nestingOpen: true })} data-testid="open-nesting">{t.cam.title}…</button>
+            </em>
             {nativeVolumes && <Check3d />}
           </p>
           <Table label={t.bottom.cutlist} columns={cutCols} rows={parts.map((p, i) => ({ ...p, k: `${p.cabinet}-${p.part}-${i}` }))} rowKey={(p) => p.k} rowH={24} />
