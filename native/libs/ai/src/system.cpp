@@ -53,8 +53,11 @@ std::filesystem::path modelsDir() {
   const auto base = std::filesystem::path(home) / "Library/Application Support";
   const auto now = base / "MD CAD AI STUDIO/models", before = base / "TH AI CAD Studio/models";
 #endif
+  // "now" once it holds anything (a model, a download in progress, the whisper folder); an empty "now"
+  // never hides models that are still in "before"
   std::error_code ec;
-  return !std::filesystem::exists(now, ec) && std::filesystem::exists(before, ec) ? before : now;
+  const bool nowUsed = std::filesystem::exists(now, ec) && !std::filesystem::is_empty(now, ec);
+  return !nowUsed && std::filesystem::exists(before, ec) ? before : now;
 }
 
 std::vector<std::string> listModels() {

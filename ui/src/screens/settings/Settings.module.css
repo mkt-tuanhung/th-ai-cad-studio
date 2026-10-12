@@ -182,6 +182,11 @@
   padding-right: 0;
 }
 
+/* cards keep their content height (the column scrolls) — never squeezed so that content spills over the next card */
+.content > * {
+  flex-shrink: 0;
+}
+
 .content::-webkit-scrollbar {
   width: 5px;
 }
@@ -1200,4 +1205,113 @@
 
 .speech p {
   line-height: 1.45;
+}
+
+/* ---------------------------------------------------------------- AI model download */
+.dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* a long folder path never widens the block */
+  gap: 8px;
+  padding: 12px 14px;
+  margin: 4px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.dl > b {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.dl p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.dlList {
+  display: grid;
+  gap: 6px;
+}
+
+.dlItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.dlOn {
+  border-color: var(--teal-500);
+  background: color-mix(in srgb, var(--teal-500) 6%, transparent);
+}
+
+.dlName {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.dlSize {
+  color: var(--text-2);
+}
+
+.dlNote {
+  flex-basis: 100%;
+  padding-left: 24px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.dlWhere {
+  display: flex;
+  gap: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* the path gives way (ellipsis); the label and the free space always show */
+.dlWhere code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.dlWhere span {
+  flex: none;
+}
+
+.dlProgress {
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.dlProgress .bar {
+  width: 100%;
+}
+
+.dlPulse {
+  opacity: 0.5;
+  animation: dlPulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes dlPulse { to { opacity: 1; } }
+
+.dlOk {
+  color: #13874f;
+}
+
+.dlErr {
+  color: #b45309;
+}
+
+.dlActions {
+  display: flex;
+  gap: 8px;
 }

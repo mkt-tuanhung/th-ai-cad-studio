@@ -6,6 +6,7 @@ import {
 import { fmt, useT } from '../../i18n'
 import { DEFAULT_SHORTCUTS, shortcutFromEvent, shortcutLabel, useSettings, type Prefs, type ShortcutId, type UnitSystem } from '../../state/settings'
 import { getHost } from '../../services/host'
+import { onModelDownloadDone, useModelDownload } from '../../services/modelDownload'
 import { clearCaches, formatGb, type SystemStatus } from '../../services/system'
 import { formatAngle, formatArea, formatLength } from '../../lib/units'
 import { toast } from '../../state/toast'
@@ -133,6 +134,10 @@ export function AiModelCard(p: CardProps) {
     : models.length
       ? models.map((m) => ({ value: m.path, label: `${m.name} (${formatGb(m.bytes)})` }))
       : [{ value: '', label: A.none }]
+  const dl = useModelDownload()
+  // the download block sits in the card while there is no model, or while a download runs / just ended;
+  // once the AI is ready it stays one click away in Manage Models
+  const showDownload = !demo && (!sys!.ai.ready || !!dl.progress || !!dl.result)
   const used = sys?.ai.vramUsedGb ?? 0
   const total = sys?.ai.vramTotalGb ?? 0
   const pct = total ? Math.round((used / total) * 100) : 0
@@ -158,11 +163,13 @@ export function AiModelCard(p: CardProps) {
         <span className={s.barText}>{used.toFixed(1)} / {Math.round(total)} GB ({pct}%)</span>
         {demo && <em className={s.demoTag}>DEMO</em>}
       </div>
+      {showDownload && !manage && <ModelDownload onDone={p.refresh} />}
       <FolderRow label={A.folder} k="modelsDir" p={p} />
       {manage && (
         <Modal title={A.manageTitle} onClose={() => setManage(false)}>
           <p className={s.modalText}>{A.manageText}</p>
           <p className={s.modalPath}>{folderPath('modelsDir', p.draft.modelsDir, sys)}</p>
+          {!demo && <ModelDownload onDone={p.refresh} />}
           <SpeechModel />
           <ul className={s.modelList}>
             {models.map((m) => (
@@ -177,6 +184,92 @@ export function AiModelCard(p: CardProps) {
         </Modal>
       )}
     </Card>
+  )
+}
+
+/**
+ * Download AI model (desktop): the host's catalogue with the model recommended for this computer's memory,
+ * one button that downloads or resumes, live progress (speed, time left, sha256 check, load, test question)
+ * and a Pause that keeps what is already on disk. The work and every check are in the host
+ * (native/app/src/model_downloader.cpp); this only shows it.
+ */
+function ModelDownload({ onDone }: { onDone: () => void }) {
+  const D = useT().settings.ai.dl
+  const { state, progress, result, refresh, start, cancel } = useModelDownload()
+  const [pick, setPick] = useState<string | null>(null)
+  useEffect(() => {
+    void refresh()
+    return onModelDownloadDone(() => onDone())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  if (!state) return null
+  const chosen = state.models.find((m) => m.id === (pick ?? progress?.id ?? state.recommended)) ?? state.models[0]
+  const busy = !!progress
+  const left = chosen.bytes - chosen.partialBytes
+  const pct = (a = 0, b = 1) => Math.max(0, Math.min(100, Math.floor((a / b) * 100)))
+  const dur = (sec: number) => (sec >= 90 ? fmt(D.min, { n: Math.round(sec / 60) }) : fmt(D.sec, { n: Math.max(1, Math.round(sec)) }))
+  let line = ''
+  let bar: number | null = null
+  if (progress) {
+    const ph = progress.phase
+    if (ph === 'download') {
+      bar = pct(progress.received, progress.total ?? chosen.bytes)
+      line = fmt(D.downloading, { got: formatGb(progress.received ?? 0), total: formatGb(progress.total ?? chosen.bytes) })
+      if (progress.bytesPerSecond) line += ' · ' + fmt(D.speed, { speed: formatGb(progress.bytesPerSecond), eta: dur(progress.etaSeconds ?? 0) })
+      if ((progress.shards ?? 1) > 1) line += ' · ' + fmt(D.part, { n: progress.shard ?? 1, of: progress.shards ?? 1 })
+    } else if (ph === 'verify') {
+      bar = pct(progress.received, progress.total)
+      line = fmt(D.verifying, { pct: bar })
+    } else if (ph === 'retry') line = fmt(D.retry, { why: progress.error ?? '', s: progress.inSeconds ?? 0, n: progress.attempt ?? 1 })
+    else if (ph === 'load') line = D.loading
+    else if (ph === 'test') line = D.testing
+  }
+  let outcome: { ok: boolean; text: string } | null = null
+  if (!busy && result) {
+    if (result.ok) outcome = { ok: true, text: fmt(D.done, { answer: result.test ?? '', secs: (result as { seconds?: number }).seconds?.toFixed(1) ?? '—', device: result.device || 'CPU' }) }
+    else if (result.cancelled) outcome = { ok: false, text: fmt(D.paused, { got: formatGb(chosen.partialBytes) }) }
+    else if (result.needBytes) outcome = { ok: false, text: fmt(D.noSpace, { need: formatGb(result.needBytes), free: formatGb(result.freeBytes ?? 0) }) }
+    else outcome = { ok: false, text: fmt(D.failed, { why: result.error ?? '' }) }
+  }
+  return (
+    <div className={s.dl} data-testid="model-download">
+      <b>{D.title}</b>
+      <p>{D.text}</p>
+      <div className={s.dlList} role="radiogroup" aria-label={D.title}>
+        {state.models.map((m) => (
+          <label key={m.id} className={`${s.dlItem} ${m.id === chosen.id ? s.dlOn : ''}`}>
+            <input type="radio" name="dl-model" checked={m.id === chosen.id} disabled={busy} onChange={() => setPick(m.id)} />
+            <span className={s.dlName}>{m.label}</span>
+            <span className={s.dlSize}>{formatGb(m.bytes)}</span>
+            {m.installed ? <Chip tone="green">{D.installed}</Chip> : m.id === state.recommended ? <Chip tone="green">{fmt(D.recommended, { ram: formatGb(state.ramBytes).replace('.0 ', ' ') })}</Chip> : !m.fits ? <Chip tone="amber">{D.slow}</Chip> : null}
+            {!m.installed && m.partialBytes > 0 && !busy && <span className={s.dlNote}>{fmt(D.partial, { pct: pct(m.partialBytes, m.bytes) })}</span>}
+          </label>
+        ))}
+      </div>
+      <p className={s.dlWhere} title={state.dir}>
+        <span>{D.saveTo}:</span>
+        <code>{state.dir}</code>
+        <span>· {fmt(D.free, { free: formatGb(state.freeBytes) })}</span>
+      </p>
+      {busy && (
+        <div className={s.dlProgress} data-testid="model-download-progress">
+          <span className={s.bar}><span style={{ width: `${bar ?? 100}%` }} className={bar === null ? s.dlPulse : ''} /></span>
+          <span>{line}</span>
+        </div>
+      )}
+      {outcome && <p className={outcome.ok ? s.dlOk : s.dlErr} data-testid="model-download-result">{outcome.text}</p>}
+      <div className={s.dlActions}>
+        {busy ? (
+          <ActionButton onClick={() => void cancel()} disabled={progress?.phase === 'load' || progress?.phase === 'test'}>{D.pause}</ActionButton>
+        ) : (
+          !chosen.installed && (
+            <ActionButton variant="primary" onClick={() => void start(chosen.id)}>
+              {chosen.partialBytes > 0 ? fmt(D.resume, { size: formatGb(left) }) : fmt(D.download, { size: formatGb(chosen.bytes) })}
+            </ActionButton>
+          )
+        )}
+      </div>
+    </div>
   )
 }
 

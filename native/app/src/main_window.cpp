@@ -82,7 +82,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
   setMinimumSize(1180, 720);
 
-  auto* profile = new QWebEngineProfile(QStringLiteral("thcad"), this);  // persistent: localStorage survives restarts
+  // persistent: localStorage / IndexedDB survive restarts. Automated QA (THCAD_QA=1) gets its own profile so a
+  // test run never edits or opens the user's drawings and settings.
+  auto* profile = new QWebEngineProfile(qEnvironmentVariableIntValue("THCAD_QA") == 1 ? QStringLiteral("thcad-qa") : QStringLiteral("thcad"), this);
   profile->installUrlSchemeHandler("thcad", new UiSchemeHandler(UiSchemeHandler::locateUi(), profile));
   auto* page = new LoggingPage(profile, this);
   // Browser-style downloads (CSV, G-code, ZIP, PNG…): a save dialog, like a browser asking where to save.

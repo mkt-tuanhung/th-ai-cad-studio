@@ -21,8 +21,9 @@
     location.hash = '#/cad2d'
     await until(() => window.thcadSyncStats && window.thcadSyncStats.loads > 0)
     const tabs = () => [...document.querySelectorAll('[role=tab]')].map((t) => t.textContent.trim())
+    const add = await until(() => document.querySelector('button[aria-label="New layout"]'), 15000)  // the sheet tabs are drawn
     const before = tabs().filter((t) => /^Layout/.test(t)).length
-    document.querySelector('button[aria-label="New layout"]').click()
+    add.click()
     await until(() => tabs().filter((t) => /^Layout/.test(t)).length === before + 1)
     check('“+” adds a layout tab and opens it', tabs().filter((t) => /^Layout/.test(t)).length === before + 1, tabs().join(', '))
     pick(await until(() => document.querySelector('select[aria-label=Paper]')), 'A4')

@@ -23,6 +23,7 @@ namespace thcad::app {
 
 class NativeViewport;
 class DwgReader;
+class ModelDownloader;
 
 class HostBridge : public QObject {
   Q_OBJECT
@@ -53,6 +54,14 @@ class HostBridge : public QObject {
   Q_INVOKABLE void voiceTranscribe(const QString& id, const QString& wavBase64, const QString& lang);
   /** Settings → Download the Whisper model (user action); progress on 'whisperProgress'. */
   Q_INVOKABLE void whisperDownload();
+  /** Local AI model download (Settings): what is installed / partly downloaded, free space, the model
+   *  recommended for this computer's memory (see ModelDownloader::state). */
+  Q_INVOKABLE QJsonObject modelDownloadState();
+  /** Starts or resumes downloading a catalogue model into the models folder the runtime reads; progress on
+   *  'modelProgress'. Once verified the model is loaded and asked a one-word test question; the last event
+   *  is {id, done:true, ok, loaded, test, seconds, tokensPerSecond, device, model, path} (or {ok:false, error}). */
+  Q_INVOKABLE QJsonObject modelDownload(const QString& id);
+  Q_INVOKABLE void modelDownloadCancel();
   /** Compiles Whisper's GPU kernels in the background (once per session). */
   Q_INVOKABLE void voiceWarmup();
   /** Replaces the engine document with the UI's open drawing (JSON, see documentToJson). */
@@ -141,6 +150,7 @@ class HostBridge : public QObject {
   void voiceText(const QJsonObject& result);
   void voiceTranscript(const QJsonObject& result);
   void whisperProgress(const QJsonObject& progress);
+  void modelProgress(const QJsonObject& progress);
   void documentChanged(const QJsonObject& document);
   void dwgResult(const QJsonObject& result);
   /** {id, samples, total, ms, preview?} while running; {id, done:true, ok, path?, error?, …} at the end. */
@@ -156,6 +166,9 @@ class HostBridge : public QObject {
 
   NativeViewport* viewport_;
   DwgReader* dwg_;
+  ModelDownloader* downloader_;
+  bool modelInstalling_ = false;  // between 'installed' and the final event (load + test question)
+  QJsonObject modelLast_;         // the last final event, for the UI to catch up after a missed signal
   std::unique_ptr<ai::Runtime> runtime_;
   std::unique_ptr<CommandBus> bus_;
   std::unique_ptr<ProposalQueue> proposals_;

@@ -48,6 +48,10 @@ export interface HostApi {
   voiceTranscribe(id: string, wavBase64: string, lang: string): Promise<void>
   whisperDownload(): Promise<void>
   voiceWarmup(): Promise<void>
+  /** Local AI model download (Settings): see services/modelDownload.ts. */
+  modelDownloadState(): Promise<import('./modelDownload').ModelDownloadState>
+  modelDownload(id: string): Promise<{ ok: boolean; error?: string; dir?: string; bytes?: number; needBytes?: number; freeBytes?: number }>
+  modelDownloadCancel(): Promise<void>
   scene3dLoadBim(key: string, modelJson: string, extrasJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
   scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
@@ -76,7 +80,7 @@ export interface HostApi {
   dwgWriteTo(script: string, dir: string, name: string): Promise<{ ok: boolean; path?: string; bytes?: number; entities?: number; error?: string }>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress' | 'modelProgress', fn: (payload: unknown) => void): void
 }
 
 export interface HostSystemInfo {

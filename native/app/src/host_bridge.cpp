@@ -21,6 +21,7 @@
 #include "video_writer.hpp"
 #include "speech_input.hpp"
 #include "whisper_runner.hpp"
+#include "model_downloader.hpp"
 #include "native_viewport.hpp"
 #include "thcad/ai/assistant.hpp"
 #include "thcad/core/commands.hpp"
@@ -60,6 +61,41 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
       bim_(bim::villaRiverside()) {
   dwg_ = new DwgReader(this);
   connect(dwg_, &DwgReader::finished, this, &HostBridge::dwgResult);
+  downloader_ = new ModelDownloader(this);
+  connect(this, &HostBridge::modelProgress, this, [this](const QJsonObject& p) {
+    if (!p.value("done").toBool()) return;
+    modelInstalling_ = false;
+    modelLast_ = p;
+  });
+  connect(downloader_, &ModelDownloader::progress, this, [this](const QJsonObject& p) {
+    if (p.value("phase").toString() != QStringLiteral("installed")) return emit modelProgress(p);
+    modelInstalling_ = true;
+    // verified and in place: load it now and ask a one-word question, so "ready" means the app can call it
+    const QString id = p.value("id").toString(), path = p.value("path").toString();
+    emit modelProgress({{"id", id}, {"phase", "load"}});
+    if (!runtime_->load(path.toStdString()))
+      return emit modelProgress({{"id", id}, {"done", true}, {"ok", false}, {"loaded", false}, {"path", path},
+                                 {"error", QStringLiteral("downloaded and verified, but the AI runtime could not load it: ") + QString::fromStdString(runtime_->status().error)}});
+    emit modelProgress({{"id", id}, {"phase", "test"}});
+    QThread* t = QThread::create([this, id, path] {
+      ai::GenerateOptions opt;
+      opt.maxTokens = 8;
+      opt.temperature = 0;
+      const auto t0 = std::chrono::steady_clock::now();
+      const std::string text = runtime_->generate("Reply with the single word OK.", opt);
+      const double secs = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+      QMetaObject::invokeMethod(this, [this, id, path, text, secs] {
+        const ai::RuntimeStatus st = runtime_->status();
+        QJsonObject r{{"id", id}, {"done", true}, {"ok", st.ready && !text.empty()}, {"loaded", st.ready}, {"path", path},
+                      {"test", QString::fromStdString(text).trimmed()}, {"seconds", secs}, {"tokensPerSecond", st.lastTokensPerSecond},
+                      {"device", QString::fromStdString(st.device)}, {"model", QString::fromStdString(st.modelName)}};
+        if (!r["ok"].toBool()) r["error"] = QStringLiteral("the model loaded but did not answer the test question");
+        emit modelProgress(r);
+      }, Qt::QueuedConnection);
+    });
+    connect(t, &QThread::finished, t, &QObject::deleteLater);
+    t->start();
+  });
   if (const std::string model = ai::discoverModel(); !model.empty()) runtime_->load(model);
 }
 
@@ -158,6 +194,15 @@ void HostBridge::voiceStop() {
 }
 
 QJsonObject HostBridge::whisperStatus() { return WhisperRunner::status(); }
+
+QJsonObject HostBridge::modelDownloadState() {
+  QJsonObject s = downloader_->state();
+  s["busy"] = s.value("running").toBool() || modelInstalling_;
+  if (!modelLast_.isEmpty()) s["last"] = modelLast_;
+  return s;
+}
+QJsonObject HostBridge::modelDownload(const QString& id) { return downloader_->start(id); }
+void HostBridge::modelDownloadCancel() { downloader_->cancel(); }
 
 void HostBridge::voiceWarmup() { WhisperRunner::warmup(); }
 
