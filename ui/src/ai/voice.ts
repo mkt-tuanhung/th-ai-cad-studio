@@ -93,6 +93,7 @@ export function useVoice(locale: string, onText: (text: string, final: boolean) 
         return onError((e as Error).message || 'microphone')
       }
       setListening(true)
+      void host.voiceWarmup() // GPU kernels compile while the user speaks (first use of a new install)
       cb.current.onState?.('whisper', { model: w.model })
       timer.current = setTimeout(() => void finish(host), MAX_SECONDS * 1000)
       return

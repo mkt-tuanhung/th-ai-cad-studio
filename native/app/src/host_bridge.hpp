@@ -53,6 +53,8 @@ class HostBridge : public QObject {
   Q_INVOKABLE void voiceTranscribe(const QString& id, const QString& wavBase64, const QString& lang);
   /** Settings → Download the Whisper model (user action); progress on 'whisperProgress'. */
   Q_INVOKABLE void whisperDownload();
+  /** Compiles Whisper's GPU kernels in the background (once per session). */
+  Q_INVOKABLE void voiceWarmup();
   /** Replaces the engine document with the UI's open drawing (JSON, see documentToJson). */
   Q_INVOKABLE QJsonObject cadLoad(const QString& documentJson);
 

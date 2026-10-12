@@ -4,11 +4,14 @@
 // committed; bundled into ui/dist by the build).
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-const root = new URL('..', import.meta.url).pathname
-const out = root + 'public/ocr/'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+// fileURLToPath: a URL pathname is "/D:/…" on Windows
+const root = fileURLToPath(new URL('..', import.meta.url))
+const out = join(root, 'public', 'ocr') + '/'
 mkdirSync(out + 'lang', { recursive: true })
-copyFileSync(root + 'node_modules/tesseract.js/dist/worker.min.js', out + 'worker.min.js')
-for (const f of ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js']) copyFileSync(root + 'node_modules/tesseract.js-core/' + f, out + f)
+copyFileSync(join(root, 'node_modules/tesseract.js/dist/worker.min.js'), out + 'worker.min.js')
+for (const f of ['tesseract-core-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js']) copyFileSync(join(root, 'node_modules/tesseract.js-core', f), out + f)
 const models = {
   vie: 'b6b49293d95d0b6dbd8780174627e82c75be957b6f4ed9862155540d6b00bb45',
 }

@@ -158,6 +158,8 @@ void HostBridge::voiceStop() {
 
 QJsonObject HostBridge::whisperStatus() { return WhisperRunner::status(); }
 
+void HostBridge::voiceWarmup() { WhisperRunner::warmup(); }
+
 void HostBridge::whisperDownload() {
   WhisperRunner::download([this](const QJsonObject& p) { emit whisperProgress(p); });
 }

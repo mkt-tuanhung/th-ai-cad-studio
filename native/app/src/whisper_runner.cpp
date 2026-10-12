@@ -16,6 +16,8 @@
 
 #include "thcad/ai/runtime.hpp"
 
+#include <vector>
+
 namespace thcad::app {
 
 QString WhisperRunner::helperPath() {
@@ -52,7 +54,17 @@ QJsonObject WhisperRunner::status() {
   return r;
 }
 
+namespace {
+bool warming = false;
+std::vector<std::function<void()>> queued;  // transcriptions waiting for the warm-up
+}  // namespace
+
 void WhisperRunner::transcribe(const QByteArray& wav, const QString& lang, std::function<void(QJsonObject)> done) {
+  if (warming) return queued.push_back([wav, lang, done] { run(wav, lang, done); });
+  run(wav, lang, done);
+}
+
+void WhisperRunner::run(const QByteArray& wav, const QString& lang, std::function<void(QJsonObject)> done) {
   const QString helper = helperPath(), model = modelPath();
   if (helper.isEmpty() || model.isEmpty()) return done({{"ok", false}, {"error", status().value("reason").toString()}});
   auto* tmp = new QTemporaryDir();
@@ -86,6 +98,26 @@ void WhisperRunner::transcribe(const QByteArray& wav, const QString& lang, std::
   });
   p->start(helper, {QStringLiteral("-m"), model, QStringLiteral("-l"), l, QStringLiteral("-t"), QString::number(threads), QStringLiteral("-nt"),
                     QStringLiteral("-np"), QStringLiteral("-sns"), QStringLiteral("--prompt"), prompt, QStringLiteral("-f"), wavPath});
+}
+
+void WhisperRunner::warmup() {
+  static bool done = false;
+  if (done || helperPath().isEmpty() || modelPath().isEmpty()) return;
+  done = true;
+  // 0.5 s of silence, 16 kHz mono PCM16
+  QByteArray wav;
+  const int n = 8000;
+  auto le32 = [&](quint32 v) { for (int i = 0; i < 4; ++i) wav.append(char((v >> (8 * i)) & 0xff)); };
+  auto le16 = [&](quint16 v) { wav.append(char(v & 0xff)); wav.append(char(v >> 8)); };
+  wav.append("RIFF"); le32(36 + n * 2); wav.append("WAVEfmt "); le32(16); le16(1); le16(1); le32(16000); le32(32000); le16(2); le16(16);
+  wav.append("data"); le32(n * 2); wav.append(QByteArray(n * 2, '\0'));
+  warming = true;
+  run(wav, QStringLiteral("vi"), [](QJsonObject) {
+    warming = false;
+    auto next = std::move(queued);
+    queued.clear();
+    for (auto& f : next) f();
+  });
 }
 
 void WhisperRunner::download(std::function<void(QJsonObject)> progress) {

@@ -47,6 +47,7 @@ export interface HostApi {
   whisperStatus(): Promise<{ available: boolean; helper: string; model: string; modelBytes: number; reason?: string }>
   voiceTranscribe(id: string, wavBase64: string, lang: string): Promise<void>
   whisperDownload(): Promise<void>
+  voiceWarmup(): Promise<void>
   scene3dLoadBim(key: string, modelJson: string, extrasJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
   scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
