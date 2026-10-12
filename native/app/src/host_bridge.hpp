@@ -81,6 +81,11 @@ class HostBridge : public QObject {
   /** DWG bytes (base64) → DXF bytes via the bundled LibreDWG helper. Async: emits dwgResult
    *  ({id, ok, dxf: base64, ms, warnings, error}); returns the id. */
   Q_INVOKABLE QString dwgToDxf(const QString& base64, const QString& name);
+  /** Writes a DWG (AutoCAD 2000) from a LibreDWG dwgadd script (built by ui/src/cad/dwgWrite.ts) and
+   *  verifies it by reading it back: {ok, path, bytes, entities, layers, warnings?, error?}. */
+  Q_INVOKABLE QJsonObject dwgWrite(const QString& script, const QString& suggestedName);
+  /** Vector PDF of a plotted page (ui/src/cad/plot.ts: {name, w, h, scale, prims}) via QPdfWriter. */
+  Q_INVOKABLE QJsonObject cadExportPdf(const QString& pageJson, const QString& suggestedName);
   /** Settings: models folder, installed models (size, active), disk of the models volume, versions. */
   Q_INVOKABLE QJsonObject systemInfo() const;
   /** Settings: switches the models folder and loads its preferred model. */

@@ -73,6 +73,8 @@ Expand-Archive $Zip -DestinationPath $Tmp
 New-Item -ItemType Directory -Force "$Stage\libredwg", "$Stage\licenses\libredwg" | Out-Null
 # imports checked: dwg2dxf.exe -> libredwg-0.dll -> libiconv-2.dll (+ KERNEL32, msvcrt)
 foreach ($f in "dwg2dxf.exe", "libredwg-0.dll", "libiconv-2.dll") { Copy-Item "$Tmp\$f" "$Stage\libredwg\" }
+# DWG writer (dwgadd ships in the release's examples folder)
+Copy-Item "$Tmp\examples\dwgadd.exe" "$Stage\libredwg\"
 Copy-Item $Src "$Stage\licenses\libredwg\"
 # COPYING from the source tarball via Python's tarfile: Git's GNU tar reads "D:\..." as a remote host and
 # Windows bsdtar has no built-in xz (it pipes through an external xz) — both hung the CI job

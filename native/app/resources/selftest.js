@@ -62,6 +62,10 @@
       for (let i = 0; i < 600 && !taskRes; i++) await new Promise((r) => setTimeout(r, 100))
       check('aiTask: grammar-constrained JSON from the local model', !!taskRes && taskRes.ok && /^\{\s*"ok"\s*:\s*(true|false)\s*\}$/.test(taskRes.text.trim()))
     }
+    // DWG writer (LibreDWG dwgadd) + read-back verification
+    const dw = await h.dwgWrite('version 2000\nlayer "A-Wall"\nline (0 0 0) (3600 0 0)\nline.layer = "A-Wall"\ncircle (1000 1000 0) 300\ntext "PH\\U+00D2NG" (0 0 0) 250\n', 'selftest.dwg')
+    if (!dw.ok && dw.error === 'no-writer') console.log('SELFTEST SKIP DWG writer not installed')
+    else check('DWG writer: AutoCAD 2000 file read back with 3 entities and the layer', dw.ok && dw.entities === 3 && dw.layers >= 1 && dw.bytes > 1000)
     let result = null
     h.on('aiResult', (r) => { result = r; out('aiResult', { ok: r.ok, message: r.message, proposal: r.proposal && { added: r.proposal.added, status: r.proposal.status } }) })
     const docBefore = (await h.cadDocument()).entities.length

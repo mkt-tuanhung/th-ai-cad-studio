@@ -49,6 +49,8 @@ export interface HostApi {
   setViewportSlot(kind: string, x: number, y: number, w: number, h: number, visible: boolean): Promise<void>
   /** Async; the result arrives on the 'dwgResult' signal with the returned id. */
   dwgToDxf(base64: string, name: string): Promise<string>
+  dwgWrite(script: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; entities?: number; layers?: number; warnings?: string; error?: string; cancelled?: boolean }>
+  cadExportPdf(pageJson: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; error?: string; cancelled?: boolean }>
   /** QA only (THCAD_QA=1). */
   qaSampleDwg(): Promise<string>
   systemInfo(): Promise<HostSystemInfo>

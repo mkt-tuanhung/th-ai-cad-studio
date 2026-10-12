@@ -18,6 +18,11 @@ class DwgReader : public QObject {
   static QString version();
   /** Starts a conversion; emits finished({id, ok, dxf (base64), ms, error, warnings}). Returns id. */
   QString convert(const QByteArray& dwg, const QString& name);
+  /** LibreDWG `dwgadd` (DWG writer), or empty. */
+  static QString writerPath();
+  /** Builds `path` from a dwgadd script, then reads it back with dwg2dxf to verify:
+   *  {ok, path, bytes, entities (read back), layers, error?}. */
+  static QJsonObject write(const QString& script, const QString& path);
 
  signals:
   void finished(const QJsonObject& result);

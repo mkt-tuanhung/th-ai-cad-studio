@@ -29,6 +29,11 @@
 #include "thcad/occt/scene.hpp"
 #endif
 #include <QBuffer>
+#include <QFontMetricsF>
+#include <QPageSize>
+#include <QPainter>
+#include <QPdfWriter>
+#include <QPen>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QImageWriter>
@@ -649,6 +654,95 @@ bool HostBridge::revealFolder(const QString& path) {
 
 QString HostBridge::pickFolder(const QString& title, const QString& start) {
   return QFileDialog::getExistingDirectory(qobject_cast<QWidget*>(parent()), title, start.isEmpty() ? QDir::homePath() : start);
+}
+
+QJsonObject HostBridge::dwgWrite(const QString& script, const QString& suggestedName) {
+  if (DwgReader::writerPath().isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
+  QString path = qEnvironmentVariable("THCAD_DWG_OUT");  // QA: skip the dialog
+  if (path.isEmpty() && qEnvironmentVariableIntValue("THCAD_SELFTEST") == 1) path = QDir::tempPath() + "/thcad-selftest.dwg";
+  if (path.isEmpty()) {
+    const QString start = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + suggestedName;
+    path = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Save as DWG"), start, "AutoCAD DWG (*.dwg)");
+  }
+  if (path.isEmpty()) return {{"ok", false}, {"cancelled", true}};
+  if (!path.endsWith(".dwg", Qt::CaseInsensitive)) path += ".dwg";
+  return DwgReader::write(script, path);
+}
+
+QJsonObject HostBridge::cadExportPdf(const QString& pageJson, const QString& suggestedName) {
+  const QJsonObject page = QJsonDocument::fromJson(pageJson.toUtf8()).object();
+  QString path = qEnvironmentVariable("THCAD_PDF_OUT");  // QA: skip the dialog
+  if (path.isEmpty()) {
+    const QString start = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + suggestedName;
+    path = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Export PDF"), start, "PDF (*.pdf)");
+  }
+  if (path.isEmpty()) return {{"ok", false}, {"cancelled", true}};
+  const double W = page.value("w").toDouble(420), H = page.value("h").toDouble(297);
+  QPdfWriter pdf(path);
+  pdf.setPageSize(QPageSize(QSizeF(W, H), QPageSize::Millimeter));
+  pdf.setPageMargins(QMarginsF(0, 0, 0, 0));
+  pdf.setResolution(1200);
+  pdf.setTitle(page.value("name").toString());
+  pdf.setCreator(QStringLiteral("TH AI CAD Studio"));
+  QPainter g(&pdf);
+  if (!g.isActive()) return {{"ok", false}, {"error", "cannot write " + path}};
+  g.setRenderHint(QPainter::Antialiasing);
+  const double k = 1200 / 25.4;  // device units per mm
+  auto pen = [&](const QJsonObject& q) {
+    QPen p(QColor(q.value("color").toString("#111827")));
+    const double w = std::max(0.1, q.value("w").toDouble(0.25));
+    p.setWidthF(w * k);
+    p.setCapStyle(Qt::RoundCap);
+    p.setJoinStyle(Qt::RoundJoin);
+    const QJsonArray d = q.value("dash").toArray();
+    if (!d.isEmpty()) {
+      QList<qreal> pat;
+      for (const auto& v : d) pat << std::max(0.1, v.toDouble() / w);  // QPen dashes are in pen widths
+      p.setDashPattern(pat);
+    }
+    return p;
+  };
+  for (const auto& v : page.value("prims").toArray()) {
+    const QJsonObject q = v.toObject();
+    const QString t = q.value("t").toString();
+    g.setBrush(Qt::NoBrush);
+    if (t == "line") {
+      g.setPen(pen(q));
+      g.drawLine(QPointF(q["x1"].toDouble() * k, q["y1"].toDouble() * k), QPointF(q["x2"].toDouble() * k, q["y2"].toDouble() * k));
+    } else if (t == "poly") {
+      QPolygonF poly;
+      for (const auto& pt : q["pts"].toArray()) poly << QPointF(pt.toArray()[0].toDouble() * k, pt.toArray()[1].toDouble() * k);
+      g.setPen(pen(q));
+      if (q["fill"].toBool()) g.setBrush(QColor(q.value("color").toString()));
+      if (q["closed"].toBool()) g.drawPolygon(poly);
+      else g.drawPolyline(poly);
+    } else if (t == "circle") {
+      g.setPen(pen(q));
+      const double r = q["r"].toDouble() * k;
+      g.drawEllipse(QPointF(q["cx"].toDouble() * k, q["cy"].toDouble() * k), r, r);
+    } else if (t == "arc") {
+      g.setPen(pen(q));
+      const double r = q["r"].toDouble() * k, cx = q["cx"].toDouble() * k, cy = q["cy"].toDouble() * k;
+      double a0 = q["a0"].toDouble(), sweep = q["a1"].toDouble() - a0;
+      while (sweep <= 0) sweep += 360;
+      g.drawArc(QRectF(cx - r, cy - r, 2 * r, 2 * r), static_cast<int>(std::lround(a0 * 16)), static_cast<int>(std::lround(sweep * 16)));
+    } else if (t == "text") {
+      QFont f(QStringLiteral("Arial"));
+      f.setPixelSize(std::max(1, static_cast<int>(std::lround(q["h"].toDouble() / 0.711 * k))));
+      f.setBold(q["bold"].toBool());
+      g.setFont(f);
+      g.setPen(QColor(q.value("color").toString("#111827")));
+      g.save();
+      g.translate(q["x"].toDouble() * k, q["y"].toDouble() * k);
+      g.rotate(-q["rot"].toDouble());
+      const QString s = q["value"].toString();
+      const double tw = QFontMetricsF(f).horizontalAdvance(s);
+      g.drawText(QPointF(q["anchor"].toString() == "middle" ? -tw / 2 : 0, 0), s);
+      g.restore();
+    }
+  }
+  g.end();
+  return {{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
 }
 
 QString HostBridge::dwgToDxf(const QString& base64, const QString& name) {

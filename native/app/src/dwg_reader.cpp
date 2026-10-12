@@ -26,6 +26,68 @@ QString DwgReader::helperPath() {
   return {};
 }
 
+QString DwgReader::writerPath() {
+  if (const QString env = qEnvironmentVariable("THCAD_DWGADD"); !env.isEmpty() && QFileInfo(env).isExecutable()) return env;
+  const QString dir = QCoreApplication::applicationDirPath();
+#ifdef Q_OS_WIN
+  const QStringList candidates{dir + "/libredwg/dwgadd.exe"};
+#else
+  const QStringList candidates{dir + "/../Helpers/dwgadd", "/opt/homebrew/bin/dwgadd"};
+#endif
+  for (const QString& c : candidates)
+    if (QFileInfo(c).isExecutable()) return QFileInfo(c).canonicalFilePath();
+  return {};
+}
+
+QJsonObject DwgReader::write(const QString& script, const QString& path) {
+  const QString add = writerPath(), reader = helperPath();
+  if (add.isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
+  QTemporaryDir tmp;
+  if (!tmp.isValid()) return {{"ok", false}, {"error", "temp directory unavailable"}};
+  const QString scriptFile = tmp.filePath("drawing.add");
+  {
+    QFile f(scriptFile);
+    if (!f.open(QIODevice::WriteOnly)) return {{"ok", false}, {"error", "cannot write the script"}};
+    f.write(script.toUtf8());
+  }
+  QFile::remove(path);
+  QProcess p;
+  p.start(add, {"-o", path, scriptFile});
+  if (!p.waitForFinished(60000)) {
+    p.kill();
+    return {{"ok", false}, {"error", "dwgadd timed out"}};
+  }
+  const QString log = QString::fromUtf8(p.readAllStandardError() + p.readAllStandardOutput()).trimmed();
+  if (p.exitCode() != 0 || !QFileInfo::exists(path)) return {{"ok", false}, {"error", "dwgadd failed: " + log.right(400)}};
+  QJsonObject r{{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
+  const QStringList warnings = log.split('\n', Qt::SkipEmptyParts).filter(QRegularExpression("^(Warning|ERROR)", QRegularExpression::CaseInsensitiveOption));
+  if (!warnings.isEmpty()) r["warnings"] = warnings.mid(0, 20).join('\n');
+  // verify: read the new DWG back and count what it contains
+  if (!reader.isEmpty()) {
+    const QString back = tmp.filePath("back.dxf");
+    QProcess v;
+    v.start(reader, {"-y", "-o", back, path});
+    if (v.waitForFinished(60000) && QFileInfo::exists(back)) {
+      QFile f(back);
+      f.open(QIODevice::ReadOnly);
+      const QList<QByteArray> lines = f.readAll().split('\n');
+      int entities = 0, layers = 0;
+      QString section;
+      for (int k = 0; k + 1 < lines.size(); k += 2) {
+        const QByteArray code = lines[k].trimmed(), val = lines[k + 1].trimmed();
+        if (code != "0") continue;
+        if (val == "SECTION" && k + 3 < lines.size()) section = QString::fromLatin1(lines[k + 3].trimmed());
+        else if (val == "ENDSEC") section.clear();
+        else if (section == "ENTITIES") ++entities;
+        else if (section == "TABLES" && val == "LAYER") ++layers;
+      }
+      r["entities"] = entities;
+      r["layers"] = layers - 1;  // the LAYER table record itself
+    }
+  }
+  return r;
+}
+
 QString DwgReader::version() {
   static const QString v = [] {
     const QString exe = helperPath();

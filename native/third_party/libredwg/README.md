@@ -1,6 +1,6 @@
 # LibreDWG (DWG reader helper)
 
-TH AI CAD Studio opens `.dwg` files by running LibreDWG's `dwg2dxf` as a **separate program**
+TH AI CAD Studio opens `.dwg` files by running LibreDWG's `dwg2dxf` (and saves them with `dwgadd`) as a **separate program**
 (child process, files on disk in between). The application does not link LibreDWG.
 
 - License: **GPL-3.0-or-later** (`COPYING`). The complete corresponding source of the exact version

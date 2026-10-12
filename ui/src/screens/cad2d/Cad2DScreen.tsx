@@ -9,6 +9,10 @@ import { useWorkspace } from '../../state/workspace'
 import { toDxf } from '../../cad/dxf'
 import { decodeDxf, importDxf } from '../../cad/dxfImport'
 import { convertDwg, dwgReader } from '../../services/dwg'
+import { getHost } from '../../services/host'
+import { toDwgAdd } from '../../cad/dwgWrite'
+import { pagePng, pageSvg, plotPage } from '../../cad/plot'
+import { downloadFile } from '../../components/workspace/Workspace'
 import { createBlankDocument } from '../../cad/seed'
 import { Modal } from '../../components/ui/Modal'
 import { ActionButton } from '../../components/ui/Button'
@@ -57,6 +61,45 @@ export function Cad2DScreen() {
     URL.revokeObjectURL(url)
     say(fmt(T.cad.toast.exported, { file }), 'info')
     toast(fmt(T.cad.toast.exported, { file }), 'success')
+  }
+
+  const baseName = () => (doc ? doc.name.replace(/\.(dwg|dxf)$/i, '') : 'Drawing')
+  const exportDwg = async () => {
+    if (!doc) return
+    const host = await getHost()
+    if (!host) return toast(T.cad.toast.dwgDesktop, 'info')
+    const { script } = toDwgAdd(doc)
+    const r = await host.dwgWrite(script, `${baseName()}.dwg`)
+    if (r.cancelled) return
+    if (!r.ok) return toast(fmt(T.cad.toast.dwgSaveFailed, { why: r.error === 'no-writer' ? 'LibreDWG dwgadd not found' : r.error ?? '' }), 'warning')
+    const file = r.path!.split(/[\\/]/).pop()!
+    const msg = fmt(T.cad.toast.dwgSaved, { file, n: r.entities ?? '?', layers: r.layers ?? '?' })
+    say(msg, 'info')
+    toast(msg, 'success')
+  }
+  const exportPlot = async (kind: 'pdf' | 'png') => {
+    if (!doc) return
+    const page = plotPage(doc, 'A3')
+    if (kind === 'png') {
+      const file = `${baseName()}.png`
+      downloadFile(file, new Uint8Array(await (await pagePng(page, 200)).arrayBuffer()), 'image/png')
+      return toast(fmt(T.cad.toast.pngSaved, { file, paper: 'A3', dpi: 200, scale: page.scale }), 'success')
+    }
+    const host = await getHost()
+    if (!host) {
+      // browser: the vector page in a print window — the system dialog saves it as PDF
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.write(`<!doctype html><title>${baseName()}</title><style>@page{size:${page.w}mm ${page.h}mm;margin:0}body{margin:0}</style>${pageSvg(page)}<script>onload=()=>print()<\/script>`)
+        w.document.close()
+      }
+      return toast(fmt(T.cad.toast.pdfBrowser, { paper: 'A3', scale: page.scale }), 'info')
+    }
+    const r = await host.cadExportPdf(JSON.stringify(page), `${baseName()}.pdf`)
+    if (r.cancelled) return
+    if (!r.ok) return toast(r.error ?? 'PDF', 'warning')
+    const file = r.path!.split(/[\\/]/).pop()!
+    toast(fmt(T.cad.toast.pdfSaved, { file, paper: 'A3', scale: page.scale }), 'success')
   }
 
   const openFiles = async (list: FileList | File[] | null) => {
@@ -203,14 +246,14 @@ export function Cad2DScreen() {
           onOpen={() => fileInput.current?.click()}
           onSave={save}
           onSaveAs={() => setSaveAsOpen(true)}
-          onExport={(f) => (f === 'dxf' ? exportDxf() : native(fmt(T.cad.toast.formatNative, { format: f.toUpperCase() })))}
+          onExport={(f) => (f === 'dxf' ? exportDxf() : f === 'dwg' ? void exportDwg() : void exportPlot(f))}
           onUndo={() => session.input('U')}
           onRedo={() => session.input('REDO')}
           canUndo={!!history?.undo.length}
           canRedo={!!history?.redo.length}
           onLayer={() => cad.set({ rightTab: 'layers' })}
           onProperties={() => cad.set({ rightTab: 'properties' })}
-          onPlot={() => native(T.cad.toast.plotNative)}
+          onPlot={() => void exportPlot('pdf')}
           onShare={() => toast(T.cad.toast.shareNative)}
           aiOpen={cad.aiPanel.open}
           onAiAssist={() => cad.setAi({ open: !cad.aiPanel.open, minimized: false })}

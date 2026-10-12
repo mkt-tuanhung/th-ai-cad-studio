@@ -23,10 +23,11 @@ done
 LIBREDWG=/opt/homebrew/opt/libredwg
 [[ -x $LIBREDWG/bin/dwg2dxf ]] || { echo "error: brew install libredwg (DWG reader)" >&2; exit 1; }
 mkdir -p "$APP/Contents/Helpers" "$APP/Contents/Resources/licenses/libredwg"
-cp $LIBREDWG/bin/dwg2dxf "$APP/Contents/Helpers/"
+# DWG writer: LibreDWG `dwgadd` (same terms; builds AutoCAD 2000 DWG from a script)
+cp $LIBREDWG/bin/dwg2dxf $LIBREDWG/bin/dwgadd "$APP/Contents/Helpers/"
 cp $LIBREDWG/lib/libredwg.0.dylib "$APP/Contents/Frameworks/"
-chmod u+w "$APP/Contents/Helpers/dwg2dxf" "$APP/Contents/Frameworks/libredwg.0.dylib"
-install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/Helpers/dwg2dxf" 2>/dev/null || true
+chmod u+w "$APP/Contents/Helpers/dwg2dxf" "$APP/Contents/Helpers/dwgadd" "$APP/Contents/Frameworks/libredwg.0.dylib"
+for h in dwg2dxf dwgadd; do install_name_tool -add_rpath @executable_path/../Frameworks "$APP/Contents/Helpers/$h" 2>/dev/null || true; done
 SRC=$(third_party/libredwg/fetch.sh https://ftpmirror.gnu.org/libredwg/libredwg-0.14.tar.gz cb6ee0b078c6d9e0f09d66f1feac33ba6342df88ae544e9f9335fab475218351)
 cp "$SRC" "$APP/Contents/Resources/licenses/libredwg/"
 tar -xzOf "$SRC" libredwg-0.14/COPYING > "$APP/Contents/Resources/licenses/libredwg/COPYING"
