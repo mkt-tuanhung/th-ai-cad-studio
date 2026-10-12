@@ -9,6 +9,7 @@ import { createBlankDocument } from '../cad/seed'
 import { levelOf, typeOf, type BimModel } from '../bim/model'
 import { wallEnds, wallsOn } from '../bim/geometry'
 import { interiorPoint } from '../bim/fromCad'
+import { stairFlight } from '../bim/scene'
 import { sta, type CivilModel, type DrawnSection } from '../civil/model'
 
 let seq = 0
@@ -29,11 +30,11 @@ function doc(name: string, layers: Layer[], entities: Entity[]): CadDocument {
 const PLAN_LAYERS = [
   lay('A-WALL', '#111827', 0.5), lay('A-DOOR', '#0f766e', 0.25), lay('A-GLAZ', '#2563eb', 0.25), lay('A-COLS', '#111827', 0.35),
   lay('A-AREA', '#1f2937', 0.18), lay('A-GRID', '#9aa1ab', 0.13, 'DashDot'), lay('A-ANNO-DIMS', '#3f4654', 0.13), lay('A-ANNO-TEXT', '#1f2937', 0.25), lay('A-FURN', '#9aa1ab', 0.13),
-  lay('A-SECT', '#111827', 0.5),
+  lay('A-SECT', '#111827', 0.5), lay('A-STRS', '#1f2937', 0.18),
 ]
 
 /** A section's cutting plane on the plan: a plane of constant `axis` at `at` mm, looked at towards +axis. */
-export interface PlanCut { axis: 'x' | 'y'; at: number; label: string }
+export interface PlanCut { axis: 'x' | 'y'; at: number; look?: 1 | -1; label: string }
 
 /** Floor plan of one level at the plan cut: walls (poche) broken at their openings, doors with swings, windows,
  *  columns, room names and areas, grids, overall dimensions, the section cuts and the title. */
@@ -93,6 +94,21 @@ export function planDocument(m: BimModel, levelId: string, title: string, cuts: 
     const pt = (u: number, w2: number): Vec2 => ({ x: f.x + u * c - w2 * s, y: f.y + u * s + w2 * c })
     out.push(P('A-FURN', [pt(-f.w / 2, -f.d / 2), pt(f.w / 2, -f.d / 2), pt(f.w / 2, f.d / 2), pt(-f.w / 2, f.d / 2)], true))
   }
+  // stairs: the flights starting on this level (the top plan shows the ones arriving), treads, the up arrow,
+  // landings
+  let flights = m.stairs.filter((st) => st.baseLevel === levelId)
+  if (!flights.length) flights = m.stairs.filter((st) => st.topLevel === levelId)
+  for (const st of flights) {
+    const { n } = stairFlight(m, st)
+    const t = (st.angle * Math.PI) / 180, u: Vec2 = { x: Math.cos(t), y: Math.sin(t) }, nn: Vec2 = { x: -u.y, y: u.x }
+    const pt = (along: number, across: number): Vec2 => ({ x: st.x + u.x * along + nn.x * across, y: st.y + u.y * along + nn.y * across })
+    const h = st.width / 2
+    out.push(P('A-STRS', [pt(0, -h), pt(st.length, -h), pt(st.length, h), pt(0, h)], true))
+    for (let i = 1; i < n; i++) out.push(L('A-STRS', pt((i * st.length) / n, -h), pt((i * st.length) / n, h)))
+    out.push(L('A-STRS', pt(150, 0), pt(st.length - 150, 0)), P('A-STRS', [pt(st.length - 330, -90), pt(st.length - 150, 0), pt(st.length - 330, 90)], false), C('A-STRS', pt(150, 0), 50))
+  }
+  const lvIds = new Set(flights.map((st) => st.baseLevel))
+  for (const sl of m.slabs) if (sl.landing && lvIds.has(sl.level)) out.push(P('A-STRS', sl.outline.map(v), true))
   if (!Number.isFinite(x0)) { x0 = 0; y0 = 0; x1 = 10000; y1 = 10000 }
   for (const g of m.grids) {
     const a = v(g.a), b = v(g.b)
@@ -108,11 +124,12 @@ export function planDocument(m: BimModel, levelId: string, title: string, cuts: 
     const lo = c.axis === 'y' ? x0 : y0, hi = c.axis === 'y' ? x1 : y1
     const pt = (along: number, across: number): Vec2 => (c.axis === 'y' ? { x: along, y: c.at + across } : { x: c.at + across, y: along })
     // the low side (left / bottom) is past the overall dimensions; the high side before the grid bubbles
+    const k = c.look ?? 1
     for (const [e0, e1] of [[lo - 4200, lo - 2600], [hi + 1000, hi + 2600]]) {
       out.push(L('A-SECT', pt(e0, 0), pt(e1, 0)))
       const mid = (e0 + e1) / 2
-      out.push(L('A-SECT', pt(mid, 0), pt(mid, 700)), P('A-SECT', [pt(mid - 180, 650), pt(mid + 180, 650), pt(mid, 1000)], true, true))
-      out.push(T('A-ANNO-TEXT', pt(mid, -600), 400, c.label, 'center'))
+      out.push(L('A-SECT', pt(mid, 0), pt(mid, 700 * k)), P('A-SECT', [pt(mid - 180, 650 * k), pt(mid + 180, 650 * k), pt(mid, 1000 * k)], true, true))
+      out.push(T('A-ANNO-TEXT', pt(mid, -600 * k - (k < 0 ? 400 : 0)), 400, c.label, 'center'))
     }
   }
   const lv = levelOf(m, levelId)

@@ -18,6 +18,16 @@ export function stairRisers(m: BimModel, base: string, top: string) {
   return { H, n, riser: H / n }
 }
 
+/** The flight a stair element is: where it starts (z), the height it climbs, its risers. */
+export function stairFlight(m: BimModel, st: BimModel['stairs'][number]) {
+  const z = elev(m, st.baseLevel) + (st.baseOffset ?? 0)
+  if (st.rise !== undefined && st.rise > 0) {
+    const n = st.risers ?? Math.max(1, Math.ceil(st.rise / 180))
+    return { z, H: st.rise, n, riser: st.rise / n }
+  }
+  return { z, ...stairRisers(m, st.baseLevel, st.topLevel) }
+}
+
 export function bimExtras(m: BimModel): Scene {
   const items: SceneItem[] = []
   for (const c of m.columns) {
@@ -30,19 +40,26 @@ export function bimExtras(m: BimModel): Scene {
     const z = elev(m, s.level) + s.offset
     // floor: top at the level; roof: sits on the level; ceiling: hangs at the offset
     const z0 = s.kind === 'floor' ? z - s.thickness : z
-    items.push({ id: s.id, rgb: s.kind === 'ceiling' ? hex('#f2f1ee') : s.kind === 'roof' ? hex('#8d8a85') : CONCRETE, parts: [prism([0, 0, z0], s.outline, s.thickness)] })
+    // holes (a stair well) cut a little past both faces
+    const cuts = (s.openings ?? []).filter((o) => o.length >= 3).map((o) => prism([0, 0, z0 - 10], o, s.thickness + 20))
+    items.push({ id: s.id, rgb: s.kind === 'ceiling' ? hex('#f2f1ee') : s.kind === 'roof' ? hex('#8d8a85') : CONCRETE, parts: [prism([0, 0, z0], s.outline, s.thickness)], ...(cuts.length ? { cuts } : {}) })
   }
   for (const st of m.stairs) {
-    const { n, riser } = stairRisers(m, st.baseLevel, st.topLevel)
-    const z = elev(m, st.baseLevel)
+    const { n, riser, z } = stairFlight(m, st)
     const t = (st.angle * Math.PI) / 180
     const ux = Math.cos(t), uy = Math.sin(t)
-    const going = st.length / n
-    const parts: Prim[] = []
-    for (let i = 0; i < n; i++) {
-      const s = (i + 0.5) * going
-      parts.push(boxAt(st.x + ux * s, st.y + uy * s, z, going, st.width, (i + 1) * riser, st.angle))
-    }
+    // one flight = its side profile (the steps on top, a sloping waist slab of 150 mm under them) extruded
+    // across the width: local x along the run, local y up, extruded towards the right of the run
+    const going = st.length / n, H = n * riser
+    const waist = 150 / Math.cos(Math.atan2(riser, going))
+    const prof: [number, number][] = [[0, 0]]
+    for (let i = 0; i < n; i++) prof.push([i * going, (i + 1) * riser], [(i + 1) * going, (i + 1) * riser])
+    // the soffit: parallel to the nosings, meeting the floor in front and ending under the top tread
+    const xs = Math.min(st.length / 2, Math.max(0, (waist - riser) / (riser / going)))
+    prof.push([st.length, Math.max(H - 120, Math.min(H - 1, riser + H - waist))])
+    if (xs > 1) prof.push([xs, 0])
+    const nx = -uy * (st.width / 2), ny = ux * (st.width / 2)
+    const parts: Prim[] = [{ ...prism([st.x + nx, st.y + ny, z], prof.filter((q, i, a) => i === 0 || q[0] !== a[i - 1][0] || q[1] !== a[i - 1][1]), st.width), z: [uy, -ux, 0], x: [ux, uy, 0] }]
     items.push({ id: st.id, rgb: CONCRETE, parts })
   }
   for (const r of m.railings) {

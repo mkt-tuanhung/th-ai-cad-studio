@@ -409,6 +409,8 @@ export interface Recognition {
   footprint: P2[] | null
   furniture: RecFurniture[]
   grids: RecGrid[]
+  /** stair flights on the stair layers inside the plan */
+  flights: RecFlight[]
   warnings: RecWarning[]
 }
 
@@ -1137,6 +1139,110 @@ export function rotateEntity(e: Entity, ang: number, o: Vec2): Entity {
 }
 
 /** Recognises one plan region of the drawing. */
+/** A stair flight drawn on a plan: tread lines of one length, evenly spaced along the run. In the plan's frame:
+ *  `a` is the middle of the first tread line, `dir` the unit run direction from the first line to the last. */
+export interface RecFlight {
+  a: P2
+  dir: P2
+  /** distance from the first tread line to the last (mm) */
+  run: number
+  width: number
+  /** tread lines drawn (the nosings: risers of the flight when both ends are drawn) */
+  lines: number
+  going: number
+  /** +1: the flight goes up from `a` along `dir`; −1: up towards `a`; 0: no arrow / start dot drawn */
+  up: 1 | -1 | 0
+  /** a break line crosses it: the plan's cut plane passes through the flight, only its lower part is drawn */
+  broken: boolean
+}
+
+/**
+ * Stair flights from the entities of the stair layers: runs of ≥ 4 parallel lines of the same length and ends
+ * (500…2500 mm, the flight width) spaced 180…380 mm apart, evenly (the going). The direction comes from the
+ * arrow drawn along the flight (the end with the arrow head is the top) or from the start dot (the bottom);
+ * a zig-zag across the flight is the break line of a cut flight. Stringers and landing edges (other lengths)
+ * are left out by the length and end test.
+ */
+export function findFlights(ents: Entity[]): RecFlight[] {
+  const segs: Seg[] = ents.flatMap(segsOf)
+  const len = ([a, b]: Seg) => Math.hypot(b.x - a.x, b.y - a.y)
+  type L = { th: number; s0: number; s1: number; t: number }
+  const groups: { th: number; ls: L[] }[] = []
+  for (const sg of segs) {
+    const L0 = len(sg)
+    if (L0 < 500 || L0 > 2500) continue
+    const [a, b] = sg
+    let th = Math.atan2(b.y - a.y, b.x - a.x)
+    if (th < 0) th += Math.PI
+    if (th >= Math.PI - 1e-9) th -= Math.PI
+    const g = groups.find((x) => Math.abs(x.th - th) < 0.025 || Math.abs(Math.abs(x.th - th) - Math.PI) < 0.025)
+    const ref = g?.th ?? th
+    const c = Math.cos(ref), s = Math.sin(ref)
+    const pa = a.x * c + a.y * s, pb = b.x * c + b.y * s
+    const l: L = { th, s0: Math.min(pa, pb), s1: Math.max(pa, pb), t: (-(a.x + b.x) * s + (a.y + b.y) * c) / 2 }
+    if (g) g.ls.push(l)
+    else groups.push({ th, ls: [l] })
+  }
+  const out: RecFlight[] = []
+  for (const g of groups) {
+    const c = Math.cos(g.th), s = Math.sin(g.th)
+    // the same ends: one flight's treads (a landing edge or a stringer of another length falls out here)
+    const bySpan: L[][] = []
+    for (const l of g.ls) {
+      const b = bySpan.find((x) => Math.abs(x[0].s0 - l.s0) < 40 && Math.abs(x[0].s1 - l.s1) < 40)
+      if (b) b.push(l)
+      else bySpan.push([l])
+    }
+    for (const span of bySpan) {
+      const ts = [...new Set(span.map((l) => Math.round(l.t)))].sort((p, q) => p - q).filter((t, i, a) => i === 0 || t - a[i - 1] > 10)
+      // maximal evenly spaced runs
+      let i = 0
+      while (i < ts.length - 1) {
+        const gap = ts[i + 1] - ts[i]
+        let j = i + 1
+        if (gap >= 180 && gap <= 380) while (j + 1 < ts.length && Math.abs(ts[j + 1] - ts[j] - gap) < 30) j++
+        if (gap >= 180 && gap <= 380 && j - i + 1 >= 4) {
+          const t0 = ts[i], t1 = ts[j]
+          const s0 = span.reduce((a, l) => a + l.s0, 0) / span.length, s1 = span.reduce((a, l) => a + l.s1, 0) / span.length
+          const sm = (s0 + s1) / 2
+          // run direction n = (−sin, cos): the t axis
+          const n: P2 = [-s, c]
+          out.push({ a: [c * sm + n[0] * t0, s * sm + n[1] * t0], dir: n, run: t1 - t0, width: s1 - s0, lines: j - i + 1, going: (t1 - t0) / (j - i), up: 0, broken: false })
+          i = j
+        } else i++
+      }
+    }
+  }
+  // direction and break line of each flight
+  const circles = ents.filter((e): e is Extract<Entity, { kind: 'circle' }> => e.kind === 'circle')
+  const polys = ents.filter((e): e is Extract<Entity, { kind: 'polyline' }> => e.kind === 'polyline' && !e.closed && e.pts.length === 3)
+  for (const f of out) {
+    const n = f.dir, d: P2 = [n[1], -n[0]]
+    const loc = (p: Vec2) => ({ s: (p.x - f.a[0]) * d[0] + (p.y - f.a[1]) * d[1], t: (p.x - f.a[0]) * n[0] + (p.y - f.a[1]) * n[1] })
+    const inside = (q: { s: number; t: number }, m = 0) => Math.abs(q.s) <= f.width / 2 + m && q.t >= -300 - m && q.t <= f.run + 300 + m
+    for (const sg of segs) {
+      const L0 = len(sg)
+      if (L0 < 100) continue
+      const ux = (sg[1].x - sg[0].x) / L0, uy = (sg[1].y - sg[0].y) / L0
+      const along = Math.abs(ux * n[0] + uy * n[1])
+      const p = loc(sg[0]), q = loc(sg[1])
+      if (!inside(p) || !inside(q)) continue
+      if (along > 0.999 && L0 > 0.35 * Math.max(600, f.run) && Math.abs(p.s) < f.width / 2 - 50) {
+        // the arrow: its head is a 3-point polyline with the apex at one end; else a start dot at the other end
+        const ends = [sg[0], sg[1]]
+        const head = ends.findIndex((e) => polys.some((pl) => Math.hypot(pl.pts[1].x - e.x, pl.pts[1].y - e.y) < 80))
+        const dot = ends.findIndex((e) => circles.some((ci) => Math.hypot(ci.c.x - e.x, ci.c.y - e.y) < ci.r + 150))
+        const top = head >= 0 ? ends[head] : dot >= 0 ? ends[1 - dot] : null
+        if (top && f.up === 0) {
+          const tt = loc(top).t, tb = loc(ends[ends.indexOf(top) === 0 ? 1 : 0]).t
+          f.up = tt > tb ? 1 : -1
+        }
+      } else if (along > 0.2 && along < 0.98 && L0 > 250 && L0 < f.width) f.broken = true // arrow heads are shorter
+    }
+  }
+  return out
+}
+
 export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, region: PlanRegion, opt: RecOptions = DEFAULT_REC): Recognition {
   const warnings: RecWarning[] = []
   // wall geometry of this plan only; symbols, tags and room texts also from a 1.2 m margin (tags outside the walls)
@@ -1478,7 +1584,10 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     furniture.push({ block: g.name, kind, x: lc.x * Math.cos(g.rot) - lc.y * Math.sin(g.rot), y: lc.x * Math.sin(g.rot) + lc.y * Math.cos(g.rot), w: Math.round(w), d: Math.round(d), rot: Math.round(((((g.rot * 180) / Math.PI + 540) % 360) - 180) * 100) / 100 })
   }
   if (unknownFurn) warnings.push({ code: 'unknownFurniture', n: unknownFurn })
-  if (near.some((e) => roles[e.layer] === 'stair')) warnings.push({ code: 'stairsSkipped' })
+  // stairs: the flights inside the building outline (the stair layers also hold symbols on other drawings)
+  const stairEnts = near.filter((e) => roles[e.layer] === 'stair' && overlaps(boxOf(e), region.box, 0))
+  const flights = findFlights(stairEnts)
+  if (stairEnts.length && !flights.length) warnings.push({ code: 'stairsSkipped' })
 
   // 10. grids: long lines on grid layers labelled by the nearest short text at one of their ends
   const grids: RecGrid[] = []
@@ -1503,5 +1612,5 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     }
   }
 
-  return { region, frame, walls, openings, columns, rooms, footprint, furniture, grids, warnings }
+  return { region, frame, walls, openings, columns, rooms, footprint, furniture, grids, flights, warnings }
 }

@@ -5,8 +5,10 @@
 //   ifc      IFC 4 text of the model built from a DXF (checked with tools/check_ifc.py)
 import { decodeDxf, importDxf } from '../../src/cad/dxfImport'
 import type { CadDocument } from '../../src/cad/types'
-import { dominantAngle, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
-import { buildBimModel, buildInterior, DEFAULT_BUILD, type BuildNames } from '../../src/bim/fromCadBuild'
+import { dominantAngle, findFlights, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
+import { buildBimModel, buildInterior, DEFAULT_BUILD, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
+import type { Entity } from '../../src/cad/types'
+import { stairSection } from '../../src/auto/views'
 import { runModelChecks, wallVolume } from '../../src/bim/model'
 import { toIfc } from '../../src/bim/ifc'
 import { validateInterior } from '../../src/state/interior'
@@ -91,6 +93,7 @@ export function run(file?: string) {
     const plan = planDocument(m, 'L1', 'Mặt bằng tầng 1', [{ axis: 'y', at: 4500, label: '1' }, { axis: 'x', at: 6000, label: '2' }])
     check(`${label}: section cuts drawn on the floor plan (both ends, arrow, number)`, plan.entities.filter((e) => e.layer === 'A-SECT').length === 12 && plan.entities.filter((e) => e.kind === 'text' && (e.value === '1' || e.value === '2') && e.layer === 'A-ANNO-TEXT').length === 4)
   }
+  stairChecks(check)
   if (file) out.push(...villa(file).lines)
   out.push(fails ? `FAILED ${fails}` : 'ALL PASS')
   return out.join('\n')
@@ -110,4 +113,49 @@ export function ifc(file?: string) {
   const a = analyse(load(file ?? readFileSync(FX + 'house_vn_SYNTHETIC.dxf', 'latin1')))
   const r = toIfc(a.built.model, 'From CAD plan')
   return { text: r.text, counts: r.counts }
+}
+
+/** A U stair as Vietnamese plans draw it (the VILLA_150 set): two 1100 mm flights side by side with a 100 mm well,
+ *  tread lines every 270 mm, the up arrow with its head, a start dot, and the break line on the lower plan. */
+function uStairPlan(lower: boolean): Entity[] {
+  let k = 0
+  const base = { color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer: 'A-STAIR' } as const
+  const L = (ax: number, ay: number, bx: number, by: number): Entity => ({ ...base, id: `s${++k}`, kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } })
+  const out: Entity[] = [L(8600, 7600, 8600, 10300), L(8700, 7600, 8700, 10300), L(7500, 10300, 9800, 10300)]
+  // flight B (x 8700…9800) goes up +y; the lower plan shows it only to the cut (5 goings) with a zig-zag
+  const nb = lower ? 6 : 11
+  for (let i = 0; i < nb; i++) out.push(L(8700, 7600 + 270 * i, 9800, 7600 + 270 * i))
+  if (lower) out.push(L(8700, 8935, 9150, 9205), L(9150, 9205, 9350, 8965), L(9350, 8965, 9800, 9235))
+  out.push(L(9250, 7750, 9250, 8835), { ...base, id: `s${++k}`, kind: 'polyline', pts: [{ x: 9160, y: 8685 }, { x: 9250, y: 8835 }, { x: 9340, y: 8685 }], closed: false }, { ...base, id: `s${++k}`, kind: 'circle', c: { x: 9250, y: 7750 }, r: 50 })
+  // flight A (x 7500…8600) comes back down −y to the upper floor: drawn on the upper plan
+  if (!lower) {
+    for (let i = 0; i < 11; i++) out.push(L(7500, 7600 + 270 * i, 8600, 7600 + 270 * i))
+    out.push(L(8050, 10150, 8050, 7900), { ...base, id: `s${++k}`, kind: 'polyline', pts: [{ x: 7960, y: 8050 }, { x: 8050, y: 7900 }, { x: 8140, y: 8050 }], closed: false })
+  }
+  return out
+}
+
+function stairChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  const lower = findFlights(uStairPlan(true)), upper = findFlights(uStairPlan(false))
+  const fl = (f: ReturnType<typeof findFlights>[number]) => `${f.a.map((v) => Math.round(v))} run ${Math.round(f.run)} w ${Math.round(f.width)} lines ${f.lines} going ${Math.round(f.going)} up ${f.up}${f.broken ? ' broken' : ''}`
+  check('stairs: the cut flight on the lower plan — 6 tread lines at 270 mm, up +y (arrow head), break line', lower.length === 1 && lower[0].lines === 6 && Math.round(lower[0].going) === 270 && lower[0].up === 1 && lower[0].broken && Math.round(lower[0].width) === 1100, lower.map(fl).join(' | '))
+  check('stairs: the upper plan — both flights, 11 lines each, going opposite ways, the landing edge and stringers left out', upper.length === 2 && upper.every((f) => f.lines === 11 && !f.broken) && upper.some((f) => f.up === 1) && upper.some((f) => f.up === -1), upper.map(fl).join(' | '))
+  // a two-storey building: plan 1 (lower) and plan 2 (upper), 3900 mm apart
+  const rec = (flights: ReturnType<typeof findFlights>) => ({ flights } as unknown as Parameters<typeof stairsFrom>[0][number]['rec'])
+  const levels = [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Tầng 2', elevation: 3900 }, { id: 'L3', name: 'Mái', elevation: 7500 }]
+  const wall = { id: 'W1', category: 'wall', mark: 'W1', typeId: 'I200', baseLevel: 'L1', baseOffset: 0, topLevel: 'L2', topOffset: 0, length: 4000, x: 7000, y: 11600, angle: 0 } as const
+  const types = new Map([['I200', { id: 'I200', family: 'Basic Wall', name: 'Int 200', thickness: 200, structure: '', finishExt: '', finishInt: '', description: '' }]])
+  const slabs = [{ id: 'S1', category: 'slab', mark: 'S1', kind: 'floor', level: 'L1', offset: 0, thickness: 120, outline: [[0, 0], [10000, 0], [10000, 15000], [0, 15000]] }, { id: 'S2', category: 'slab', mark: 'S2', kind: 'floor', level: 'L2', offset: 0, thickness: 120, outline: [[0, 0], [10000, 0], [10000, 15000], [0, 15000]] }] as Parameters<typeof stairsFrom>[5]
+  const picks = [{ rec: rec(lower), levelName: 'Tầng 1', elevation: 0, roof: false }, { rec: rec(upper), levelName: 'Tầng 2', elevation: 3900, roof: false }]
+  const { stairs, landings } = stairsFrom(picks, [[0, 0], [0, 0]], levels, [wall], types, slabs)
+  const [f1, f2] = stairs
+  check('stairs: a U stair for the storey — flight 1 up +y from the floor, flight 2 back from the landing, 22 risers of 177 mm', stairs.length === 2 && f1.angle === 90 && f1.x === 9250 && f1.y === 7600 && f1.risers === 11 && f1.baseOffset === 0 && f2.angle === -90 && f2.x === 8050 && f2.y === 10300 && f2.baseOffset === 1950 && f2.risers === 11 && Math.abs((f1.rise ?? 0) / 11 - 177.3) < 0.1, JSON.stringify(stairs.map((x) => [x.x, x.y, x.angle, x.baseOffset, x.rise, x.risers])))
+  const ld = landings[0]
+  const ys = ld ? ld.outline.map((q) => q[1]) : []
+  check('stairs: the landing at the top of flight 1, across both flights, up to the wall face beyond (1200 mm deep)', landings.length === 1 && !!ld.landing && ld.offset === 1950 && Math.min(...ys) === 10300 && Math.max(...ys) === 11500, JSON.stringify(ld))
+  check('stairs: the stair well cut through the floor above only', !slabs[0].openings && slabs[1].openings?.length === 1, JSON.stringify(slabs[1].openings))
+  // the section of the drawing set goes along flight 1 and looks towards flight 2
+  const m = { levels, stairs, walls: [], slabs: [], rooms: [], grids: [] } as unknown as Parameters<typeof stairSection>[0]
+  const sec = stairSection(m)
+  check('stairs: section 1-1 along flight 1 (x = 9250), looking towards flight 2 (−x)', !!sec && sec.axis === 'x' && sec.at === 9250 && sec.face === 'right', JSON.stringify(sec))
 }

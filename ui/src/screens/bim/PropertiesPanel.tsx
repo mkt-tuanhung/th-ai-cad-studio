@@ -6,7 +6,7 @@ import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { levelOf, typeOf, wallArea, wallHeight, wallVolume, type BimModel, type ElementRef, type Wall } from '../../bim/model'
 import { dist, markOf, polyArea } from '../../bim/geometry'
-import { stairRisers } from '../../bim/scene'
+import { stairFlight } from '../../bim/scene'
 import { CroppedImage } from '../../components/ui/CroppedImage'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
 import { Modal } from '../../components/ui/Modal'
@@ -85,7 +85,7 @@ function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']
   if (sel.category === 'stair') {
     const x = m.stairs.find((q) => q.id === sel.id)
     if (!x) return null
-    const r = stairRisers(m, x.baseLevel, x.topLevel)
+    const r = stairFlight(m, x)
     return { kind: t.kinds.stair, title: t.kinds.stair, subtitle: `${r.n} × ${r.riser.toFixed(0)} mm`, icon: 'room' as const, sections: [
       { title: t.identity, rows: [markRow(x.mark, 'stairs', x.id)] },
       { title: t.constraints, rows: [levelRow(t.baseLevel, x.baseLevel, 'stairs', x.id, 'baseLevel'), levelRow(t.topLevel, x.topLevel, 'stairs', x.id, 'topLevel')] },

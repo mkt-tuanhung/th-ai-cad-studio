@@ -23,8 +23,9 @@ export interface HouseView {
   title: string
   kind: 'elev' | 'section'
   doc: CadDocument
-  /** a section: where its plane cuts (a plane of constant `axis` at `at` mm) — drawn on the floor plans */
-  cut?: { axis: 'x' | 'y'; at: number; label: string }
+  /** a section: where its plane cuts (a plane of constant `axis` at `at` mm) and the way it looks (+1: towards
+   *  +axis) — drawn on the floor plans */
+  cut?: { axis: 'x' | 'y'; at: number; look: 1 | -1; label: string }
 }
 export interface HouseViews {
   views: HouseView[]
@@ -53,8 +54,32 @@ export function viewRequests(m: BimModel, w: ViewWords): DrawingReq[] {
     const g = gridsSeen(m, face)
     return { kind: 'elev', face, title: g.length >= 2 ? fill(w.elevAxes, { a: g[0], b: g[g.length - 1] }) : w.elevFace[face] }
   })
-  // 1-1: a plane of constant y seen from the south; 2-2: a plane of constant x seen from the west
+  const st = stairSection(m)
+  // 1-1 along the stair (as Vietnamese drawing sets do) when there is one, 2-2 across it through the middle;
+  // without stairs: 1-1 a plane of constant y seen from the south, 2-2 a plane of constant x seen from the west
+  if (st) return [...elev, { kind: 'section', ...st, title: fill(w.section, { n: 1 }) }, { kind: 'section', ...(st.axis === 'x' ? { axis: 'y', face: 'front' } : { axis: 'x', face: 'left' }), title: fill(w.section, { n: 2 }) }]
   return [...elev, { kind: 'section', axis: 'y', face: 'front', title: fill(w.section, { n: 1 }) }, { kind: 'section', axis: 'x', face: 'left', title: fill(w.section, { n: 2 }) }]
+}
+
+/**
+ * The section along the first flight of the lowest stair: the plane through the flight's centre line, parallel
+ * to its run, seen from the side away from the other flight of a U stair (that flight is then seen beyond the cut
+ * one, the landing between them). Null without a stair square to the axes.
+ */
+export function stairSection(m: BimModel): { axis: 'x' | 'y'; at: number; face: Face } | null {
+  const lv = (id: string) => m.levels.find((l) => l.id === id)?.elevation ?? 0
+  const first = [...m.stairs].sort((a, b) => lv(a.baseLevel) - lv(b.baseLevel) || (a.baseOffset ?? 0) - (b.baseOffset ?? 0))[0]
+  if (!first) return null
+  const a = ((((first.angle % 180) + 180) % 180) + 0.5) | 0
+  if (a !== 0 && a !== 90 && a !== 180) return null
+  // run along x → a plane of constant y; run along y → a plane of constant x
+  const axis: 'x' | 'y' = a === 90 ? 'x' : 'y'
+  const at = axis === 'x' ? first.x : first.y
+  const other = m.stairs.find((s) => s !== first && s.baseLevel === first.baseLevel)
+  const side = other ? Math.sign((axis === 'x' ? other.x : other.y) - at) : 1
+  // look towards the other flight: the viewer stands on the opposite side
+  const face: Face = axis === 'x' ? (side < 0 ? 'right' : 'left') : side < 0 ? 'back' : 'front'
+  return { axis, at, face }
 }
 
 const SCALES = [100, 125, 150, 200, 250, 500]
@@ -77,7 +102,9 @@ export async function houseViews(host: HostApi, m: BimModel, w: ViewWords): Prom
       doc = drawingDocument(m, r, nd, cutAt, { name: r.title, scale })
       if (plotPage(doc, 'A3').scale <= scale) break
     }
-    if (doc) views.push({ title: r.title, kind: r.kind, doc, ...(cutAt !== undefined && r.axis ? { cut: { axis: r.axis, at: cutAt, label: String(views.filter((v) => v.cut).length + 1) } } : {}) })
+    const ax = r.axis === 'x' ? 0 : 1
+    const look = (-VIEW[r.face].toViewer[ax] || 1) as 1 | -1
+    if (doc) views.push({ title: r.title, kind: r.kind, doc, ...(cutAt !== undefined && r.axis ? { cut: { axis: r.axis, at: cutAt, look, label: String(views.filter((v) => v.cut).length + 1) } } : {}) })
   }
   return { views, ms: Date.now() - t0, ...(error ? { error } : {}) }
 }

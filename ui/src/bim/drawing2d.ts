@@ -19,6 +19,8 @@ export interface DrawingReq {
   face: Face
   /** Section: the axis the cutting plane is perpendicular to (y: a plane of constant y). */
   axis?: 'x' | 'y'
+  /** Section: where the plane cuts (mm along `axis`); the middle of the model when absent. */
+  at?: number
   title: string
 }
 
@@ -43,7 +45,7 @@ export function nativeRequest(r: DrawingReq, b3: number[]) {
   const v = VIEW[r.face]
   if (r.kind !== 'section') return { cmd: 'drawing2d', ...v }
   const ax = r.axis === 'x' ? 0 : 1
-  const mid = (b3[ax] + b3[ax + 3]) / 2
+  const mid = r.at ?? (b3[ax] + b3[ax + 3]) / 2
   // keep a·p + d ≥ 0 with a pointing away from the viewer
   const a = [0, 0, 0]
   a[ax] = -v.toViewer[ax] || 1

@@ -10,7 +10,7 @@
  */
 import { levelOf, typeOf, wallArea, wallHeight, wallVolume, type BimModel, type P2 } from './model'
 import { polyArea } from './geometry'
-import { stairRisers } from './scene'
+import { stairFlight } from './scene'
 
 const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'
 
@@ -115,6 +115,8 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
   const shape = (items: string[], kind = 'SweptSolid') => w.add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${w.add(`IFCSHAPEREPRESENTATION(${body},'Body','${kind}',(${items.join(',')}))`)}))`)
   const rect = (cx: number, cy: number, x: number, y: number) => w.add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${ax2(cx, cy)},${num(x)},${num(y)})`)
   const poly = (pts: P2[]) => w.add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${w.add(`IFCPOLYLINE((${[...pts, pts[0]].map(([x, y]) => pt2(x, y)).join(',')}))`)})`)
+  const pline = (pts: P2[]) => w.add(`IFCPOLYLINE((${[...pts, pts[0]].map(([x, y]) => pt2(x, y)).join(',')}))`)
+  const polyWithVoids = (pts: P2[], holes: P2[][]) => w.add(`IFCARBITRARYPROFILEDEFWITHVOIDS(.AREA.,$,${pline(pts)},(${holes.map(pline).join(',')}))`)
   const extrude = (profile: string, depth: number, at: [number, number, number] = [0, 0, 0], z?: [number, number, number], x?: [number, number, number]) => w.add(`IFCEXTRUDEDAREASOLID(${profile},${ax3(at, z, x)},${up},${num(depth)})`)
 
   const materials: Record<string, string> = {}
@@ -167,15 +169,16 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     const S = st(s.level)
     const z0 = s.kind === 'floor' ? s.offset - s.thickness : s.offset
     const pl = place(S.pl, [0, 0, z0])
-    const shp = shape([extrude(poly(s.outline), s.thickness)])
+    const holes = (s.openings ?? []).filter((o) => o.length >= 3)
+    const shp = shape([extrude(holes.length ? polyWithVoids(s.outline, holes) : poly(s.outline), s.thickness)])
     const el =
       s.kind === 'ceiling'
         ? w.add(`IFCCOVERING('${ifcGuid('slab:' + s.id)}',$,${stepString('Ceiling:' + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},.CEILING.)`)
-        : w.add(`IFCSLAB('${ifcGuid('slab:' + s.id)}',$,${stepString((s.kind === 'roof' ? 'Roof:' : 'Floor:') + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},${s.kind === 'roof' ? '.ROOF.' : '.FLOOR.'})`)
+        : w.add(`IFCSLAB('${ifcGuid('slab:' + s.id)}',$,${stepString((s.kind === 'roof' ? 'Roof:' : 'Floor:') + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},${s.kind === 'roof' ? '.ROOF.' : s.landing ? '.LANDING.' : '.FLOOR.'})`)
     count(s.kind === 'ceiling' ? 'IfcCovering' : 'IfcSlab')
     S.items.push(el)
     material(s.kind === 'ceiling' ? 'Gypsum board' : 'Concrete - C30', el)
-    const A = polyArea(s.outline) / 1e6
+    const A = (polyArea(s.outline) - holes.reduce((a, o) => a + polyArea(o), 0)) / 1e6
     quantities(el, s.id, [['Depth', 'Length', s.thickness], ['GrossArea', 'Area', A], ['GrossVolume', 'Volume', (A * s.thickness) / 1000]])
   }
 
@@ -191,11 +194,11 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
   }
 
   for (const s of m.stairs) {
-    const { n, riser } = stairRisers(m, s.baseLevel, s.topLevel)
+    const { n, riser } = stairFlight(m, s)
     const S = st(s.baseLevel)
     const going = s.length / n
     const steps = Array.from({ length: n }, (_, i) => extrude(rect((i + 0.5) * going, 0, going, s.width), (i + 1) * riser))
-    const el = w.add(`IFCSTAIR('${ifcGuid('stair:' + s.id)}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [s.x, s.y, 0], s.angle)},${shape(steps)},${stepString(s.mark)},.STRAIGHT_RUN_STAIR.)`)
+    const el = w.add(`IFCSTAIR('${ifcGuid('stair:' + s.id)}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [s.x, s.y, s.baseOffset ?? 0], s.angle)},${shape(steps)},${stepString(s.mark)},.STRAIGHT_RUN_STAIR.)`)
     count('IfcStair')
     S.items.push(el)
     material('Concrete - C30', el)

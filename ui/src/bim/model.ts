@@ -90,9 +90,15 @@ export interface Slab {
   offset: number
   thickness: number
   outline: P2[]
+  /** Holes through the slab (a stair well), each a closed outline. */
+  openings?: P2[][]
+  /** A stair landing (a floor slab part way up a storey; IFC .LANDING.). */
+  landing?: boolean
 }
 
-/** Straight-run stair from its base level to its top level; risers follow the storey height. */
+/** Straight-run stair from its base level to its top level; risers follow the storey height.
+ *  A flight of a stair with landings climbs only `rise` mm from `baseOffset` above its base level, in `risers`
+ *  risers (a U stair: two flights and the landing between them). */
 export interface Stair {
   id: string
   category: 'stair'
@@ -104,6 +110,9 @@ export interface Stair {
   angle: number
   length: number
   width: number
+  baseOffset?: number
+  rise?: number
+  risers?: number
 }
 
 export interface Railing {

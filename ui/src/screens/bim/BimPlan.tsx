@@ -4,7 +4,7 @@ import { useBim, type BimTool } from '../../state/bim'
 import { toast } from '../../state/toast'
 import { levelOf, typeOf, type Annotation, type BimModel, type ElementRef, type Opening, type P2, type Wall } from '../../bim/model'
 import { centreOf, dist, markOf, nextGridLabel, nextLevel, nextMark, openingPoint, pointInPoly, polyArea, rectPoly, roomAt, segDist, uid, wallEnds, wallPoly, wallsOn } from '../../bim/geometry'
-import { isStructuralWall, stairRisers } from '../../bim/scene'
+import { isStructuralWall, stairFlight } from '../../bim/scene'
 import { Modal } from '../../components/ui/Modal'
 import s from './BimPlan.module.css'
 
@@ -750,7 +750,7 @@ function stairPoly(st: BimModel['stairs'][number]): P2[] {
 }
 
 function StairPlan({ st, m, S, sel }: { st: BimModel['stairs'][number]; m: BimModel; S: (p: P2) => P2; sel: boolean }) {
-  const { n } = stairRisers(m, st.baseLevel, st.topLevel)
+  const { n } = stairFlight(m, st)
   const t = (st.angle * Math.PI) / 180
   const ux = Math.cos(t),
     uy = Math.sin(t),

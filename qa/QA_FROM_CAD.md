@@ -85,7 +85,7 @@ So với đáp án:
 - Chưa đúng hoàn toàn:
   - Tầng 2 và 3 có 2–3 "lỗ mở không ký hiệu" (có cảnh báo);
   - phòng thang bộ lấy tên "LÊN / XUỐNG" (mũi tên thang) vì bản vẽ không có chữ tên phòng trong đó;
-  - **cầu thang chưa dựng** (có cảnh báo, vẽ lại bằng công cụ Cầu thang);
+  - ~~cầu thang chưa dựng~~ **cầu thang chữ U đã dựng** (2026-10-13): 4 vế, 2 chiếu nghỉ, lỗ sàn;
   - mặt bằng mái không có tường nên không dựng; cao độ mái +11.100 được lấy từ tên bản vẽ.
 
 ### 3. Trong app desktop — `native/app/resources/e2e_fromcad.js`
@@ -140,7 +140,20 @@ Bài này chạy **12/12 PASS**. Kiểm tra:
 ## Giới hạn (nói rõ)
 
 - **Chưa kiểm trên bản vẽ DWG thật do người vẽ.** Hai bộ kiểm thử đều là bản vẽ tự tạo hoặc do AI tạo; đã cố tình làm khác kiểu nhau. Cần file thật của anh để kiểm tiếp.
-- **Cầu thang, mái dốc, ô thông tầng trong sàn** chưa dựng từ mặt bằng (có cảnh báo).
+- **Mái dốc, ô thông tầng trong sàn** chưa dựng từ mặt bằng (có cảnh báo). Cầu thang: chỉ nhận vế thẳng (thang 1 vế, thang chữ U). Thang xoắn, thang cong, thang chữ L có bậc rẻ quạt chưa nhận được; khi đó có cảnh báo "cầu thang chưa dựng".
+
+**Cầu thang** (`findFlights` trong `bim/fromCad.ts`, `stairsFrom` trong `bim/fromCadBuild.ts`), đã có từ 2026-10-13:
+- **Vế thang:** các nét bậc trên layer cầu thang (A-STAIR, CAU THANG…), cùng chiều dài 500–2500 mm (= bề rộng vế), cách đều 180–380 mm (= chiều rộng bậc), ít nhất 4 nét. Đường biên cổ thang và mép chiếu nghỉ có chiều dài khác nên bị loại.
+- **Chiều lên:** đầu có mũi tên là đầu trên. Nếu không có mũi tên thì đầu có chấm tròn là chân thang. Nét gấp khúc cắt ngang vế là đường cắt của vế bị cắt trên mặt bằng tầng dưới.
+- **Ghép các tầng:** mỗi vế vẽ trên nhiều mặt bằng (tầng dưới thấy nửa vế bị cắt, tầng trên thấy đủ), nên các vế được gộp theo vị trí trước. Một tầng có cầu thang khi cả mặt bằng tầng đó và tầng trên đều vẽ thang.
+- **Thang chữ U:** hai vế cạnh nhau, đi ngược chiều.
+  - Vế 1 là vế có trên mặt bằng thấp nhất.
+  - Chiếu nghỉ ở đầu trên vế 1, phủ cả hai vế, sâu tới mặt tường phía sau; không có tường thì sâu bằng bề rộng vế.
+  - Vế 2 đi ngược lại lên sàn trên.
+- **Chiều cao bậc** = chiều cao tầng / tổng số bậc vẽ, nếu ra 140–200 mm; nếu không thì chia tầng thành các bậc ≤ 175 mm.
+- **Ô sàn tầng trên được khoét** lỗ cầu thang. Trong IFC: sàn có lỗ (IfcArbitraryProfileDefWithVoids), chiếu nghỉ là IfcSlab `.LANDING.`.
+- **Hình khối 3D:** mỗi vế là một khối bậc + bản thang nghiêng dày 150 mm (OCCT), nên mặt cắt ra giống bản vẽ thật.
+- **VILLA_150:** 2 thang chữ U (tầng 1→2 và 2→3), 4 vế × 11 bậc. Cao bậc 177 mm và 164 mm, chiếu nghỉ sâu 1200 mm. Kiểm tra mô hình đạt hết.
 - **Cao độ bậu và chiều cao cửa sổ:** nếu bản vẽ không ghi kích thước bằng chữ thì dùng giá trị mặc định trong hộp thoại.
 - **Thể tích tường:** tường chạy qua cột tính cả phần chồng lên cột. Sai số nhỏ, cỡ 0,25 × 0,2 × chiều cao tầng cho mỗi cột nằm trong khe tường.
 - **Tường cong:** cung và polyline cong bị chia thành đoạn thẳng nhỏ, nên tường cong chỉ dựng được gần đúng.
