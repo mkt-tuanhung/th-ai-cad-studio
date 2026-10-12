@@ -70,7 +70,7 @@ export function NativeScene({
   keep?: string[]
   /** Items drawn after hide / isolate. */
   onVisible?: (n: number) => void
-  section?: { on: boolean; around: string[]; top?: number }
+  section?: { on: boolean; around: string[]; top?: number; planes?: number[][] }
   label: string
 }) {
   const t = useT().view3d
@@ -135,11 +135,12 @@ export function NativeScene({
 
   // view state that the engine forgets when the scene is rebuilt
   const hiddenKey = (hidden ?? []).join(',') + '|' + (keep ?? []).join(',')
-  const sectionKey = section?.on ? `on:${section.around.join(',')}:${section.top ?? ''}` : ''
+  const sectionKey = section?.on ? `on:${section.around.join(',')}:${section.top ?? ''}:${JSON.stringify(section.planes ?? '')}` : ''
   const applyView = async () => {
     const r = await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'hide', ids: hidden ?? [], keep: keep ?? [] }))
     if (r.visible !== undefined) onVisible?.(r.visible)
-    await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'section', on: !!section?.on, around: section?.around ?? [], ...(section?.top !== undefined ? { top: section.top } : {}) }))
+    if (section?.on && section.planes) await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'clip', planes: section.planes }))
+    else await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'section', on: !!section?.on, around: section?.around ?? [], ...(section?.top !== undefined ? { top: section.top } : {}) }))
   }
   const applyRef = useRef(applyView)
   applyRef.current = applyView

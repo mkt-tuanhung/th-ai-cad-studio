@@ -3,7 +3,8 @@ import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useMep, type MepRight as Tab } from '../../state/mep'
 import { NumField, PRow, PanelTabs, Section, wsStyles as w } from '../../components/workspace/Workspace'
-import { LEVELS, clearElevation, designChecks, type Clash, type Duct, type Finding, type LevelId } from '../../mep/model'
+import { LEVELS, clearElevation, designChecks, type Clash, type Duct, type Finding, type LevelId, type MepModel } from '../../mep/model'
+import { labelOf } from './MepPlan'
 import { cableCheck, ductLoss, pipeCheck } from '../../mep/calc'
 import { AiAssist } from '../../components/ai/AiAssist'
 import { mepAi } from '../../ai/disciplines/mep'
@@ -35,9 +36,86 @@ const lvName = (t: ReturnType<typeof useT>['mep'], id: LevelId) => fmt(t.viewer.
 function Props() {
   const t = useT().mep
   const p = t.props
-  const { doc, sel, edit } = useMep()
+  const { doc, sel, edit, set } = useMep()
   const report = (err: string | null) => err && toast(fmt(t.toast.invalid, { why: err }), 'warning')
+  const d2 = t.draw.props
+  /** Undoable patch of one element of a list. */
+  const patch = (key: keyof MepModel, id: string, label: string, ch: object) => report(edit(label, (m) => ({ ...m, [key]: (m[key] as { id: string }[]).map((x) => (x.id === id ? { ...x, ...ch } : x)) })))
   if (!sel) return <p className={w.none}>{p.noSel}</p>
+  if (sel.kind === 'tray') {
+    const x = doc.trays.find((y) => y.id === sel.id)
+    if (!x) return null
+    return (
+      <>
+        <div className={w.elem}><div className={w.elemText}><strong>{t.draw.kinds.tray} {x.mark}</strong><span>{x.kind} · {lvName(t, x.level)}</span></div></div>
+        <Section title={p.dims}>
+          <PRow label={d2.width}><NumField label={d2.width} value={x.w} min={50} max={1200} onCommit={(v) => patch('trays', x.id, `${x.mark}: ${d2.width}`, { w: v })} unit="mm" /></PRow>
+          <PRow label={d2.height}><NumField label={d2.height} value={x.h} min={25} max={300} onCommit={(v) => patch('trays', x.id, `${x.mark}: ${d2.height}`, { h: v })} unit="mm" /></PRow>
+          <PRow label={d2.length}><NumField label={d2.length} value={x.length} min={1} onCommit={(v) => patch('trays', x.id, `${x.mark}: ${d2.length}`, { length: v })} unit="mm" /></PRow>
+          <PRow label={d2.elevation}><NumField label={d2.elevation} value={x.elevation} min={300} max={3600} onCommit={(v) => patch('trays', x.id, `${x.mark}: ${d2.elevation}`, { elevation: v })} unit="mm" /></PRow>
+          <PRow label={d2.kind}><span>{x.kind}</span></PRow>
+        </Section>
+      </>
+    )
+  }
+  if (sel.kind === 'fixture') {
+    const x = doc.fixtures.find((y) => y.id === sel.id)
+    if (!x) return null
+    return (
+      <>
+        <div className={w.elem}><div className={w.elemText}><strong>{t.draw.kinds.fixture} {x.mark}</strong><span>{x.kind} · {lvName(t, x.level)}</span></div></div>
+        <Section title={p.identity}>
+          <PRow label={d2.kind}><span>{x.kind}</span></PRow>
+          <PRow label={d2.elevation}><NumField label={d2.elevation} value={x.elevation} min={0} max={3600} onCommit={(v) => patch('fixtures', x.id, `${x.mark}: ${d2.elevation}`, { elevation: v })} unit="mm" /></PRow>
+        </Section>
+      </>
+    )
+  }
+  if (sel.kind === 'terminal') {
+    const x = doc.terminals.find((y) => y.id === sel.id)
+    if (!x) return null
+    const v = x.flow / 1000 / ((x.size / 1000) * (x.size / 1000) * 0.4) // face velocity on a 40 % free area
+    return (
+      <>
+        <div className={w.elem}><div className={w.elemText}><strong>{t.draw.kinds.terminal} {x.mark}</strong><span>{x.kind} · {lvName(t, x.level)}</span></div></div>
+        <Section title={p.flow}>
+          <PRow label={d2.size}><NumField label={d2.size} value={x.size} min={150} max={1200} onCommit={(n) => patch('terminals', x.id, `${x.mark}: ${d2.size}`, { size: n })} unit="mm" /></PRow>
+          <PRow label={d2.flow}><NumField label={d2.flow} value={x.flow} min={10} max={2000} onCommit={(n) => patch('terminals', x.id, `${x.mark}: ${d2.flow}`, { flow: n })} unit="L/s" /></PRow>
+          <PRow label={p.velocity}><span>{v.toFixed(2)} m/s</span></PRow>
+          <PRow label={d2.elevation}><NumField label={d2.elevation} value={x.elevation} min={2000} max={3600} onCommit={(n) => patch('terminals', x.id, `${x.mark}: ${d2.elevation}`, { elevation: n })} unit="mm" /></PRow>
+        </Section>
+      </>
+    )
+  }
+  if (sel.kind === 'fitting') {
+    const x = doc.fittings.find((y) => y.id === sel.id)
+    if (!x) return null
+    return (
+      <>
+        <div className={w.elem}><div className={w.elemText}><strong>{t.draw.kinds.fitting} {x.mark}</strong><span>{x.kind} · {lvName(t, x.level)}</span></div></div>
+        <Section title={p.identity}>
+          <PRow label={d2.kind}><span>{x.kind}</span></PRow>
+          <PRow label={d2.on}><span>{labelOf(doc, x.on)}</span></PRow>
+          <PRow label={d2.runs}><span>{x.runs.map((r) => labelOf(doc, r).split(' ')[0]).join(', ')}</span></PRow>
+        </Section>
+      </>
+    )
+  }
+  if (sel.kind === 'annotation' || sel.kind === 'section') {
+    const a = doc.annotations.find((y) => y.id === sel.id)
+    const sec = doc.sections.find((y) => y.id === sel.id)
+    return (
+      <>
+        <div className={w.elem}><div className={w.elemText}><strong>{sec ? `${t.draw.kinds.section} ${sec.mark}` : t.draw.kinds.annotation}</strong><span>{lvName(t, (sec ?? a)?.level ?? 'L1')}</span></div></div>
+        {a?.kind === 'text' && <Section title={p.identity}><PRow label={d2.text}><span>{a.text}</span></PRow></Section>}
+        {sec && (
+          <button type="button" className={s.applyBtn} onClick={() => set({ section: sec.id, view: 'coord', browserSel: 'v-coord', mode: useMep.getState().mode === 'realistic' ? 'shaded' : useMep.getState().mode })}>
+            {t.draw.show3d}
+          </button>
+        )}
+      </>
+    )
+  }
   if (sel.kind === 'duct') {
     const d = doc.ducts.find((x) => x.id === sel.id)
     if (!d) return <p className={w.none}>{p.noSel}</p>
@@ -89,15 +167,15 @@ function Props() {
         <div className={w.elem}><div className={w.elemText}><strong>{p.pipe} {x.mark}</strong><span>{t.services[x.service] ?? x.service}</span></div></div>
         <Section title={p.identity}>
           <PRow label={p.service}><span>{t.services[x.service] ?? x.service}</span></PRow>
-          <PRow label={p.dn}><span>DN{x.dn}</span></PRow>
+          <PRow label={p.dn}><NumField label={p.dn} value={x.dn} min={15} max={300} onCommit={(v) => patch('pipes', x.id, `${x.mark}: DN`, { dn: v })} unit="DN" /></PRow>
           <PRow label={p.material}><span>{x.material}</span></PRow>
           <PRow label={p.level}><span>{lvName(t, x.level)}</span></PRow>
         </Section>
         <Section title={p.flow}>
-          <PRow label={p.flowRate}><span>{x.flow.toFixed(2)} L/s</span></PRow>
+          <PRow label={p.flowRate}><NumField label={p.flowRate} value={x.flow} min={0.01} max={500} onCommit={(v) => patch('pipes', x.id, `${x.mark}: ${p.flowRate}`, { flow: v })} unit="L/s" /></PRow>
           <PRow label={p.velocity}><span>{r.v.toFixed(2)} m/s</span></PRow>
           <PRow label={p.pressureDrop}><span>{r.paPerM.toFixed(0)} Pa/m</span></PRow>
-          <PRow label={p.elevation}><span>{x.elevation} mm</span></PRow>
+          <PRow label={p.elevation}><NumField label={p.elevation} value={x.elevation} min={300} max={3600} onCommit={(v) => patch('pipes', x.id, `${x.mark}: ${p.elevation}`, { elevation: v })} unit="mm" /></PRow>
         </Section>
       </>
     )

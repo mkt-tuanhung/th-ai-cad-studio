@@ -77,13 +77,88 @@ export interface Beam extends Run {
   h: number
 }
 
+/** Ladder / perforated cable tray run. */
+export interface Tray extends Run {
+  id: string
+  mark: string
+  kind: 'Power' | 'Data'
+  w: number
+  h: number
+}
+
+export type FixtureKind = 'Downlight' | 'Linear Light' | 'Socket' | 'WC' | 'Basin' | 'Sink' | 'Floor Drain' | 'Sprinkler'
+/** Point fixture; `elevation` is its mounting height above the level (mm). */
+export interface Fixture {
+  id: string
+  mark: string
+  kind: FixtureKind
+  level: LevelId
+  x: number
+  y: number
+  elevation: number
+}
+
+/** Air terminal (ceiling diffuser / grille), square face `size`, airflow in L/s. */
+export interface Terminal {
+  id: string
+  mark: string
+  kind: 'Supply Diffuser' | 'Return Grille' | 'Exhaust Grille'
+  level: LevelId
+  x: number
+  y: number
+  size: number
+  flow: number
+  elevation: number
+}
+
+/** Fitting at a junction of runs (elbow: 2 runs at right angles, tee: 3, cross: 4, coupling: 2 in line, cap: 1). */
+export interface Fitting {
+  id: string
+  mark: string
+  kind: 'Elbow' | 'Tee' | 'Cross' | 'Coupling' | 'Cap'
+  level: LevelId
+  x: number
+  y: number
+  /** Run the fitting sits on (duct or pipe id) — its size and elevation. */
+  on: string
+  runs: string[]
+}
+
+export interface MepAnnotation {
+  id: string
+  kind: 'text' | 'dimension' | 'tag'
+  level: LevelId
+  a: [number, number]
+  b?: [number, number]
+  text?: string
+  target?: string
+}
+
+/** Section line a → b; the 3D view cuts to a 1.2 m slice along it and looks across. */
+export interface MepSection {
+  id: string
+  mark: string
+  level: LevelId
+  a: [number, number]
+  b: [number, number]
+}
+
 export interface MepModel {
   ducts: Duct[]
   pipes: Pipe[]
   circuits: Circuit[]
   equipment: Equipment[]
   beams: Beam[]
+  trays: Tray[]
+  fixtures: Fixture[]
+  terminals: Terminal[]
+  fittings: Fitting[]
+  annotations: MepAnnotation[]
+  sections: MepSection[]
 }
+
+/** Fills in the element lists added after the first saved models. */
+export const upgradeMep = (m: MepModel): MepModel => ({ ...m, trays: m.trays ?? [], fixtures: m.fixtures ?? [], terminals: m.terminals ?? [], fittings: m.fittings ?? [], annotations: m.annotations ?? [], sections: m.sections ?? [] })
 
 /* ---------------- sample data ---------------- */
 
@@ -195,7 +270,7 @@ function makeBeams(): Beam[] {
 
 export function createVillaMep(): MepModel {
   seed = 7
-  return { ducts: makeDucts(), pipes: makePipes(), circuits: makeCircuits(), equipment: makeEquipment(), beams: makeBeams() }
+  return upgradeMep({ ducts: makeDucts(), pipes: makePipes(), circuits: makeCircuits(), equipment: makeEquipment(), beams: makeBeams() } as MepModel)
 }
 
 /* ---------------- checks ---------------- */

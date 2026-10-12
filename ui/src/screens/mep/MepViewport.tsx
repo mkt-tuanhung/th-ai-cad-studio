@@ -1,5 +1,5 @@
 import { Box, Camera, Expand, EyeOff, Focus, Hand, Home, Minimize2, RefreshCcw, ScanSearch, ZoomIn, ZoomOut } from 'lucide-react'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useMep, type MepMode } from '../../state/mep'
@@ -25,12 +25,13 @@ const MODES: { key: MepMode; w: number }[] = [
 export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () => void; clashes: Clash[] }) {
   const T = useT()
   const t = T.mep.viewer
-  const { mode, view, level, scale, set, doc, sel } = useMep()
+  const { mode, view, level, scale, set, doc, sel, colorBy, hiddenCats, section } = useMep()
   const native = (what: string) => toast(fmt(T.mep.toast.native, { what }))
   const host = useHost()
   const live = !!host && mode !== 'realistic'
   const cam = useRef<SceneCamera | null>(null)
-  const scene = useMemo(() => mepScene(doc, level, view as MepView), [doc, level, view])
+  const clashing = useMemo(() => new Set(clashIds(clashes, level)), [clashes, level])
+  const scene = useMemo(() => mepScene(doc, level, view as MepView, { colorBy, clashing, hidden: hiddenCats }), [doc, level, view, colorBy, clashing, hiddenCats])
   const nativeOverlaps = useMep((st) => st.nativeOverlaps)
   const hi = useMemo(() => {
     const ids = new Set(clashIds(clashes, level))
@@ -38,7 +39,31 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
     return [...ids]
   }, [clashes, level, nativeOverlaps])
   const tools = useSceneTools(`Villa Riverside - MEP L${level.slice(1)}`)
-  const selId = sel && (sel.kind === 'duct' || sel.kind === 'pipe') ? sel.id : ''
+  const selId = sel && sel.kind !== 'circuit' && sel.kind !== 'equipment' && sel.kind !== 'annotation' && sel.kind !== 'section' ? sel.id : ''
+  // a section line from the plan: a 1.2 m slice along it, seen from its side
+  const sec = doc.sections.find((x) => x.id === section)
+  useEffect(() => {
+    if (!sec) {
+      if (tools.section.planes) tools.setSection({ on: false, around: [] })
+      return
+    }
+    const L = Math.hypot(sec.b[0] - sec.a[0], sec.b[1] - sec.a[1]) || 1
+    const u = [(sec.b[0] - sec.a[0]) / L, (sec.b[1] - sec.a[1]) / L], n = [-u[1], u[0]]
+    const dot = (v: number[], p: number[]) => v[0] * p[0] + v[1] * p[1]
+    tools.setSection({ on: true, around: [], planes: [[n[0], n[1], 0, 600 - dot(n, sec.a)], [-n[0], -n[1], 0, 600 + dot(n, sec.a)], [u[0], u[1], 0, 500 - dot(u, sec.a)], [-u[0], -u[1], 0, 500 + dot(u, sec.b)]] })
+    const z = (LEVELS.find((l) => l.id === level)?.elev ?? 0) + 1800
+    const mid = [(sec.a[0] + sec.b[0]) / 2, (sec.a[1] + sec.b[1]) / 2]
+    const id = setTimeout(() => tools.ctl.current?.command({ cmd: 'camera', eye: [mid[0] - n[0] * (L + 6000), mid[1] - n[1] * (L + 6000), z], at: [mid[0], mid[1], z], fov: 40 }), 300)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section, sec?.a[0], sec?.a[1], sec?.b[0], sec?.b[1], level])
+  // "Remove section box" on the chip also clears the plan's active section
+  const wasOn = useRef(false)
+  useEffect(() => {
+    if (wasOn.current && !tools.section.on && section) set({ section: null })
+    wasOn.current = tools.section.on
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tools.section.on])
   const liveOr = (fn: () => void, label: string) => () => (live && host ? fn() : native(label))
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
   const lv = (id: LevelId) => fmt(t.levelName, { n: id.slice(1) })
@@ -69,6 +94,9 @@ export function MepViewport({ max, onMax, clashes }: { max: boolean; onMax: () =
           onPick={(id) => {
             if (doc.ducts.some((d) => d.id === id)) set({ sel: { kind: 'duct', id }, right: 'properties' })
             else if (doc.pipes.some((p) => p.id === id)) set({ sel: { kind: 'pipe', id }, right: 'properties' })
+            else
+              for (const [kind, list] of [['tray', doc.trays], ['fixture', doc.fixtures], ['terminal', doc.terminals], ['fitting', doc.fittings]] as const)
+                if ((list as { id: string }[]).some((x) => x.id === id)) return set({ sel: { kind, id }, right: 'properties' })
           }}
         />
       )}

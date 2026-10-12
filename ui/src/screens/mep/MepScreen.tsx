@@ -5,7 +5,7 @@ import {
 import { fmt, useT } from '../../i18n'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
-import { useMep } from '../../state/mep'
+import { MEP_CATEGORIES, useMep, type MepColorBy, type MepTool } from '../../state/mep'
 import { undoKeys } from '../../state/undoable'
 import { AiSparkIcon, DimensionToolIcon, ExportToolIcon, PipeIcon, TagToolIcon } from '../../components/icons'
 import { WsButton, WsHeader, WsRibbon, csv, downloadFile } from '../../components/workspace/Workspace'
@@ -15,6 +15,7 @@ import { MepBrowser } from './MepBrowser'
 import { MepViewport } from './MepViewport'
 import { MepBottom } from './MepBottom'
 import { MepRight } from './MepRight'
+import { MepPlan } from './MepPlan'
 import s from './Mep.module.css'
 
 /** MEP workspace — mockup 08. */
@@ -24,8 +25,11 @@ export function MepScreen() {
   const navigate = useRouter((st) => st.navigate)
   const st = useMep()
   const [max, setMax] = useState(false)
-  const native = (what: string) => toast(fmt(t.toast.native, { what }))
   const clashes = useMemo(() => findClashes(st.doc), [st.doc])
+  const planView = st.view === 'plan' || st.view === 'ceiling'
+  // drawing tools work in the plan of the current level
+  const draw = (tool: MepTool) => () => st.set({ tool, sel: null, ...(planView ? {} : { view: 'plan', browserSel: 'v-plan' }) })
+  const isTool = (k: MepTool) => planView && st.tool === k
 
   useEffect(() => {
     const onKey = undoKeys(st.undo, st.redo, (label, redo) => toast(label ? fmt(redo ? t.toast.redone : t.toast.undone, { label }) : t.toast.nothing))
@@ -95,21 +99,27 @@ export function MepScreen() {
           top={4}
           seps={[82, 263, 340, 471, 537, 617, 682, 768, 838, 912, 987, 1072]}
           tools={[
-            { key: 'select', label: t.tools.select, Icon: MousePointer2, c: 38, w: 69, active: true, onClick: () => st.set({ sel: null }), iconSize: 22 },
-            { key: 'duct', label: t.tools.duct, Icon: Box, c: 111, w: 54, onClick: () => st.set({ bottom: 'schedules', schedule: 'duct' }) },
-            { key: 'pipe', label: t.tools.pipe, Icon: Cylinder, c: 166, w: 50, onClick: () => st.set({ bottom: 'schedules', schedule: 'pipe' }) },
-            { key: 'tray', label: t.tools.cableTray, Icon: Spline, c: 226, w: 70, onClick: () => native(t.tools.cableTray) },
+            { key: 'select', label: t.tools.select, Icon: MousePointer2, c: 38, w: 69, active: !planView || st.tool === 'select', onClick: () => st.set({ sel: null, tool: 'select' }), iconSize: 22 },
+            { key: 'duct', label: t.tools.duct, Icon: Box, c: 111, w: 54, active: isTool('duct'), onClick: draw('duct') },
+            { key: 'pipe', label: t.tools.pipe, Icon: Cylinder, c: 166, w: 50, active: isTool('pipe'), onClick: draw('pipe') },
+            { key: 'tray', label: t.tools.cableTray, Icon: Spline, c: 226, w: 70, active: isTool('tray'), onClick: draw('tray') },
             { key: 'equip', label: t.tools.equipment, Icon: LayoutPanelTop, c: 300, w: 72, onClick: () => st.set({ bottom: 'schedules', schedule: 'equipment' }) },
-            { key: 'fixture', label: t.tools.fixture, Icon: Lamp, c: 375, w: 60, onClick: () => native(t.tools.fixture) },
-            { key: 'fitting', label: t.tools.fitting, Icon: Wrench, c: 438, w: 58, onClick: () => native(t.tools.fitting) },
-            { key: 'terminal', label: t.tools.terminal, Icon: Grid3x3, c: 505, w: 62, onClick: () => native(t.tools.terminal) },
-            { key: 'annotation', label: t.tools.annotation, Icon: Type, c: 578, w: 74, onClick: () => native(t.tools.annotation) },
-            { key: 'section', label: t.tools.section, Icon: Diamond, c: 650, w: 62, onClick: () => native(t.tools.section) },
-            { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 725, w: 72, onClick: () => native(t.tools.dimension) },
-            { key: 'tag', label: t.tools.tag, Icon: TagToolIcon, c: 803, w: 54, onClick: () => native(t.tools.tag) },
+            { key: 'fixture', label: t.tools.fixture, Icon: Lamp, c: 375, w: 60, active: isTool('fixture'), onClick: draw('fixture') },
+            { key: 'fitting', label: t.tools.fitting, Icon: Wrench, c: 438, w: 58, active: isTool('fitting'), onClick: draw('fitting') },
+            { key: 'terminal', label: t.tools.terminal, Icon: Grid3x3, c: 505, w: 62, active: isTool('terminal'), onClick: draw('terminal') },
+            { key: 'annotation', label: t.tools.annotation, Icon: Type, c: 578, w: 74, active: isTool('annotation'), onClick: draw('annotation') },
+            { key: 'section', label: t.tools.section, Icon: Diamond, c: 650, w: 62, active: isTool('section'), onClick: draw('section') },
+            { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 725, w: 72, active: isTool('dimension'), onClick: draw('dimension') },
+            { key: 'tag', label: t.tools.tag, Icon: TagToolIcon, c: 803, w: 54, active: isTool('tag'), onClick: draw('tag') },
             { key: 'schedule', label: t.tools.schedule, Icon: Square, c: 876, w: 66, onClick: () => st.set({ bottom: 'schedules' }) },
-            { key: 'filter', label: t.tools.colorFilter, Icon: Filter, c: 952, w: 76, onClick: () => native(t.tools.colorFilter) },
-            { key: 'vis', label: t.tools.visibility, Icon: Smartphone, c: 1030, w: 70, onClick: () => native(t.tools.visibility) },
+            {
+              key: 'filter', label: t.tools.colorFilter, Icon: Filter, c: 952, w: 76, active: st.colorBy !== 'system', onClick: () => undefined,
+              menu: (['system', 'velocity', 'clashes'] as MepColorBy[]).map((k) => ({ label: t.draw.colorBy[k], checked: st.colorBy === k, onSelect: () => st.set({ colorBy: k }) })),
+            },
+            {
+              key: 'vis', label: t.tools.visibility, Icon: Smartphone, c: 1030, w: 70, active: st.hiddenCats.length > 0, onClick: () => undefined,
+              menu: MEP_CATEGORIES.map((k) => ({ label: t.draw.cats[k], checked: !st.hiddenCats.includes(k), onSelect: () => st.set({ hiddenCats: st.hiddenCats.includes(k) ? st.hiddenCats.filter((x) => x !== k) : [...st.hiddenCats, k] }) })),
+            },
           ]}
           more={{
             c: 1127,
@@ -128,7 +138,7 @@ export function MepScreen() {
         <MepBrowser />
       </div>
       <div className={s.viewer}>
-        <MepViewport max={max} onMax={() => setMax(!max)} clashes={clashes} />
+        {planView ? <MepPlan clashes={clashes} /> : <MepViewport max={max} onMax={() => setMax(!max)} clashes={clashes} />}
       </div>
       {!max && (
         <div className={s.bottom}>

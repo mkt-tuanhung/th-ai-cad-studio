@@ -104,6 +104,8 @@ class SceneView {
   /** Section box: 6 clipping planes with capped cut faces; empty `around` = model box cut at `topZ`
    *  (mid-height when NaN). */
   void setSectionBox(bool on, const std::vector<std::string>& around, double topZ = std::numeric_limits<double>::quiet_NaN());
+  /** Clip the view to the intersection of half-spaces a·x + b·y + c·z + d ≥ 0 (capped); empty = none. */
+  void setClipPlanes(const std::vector<std::array<double, 4>>& planes);
   /** Zoom to a window in device pixels of the last frame. */
   void windowFit(int x0, int y0, int x1, int y1);
   /** Perspective camera (mm). */

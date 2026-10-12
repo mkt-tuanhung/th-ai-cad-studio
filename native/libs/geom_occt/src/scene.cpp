@@ -538,14 +538,21 @@ void SceneView::setSectionBox(bool on, const std::vector<std::string>& around, d
       b = {b[0] - m, b[1] - m, b[2] - m, b[3] + m, b[4] + m, b[5] + m};
     }
     // planes keep the inside of the box: n · p + d >= 0
-    const double eq[6][4] = {{1, 0, 0, -b[0]}, {-1, 0, 0, b[3]}, {0, 1, 0, -b[1]}, {0, -1, 0, b[4]}, {0, 0, 1, -b[2]}, {0, 0, -1, b[5]}};
-    for (const auto& q : eq) {
-      Handle(Graphic3d_ClipPlane) p = new Graphic3d_ClipPlane(gp_Pln(q[0], q[1], q[2], q[3]));
-      p->SetCapping(true);
-      p->SetCappingColor(Quantity_Color(0.55, 0.57, 0.6, Quantity_TOC_RGB));
-      d->view->AddClipPlane(p);
-      d->clips.push_back(p);
-    }
+    setClipPlanes({{1, 0, 0, -b[0]}, {-1, 0, 0, b[3]}, {0, 1, 0, -b[1]}, {0, -1, 0, b[4]}, {0, 0, 1, -b[2]}, {0, 0, -1, b[5]}});
+    return;
+  }
+  d->view->Update();
+}
+
+void SceneView::setClipPlanes(const std::vector<std::array<double, 4>>& planes) {
+  for (const Handle(Graphic3d_ClipPlane)& p : d->clips) d->view->RemoveClipPlane(p);
+  d->clips.clear();
+  for (const auto& q : planes) {
+    Handle(Graphic3d_ClipPlane) p = new Graphic3d_ClipPlane(gp_Pln(q[0], q[1], q[2], q[3]));
+    p->SetCapping(true);
+    p->SetCappingColor(Quantity_Color(0.55, 0.57, 0.6, Quantity_TOC_RGB));
+    d->view->AddClipPlane(p);
+    d->clips.push_back(p);
   }
   d->view->Update();
 }

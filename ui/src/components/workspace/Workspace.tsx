@@ -146,19 +146,37 @@ export interface RibbonTool {
   onClick: () => void
   active?: boolean
   iconSize?: number
+  /** Drop-down under the button instead of a plain action. */
+  menu?: MenuItem[]
 }
 
 export function WsRibbon({ tools, seps, more, width = 1290, top = 7 }: { tools: RibbonTool[]; seps: number[]; more?: { c: number; label: string; items: MenuItem[] }; width?: number; top?: number }) {
   const [open, setOpen, ref] = useDismissable<HTMLDivElement>()
+  const [menuKey, setMenuKey, menuRef] = useDismissable<HTMLDivElement>()
+  const [which, setWhich] = useState('')
   return (
     <div className={s.ribbon} role="toolbar">
       <div className={s.track} style={{ width }}>
-        {tools.map(({ key, label, Icon, c, w = 70, onClick, active, iconSize = 24 }) => (
-          <button key={key} type="button" className={`${s.tool} ${active ? s.toolOn : ''}`} style={{ left: c - w / 2, width: w, top }} aria-pressed={active} onClick={onClick} title={label}>
-            <Icon size={iconSize} strokeWidth={1.45} />
-            <span>{label}</span>
-          </button>
-        ))}
+        {tools.map(({ key, label, Icon, c, w = 70, onClick, active, iconSize = 24, menu }) =>
+          menu ? (
+            <div key={key} className={s.ranchor} ref={which === key ? menuRef : undefined} style={{ left: c - w / 2 }}>
+              <button type="button" className={`${s.tool} ${active ? s.toolOn : ''}`} style={{ position: 'static', width: w, marginTop: top }} aria-expanded={menuKey && which === key} aria-pressed={active} title={label} onClick={() => (setWhich(key), setMenuKey(!(menuKey && which === key)))}>
+                <Icon size={iconSize} strokeWidth={1.45} />
+                <span>{label}</span>
+              </button>
+              {menuKey && which === key && (
+                <PopoverPanel width={220} align="left">
+                  <MenuList onClose={() => setMenuKey(false)} items={menu} />
+                </PopoverPanel>
+              )}
+            </div>
+          ) : (
+            <button key={key} type="button" className={`${s.tool} ${active ? s.toolOn : ''}`} style={{ left: c - w / 2, width: w, top }} aria-pressed={active} onClick={onClick} title={label}>
+              <Icon size={iconSize} strokeWidth={1.45} />
+              <span>{label}</span>
+            </button>
+          ),
+        )}
         {seps.map((x) => (
           <span key={x} className={s.rsep} style={{ left: x }} />
         ))}

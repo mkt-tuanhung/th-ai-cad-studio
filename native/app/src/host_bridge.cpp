@@ -391,7 +391,14 @@ QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) 
     v->setHidden(ids("ids"), ids("keep"));
     return {{"ok", true}, {"visible", v->visibleCount()}};
   }
-  else if (cmd == "section") v->setSectionBox(o["on"].toBool(), ids("around"), o.contains("top") ? o["top"].toDouble() : std::numeric_limits<double>::quiet_NaN());
+  else if (cmd == "clip") {
+    std::vector<std::array<double, 4>> planes;
+    for (const auto& q : o["planes"].toArray()) {
+      const QJsonArray a = q.toArray();
+      planes.push_back({a.at(0).toDouble(), a.at(1).toDouble(), a.at(2).toDouble(), a.at(3).toDouble()});
+    }
+    v->setClipPlanes(planes);
+  } else if (cmd == "section") v->setSectionBox(o["on"].toBool(), ids("around"), o.contains("top") ? o["top"].toDouble() : std::numeric_limits<double>::quiet_NaN());
   else if (cmd == "window") v->windowFit(o["x0"].toInt(), o["y0"].toInt(), o["x1"].toInt(), o["y1"].toInt());
   else if (cmd == "camera") v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55));
   else if (cmd == "walk") v->walk(o["forward"].toDouble(), o["right"].toDouble(), o["yaw"].toDouble(), o["pitch"].toDouble());

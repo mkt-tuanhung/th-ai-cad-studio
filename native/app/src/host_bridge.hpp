@@ -64,7 +64,7 @@ class HostBridge : public QObject {
   /** Renders w×h device pixels: {ok, url, ms}. mode: shaded | wireframe | hidden | clay. */
   Q_INVOKABLE QJsonObject scene3dFrame(const QString& key, int w, int h, const QString& mode, const QString& selected, const QString& highlightedCsv);
   Q_INVOKABLE void scene3dCamera(const QString& key, const QString& action, double a, double b, double c);
-  /** View commands: {cmd:'hide', ids, keep} (keep: isolate) → {visible} | {cmd:'section', on, around} | {cmd:'window', x0,y0,x1,y1} |
+  /** View commands: {cmd:'hide', ids, keep} (keep: isolate) → {visible} | {cmd:'section', on, around, top} | {cmd:'clip', planes:[[a,b,c,d]]} | {cmd:'window', x0,y0,x1,y1} |
    *  {cmd:'camera', eye, at, fov} | {cmd:'walk', forward, right, yaw, pitch} | {cmd:'bounds', ids} |
    *  {cmd:'snapshot', w, h, mode} → {ok, url: data:image/png…}. */
   Q_INVOKABLE QJsonObject scene3dCommand(const QString& key, const QString& json);

@@ -63,8 +63,8 @@ export function MepBrowser() {
     const k = node.key
     if (k.startsWith('v-')) {
       const v = k.slice(2)
-      if (v === 'plan' || v === 'ceiling') return toast(fmt(t.toast.native, { what: node.label }))
-      return set({ browserSel: k, view: v, discipline: v === 'coord' ? 'coordination' : (v as 'hvac' | 'plumbing' | 'electrical') })
+      if (v === 'plan' || v === 'ceiling') return set({ browserSel: k, view: v })
+      return set({ browserSel: k, view: v, tool: 'select', discipline: v === 'coord' ? 'coordination' : (v as 'hvac' | 'plumbing' | 'electrical') })
     }
     if (k.startsWith('eq-')) return set({ browserSel: k, bottom: 'schedules', schedule: 'equipment' })
     if (k === 'sys-hvac' || k === 'fam-ducts') return set({ browserSel: k, bottom: 'schedules', schedule: 'duct' })

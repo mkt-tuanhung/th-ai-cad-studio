@@ -43,6 +43,8 @@ export interface MenuItem {
   label: string
   onSelect: () => void
   danger?: boolean
+  /** Check-box item (toggles keep the menu open). */
+  checked?: boolean
 }
 
 export function MenuList({ items, onClose }: { items: MenuItem[]; onClose: () => void }) {
@@ -52,13 +54,15 @@ export function MenuList({ items, onClose }: { items: MenuItem[]; onClose: () =>
         <button
           key={it.label}
           type="button"
-          role="menuitem"
+          role={it.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+          aria-checked={it.checked}
           className={`${s.item} ${it.danger ? s.danger : ''}`}
           onClick={() => {
-            onClose()
+            if (it.checked === undefined) onClose()
             it.onSelect()
           }}
         >
+          {it.checked !== undefined && <span aria-hidden="true" style={{ display: 'inline-block', width: 16 }}>{it.checked ? '✓' : ''}</span>}
           {it.label}
         </button>
       ))}

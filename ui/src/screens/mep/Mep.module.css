@@ -218,3 +218,16 @@
 .issues li button {
   justify-self: start;
 }
+
+.applyBtn {
+  margin: 10px 12px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  color: #fff;
+  background: #0f766e;
+  cursor: pointer;
+}

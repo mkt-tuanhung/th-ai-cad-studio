@@ -30,7 +30,7 @@ export function useSceneTools(fileBase: string) {
   const [keep, setKeep] = useState<string[]>([])
   const [visible, setVisible] = useState(0)
   const isolated = keep.length > 0
-  const [section, setSection] = useState<{ on: boolean; around: string[]; top?: number }>({ on: false, around: [] })
+  const [section, setSection] = useState<{ on: boolean; around: string[]; top?: number; planes?: number[][] }>({ on: false, around: [] })
   const ctl = useRef<SceneCtl | null>(null)
   const toggleTool = (k: SceneTool) => setTool((cur) => (cur === k ? 'orbit' : k))
   const showAll = () => (setHidden([]), setKeep([]))
