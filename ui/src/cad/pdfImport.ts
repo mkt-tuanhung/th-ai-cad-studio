@@ -26,6 +26,15 @@ export interface PdfImport {
 
 const PT = 25.4 / 72
 
+/** Colour operand as #rrggbb: pdf.js gives a hex string or an RGB triple (0–255). */
+function hexOf(a: unknown[]): string | null {
+  if (typeof a[0] === 'string') return a[0]
+  // a typed array (Uint8ClampedArray) — copy to a plain array so .map can return strings
+  const v = Array.from((a.length === 1 && a[0] && typeof a[0] === 'object' ? a[0] : a) as ArrayLike<number>)
+  if (v.length < 3 || v.slice(0, 3).some((x) => typeof x !== 'number')) return null
+  return '#' + v.slice(0, 3).map((x) => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, '0')).join('')
+}
+
 async function open(bytes: Uint8Array) {
   const pdfjs = await import('pdfjs-dist')
   pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
@@ -118,11 +127,11 @@ export async function importPdf(bytes: Uint8Array, scale = 1, pageNo = 1): Promi
       }
       case O.setStrokeRGBColor:
       case O.setStrokeColor:
-        if (typeof a[0] === 'string') stroke = a[0]
+        stroke = hexOf(a) ?? stroke
         break
       case O.setFillRGBColor:
       case O.setFillColor:
-        if (typeof a[0] === 'string') fill = a[0]
+        fill = hexOf(a) ?? fill
         break
       case O.constructPath: {
         const pathOps = a[0] as number[]

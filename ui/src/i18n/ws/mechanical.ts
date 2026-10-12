@@ -66,7 +66,7 @@ export const mechEn = {
     assemblyComponent: 'Assembly Component', partComponent: 'Part', geomNote: 'Volume, area and centre of mass: sample geometry (browser preview). Mass = volume × density.', geomNoteOcct: 'Volume: exact OCCT solid built from the parameters; mass = volume × density. Area and centre of mass: sample geometry.', kinds: { Assembly: 'Assembly', Part: 'Part' },
   },
   configs: { title: 'Configurations', activate: 'Activate', active: 'Active' },
-  display: { title: 'Display', mode: 'Display mode', explode: 'Exploded view', exploded: 'Exploded view needs the 3D kernel (not connected).' },
+  display: { title: 'Display', mode: 'Display mode', explode: 'Exploded view', exploded: 'Exploded view uses the live 3D model — desktop app.' },
   partStudio: {
     tree: 'Feature Tree', sketches: 'Sketches', features: 'Features', empty: 'No features yet — start with Sketch, then Extrude or Revolve.',
     planes: { XY: 'Top (XY)', XZ: 'Front (XZ)', YZ: 'Right (YZ)' }, kinds: { extrude: 'Extrude', revolve: 'Revolve', hole: 'Hole', fillet: 'Fillet', chamfer: 'Chamfer', pattern: 'Pattern' },
@@ -84,7 +84,7 @@ export const mechEn = {
     },
   },
   toast: {
-    native: '{what}: needs the mechanical 3D kernel (not connected in this build)',
+    native: '{what} needs the live 3D model — desktop app, Shaded / Wireframe / Hidden Line mode.',
     shareOffline: 'Sharing needs the project server (PWA module, later). The project stays on this computer.',
     exported: 'Exported {file}', undone: 'Undone: {label}', redone: 'Redone: {label}', nothing: 'Nothing to undo', invalid: 'Not applied — {why}', reset: 'Sample data restored',
     checked: 'Design checks: {ok} OK, {warn} warnings, {err} errors', config: 'Configuration “{name}” active — Motor_Power = {kw} kW',
@@ -166,7 +166,7 @@ export const mechVi: typeof mechEn = {
     assemblyComponent: 'Cụm lắp ráp', partComponent: 'Chi tiết', geomNote: 'Thể tích, diện tích, trọng tâm: hình học mẫu (bản xem trên trình duyệt). Khối lượng = thể tích × khối lượng riêng.', geomNoteOcct: 'Thể tích: khối OCCT chính xác dựng từ tham số; khối lượng = thể tích × khối lượng riêng. Diện tích, trọng tâm: hình học mẫu.', kinds: { Assembly: 'Lắp ráp', Part: 'Chi tiết' },
   },
   configs: { title: 'Cấu hình', activate: 'Kích hoạt', active: 'Đang dùng' },
-  display: { title: 'Hiển thị', mode: 'Chế độ hiển thị', explode: 'Hình tách rời', exploded: 'Hình tách rời cần kernel 3D (chưa kết nối).' },
+  display: { title: 'Hiển thị', mode: 'Chế độ hiển thị', explode: 'Hình tách rời', exploded: 'Hình tách rời dùng mô hình 3D trực tiếp — ứng dụng desktop.' },
   partStudio: {
     tree: 'Cây đặc trưng', sketches: 'Phác thảo', features: 'Đặc trưng', empty: 'Chưa có đặc trưng — bắt đầu bằng Phác thảo rồi Đùn hoặc Xoay.',
     planes: { XY: 'Trên (XY)', XZ: 'Trước (XZ)', YZ: 'Phải (YZ)' }, kinds: { extrude: 'Đùn', revolve: 'Xoay', hole: 'Lỗ', fillet: 'Bo tròn', chamfer: 'Vát mép', pattern: 'Mảng' },
@@ -184,7 +184,7 @@ export const mechVi: typeof mechEn = {
     },
   },
   toast: {
-    native: '{what}: cần kernel 3D cơ khí (chưa kết nối trong bản này)',
+    native: '{what} cần mô hình 3D trực tiếp — ứng dụng desktop, chế độ Shaded / Wireframe / Hidden Line.',
     shareOffline: 'Chia sẻ cần máy chủ dự án (mô-đun PWA, làm sau). Dự án vẫn nằm trên máy này.',
     exported: 'Đã xuất {file}', undone: 'Đã hoàn tác: {label}', redone: 'Đã làm lại: {label}', nothing: 'Không có gì để hoàn tác', invalid: 'Không áp dụng — {why}', reset: 'Đã khôi phục dữ liệu mẫu',
     checked: 'Kiểm tra thiết kế: {ok} đạt, {warn} cảnh báo, {err} lỗi', config: 'Đang dùng cấu hình “{name}” — Motor_Power = {kw} kW',

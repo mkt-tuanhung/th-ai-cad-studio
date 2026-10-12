@@ -2,6 +2,7 @@ import { Ellipsis, Pencil } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useMech, type MechRight as Tab } from '../../state/mech'
+import { useHost } from '../../services/host'
 import { PRow, PSelect, PanelTabs, Section, wsStyles as w } from '../../components/workspace/Workspace'
 import { MATERIALS, matOf, type Component } from '../../mech/model'
 import s from './Mechanical.module.css'
@@ -98,14 +99,15 @@ function Configs() {
 
 function Display() {
   const t = useT().mechanical
-  const { mode, set } = useMech()
+  const { mode, set, exploded } = useMech()
+  const host = useHost()
   return (
     <Section title={t.display.title}>
       <PRow label={t.display.mode}>
         <PSelect label={t.display.mode} value={mode} onChange={(v) => set({ mode: v })} options={(['shaded', 'wireframe', 'hidden', 'realistic'] as const).map((k) => ({ value: k, label: t.viewer.modes[k] }))} />
       </PRow>
       <PRow label={t.display.explode}>
-        <button type="button" className={w.link} onClick={() => toast(t.display.exploded)}>{t.tools.explode}</button>
+        <button type="button" className={w.link} aria-pressed={exploded} onClick={() => (host ? set({ exploded: !exploded, mode: mode === 'realistic' ? 'shaded' : mode }) : toast(t.display.exploded))}>{t.tools.explode}</button>
       </PRow>
     </Section>
   )
