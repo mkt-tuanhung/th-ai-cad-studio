@@ -18,6 +18,7 @@
 #include <QWidget>
 
 #include "dwg_reader.hpp"
+#include "video_writer.hpp"
 #include "native_viewport.hpp"
 #include "thcad/ai/assistant.hpp"
 #include "thcad/core/commands.hpp"
@@ -404,6 +405,10 @@ QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) 
   else if (cmd == "window") v->windowFit(o["x0"].toInt(), o["y0"].toInt(), o["x1"].toInt(), o["y1"].toInt());
   else if (cmd == "camera") v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55));
   else if (cmd == "walk") v->walk(o["forward"].toDouble(), o["right"].toDouble(), o["yaw"].toDouble(), o["pitch"].toDouble());
+  else if (cmd == "getCamera") {
+    const auto c = v->camera();
+    return {{"ok", true}, {"eye", QJsonArray{c[0], c[1], c[2]}}, {"at", QJsonArray{c[3], c[4], c[5]}}, {"fov", c[6]}};
+  }
   else if (cmd == "bounds") {
     const auto b = v->bounds(ids("ids"));
     QJsonArray a;
@@ -530,20 +535,8 @@ QString previewUrl(std::vector<unsigned char> rgba, int w, int h, const QJsonObj
 }
 }  // namespace
 
-QJsonObject HostBridge::renderStart(const QString& jobJson) {
-  if (rendering_) return {{"ok", false}, {"error", "busy"}};
-  const QJsonObject job = QJsonDocument::fromJson(jobJson.toUtf8()).object();
-  const QString fmt = job.value("format").toString("png");
-  if (fmt == "exr") return {{"ok", false}, {"error", "OpenEXR output is not included in this build (choose PNG 16-bit for high bit depth)"}};
-  if (fmt == "tiff" && !QImageWriter::supportedImageFormats().contains("tiff")) return {{"ok", false}, {"error", "TIFF writer not available in this build"}};
-  if (!renderer_) renderer_ = std::make_unique<occt::SceneView>(true);
-  if (!renderer_->ok()) return {{"ok", false}, {"error", "OpenGL unavailable"}};
-  auto parsed = json::parse(QJsonDocument(job.value("scene").toObject()).toJson(QJsonDocument::Compact).toStdString());
-  if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
-  int failures = renderer_->setItems(occt::sceneFromJson(std::get<json::Value>(parsed)));
-  // exterior views: the BIM building held by the host (the same model the BIM workspace edits)
-  if (job.value("scene").toObject().value("bim").toBool()) renderer_->addBuilding(bim_, job.value("scene").toObject().value("ground").toBool(true));
-  const QJsonObject pj = job.value("params").toObject();
+namespace {
+occt::RenderParams paramsOf(const QJsonObject& pj) {
   occt::RenderParams p;
   p.w = std::clamp(pj.value("w").toInt(1920), 16, 8192);
   p.h = std::clamp(pj.value("h").toInt(1080), 16, 8192);
@@ -563,6 +556,133 @@ QJsonObject HostBridge::renderStart(const QString& jobJson) {
     p.at = arr3(c.value("at"), {0, 0, 0});
     p.fovDeg = c.value("fov").toDouble(55);
   }
+  return p;
+}
+
+void applyCamera(occt::RenderParams& p, const QJsonObject& c) {
+  p.hasCamera = true;
+  p.eye = arr3(c.value("eye"), p.eye);
+  p.at = arr3(c.value("at"), p.at);
+  p.up = arr3(c.value("up"), {0, 0, 1});
+  p.fovDeg = c.value("fov").toDouble(p.fovDeg);
+}
+
+/** Cube faces of a panorama at `eye`: +X −X +Y −Y +Z −Z (forward, up). */
+const double kFaces[6][6] = {{1, 0, 0, 0, 0, 1}, {-1, 0, 0, 0, 0, 1}, {0, 1, 0, 0, 0, 1}, {0, -1, 0, 0, 0, 1}, {0, 0, 1, 0, -1, 0}, {0, 0, -1, 0, 1, 0}};
+
+/** Equirectangular 2N × N image from the six faces; longitude 0 looks along `yaw` (radians from +X). */
+QImage stitchEquirect(const QList<QImage>& f, double yaw) {
+  const int N = f[0].width();
+  QImage out(2 * N, N, QImage::Format_RGB888);
+  double R[6][3];
+  for (int k = 0; k < 6; ++k) {
+    const double* F = kFaces[k];
+    const double* U = kFaces[k] + 3;
+    R[k][0] = F[1] * U[2] - F[2] * U[1], R[k][1] = F[2] * U[0] - F[0] * U[2], R[k][2] = F[0] * U[1] - F[1] * U[0];
+  }
+  for (int y = 0; y < N; ++y) {
+    const double lat = M_PI / 2 - (y + 0.5) / N * M_PI;
+    uchar* row = out.scanLine(y);
+    for (int x = 0; x < 2 * N; ++x) {
+      const double a = yaw - ((x + 0.5) / (2.0 * N) * 2 * M_PI - M_PI);
+      const double d[3] = {std::cos(lat) * std::cos(a), std::cos(lat) * std::sin(a), std::sin(lat)};
+      int k = 0;
+      double best = -2;
+      for (int i = 0; i < 6; ++i) {
+        const double dot = d[0] * kFaces[i][0] + d[1] * kFaces[i][1] + d[2] * kFaces[i][2];
+        if (dot > best) best = dot, k = i;
+      }
+      const double* U = kFaces[k] + 3;
+      const double u = (d[0] * R[k][0] + d[1] * R[k][1] + d[2] * R[k][2]) / best, v = (d[0] * U[0] + d[1] * U[1] + d[2] * U[2]) / best;
+      const double px = std::clamp((u + 1) / 2 * N - 0.5, 0.0, N - 1.0), py = std::clamp((1 - v) / 2 * N - 0.5, 0.0, N - 1.0);
+      const int x0 = int(px), y0 = int(py), x1 = std::min(x0 + 1, N - 1), y1 = std::min(y0 + 1, N - 1);
+      const double fx = px - x0, fy = py - y0;
+      const QImage& src = f[k];
+      const uchar *a0 = src.constScanLine(y0), *a1 = src.constScanLine(y1);
+      for (int c = 0; c < 3; ++c) {
+        const double top = a0[4 * x0 + c] * (1 - fx) + a0[4 * x1 + c] * fx, bot = a1[4 * x0 + c] * (1 - fx) + a1[4 * x1 + c] * fx;
+        row[3 * x + c] = uchar(std::lround(top * (1 - fy) + bot * fy));
+      }
+    }
+  }
+  return out;
+}
+
+/** JPEG with GPano XMP (equirectangular) so photo apps open it in their 360° viewer. */
+bool saveEquirect(const QImage& img, const QString& path) {
+  QByteArray jpg;
+  QBuffer buf(&jpg);
+  buf.open(QIODevice::WriteOnly);
+  if (!img.save(&buf, "JPG", 92) || jpg.size() < 4) return false;
+  const QByteArray xmp = QStringLiteral(
+      "http://ns.adobe.com/xap/1.0/%1<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"><rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">"
+      "<rdf:Description rdf:about=\"\" xmlns:GPano=\"http://ns.google.com/photos/1.0/panorama/\" GPano:ProjectionType=\"equirectangular\" GPano:UsePanoramaViewer=\"True\" "
+      "GPano:FullPanoWidthPixels=\"%2\" GPano:FullPanoHeightPixels=\"%3\" GPano:CroppedAreaImageWidthPixels=\"%2\" GPano:CroppedAreaImageHeightPixels=\"%3\" "
+      "GPano:CroppedAreaLeftPixels=\"0\" GPano:CroppedAreaTopPixels=\"0\"/></rdf:RDF></x:xmpmeta>")
+                             .arg(QChar(0)).arg(img.width()).arg(img.height()).toUtf8();
+  QByteArray seg("\xFF\xE1", 2);
+  const int len = xmp.size() + 2;
+  seg.append(char((len >> 8) & 0xff)).append(char(len & 0xff)).append(xmp);
+  // after SOI and the JFIF APP0 segment
+  int at = 2;
+  if (uchar(jpg[2]) == 0xFF && uchar(jpg[3]) == 0xE0) at = 4 + ((uchar(jpg[4]) << 8) | uchar(jpg[5]));
+  jpg.insert(at, seg);
+  QFile f(path);
+  return f.open(QIODevice::WriteOnly) && f.write(jpg) == jpg.size();
+}
+
+QString renderDir() {
+  QString dir = qEnvironmentVariable("THCAD_RENDER_OUT");  // QA
+  if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/TH AI CAD Studio/Renders");
+  QDir().mkpath(dir);
+  return dir;
+}
+QString renderBase(const QJsonObject& job, const QString& ext) {
+  QString base = job.value("name").toString(QStringLiteral("Render"));
+  base.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("-"));
+  const QString dir = renderDir();
+  QString path = dir + "/" + base;
+  for (int n = 2; QFileInfo::exists(path + ext); ++n) path = dir + "/" + base + QStringLiteral(" (%1)").arg(n);
+  return path;
+}
+}  // namespace
+
+QJsonObject HostBridge::renderStart(const QString& jobJson) {
+  if (rendering_) return {{"ok", false}, {"error", "busy"}};
+  const QJsonObject job = QJsonDocument::fromJson(jobJson.toUtf8()).object();
+  const QString fmt = job.value("format").toString("png");
+  if (fmt == "exr") return {{"ok", false}, {"error", "OpenEXR output is not included in this build (choose PNG 16-bit for high bit depth)"}};
+  if (fmt == "tiff" && !QImageWriter::supportedImageFormats().contains("tiff")) return {{"ok", false}, {"error", "TIFF writer not available in this build"}};
+  if (!renderer_) renderer_ = std::make_unique<occt::SceneView>(true);
+  if (!renderer_->ok()) return {{"ok", false}, {"error", "OpenGL unavailable"}};
+  auto parsed = json::parse(QJsonDocument(job.value("scene").toObject()).toJson(QJsonDocument::Compact).toStdString());
+  if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+  int failures = renderer_->setItems(occt::sceneFromJson(std::get<json::Value>(parsed)));
+  // exterior views: the BIM building held by the host (the same model the BIM workspace edits)
+  if (job.value("scene").toObject().value("bim").toBool()) renderer_->addBuilding(bim_, job.value("scene").toObject().value("ground").toBool(true));
+  const QJsonObject pj = job.value("params").toObject();
+  occt::RenderParams p = paramsOf(pj);
+  // panorama: six square 90° cube faces from the camera position; video: one render per frame camera
+  const QString kind = job.value("kind").toString(QStringLiteral("still"));
+  seq_ = {};
+  seqIndex_ = 0;
+  seqImages_.clear();
+  video_.reset();
+  if (kind == "panorama") {
+    const int n = std::clamp(pj.value("face").toInt(1024), 64, 4096);
+    p.w = p.h = n;
+    for (const auto& f : kFaces) {
+      const QJsonArray eye{p.eye[0], p.eye[1], p.eye[2]};
+      seq_.append(QJsonObject{{"eye", eye}, {"at", QJsonArray{p.eye[0] + f[0] * 1000, p.eye[1] + f[1] * 1000, p.eye[2] + f[2] * 1000}}, {"up", QJsonArray{f[3], f[4], f[5]}}, {"fov", 90}});
+    }
+  } else if (kind == "video") {
+    seq_ = pj.value("frames").toArray();
+    if (seq_.isEmpty()) return {{"ok", false}, {"error", "a video needs at least one frame"}};
+    p.w &= ~1, p.h &= ~1;
+    video_ = std::make_unique<VideoWriter>();
+    if (!video_->open(renderBase(job, ".mp4"), p.w, p.h, std::clamp(pj.value("fps").toInt(24), 1, 60))) return {{"ok", false}, {"error", video_->error()}};
+  }
+  if (!seq_.isEmpty()) applyCamera(p, seq_.at(0).toObject());
   const std::string err = renderer_->beginRender(p);
   if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
   renderJob_ = job;
@@ -584,11 +704,15 @@ void HostBridge::renderTick() {
   // short slices (at least one pass) with idle gaps keep the UI — same thread as the GL context — responsive
   const int done = renderer_->renderPasses(25);
   const qint64 now = QDateTime::currentMSecsSinceEpoch();
-  QJsonObject prog{{"id", renderJob_.value("id")}, {"samples", done}, {"total", total}, {"ms", static_cast<double>(now - renderStartMs_)}};
+  const int views = std::max<int>(1, static_cast<int>(seq_.size()));
+  QJsonObject prog{{"id", renderJob_.value("id")}, {"samples", seqIndex_ * total + done}, {"total", total * views}, {"ms", static_cast<double>(now - renderStartMs_)}};
+  if (views > 1) prog["view"] = seqIndex_ + 1, prog["views"] = views;
   if (done >= total) return renderFinish(true, {});
   if (now - renderPreviewMs_ > 1500) {
     renderPreviewMs_ = now;
-    prog["preview"] = previewUrl(renderer_->renderedImage(false), pj.value("w").toInt(1920), pj.value("h").toInt(1080), renderJob_.value("fx").toObject());
+    const occt::RenderParams cur = paramsOf(pj);
+    const bool square = renderJob_.value("kind").toString() == "panorama";
+    prog["preview"] = previewUrl(renderer_->renderedImage(false), square ? std::clamp(pj.value("face").toInt(1024), 64, 4096) : (cur.w & (seq_.isEmpty() ? ~0 : ~1)), square ? std::clamp(pj.value("face").toInt(1024), 64, 4096) : (cur.h & (seq_.isEmpty() ? ~0 : ~1)), renderJob_.value("fx").toObject());
   }
   emit renderProgress(prog);
   QTimer::singleShot(20, this, &HostBridge::renderTick);
@@ -599,6 +723,64 @@ void HostBridge::renderFinish(bool ok, const QString& error) {
   const QJsonObject pj = job.value("params").toObject();
   const int w = std::clamp(pj.value("w").toInt(1920), 16, 8192), h = std::clamp(pj.value("h").toInt(1080), 16, 8192);
   QJsonObject res{{"id", job.value("id")}, {"done", true}, {"samples", renderer_->renderedSamples()}, {"ms", static_cast<double>(QDateTime::currentMSecsSinceEpoch() - renderStartMs_)}};
+  if (!seq_.isEmpty()) {
+    // panorama / video: keep this view, render the next one, assemble after the last
+    const bool pano = job.value("kind").toString() == "panorama";
+    const int fw = pano ? std::clamp(pj.value("face").toInt(1024), 64, 4096) : (w & ~1), fh = pano ? fw : (h & ~1);
+    if (ok) {
+      std::vector<unsigned char> px = renderer_->renderedImage(false);
+      if (px.empty()) ok = false, res["error"] = QStringLiteral("could not read the rendered image back");
+      else {
+        if (job.value("denoise").toBool(false)) denoise(px.data(), fw, fh);
+        postFx(px.data(), fw, fh, job.value("fx").toObject());
+        const QImage frame = QImage(px.data(), fw, fh, fw * 4, QImage::Format_RGBA8888).copy();
+        if (pano) seqImages_.push_back(frame);
+        else {
+          seqImages_ = {frame};  // the last frame previews the video
+          if (!video_->add(frame)) ok = false, res["error"] = QStringLiteral("the video encoder rejected a frame");
+        }
+        if (ok && ++seqIndex_ < seq_.size()) {
+          renderer_->endRender();
+          occt::RenderParams p = paramsOf(pj);
+          if (pano) p.w = p.h = fw;
+          else p.w = fw, p.h = fh;
+          applyCamera(p, seq_.at(seqIndex_).toObject());
+          const std::string err = renderer_->beginRender(p);
+          if (err.empty()) {
+            emit renderProgress(QJsonObject{{"id", job.value("id")}, {"samples", seqIndex_ * p.samples}, {"total", p.samples * static_cast<int>(seq_.size())}, {"view", seqIndex_ + 1}, {"views", static_cast<int>(seq_.size())}, {"ms", static_cast<double>(QDateTime::currentMSecsSinceEpoch() - renderStartMs_)}, {"preview", previewUrl(frame, {})}});
+            QTimer::singleShot(0, this, &HostBridge::renderTick);
+            return;
+          }
+          ok = false, res["error"] = QString::fromStdString(err);
+        }
+      }
+    }
+    if (ok && pano) {
+      // longitude 0 of the panorama looks where the camera looked
+      const occt::RenderParams base = paramsOf(pj);
+      const double yaw = std::atan2(base.at[1] - base.eye[1], base.at[0] - base.eye[0]);
+      const QImage eq = stitchEquirect(seqImages_, yaw);
+      const QString path = renderBase(job, ".jpg") + ".jpg";
+      if (!saveEquirect(eq, path)) ok = false, res["error"] = QStringLiteral("could not write ") + path;
+      else res["path"] = path, res["bytes"] = static_cast<double>(QFileInfo(path).size()), res["preview"] = previewUrl(eq.convertToFormat(QImage::Format_RGBA8888), {}), res["w"] = eq.width(), res["h"] = eq.height();
+    } else if (video_) {
+      const bool closed = video_->close();
+      if (ok && closed) res["path"] = video_->path(), res["bytes"] = static_cast<double>(QFileInfo(video_->path()).size()), res["codec"] = video_->codec(), res["frames"] = static_cast<int>(seq_.size());
+      else if (ok) ok = false, res["error"] = QStringLiteral("could not finish the video: ") + video_->error();
+      if (!ok) QFile::remove(video_->path());  // no half-written videos left behind
+      if (!seqImages_.isEmpty()) res["preview"] = previewUrl(seqImages_.back(), {});
+    }
+    seq_ = {};
+    seqImages_.clear();
+    video_.reset();
+    if (!ok && !res.contains("error")) res["error"] = error;
+    res["ok"] = ok;
+    renderer_->endRender();
+    rendering_ = false;
+    renderJob_ = {};
+    emit renderProgress(res);
+    return;
+  }
   if (ok) {
     const QString fmt = job.value("format").toString("png");
     const QJsonObject fx = job.value("fx").toObject();

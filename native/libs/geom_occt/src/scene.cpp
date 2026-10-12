@@ -609,6 +609,12 @@ void SceneView::setCamera(const std::array<double, 3>& eye, const std::array<dou
   d->view->AutoZFit();
 }
 
+std::array<double, 7> SceneView::camera() const {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  const gp_Pnt e = cam->Eye(), c = cam->Center();
+  return {e.X(), e.Y(), e.Z(), c.X(), c.Y(), c.Z(), cam->FOVy()};
+}
+
 void SceneView::walk(double forward, double right, double yawDeg, double pitchDeg) {
   const Handle(Graphic3d_Camera)& cam = d->view->Camera();
   if (cam->ProjectionType() != Graphic3d_Camera::Projection_Perspective) cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective);
@@ -859,7 +865,7 @@ std::string SceneView::beginRender(const RenderParams& p) {
   if (p.hasCamera) {
     cam->SetEye(gp_Pnt(p.eye[0], p.eye[1], p.eye[2]));
     cam->SetCenter(gp_Pnt(p.at[0], p.at[1], p.at[2]));
-    cam->SetUp(gp::DZ());
+    cam->SetUp(gp_Dir(p.up[0], p.up[1], p.up[2]));
     cam->SetFOVy(p.fovDeg);
     cam->SetZRange(1, 1e7);
     d->view->AutoZFit();

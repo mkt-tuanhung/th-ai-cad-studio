@@ -28,7 +28,7 @@ export interface Proposal {
 }
 
 export interface Discipline<M> {
-  key: 'bim' | 'interior' | 'mep' | 'civil' | 'mechanical'
+  key: 'bim' | 'interior' | 'mep' | 'civil' | 'mechanical' | 'renders'
   /** What the assistant works on, for the system prompt. */
   role: string
   ops: (m: M) => OpSpec[]

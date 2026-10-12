@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { CAMERAS, DEFAULT_FX, DEFAULT_SETTINGS, settingsSummary, FORMATS, type Camera, type Job, type JobRun, type PostFx, type RenderSettings, type Variation } from '../renders/model'
+import { CAMERAS, DEFAULT_FX, DEFAULT_PANO, DEFAULT_SETTINGS, DEFAULT_VIDEO, settingsSummary, FORMATS, videoFrames, type Camera, type CustomVariation, type Job, type JobRun, type PanoSettings, type PostFx, type RenderSettings, type Variation, type VideoSettings } from '../renders/model'
 import { undoableActions, type Undoable } from './undoable'
 
 export type RenderTab = 'studio' | 'panorama' | 'video' | 'ai' | 'batch'
@@ -13,6 +13,8 @@ export interface RenderDoc {
   settings: RenderSettings
   fx: PostFx
   queue: Job[]
+  /** AI-proposed / custom lighting variations. */
+  custom?: CustomVariation[]
 }
 
 interface RenderState extends Undoable<RenderDoc> {
@@ -32,11 +34,20 @@ interface RenderState extends Undoable<RenderDoc> {
   runs: Record<string, JobRun>
   history: { jobId: string; camera: string; cameraId?: string; path: string; ms: number; samples: number; finished: number; w: number; h: number }[]
   previews: Record<string, string>
+  pano: PanoSettings
+  video: VideoSettings
+  /** Collapsed left cards. */
+  collapsed: Record<string, boolean>
+  safeFrame: boolean
+  /** Custom variation applied last (highlighted in the strip). */
+  customSel: string | null
+  /** Queues a 360° panorama or a video of a camera; returns the job id. */
+  enqueueSpecial: (kind: 'panorama' | 'video', cameraId: string) => string
   setRun: (id: string, patch: Partial<JobRun>) => void
   edit: (label: string, fn: (d: RenderDoc) => RenderDoc) => string | null
   undo: () => string | null
   redo: () => string | null
-  set: (p: Partial<Omit<RenderState, 'doc' | 'undoStack' | 'redoStack' | 'edit' | 'undo' | 'redo' | 'set' | 'reset' | 'enqueue' | 'setRun'>>) => void
+  set: (p: Partial<Omit<RenderState, 'doc' | 'undoStack' | 'redoStack' | 'edit' | 'undo' | 'redo' | 'set' | 'reset' | 'enqueue' | 'setRun' | 'enqueueSpecial'>>) => void
   enqueue: (cameraIds: string[]) => number
   reset: () => void
 }
@@ -79,6 +90,11 @@ export const useRenders = create<RenderState>()(
       runs: {},
       history: [],
       previews: {},
+      pano: DEFAULT_PANO,
+      video: DEFAULT_VIDEO,
+      collapsed: {},
+      safeFrame: false,
+      customSel: null,
       setRun: (id, patch) => set((s) => ({ runs: { ...s.runs, [id]: { ...(s.runs[id] ?? { status: 'waiting' }), ...patch } } })),
       ...undoableActions<RenderDoc, RenderState>(get, set, validateRender),
       set: (p) => set(p),
@@ -92,12 +108,25 @@ export const useRenders = create<RenderState>()(
         get().edit(`Queue ${jobs.length} render(s)`, (x) => ({ ...x, queue: [...x.queue, ...jobs] }))
         return jobs.length
       },
+      enqueueSpecial: (kind, cameraId) => {
+        const s = get()
+        const d = s.doc
+        const c = d.cameras.find((x) => x.id === cameraId)!
+        const id = `job-${Date.now()}-${seq++}`
+        const [vw, vh] = s.video.resolution.split('x').map(Number)
+        const job: Job =
+          kind === 'panorama'
+            ? { id, cameraId, kind, camera: `${c.name} - 360° panorama`, settings: `${s.pano.face * 2} × ${s.pano.face} · ${s.pano.samples} samples × 6`, output: 'JPG 360°', status: 'waiting', created: Date.now(), cfg: { settings: d.settings, fx: d.fx }, special: { face: s.pano.face, samples: s.pano.samples } }
+            : { id, cameraId, kind, camera: `${c.name} - ${s.video.path === 'orbit' ? 'orbit' : 'fly-through'} video`, settings: `${s.video.resolution.replace('x', ' × ')} · ${s.video.seconds} s @ ${s.video.fps} fps · ${s.video.samples} samples`, output: 'MP4', status: 'waiting', created: Date.now(), cfg: { settings: d.settings, fx: d.fx }, special: { fps: s.video.fps, samples: s.video.samples, w: vw, h: vh, frames: videoFrames(d.cameras, c, s.video) } }
+        get().edit(`Queue ${job.camera}`, (x) => ({ ...x, queue: [...x.queue, job] }))
+        return id
+      },
       reset: () => set({ doc: initial(), undoStack: [], redoStack: [], camera: 'cam1', variation: 'original' }),
     }),
     {
       name: 'thcad.renders',
       version: 1,
-      partialize: (s) => ({ doc: s.doc, camera: s.camera, variation: s.variation, mode: s.mode, history: s.history, runs: Object.fromEntries(Object.entries(s.runs).filter(([, r]) => r.status !== 'rendering')) }),
+      partialize: (s) => ({ doc: s.doc, camera: s.camera, variation: s.variation, mode: s.mode, history: s.history, pano: s.pano, video: s.video, runs: Object.fromEntries(Object.entries(s.runs).filter(([, r]) => r.status !== 'rendering')) }),
     },
   ),
 )

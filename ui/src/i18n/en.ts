@@ -1028,7 +1028,7 @@ export const en = {
     proposal: 'Proposal', changes: '{n} change(s) — nothing is applied until you approve', none: 'The assistant proposes no change: {title}',
     approve: 'Approve & Apply', reject: 'Reject', applied: 'Applied “{title}” — ⌘Z to undo', rejected: 'Proposal rejected — the model is unchanged',
     invalid: 'The reply could not be applied: {why}', meta: '{model} · {s} s{retry}', retry: ' · retried under the grammar', raw: 'Model output', open: 'Ask the local AI…',
-    examples: { mep: 'resize SA-01 on level 2 to 700 × 400', interior: 'make the sofa olive fabric', civil: 'fix the flat segments with the minimum slope', mechanical: 'shaft diameter 45 mm', bim: 'make window WN1 2400 wide' },
+    examples: { mep: 'resize SA-01 on level 2 to 700 × 400', interior: 'make the sofa olive fabric', civil: 'fix the flat segments with the minimum slope', mechanical: 'shaft diameter 45 mm', bim: 'make window WN1 2400 wide', renders: 'three lighting variations: golden hour, overcast, night' },
   },
   view3d: {
     hidden: '{n} hidden', isolated: 'Isolated — {n} shown', showAll: 'Show all', section: 'Section box', sectionOff: 'Remove section box',

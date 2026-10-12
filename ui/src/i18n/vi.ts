@@ -1036,7 +1036,7 @@ export const vi: Messages = {
     proposal: 'Đề xuất', changes: '{n} thay đổi — chưa áp dụng gì cho đến khi bạn duyệt', none: 'Trợ lý không đề xuất thay đổi nào: {title}',
     approve: 'Duyệt & áp dụng', reject: 'Từ chối', applied: 'Đã áp dụng “{title}” — ⌘Z để hoàn tác', rejected: 'Đã từ chối đề xuất — mô hình giữ nguyên',
     invalid: 'Không áp dụng được câu trả lời: {why}', meta: '{model} · {s} s{retry}', retry: ' · đã chạy lại theo grammar', raw: 'Đầu ra của model', open: 'Hỏi AI cục bộ…',
-    examples: { mep: 'đổi ống gió SA-01 tầng 2 thành 700 × 400', interior: 'đổi sofa sang vải xanh ô liu', civil: 'sửa các đoạn dốc phẳng theo độ dốc tối thiểu', mechanical: 'đường kính trục 45 mm', bim: 'mở rộng cửa sổ WN1 thành 2400' },
+    examples: { mep: 'đổi ống gió SA-01 tầng 2 thành 700 × 400', interior: 'đổi sofa sang vải xanh ô liu', civil: 'sửa các đoạn dốc phẳng theo độ dốc tối thiểu', mechanical: 'đường kính trục 45 mm', bim: 'mở rộng cửa sổ WN1 thành 2400', renders: 'ba phương án ánh sáng: hoàng hôn, trời mây, ban đêm' },
   },
   view3d: {
     hidden: 'Đang ẩn {n}', isolated: 'Đang cô lập — hiện {n}', showAll: 'Hiện tất cả', section: 'Hộp cắt', sectionOff: 'Bỏ hộp cắt',

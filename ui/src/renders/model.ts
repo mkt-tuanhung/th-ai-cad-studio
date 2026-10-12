@@ -72,6 +72,8 @@ export interface RenderSettings {
   sunSky: boolean
   sunIntensity: number
   sunDirection: number
+  /** Sun height above the horizon (°); default 40. */
+  sunElevation?: number
   ai: { denoise: boolean; lighting: boolean; material: boolean; style: boolean }
 }
 
@@ -93,6 +95,86 @@ export interface Job {
   /** Camera and settings captured when the job was queued (what gets rendered). */
   cameraId?: string
   cfg?: { settings: RenderSettings; fx: PostFx }
+  /** still (default) · panorama: 6 cube faces → 360° equirectangular JPG · video: one render per frame → MP4. */
+  kind?: 'still' | 'panorama' | 'video'
+  special?: { face?: number; samples?: number; fps?: number; w?: number; h?: number; frames?: { eye: number[]; at: number[]; fov: number }[] }
+  /** Thumbnail render of a custom variation: its preview becomes the variation's picture. */
+  thumbFor?: string
+}
+
+/** Lighting / look variation proposed by the local AI (or edited): applied to the settings and post-processing. */
+export interface CustomVariation {
+  id: string
+  name: string
+  sky: 'clear' | 'overcast' | 'studio' | 'night'
+  sunAzimuth: number
+  sunElevation: number
+  sunIntensity: number
+  exposure: number
+  contrast: number
+  saturation: number
+  temperature: number
+  /** Thumbnail from a real preview render (desktop), else none. */
+  preview?: string
+}
+
+export interface PanoSettings {
+  face: 512 | 1024 | 2048
+  samples: number
+}
+export interface VideoSettings {
+  path: 'orbit' | 'flythrough'
+  seconds: number
+  fps: 12 | 24 | 30
+  resolution: '1280x720' | '1920x1080'
+  samples: number
+}
+export const DEFAULT_PANO: PanoSettings = { face: 1024, samples: 128 }
+export const DEFAULT_VIDEO: VideoSettings = { path: 'orbit', seconds: 4, fps: 24, resolution: '1280x720', samples: 32 }
+
+/**
+ * Frame cameras of a video: an orbit of 360° around the camera's target at its distance and height, or a
+ * fly-through along the cameras that see the same scene (ease in / out between consecutive cameras).
+ */
+export function videoFrames(cams: Camera[], cam: Camera, v: VideoSettings): { eye: number[]; at: number[]; fov: number }[] {
+  const n = Math.max(2, Math.round(v.seconds * v.fps))
+  const c = viewOf(cam)
+  if (v.path === 'orbit' && c.scene === 'interior') {
+    // inside a room: turn 360° in place (an orbit around the target would leave the room)
+    const dx = c.at[0] - c.eye[0], dy = c.at[1] - c.eye[1]
+    const r = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx)
+    return Array.from({ length: n }, (_, i) => {
+      const a = a0 + (2 * Math.PI * i) / n
+      return { eye: [...c.eye], at: [c.eye[0] + r * Math.cos(a), c.eye[1] + r * Math.sin(a), c.at[2]], fov: c.fov }
+    })
+  }
+  if (v.path === 'orbit') {
+    const dx = c.eye[0] - c.at[0], dy = c.eye[1] - c.at[1]
+    const r = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx)
+    return Array.from({ length: n }, (_, i) => {
+      const a = a0 + (2 * Math.PI * i) / n
+      return { eye: [c.at[0] + r * Math.cos(a), c.at[1] + r * Math.sin(a), c.eye[2]], at: [...c.at], fov: c.fov }
+    })
+  }
+  const path = [cam, ...cams.filter((x) => x.id !== cam.id && viewOf(x).scene === c.scene)].map(viewOf)
+  if (path.length < 2) return videoFrames(cams, cam, { ...v, path: 'orbit' })
+  const legs = path.length - 1
+  return Array.from({ length: n }, (_, i) => {
+    const t = (i / (n - 1)) * legs
+    const k = Math.min(legs - 1, Math.floor(t)), u = t - k
+    const e = u * u * (3 - 2 * u) // smoothstep between cameras
+    const A = path[k], B = path[k + 1]
+    const mix = (p: number[], q: number[]) => p.map((x, j) => x + (q[j] - x) * e)
+    return { eye: mix(A.eye, B.eye), at: mix(A.at, B.at), fov: A.fov + (B.fov - A.fov) * e }
+  })
+}
+
+/** Settings and post-processing of a custom variation applied to the current ones. */
+export function applyCustom(s: RenderSettings, fx: PostFx, v: CustomVariation): { settings: RenderSettings; fx: PostFx } {
+  return {
+    settings: { ...s, sunSky: v.sky !== 'night' && v.sunIntensity > 0, sunIntensity: v.sky === 'night' ? 0 : v.sunIntensity, sunDirection: Math.round(v.sunAzimuth), sunElevation: v.sunElevation, hdri: v.sky === 'overcast' ? 'Outdoor - Overcast' : v.sky === 'studio' ? 'Studio - Soft Box' : 'Outdoor - Clear Sky' },
+    fx: { ...fx, exposure: v.exposure, contrast: v.contrast, saturation: v.saturation, temperature: v.temperature },
+  }
 }
 
 /** Live state of a job in the desktop renderer (not part of the undoable document). */

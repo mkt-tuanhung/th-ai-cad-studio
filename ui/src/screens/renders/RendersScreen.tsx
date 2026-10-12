@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FolderOpen, Square } from 'lucide-react'
 import {
   Camera as CameraIcon, ChevronsLeft, Crosshair, Ellipsis, Expand, Focus, Hand, Maximize, Play, Plus, RefreshCcw, Save, ScanSearch, Search, Share, Trash2,
@@ -15,6 +15,15 @@ import { MATERIALS, VARIATIONS, fxFilter } from '../../renders/model'
 import { RenderSettingsPanel } from './RenderSettingsPanel'
 import { useHost } from '../../services/host'
 import { attachRunner, cancelJob, startJob, startNext } from '../../renders/runner'
+import { LiveCameraView, PanoPanel, VariationsGallery, VideoPanel, applyVariation, queueThumbs, swatch } from './RendersExtra'
+import { useSceneTools } from '../../components/workspace/sceneTools'
+import type { SceneCamera } from '../../components/workspace/NativeScene'
+import { AiAssistModal } from '../../components/ai/AiAssist'
+import { rendersAi } from '../../ai/disciplines/renders'
+import { interiorScene } from '../../interior/scene'
+import { useInterior } from '../../state/interior'
+import { useBim } from '../../state/bim'
+import { dims as dimsOf, viewOf } from '../../renders/model'
 import s from './Renders.module.css'
 
 const MODES: { key: RenderMode; w: number }[] = [
@@ -78,6 +87,38 @@ export function RendersScreen() {
     if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: err }), 'warning')
   }
   const reveal = (path?: string) => host && path && host.revealFolder(path.replace(/[\\/][^\\/]*$/, ''))
+  const x = t.extra
+  const [aiOpen, setAiOpen] = useState(false)
+  const [gallery, setGallery] = useState(false)
+  // live OCCT view of the camera (desktop, non-Rendered modes): orbit / pan / zoom, Focus point saves the view to the camera
+  const live = !!host && st.mode !== 'rendered' && st.tab === 'studio'
+  const camRef = useRef<SceneCamera | null>(null)
+  const tools = useSceneTools(`${cam.name} view`)
+  const liveOr = (fn: () => void, label: string) => () => (live ? fn() : native(label))
+  const saveViewToCamera = async () => {
+    const r = await tools.ctl.current?.command({ cmd: 'getCamera' }) as { eye?: number[]; at?: number[]; fov?: number } | undefined
+    if (!r?.eye || !r.at) return
+    const v = viewOf(cam)
+    st.edit(`${cam.name}: view`, (d) => ({ ...d, cameras: d.cameras.map((c) => (c.id === cam.id ? { ...c, view: { scene: v.scene, eye: r.eye as [number, number, number], at: r.at as [number, number, number], fov: r.fov ?? v.fov } } : c)) }))
+    toast(fmt(x.target, { name: cam.name }), 'success')
+  }
+  // scene statistics of the scene this camera renders
+  const interiorDoc = useInterior((q) => q.doc)
+  const bimModel = useBim((q) => q.model)
+  const stats = useMemo(() => {
+    const v = viewOf(cam)
+    if (v.scene === 'interior') {
+      const sc = interiorScene(interiorDoc, { fullWalls: true, furniture: st.layers.furniture !== false })
+      const lights = interiorDoc.items.filter((i) => i.category === 'lighting').reduce((a, i) => a + i.qty, 0)
+      const mats = new Set([...interiorDoc.rooms.flatMap((r) => [r.floorFinish, r.wallFinish]), ...interiorDoc.items.map((i) => i.material)])
+      return { model: x.scene.interior, objects: sc.items.length, lights: fmt(x.scene.lights, { n: lights }), materials: mats.size }
+    }
+    const m = bimModel
+    const objects = m.walls.length + m.doors.length + m.windows.length + m.columns.length + m.slabs.length + m.stairs.length + m.railings.length + m.components.length + m.levels.length
+    const mats = new Set(m.walls.map((w) => m.wallTypes.find((ty) => ty.id === w.typeId)?.structure ?? '').concat(['Glass', 'Concrete - C30']))
+    return { model: x.scene.exterior, objects, lights: x.scene.sunOnly, materials: mats.size }
+  }, [cam, interiorDoc, bimModel, st.layers.furniture, x])
+  const aspect = dimsOf(st.doc.settings.resolution)
 
   const tabs = (['studio', 'panorama', 'video', 'ai', 'batch'] as RenderTab[]).map((k) => ({ key: k, label: t.tabs[k] }))
   const filteredMats = useMemo(() => MATERIALS.filter((m) => !q || t.mats[m].toLowerCase().includes(q.toLowerCase()) || m.includes(q.toLowerCase())), [q, t])
@@ -106,15 +147,15 @@ export function RendersScreen() {
       </div>
       <div className={s.tabs} role="tablist">
         {tabs.map((x) => (
-          <button key={x.key} type="button" role="tab" aria-selected={st.tab === x.key} className={st.tab === x.key ? s.tabOn : undefined} onClick={() => (x.key === 'studio' ? st.set({ tab: 'studio' }) : x.key === 'batch' ? (st.set({ bottom: 'queue' }), queue(st.doc.cameras.map((c) => c.id))) : native(x.label))}>{x.label}</button>
+          <button key={x.key} type="button" role="tab" aria-selected={st.tab === x.key} className={st.tab === x.key ? s.tabOn : undefined} onClick={() => (x.key === 'batch' ? (st.set({ bottom: 'queue' }), queue(st.doc.cameras.map((c) => c.id))) : x.key === 'ai' ? setAiOpen(true) : st.set({ tab: x.key }))}>{x.label}</button>
         ))}
       </div>
 
       {/* ---------- left: scene & cameras ---------- */}
-      <section className={`${w.card} ${s.scene}`} aria-label={t.scene.title}>
+      <section className={`${w.card} ${s.scene} ${st.collapsed.scene ? s.collapsed : ''}`} aria-label={t.scene.title}>
         <header className={s.head}>
           <h2>{t.scene.title}</h2>
-          <button type="button" className={w.iconBtn} aria-label={t.scene.collapse} title={t.scene.collapse} onClick={() => native(t.scene.collapse)}><ChevronsLeft size={17} strokeWidth={1.8} /></button>
+          <button type="button" className={w.iconBtn} aria-label={t.scene.collapse} title={t.scene.collapse} aria-pressed={!!st.collapsed.scene} onClick={() => st.set({ collapsed: { ...st.collapsed, scene: !st.collapsed.scene } })}><ChevronsLeft size={17} strokeWidth={1.8} style={st.collapsed.scene ? { transform: 'rotate(-90deg)' } : undefined} /></button>
         </header>
         <div className={s.seg} role="tablist">
           {(['scene', 'cameras', 'layers'] as const).map((k) => (
@@ -147,8 +188,8 @@ export function RendersScreen() {
         )}
         {st.left === 'scene' && (
           <dl className={s.info}>
-            {[[t.sceneInfo.project, 'Villa Riverside'], [t.sceneInfo.model, 'Villa_Riverside.ifc'], [t.sceneInfo.objects, '1 284'], [t.sceneInfo.lights, '1 sun + 24 IES'], [t.sceneInfo.materials, '42']].map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
-            <p>{t.sceneInfo.note}</p>
+            {[[t.sceneInfo.project, 'Villa Riverside'], [t.sceneInfo.model, stats.model], [t.sceneInfo.objects, stats.objects.toLocaleString('en-US')], [t.sceneInfo.lights, stats.lights], [t.sceneInfo.materials, String(stats.materials)]].map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+            <p>{x.scene.note}</p>
           </dl>
         )}
         {st.left === 'layers' && (
@@ -160,10 +201,10 @@ export function RendersScreen() {
         )}
       </section>
 
-      <section className={`${w.card} ${s.assets}`} aria-label={t.assets.title}>
+      <section className={`${w.card} ${s.assets} ${st.collapsed.assets ? s.collapsed : ''}`} aria-label={t.assets.title}>
         <header className={s.head}>
           <h2>{t.assets.title}</h2>
-          <button type="button" className={w.iconBtn} aria-label={t.scene.collapse} onClick={() => native(t.scene.collapse)}><ChevronsLeft size={17} strokeWidth={1.8} /></button>
+          <button type="button" className={w.iconBtn} aria-label={t.scene.collapse} aria-pressed={!!st.collapsed.assets} onClick={() => st.set({ collapsed: { ...st.collapsed, assets: !st.collapsed.assets } })}><ChevronsLeft size={17} strokeWidth={1.8} style={st.collapsed.assets ? { transform: 'rotate(-90deg)' } : undefined} /></button>
         </header>
         <label className={w.search}>
           <Search size={14} strokeWidth={1.8} />
@@ -191,13 +232,13 @@ export function RendersScreen() {
           <Select label={t.viewer.camera} value={cam.id} onChange={(v) => st.set({ camera: v })} options={st.doc.cameras.map((c) => ({ value: c.id, label: `${c.name} - ${t.camKinds[c.kind] ?? c.kind}` }))} className={s.camSel} />
           <span className={s.camIcon}><CameraIcon size={16} strokeWidth={1.7} /></span>
           <ToolStrip style={{ position: 'static', boxShadow: 'none', background: 'transparent' }} items={[
-            { ...tool(t.viewer.orbit, <RefreshCcw size={17} strokeWidth={1.7} />), on: true },
-            tool(t.viewer.pan, <Hand size={17} strokeWidth={1.7} />),
-            tool(t.viewer.zoomOut, <ZoomOut size={17} strokeWidth={1.7} />),
-            tool(t.viewer.zoomIn, <ZoomIn size={17} strokeWidth={1.7} />),
-            tool(t.viewer.fit, <Expand size={16} strokeWidth={1.7} />),
-            tool(t.viewer.frame, <Maximize size={16} strokeWidth={1.7} />),
-            tool(t.viewer.remove, <Trash2 size={16} strokeWidth={1.7} />),
+            { ...tool(t.viewer.orbit, <RefreshCcw size={17} strokeWidth={1.7} />, liveOr(() => (tools.setTool('orbit'), void tools.ctl.current?.command({ cmd: 'camera', eye: viewOf(cam).eye, at: viewOf(cam).at, fov: viewOf(cam).fov })), t.viewer.orbit)), on: live ? tools.tool === 'orbit' : true },
+            { ...tool(t.viewer.pan, <Hand size={17} strokeWidth={1.7} />, liveOr(() => tools.toggleTool('pan'), t.viewer.pan)), on: live && tools.tool === 'pan' },
+            tool(t.viewer.zoomOut, <ZoomOut size={17} strokeWidth={1.7} />, liveOr(() => camRef.current?.('zoom', 400, 300, -2), t.viewer.zoomOut)),
+            tool(t.viewer.zoomIn, <ZoomIn size={17} strokeWidth={1.7} />, liveOr(() => camRef.current?.('zoom', 400, 300, 2), t.viewer.zoomIn)),
+            tool(t.viewer.fit, <Expand size={16} strokeWidth={1.7} />, liveOr(() => camRef.current?.('fit'), t.viewer.fit)),
+            { ...tool(t.viewer.frame, <Maximize size={16} strokeWidth={1.7} />, () => st.set({ safeFrame: !st.safeFrame })), on: st.safeFrame },
+            tool(t.viewer.remove, <Trash2 size={16} strokeWidth={1.7} />, () => { if (st.doc.cameras.length > 1) { st.edit(`Delete ${cam.name}`, (d) => ({ ...d, cameras: d.cameras.filter((c) => c.id !== cam.id) })); st.set({ camera: st.doc.cameras.find((c) => c.id !== cam.id)!.id }) } }),
           ]} />
           <Select label={t.viewer.projection.perspective} value={st.projection} onChange={(v) => st.set({ projection: v })} options={(['perspective', 'orthographic', 'two-point'] as const).map((k) => ({ value: k, label: t.viewer.projection[k] }))} className={s.projSel} />
         </header>
@@ -205,9 +246,17 @@ export function RendersScreen() {
           <svg width="0" height="0" className={w.defs} aria-hidden="true">
             <filter id="wsWire"><feColorMatrix type="saturate" values="0" /><feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 8 -1 -1 -1 -1" preserveAlpha="true" /><feComponentTransfer><feFuncR type="linear" slope="-3" intercept="1" /><feFuncG type="linear" slope="-3" intercept="1" /><feFuncB type="linear" slope="-3" intercept="1" /></feComponentTransfer></filter>
           </svg>
-          <img className={`${w.vpImg} ${lowRes ? s.lowRes : ''}`} src={img} alt={realJob ? cam.name : `${cam.name} (DEMO)`} draggable={false} data-testid={realJob ? 'render-real' : 'render-demo'} style={st.mode === 'rendered' && !realJob ? { filter: fxFilter(st.doc.fx) } : undefined} />
+          {live && host ? (
+            <LiveCameraView host={host} cam={cam} mode={st.mode as 'wireframe' | 'clay' | 'shaded'} camRef={camRef} ctlRef={tools.ctl} tools={tools.props} />
+          ) : (
+            <img className={`${w.vpImg} ${lowRes ? s.lowRes : ''}`} src={img} alt={realJob ? cam.name : `${cam.name} (DEMO)`} draggable={false} data-testid={realJob ? 'render-real' : 'render-demo'} style={st.mode === 'rendered' && !realJob ? { filter: fxFilter(st.doc.fx) } : undefined} />
+          )}
+          {live && <tools.Chips />}
+          {st.safeFrame && <div className={s.safe} data-testid="safe-frame" style={{ aspectRatio: `${aspect.w} / ${aspect.h}`, height: aspect.w / aspect.h > 1.6 ? 'auto' : '86%', width: aspect.w / aspect.h > 1.6 ? '86%' : 'auto' }} />}
+          {st.tab === 'panorama' && <PanoPanel cam={cam} />}
+          {st.tab === 'video' && <VideoPanel cam={cam} />}
           {st.mode === 'rendered' && !realJob && st.doc.fx.vignette > 0 && <div className={s.vignette} style={{ opacity: st.doc.fx.vignette / 100 }} />}
-          {realJob && realRun ? (
+          {live ? null : realJob && realRun ? (
             <span className={w.demoBadge} style={{ left: 10, top: 10, background: 'rgba(16, 92, 96, 0.9)', color: '#fff', borderColor: 'transparent' }}>
               {realRun.status === 'rendering'
                 ? fmt(t.viewer.rendering, { s: realRun.samples ?? 0, n: realRun.total ?? 0, time: clock(realRun.ms) })
@@ -217,11 +266,11 @@ export function RendersScreen() {
             <span className={w.demoBadge} style={{ left: 10, top: 10 }}>{host ? t.viewer.demoDesktop : t.viewer.demo}</span>
           )}
           <ToolStrip vertical style={{ right: 8, top: 12 }} items={[
-            tool(t.viewer.target, <Crosshair size={16} strokeWidth={1.6} />),
-            tool(t.viewer.region, <ScanSearch size={16} strokeWidth={1.6} />),
-            tool(t.viewer.frame, <Focus size={16} strokeWidth={1.6} />),
-            tool(t.viewer.zoomIn, <ZoomIn size={16} strokeWidth={1.6} />),
-            tool(t.viewer.box, <Box size={16} strokeWidth={1.6} />),
+            tool(t.viewer.target, <Crosshair size={16} strokeWidth={1.6} />, liveOr(() => void saveViewToCamera(), t.viewer.target)),
+            { ...tool(t.viewer.region, <ScanSearch size={16} strokeWidth={1.6} />, liveOr(() => tools.toggleTool('zoomRegion'), t.viewer.region)), on: live && tools.tool === 'zoomRegion' },
+            tool(t.viewer.frame, <Focus size={16} strokeWidth={1.6} />, liveOr(() => camRef.current?.('fit'), t.viewer.frame)),
+            tool(t.viewer.zoomIn, <ZoomIn size={16} strokeWidth={1.6} />, liveOr(() => camRef.current?.('zoom', 400, 300, 2), t.viewer.zoomIn)),
+            { ...tool(t.viewer.box, <Box size={16} strokeWidth={1.6} />, liveOr(() => tools.toggleSection([]), t.viewer.box)), on: live && tools.section.on },
           ]} />
           <Modes label={t.viewer.modeLabel} style={{ left: 8, bottom: 3 }} value={st.mode} onChange={(m) => st.set({ mode: m })} items={MODES.map((m) => ({ ...m, label: t.viewer.modes[m.key] }))} />
           <div className={s.qbar}>
@@ -235,15 +284,15 @@ export function RendersScreen() {
       <section className={`${w.card} ${s.vars}`} aria-label={fmt(t.variations.title, { n: VARIATIONS.length })}>
         <header className={s.vheadRow}>
           <b>{fmt(t.variations.title, { n: VARIATIONS.length })}</b>
-          <button type="button" className={s.aiVar} onClick={() => native(t.variations.ai)}>{t.variations.ai}</button>
-          <button type="button" className={w.link} onClick={() => native(t.variations.viewAll)}>{t.variations.viewAll}</button>
+          <button type="button" className={s.aiVar} onClick={() => setAiOpen(true)}>{t.variations.ai}</button>
+          <button type="button" className={w.link} onClick={() => setGallery(true)}>{t.variations.viewAll}</button>
         </header>
         <ul className={s.varList}>
           {VARIATIONS.map((v) => (
             <li key={v.key}>
-              <button type="button" className={st.variation === v.key ? s.varOn : undefined} aria-pressed={st.variation === v.key} onClick={() => {
+              <button type="button" className={st.variation === v.key && !st.customSel ? s.varOn : undefined} aria-pressed={st.variation === v.key && !st.customSel} onClick={() => {
                 st.edit(`${t.variations.names[v.key]}`, (d) => ({ ...d, settings: { ...d.settings, ...v.patch } }))
-                st.set({ variation: v.key, camera: 'cam1' })
+                st.set({ variation: v.key, camera: 'cam1', customSel: null })
                 toast(fmt(t.variations.applied, { name: t.variations.names[v.key] }))
               }}>
                 <img src={v.img} alt="" draggable={false} />
@@ -251,7 +300,15 @@ export function RendersScreen() {
               </button>
             </li>
           ))}
-          <li><button type="button" className={s.gen} onClick={() => native(t.variations.generate)}><Plus size={22} strokeWidth={1.5} /><span>{t.variations.generate}</span></button></li>
+          {(st.doc.custom ?? []).map((v) => (
+            <li key={v.id}>
+              <button type="button" className={st.customSel === v.id ? s.varOn : undefined} aria-pressed={st.customSel === v.id} onClick={() => applyVariation(v, fmt(x.vars.applied, { name: v.name }))}>
+                {v.preview ? <img src={v.preview} alt="" draggable={false} /> : <i className={s.swatch} style={{ background: swatch(v) }} />}
+                <span>{v.name}</span>
+              </button>
+            </li>
+          ))}
+          <li><button type="button" className={s.gen} onClick={() => setAiOpen(true)}><Plus size={22} strokeWidth={1.5} /><span>{t.variations.generate}</span></button></li>
         </ul>
       </section>
 
@@ -322,6 +379,20 @@ export function RendersScreen() {
         )}
       </section>
 
+      {aiOpen && (
+        <AiAssistModal
+          d={rendersAi}
+          model={st.doc}
+          apply={(label, next) => {
+            const err = st.edit(label, () => next)
+            if (!err) setTimeout(() => queueThumbs(host, cam, x.vars), 0)
+            return err
+          }}
+          example={T.aiAssist.examples.renders}
+          onClose={() => setAiOpen(false)}
+        />
+      )}
+      {gallery && <VariationsGallery cam={cam} onClose={() => setGallery(false)} />}
       {/* ---------- right ---------- */}
       <div className={s.right}>
         <RenderSettingsPanel onRender={() => queue([cam.id])} onRenderAll={() => queue(st.doc.cameras.map((c) => c.id))} />

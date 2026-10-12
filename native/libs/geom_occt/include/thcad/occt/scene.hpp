@@ -66,6 +66,8 @@ struct RenderParams {
   /** Perspective camera; when absent the scene is framed from the default iso direction. */
   bool hasCamera = false;
   std::array<double, 3> eye{0, 0, 0}, at{0, 0, 0};
+  /** Camera up (panorama cube faces looking straight up / down need another up than +Z). */
+  std::array<double, 3> up{0, 0, 1};
   double fovDeg = 55;
 };
 
@@ -117,6 +119,8 @@ class SceneView {
   void windowFit(int x0, int y0, int x1, int y1);
   /** Perspective camera (mm). */
   void setCamera(const std::array<double, 3>& eye, const std::array<double, 3>& at, double fovDeg);
+  /** Current camera: eye xyz, target xyz, vertical fov (deg). */
+  std::array<double, 7> camera() const;
   /** First-person walk: move forward / right (mm) in the horizontal plane, turn (yaw) and look (pitch) in degrees. */
   void walk(double forward, double right, double yawDeg, double pitchDeg);
   /** Axis-aligned bounds of the items (all when empty): x0 y0 z0 x1 y1 z1 (mm). */

@@ -15,6 +15,9 @@
 #include <QString>
 
 namespace thcad::occt { class OffscreenView; class SceneView; }
+namespace thcad::app { class VideoWriter; }
+#include <QImage>
+#include <QList>
 
 namespace thcad::app {
 
@@ -138,6 +141,11 @@ class HostBridge : public QObject {
   QJsonObject renderJob_;
   qint64 renderStartMs_ = 0, renderPreviewMs_ = 0;
   bool rendering_ = false;
+  // multi-view jobs: panorama (6 cube faces → equirectangular) and video (one render per frame)
+  QJsonArray seq_;
+  int seqIndex_ = 0;
+  QList<QImage> seqImages_;
+  std::unique_ptr<VideoWriter> video_;
   void renderTick();
   void renderFinish(bool ok, const QString& error);
 };
