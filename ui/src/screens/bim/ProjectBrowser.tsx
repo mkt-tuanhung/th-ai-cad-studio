@@ -11,8 +11,8 @@ interface Node {
   label: string
   icon: ReactNode
   children?: Node[]
-  /** Leaf action. */
-  open?: { view: BimView; level?: string; cat?: ScheduleCat } | 'native'
+  /** Leaf action: a plan / schedule, or a 3D view request (elevation, section, named 3D view). */
+  open?: { view: BimView; level?: string; cat?: ScheduleCat; req?: Parameters<ReturnType<typeof useBim.getState>['requestView']>[0]; sheet?: string }
   depth?: number
 }
 
@@ -21,7 +21,7 @@ const I = { size: 17, strokeWidth: 1.6 }
 export function ProjectBrowser() {
   const T = useT()
   const t = T.bim.browser
-  const { browserCollapsed, browserOpen, toggleBrowser, set, browserSel } = useBim()
+  const { browserCollapsed, browserOpen, toggleBrowser, set, browserSel, model, requestView } = useBim()
   const [q, setQ] = useState('')
 
   const tree: Node = {
@@ -38,30 +38,27 @@ export function ProjectBrowser() {
             key: 'plans',
             label: t.floorPlans,
             icon: <FolderClosed {...I} />,
-            children: [
-              ['L1', 'Level 1'],
-              ['L2', 'Level 2'],
-              ['L3', 'Level 3'],
-              ['RF', 'Roof'],
-            ].map(([id, name]) => ({ key: `plan-${id}`, label: name, icon: <PlanViewIcon {...I} />, open: { view: 'plan' as const, level: id } })),
+            children: model.levels.map((l) => ({ key: `plan-${l.id}`, label: l.name, icon: <PlanViewIcon {...I} />, open: { view: 'plan' as const, level: l.id } })),
           },
           {
             key: '3d',
             label: t.views3d,
             icon: <FolderClosed {...I} />,
-            children: ['{3D}', '3D - Section Box', '3D - Exterior'].map((n, i) => ({ key: `3d-${i}`, label: n, icon: <Box {...I} fill={i === 2 ? '#cfd6de' : 'none'} />, open: { view: '3d' as const } })),
+            children: (['home', 'sectionBox', 'exterior'] as const).map((kind, i) => ({ key: `3d-${i}`, label: ['{3D}', '3D - Section Box', '3D - Exterior'][i], icon: <Box {...I} fill={i === 2 ? '#cfd6de' : 'none'} />, open: { view: '3d' as const, req: { kind } } })),
           },
           {
             key: 'elev',
             label: t.elevations,
             icon: <FolderClosed {...I} />,
-            children: ['East Elevation', 'West Elevation', 'North Elevation', 'South Elevation'].map((n) => ({ key: n, label: n, icon: <Home {...I} />, open: 'native' as const })),
+            // the camera on that side looking at the building (East = from +X, North = from +Y), orthographic
+            children: ([['East Elevation', 'right'], ['West Elevation', 'left'], ['North Elevation', 'back'], ['South Elevation', 'front']] as const).map(([n, face]) => ({ key: n, label: n, icon: <Home {...I} />, open: { view: '3d' as const, req: { kind: 'elev' as const, face } } })),
           },
           {
             key: 'sect',
             label: t.sections,
             icon: <FolderClosed {...I} />,
-            children: ['Section 1', 'Section 2'].map((n) => ({ key: n, label: n, icon: <SectionIcon />, open: 'native' as const })),
+            // Section 1: cut along X through the centre, seen from the south; Section 2: cut along Y, seen from the west
+            children: ([['Section 1', 'y', 'front'], ['Section 2', 'x', 'left']] as const).map(([n, axis, face]) => ({ key: n, label: n, icon: <SectionIcon />, open: { view: '3d' as const, req: { kind: 'section' as const, axis, face } } })),
           },
         ],
       },
@@ -80,7 +77,12 @@ export function ProjectBrowser() {
         key: 'sheets',
         label: t.sheets,
         icon: <FolderClosed {...I} />,
-        children: ['A101 - Floor Plan', 'A201 - Elevations', 'A301 - Sections'].map((n) => ({ key: n, label: n, icon: <Sheet {...I} />, open: 'native' as const })),
+        // each sheet opens the view placed on it
+        children: [
+          { key: 'A101 - Floor Plan', label: 'A101 - Floor Plan', icon: <Sheet {...I} />, open: { view: 'plan' as const, level: model.levels[0]?.id, sheet: model.levels[0]?.name } },
+          { key: 'A201 - Elevations', label: 'A201 - Elevations', icon: <Sheet {...I} />, open: { view: '3d' as const, req: { kind: 'elev' as const, face: 'front' as const }, sheet: 'South Elevation' } },
+          { key: 'A301 - Sections', label: 'A301 - Sections', icon: <Sheet {...I} />, open: { view: '3d' as const, req: { kind: 'section' as const, axis: 'y' as const, face: 'front' as const }, sheet: 'Section 1' } },
+        ],
       },
     ],
   }
@@ -92,8 +94,9 @@ export function ProjectBrowser() {
 
   const activate = (n: Node) => {
     if (!n.open) return
-    if (n.open === 'native') return toast(fmt(T.bim.toast.native, { what: n.label }))
     set({ browserSel: n.key, view: n.open.view, ...(n.open.level ? { level: n.open.level } : {}), ...(n.open.cat ? { scheduleCat: n.open.cat } : {}) })
+    if (n.open.req) requestView(n.open.req)
+    if (n.open.sheet) toast(fmt(T.bim.toast.sheetView, { sheet: n.label, view: n.open.sheet }))
   }
 
   const render = (n: Node, depth: number, index = 0): ReactNode => {

@@ -529,7 +529,10 @@ void SceneView::windowFit(int x0, int y0, int x1, int y1) {
 }
 void SceneView::fit() { d->view->FitAll(0.06, false); }
 void SceneView::preset(const std::string& p) {
-  d->view->SetProj(p == "top" ? V3d_Zpos : p == "front" ? V3d_Yneg : p == "right" ? V3d_Xpos : V3d_XposYnegZpos);
+  // elevations / plan are orthographic (a walk leaves the camera in perspective)
+  const bool ortho = p == "top" || p == "front" || p == "back" || p == "left" || p == "right";
+  if (ortho) d->view->Camera()->SetProjectionType(Graphic3d_Camera::Projection_Orthographic);
+  d->view->SetProj(p == "top" ? V3d_Zpos : p == "front" ? V3d_Yneg : p == "back" ? V3d_Ypos : p == "right" ? V3d_Xpos : p == "left" ? V3d_Xneg : V3d_XposYnegZpos);
   // world Z is up (OCCT keeps the previous / default +Y up otherwise); plan view keeps north (+Y) up
   if (p == "top") d->view->SetUp(0, 1, 0);
   else d->view->SetUp(0, 0, 1);

@@ -657,7 +657,8 @@ export const vi: Messages = {
     },
     comments: { placeholder: 'Thêm bình luận cho đối tượng đang chọn…', add: 'Thêm', empty: 'Chưa có bình luận.', on: 'về {mark}', general: 'chung' },
     toast: {
-      native: '{what} cần BIM engine native (chưa kết nối trong bản UI prototype).',
+      native: '{what} cần ứng dụng desktop (engine 3D native).',
+      sheetView: '{sheet} hiển thị {view}.',
       exported: 'Đã xuất {file}',
       undone: 'Hoàn tác {label}',
       redone: 'Làm lại {label}',

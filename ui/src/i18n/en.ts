@@ -655,7 +655,8 @@ export const en = {
     },
     comments: { placeholder: 'Add a comment on the selected element…', add: 'Add', empty: 'No comments yet.', on: 'on {mark}', general: 'general' },
     toast: {
-      native: '{what} needs the native BIM engine (not connected in the UI prototype).',
+      native: '{what} needs the desktop app (native 3D engine).',
+      sheetView: '{sheet} shows {view}.',
       exported: 'Exported {file}',
       undone: 'Undo {label}',
       redone: 'Redo {label}',

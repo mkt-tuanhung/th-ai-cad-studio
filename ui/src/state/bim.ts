@@ -35,6 +35,10 @@ interface BimState {
   discipline: 'architecture' | 'structure'
   /** Wall type the Wall tool draws with. */
   wallType: string
+  /** Project Browser → 3D view request (session only): an elevation (orthographic side view), a section
+   *  (clip plane through the building centre), or a named 3D view. `n` makes repeated requests distinct. */
+  viewReq: { kind: 'elev' | 'section' | 'home' | 'sectionBox' | 'exterior'; face?: 'front' | 'back' | 'left' | 'right'; axis?: 'x' | 'y'; n: number } | null
+  requestView: (r: Omit<NonNullable<BimState['viewReq']>, 'n'>) => void
 
   /** Validated, undoable model edit. Returns an error message or null. */
   edit: (label: string, fn: (m: BimModel) => BimModel) => string | null
@@ -55,6 +59,8 @@ const initial = createVillaBim()
 export const useBim = create<BimState>()(
   persist(
     (set, get) => ({
+      viewReq: null,
+      requestView: (r) => set({ view: '3d', viewReq: { ...r, n: (get().viewReq?.n ?? 0) + 1 } }),
       model: initial,
       undoStack: [],
       redoStack: [],

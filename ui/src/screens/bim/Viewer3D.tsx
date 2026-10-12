@@ -23,7 +23,7 @@ export const SCALES = ['1 : 50', '1 : 100', '1 : 200']
 export function Viewer3D() {
   const T = useT()
   const t = T.bim.viewer
-  const { display, set, level, scale, model, maximized, selection, discipline } = useBim()
+  const { display, set, level, scale, model, maximized, selection, discipline, viewReq } = useBim()
   const native = (what: string) => toast(fmt(T.bim.toast.native, { what }))
   const lvl = model.levels.find((l) => l.id === level)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -46,6 +46,37 @@ export function Viewer3D() {
     if (!boxOn) viewSection(view3d)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view3d, cutAt])
+  // Project Browser → elevation / section / named 3D view
+  useEffect(() => {
+    if (!viewReq) return
+    if (!host) return native(T.bim.browser.views3d)
+    // the approved render is a still: show the live model (elevations / sections read best as hidden line)
+    if (display === 'realistic') set({ display: viewReq.kind === 'elev' || viewReq.kind === 'section' ? 'hidden' : 'shaded' })
+    let tries = 0
+    const run = async () => {
+      if (!camRef.current) return void (++tries < 40 && setTimeout(run, 150))
+      const r = viewReq
+      if (r.kind === 'home' || r.kind === 'exterior' || r.kind === 'sectionBox') {
+        setView3d(r.kind === 'exterior' ? 'exterior' : 'section')
+        if (r.kind === 'exterior') viewSection('exterior')
+        return camRef.current('home')
+      }
+      if (r.kind === 'elev') {
+        setView3d('exterior')
+        viewSection('exterior')
+        return camRef.current(r.face!)
+      }
+      // section: one clip plane through the middle of the building (exact bounds from the kernel)
+      const b = (await host.scene3dCommand('bim', JSON.stringify({ cmd: 'bounds' }))).bounds
+      if (!b) return
+      const plane = r.axis === 'y' ? [0, 1, 0, -(b[1] + b[4]) / 2] : [1, 0, 0, -(b[0] + b[3]) / 2]
+      setView3d('exterior')
+      tools.setSection({ on: true, around: [], planes: [plane] })
+      camRef.current(r.face!)
+    }
+    void run()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewReq?.n])
   const selId = !selection || selection.category === 'level' || selection.category === 'room' ? '' : selection.category === 'door' || selection.category === 'window' ? `glass:${selection.id}` : selection.id
   const liveOr = (fn: () => void, label: string) => () => (live ? fn() : native(label))
   const modelJson = useMemo(() => JSON.stringify(nativeBuildingModel(model)), [model])
