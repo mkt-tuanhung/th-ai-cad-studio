@@ -6,6 +6,9 @@
 import type { CadDocument, Entity, Layer, Vec2 } from './types'
 import { dimensionGeometry, formatLength, measured } from './geometry'
 
+/** The plot date in the user's own time zone (an ISO string is UTC: the day before, in Vietnam, until 07:00). */
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+
 export type Paper = 'A4' | 'A3' | 'A2' | 'A1'
 export const PAPERS: Record<Paper, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594] } // landscape
 const SCALES = [1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 500, 1000, 2000, 5000]
@@ -69,7 +72,7 @@ export function sheetLayout(doc: CadDocument, paper: Paper = 'A3', fixedScale?: 
     texts: [
       { x: margin, y: top - 11, h: 4, value: doc.name },
       { x: W - 145, y: top - 7.5, h: 2.6, value: `Scale 1:${scale} · ${paper} · mm` },
-      { x: W - 145, y: top - 13.5, h: 2.6, value: `MD CAD AI STUDIO · ${new Date().toISOString().slice(0, 10)}` },
+      { x: W - 145, y: top - 13.5, h: 2.6, value: `MD CAD AI STUDIO · ${today()}` },
     ],
   }
 }
@@ -132,7 +135,7 @@ export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: num
   prims.push({ t: 'line', x1: W - 150, y1: ty, x2: W - 150, y2: H - margin / 2, w: 0.25, color: k })
   prims.push({ t: 'text', x: margin, y: ty + 11, h: 4, rot: 0, value: doc.name, anchor: 'start', color: k, bold: true })
   prims.push({ t: 'text', x: W - 145, y: ty + 7.5, h: 2.6, rot: 0, value: `Scale 1:${scale} · ${paper} · mm`, anchor: 'start', color: k })
-  prims.push({ t: 'text', x: W - 145, y: ty + 13.5, h: 2.6, rot: 0, value: `MD CAD AI STUDIO · ${new Date().toISOString().slice(0, 10)}`, anchor: 'start', color: k })
+  prims.push({ t: 'text', x: W - 145, y: ty + 13.5, h: 2.6, rot: 0, value: `MD CAD AI STUDIO · ${today()}`, anchor: 'start', color: k })
   return { name: doc.name, w: W, h: H, scale, prims }
 }
 

@@ -140,7 +140,7 @@ await step('Batch Process Files (browser): 2 DXF → DXF + PNG downloads; PDF re
 await step('See all: every quick action; Learning opens the getting-started guide that navigates', async () => {
   await page.getByRole('button', { name: 'See all' }).click()
   const all = page.getByRole('dialog', { name: 'All quick actions' })
-  assert.equal(await all.getByRole('button').count(), 11) // 10 actions + close
+  assert.equal(await all.getByRole('button').count(), 12) // 10 actions + one command + close
   await all.getByRole('button', { name: 'Component library' }).click()
   assert.match(page.url(), /#\/components$/)
   await goHome()

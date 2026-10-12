@@ -1,0 +1,186 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12.5px;
+  color: #2a3340;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+
+.box h4 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #0f6b70;
+  font-weight: 600;
+}
+
+.note {
+  margin: 0;
+  color: #5a6474;
+  line-height: 1.5;
+}
+
+.drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 170px;
+  border: 1.5px dashed #9fc7c5;
+  border-radius: 12px;
+  background: #f4faf9;
+  color: #0f6b70;
+}
+
+.over {
+  background: #e3f3f2;
+  border-color: #0f6b70;
+}
+
+.open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: #5a6474;
+}
+
+.open button {
+  padding: 3px 9px;
+  border: 1px solid #cfd8de;
+  border-radius: 7px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, auto);
+  grid-auto-flow: column;
+  gap: 4px 16px;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dim {
+  color: #9aa3ad;
+}
+
+.ok {
+  color: #13774a;
+}
+
+.skip {
+  color: #b6bec6;
+}
+
+.wait {
+  color: #cfd8de;
+}
+
+.spin {
+  color: #0f6b70;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.file {
+  font-weight: 400;
+  color: #6a7380;
+  font-size: 11.5px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid #e3e9ee;
+  border-radius: 10px;
+  background: #fbfcfc;
+  line-height: 1.5;
+}
+
+.card b {
+  color: #1d2530;
+}
+
+.small {
+  color: #6a7380;
+  font-size: 11.5px;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #5a6474;
+}
+
+.pick select {
+  padding: 3px 6px;
+  border: 1px solid #cfd8de;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.keep {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.keep label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.warnBox {
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #fff4e5;
+  color: #8a4b00;
+  line-height: 1.5;
+}
+
+.warnBox ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.bad {
+  color: #b42d2d;
+}
+
+.go {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid #e3e9ee;
+}

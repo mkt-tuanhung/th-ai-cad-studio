@@ -22,6 +22,8 @@ import { RendersScreen } from './screens/renders/RendersScreen'
 import { BrandScreen, BrandShot } from './screens/brand/BrandScreen'
 import { SplashScreen, splashWanted } from './components/brand/SplashScreen'
 import { BrandLoadingOverlay } from './components/brand/BrandLoader'
+import { AutoDialog } from './screens/auto/AutoDialog'
+import { useAutoRun } from './state/auto'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
@@ -45,6 +47,7 @@ export default function App() {
   const t = useT()
   const route = useRouter((st) => st.route)
   const lang = useSettings((st) => st.language)
+  const autoOpen = useAutoRun((st) => st.open)
 
   useEffect(() => {
     document.documentElement.lang = lang
@@ -63,6 +66,7 @@ export default function App() {
     <>
     {splash && <SplashScreen onDone={() => setSplash(false)} />}
     <BrandLoadingOverlay />
+    {autoOpen && <AutoDialog />}
     <AppWindow mode={shellMode}>
       <div className={s.shell}>
         <Sidebar promo={route === 'dashboard' ? '/assets/dashboard_sidebar_promo.png' : '/assets/common_sidebar_promo.png'} />

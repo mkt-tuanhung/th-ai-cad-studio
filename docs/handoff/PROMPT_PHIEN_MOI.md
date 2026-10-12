@@ -41,6 +41,7 @@ Anh đã chọn làm cả hai hướng dựng 3D từ bản vẽ 2D, B trước;
 - B (nhà: DWG mặt bằng → BIM 3D, IFC, Nội thất, bảng cắt CNC) ĐÃ XONG ngày 2026-10-12, xem qa/QA_FROM_CAD.md. Chưa kiểm trên DWG thật do người vẽ: xin anh file nhà thật để kiểm.
 - A (kênh, đường: DWG trắc dọc + trắc ngang theo lý trình → tuyến, diện tích, khối lượng đào đắp, corridor 3D) ĐÃ XONG ngày 2026-10-13, xem qa/QA_ROUTE_FROM_CAD.md. Đã kiểm trên bản vẽ thật Kênh Đức Phong (~/Documents/Zalo Received Files/1. BVTK Kênh Đức Phong - Kênh đất.dwg): khối lượng lệch dưới 0,5 % so với số người thiết kế.
 - Mục tiêu sản phẩm anh nêu: kỹ sư nội thất và công trình không phải ngồi vẽ CAD, dựng 3D; chỉ cần 1 lệnh là hệ thống tự làm.
+- Nút "1 lệnh: làm hết từ bản vẽ" ĐÃ XONG ngày 2026-10-13, xem qa/QA_AUTO.md. Mở bằng ⌘K hoặc Dashboard → All Actions. Một DWG/DXF cho ra cả bộ hồ sơ, gồm IFC, bản vẽ PDF/DXF/DWG, CSV, bảng cắt, G-code, khối lượng và báo cáo; người dùng chỉ Duyệt một lần. Mã nằm ở ui/src/auto/. Bảng tính năng: docs/handoff/TINH_NANG_2026-10-13.md.
 Nguyên tắc: code đọc hình học, AI chỉ giúp nhận diện layer và đối tượng, kết quả vẫn qua bước đề xuất và duyệt.
 
 Các việc khác còn mở, xem mục 9–10 của file audit: chưa thử nút tải mô hình AI trên máy Windows thật; AI chưa tự tạo được tường hay ống mới trong BIM/MEP; IFC và STEP mới chỉ xuất được, chưa mở được; ký mã (tốn phí) để sau; PWA giám sát từ xa để sau.

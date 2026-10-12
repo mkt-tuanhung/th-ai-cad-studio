@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, FolderClosed, Search } from 'lucide-react'
+import { FileText, FolderClosed, Search, Zap } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { useRouter } from '../../state/router'
 import { matchesShortcut, useSettings } from '../../state/settings'
 import { useWorkspace } from '../../state/workspace'
 import { AiSparkIcon } from '../icons'
 import { routeForDiscipline } from '../../lib/routes'
+import { useAutoRun } from '../../state/auto'
+import { norm } from '../../bim/fromCad'
 import s from './SearchBar.module.css'
 
 interface Result {
   id: string
-  kind: 'project' | 'file' | 'ai'
+  kind: 'project' | 'file' | 'ai' | 'auto'
   label: string
   sub?: string
   run: () => void
 }
+
+/** The one-command keywords in both languages (a Vietnamese user may type English words and the reverse). */
+const T_EN_KEYWORDS = 'one command build everything auto all drawing dwg dxf 1 mot lenh lam het tu dong dung tat ca ban ve'
 
 export function SearchBar() {
   const t = useT()
@@ -42,6 +47,9 @@ export function SearchBar() {
     const needle = q.trim().toLowerCase()
     if (!needle) return []
     const out: Result[] = []
+    // "1 lệnh / làm hết / dựng / dwg…": the one-command run comes first
+    const words = norm(t.auto.keywords + ' ' + T_EN_KEYWORDS).split(' ')
+    if (norm(needle).split(' ').some((w) => w.length >= 2 && words.some((k) => k.startsWith(w)))) out.push({ id: 'auto', kind: 'auto', label: t.auto.command, run: () => useAutoRun.getState().show() })
     for (const p of projects) {
       if (p.name.toLowerCase().includes(needle))
         out.push({
@@ -65,7 +73,7 @@ export function SearchBar() {
           run: () => navigate(f.format === 'RVT' || f.format === 'IFC' ? 'bim' : 'cad2d'),
         })
     }
-    out.splice(6)
+    out.splice(7)
     out.push({ id: 'ai', kind: 'ai', label: fmt(t.topbar.searchAskAi, { query: q.trim() }), run: () => navigate('ai-studio') })
     return out
   }, [q, projects, files, t, navigate, touchProject])
@@ -129,7 +137,7 @@ export function SearchBar() {
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => choose(r)}
             >
-              {r.kind === 'project' ? <FolderClosed size={16} /> : r.kind === 'file' ? <FileText size={16} /> : <AiSparkIcon size={16} />}
+              {r.kind === 'project' ? <FolderClosed size={16} /> : r.kind === 'file' ? <FileText size={16} /> : r.kind === 'auto' ? <Zap size={16} /> : <AiSparkIcon size={16} />}
               <span className={s.rLabel}>{r.label}</span>
               {r.sub && <span className={s.rSub}>{r.sub}</span>}
             </button>

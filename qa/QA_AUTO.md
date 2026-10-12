@@ -1,0 +1,102 @@
+# QA — "1 lệnh: làm hết từ bản vẽ"
+
+Ngày: 2026-10-13.
+
+Lối vào:
+- thanh lệnh **⌘K**, gõ "1 lệnh", "làm hết" hoặc "one command";
+- **Dashboard → All Actions → "1 lệnh: làm hết từ bản vẽ…"**.
+
+Đây là một hộp thoại mở thêm. Không đổi bố cục của 12 màn đã duyệt.
+
+## Luồng
+
+1. **Chọn bản vẽ.** Thả hoặc chọn file DWG / DXF, hoặc dùng bản vẽ đang mở trong CAD 2D. DWG được đọc qua LibreDWG.
+2. **Tự chạy, không hỏi gì** (`ui/src/auto/pipeline.ts`):
+   - Vai trò layer: code gán theo tên, dùng luật nhà và luật tuyến.
+   - AI cục bộ: Qwen chỉ được hỏi về các layer mà luật không nhận ra (tối đa 40 layer) và chỉ được điền vào các layer đó, không bao giờ đè lên luật tên. AI chạy khi đã có file mô hình; mô hình được nạp ở lần dùng đầu.
+   - Nhận diện **nhà**:
+     - mặt bằng có ≥ 4 tường và có phòng hoặc ≥ 2 lỗ cửa;
+     - **ít nhất một mặt bằng phải có phòng**. Nếu chỉ có các cặp nét song song có khe hở (lớp áo kênh, bó vỉa) thì không coi là nhà.
+   - Dựng BIM nhiều tầng (tên và cao độ tầng lấy từ tiêu đề mặt bằng) rồi kiểm tra mô hình. Phần Nội thất lấy tầng có nhiều đồ nhất: phòng, đồ đặt sẵn, tủ tham số.
+   - Nhận diện **tuyến**: trắc dọc kèm ≥ 2 trắc ngang. Tuyến có nhiều mặt cắt nhất được chọn trước. Nếu bản vẽ có nhiều tuyến, anh đổi được ở ô "Tuyến".
+3. **Xem tóm tắt** gồm:
+   - loại bản vẽ (nhà / tuyến / cả hai);
+   - số tầng, tường, cửa, phòng, cột, đồ nội thất;
+   - phần Nội thất: số tủ, số tấm, số tấm ván, số chương trình CNC;
+   - kết quả kiểm tra mô hình;
+   - khối lượng đào/đắp so với diện tích trong hồ sơ;
+   - danh sách cảnh báo.
+
+   Anh có thể bỏ chọn từng phần: BIM, Nội thất, Tuyến, Ghi bộ hồ sơ.
+4. **Duyệt & làm hết.** Mỗi phân hệ (BIM, Nội thất, Civil) nhận **một bước hoàn tác**. Sau đó anh chọn thư mục để ghi bộ hồ sơ. Ứng dụng **không ghi đè** file đã có.
+
+## Bộ hồ sơ (`ui/src/auto/package.ts`, `drawings.ts`, `report.ts`)
+
+**Nhà:**
+- `BIM.ifc` (IFC4);
+- Walls / Rooms / Doors and windows / Furniture (BIM) `.csv`;
+- mặt bằng từng tầng dạng **DXF + DWG**, cùng một file **PDF nhiều trang**. Mặt bằng có tường tô đặc cắt ở lỗ cửa, cửa đi (2 cánh khi rộng > 1200 mm), cửa sổ, cột, tên phòng + diện tích, đồ nội thất, lưới trục và kích thước tổng.
+
+**Nội thất:**
+- Interior furniture `.csv`;
+- Cut list `.csv`;
+- Part labels `.csv`;
+- Nesting `.dxf`;
+- **chương trình CNC `.nc`** cho mỗi tấm ván và mỗi dao: T1 cắt biên, T2 khoan lỗ chốt kệ, T3 khoét bản lề.
+
+**Tuyến:**
+- Earthwork (theo 100 m) / Cross sections / Long profile `.csv`;
+- **trắc dọc** dạng DXF + DWG. Bản vẽ phóng đại tỉ lệ đứng, có tên từng đường và bảng cọc;
+- **trắc ngang** 6 mặt cắt mỗi tờ A3, dạng DXF + DWG;
+- một file PDF gộp trắc dọc và trắc ngang.
+
+**Báo cáo:** `… - MD CAD AI STUDIO - Report.html`.
+
+**Chữ trên bản vẽ tuyến** theo ngôn ngữ giao diện (Anh / Việt). **Ngày ở khung tên** lấy theo giờ máy, không theo giờ UTC.
+
+**Trình duyệt thường** (không có ứng dụng desktop): bộ hồ sơ tải về là một file ZIP. Bản vẽ ở dạng SVG; PDF và DWG chỉ có trên bản desktop.
+
+## Kết quả kiểm thử
+
+| Bản vẽ | Kết quả |
+|---|---|
+| `house_vn_SYNTHETIC.dxf` (smoke-auto, trình duyệt) | Building · 3 tầng · 18 tường · 9 cửa đi · 13 cửa sổ · 10 phòng · 12 cột · 18 đồ. Nội thất Tầng 1: 5 phòng, 4 tủ. Kiểm tra mô hình đạt hết. ZIP có IFC4, DXF mặt bằng chứa A-WALL, CSV, G-code, báo cáo. |
+| `canal_route_SYNTHETIC.dxf` (smoke-auto) | Route · 4 mặt cắt · 150 m · đào 650 m³ · đắp 741 m³. |
+| `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building trong 0,5 s · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **36 file, 0 lỗi.** |
+| Kênh Đức Phong (DWG thật, e2e_auto) | Route trong 43 s (AI phân loại 10/23 layer lạ, mất 38,8 s). Tuyến Đức Phong 1: 33 mặt cắt · 1.600 m · đào 6.161 m³ · đắp 4.324 m³, lệch so với hồ sơ −0,04 % / +0,44 %. **19 file, 0 lỗi.** |
+
+**Kiểm tra file đầu ra:**
+- **IFC:** IfcOpenShell đọc được — 4 IfcBuildingStorey · 73 IfcWall + 4 IfcCurtainWall · 35 IfcDoor · 22 IfcWindow · 45 IfcSpace · 63 IfcColumn · 4 IfcSlab · 62 IfcFurniture.
+- **PDF:** mặt bằng 3 trang (3 tầng có tường); tuyến 7 trang (1 trắc dọc + 6 tờ trắc ngang). Đã xem từng trang dạng ảnh.
+- **DWG** (AC1015): đọc ngược bằng `dwg2dxf` của LibreDWG, số đối tượng khớp đúng với file DXF cùng tên (216 / 270 / 45).
+- **G-code:** đầu file có ghi chú gốc toạ độ / dao / chiều sâu. Ví dụ tấm MFC 18 #1 T1 có 208 lệnh G1.
+
+**Lỗi tìm ra và đã sửa trong lúc kiểm thử:**
+- Tên chương trình CNC bị lặp tên job ("sample - CNC sample - …").
+- AI bị coi là "chưa nạp" khi mô hình chưa được nạp lần đầu. Giờ chỉ cần có file mô hình là đủ.
+- Bản vẽ kênh bị nhận nhầm thành "nhà + tuyến" (49 "tường", 0 phòng). Đã thêm điều kiện ít nhất một mặt bằng phải có phòng.
+- Khung tên hiện đuôi ".dwg" và ngày theo giờ UTC.
+- Trắc dọc lẫn chữ Anh và Việt, thiếu tên các đường.
+
+## Cách chạy lại
+
+```bash
+cd ui && node tools/smoke-auto.mjs
+```
+
+Kiểm thử desktop:
+
+```bash
+qa/tools/rune2e.sh native/app/resources/e2e_auto.js 600 THCAD_UI_URL=http://127.0.0.1:5173 THCAD_SPLASH=0 THCAD_DWG_SAMPLE=<file.dwg> THCAD_PICK_DIR=<thư mục trống>
+```
+
+Sau khi chạy kiểm thử desktop, chạy `qa/tools/reset_qa_profile.js` trước `e2e_bimviews`. Lý do: Chromium ghi localStorage chậm.
+
+Ghi chú: trong e2e, file mẫu luôn mang tên `sample.dwg` vì host không truyền tên gốc. Khi anh dùng thật, các file trong bộ hồ sơ mang tên bản vẽ gốc.
+
+## Chưa làm / giới hạn
+
+- **Mặt bằng PDF:** chữ tên phòng ở các phòng nhỏ (WC, kho) có thể chồng lên nhau. Chưa có mặt đứng, mặt cắt nhà và bảng thống kê cửa trên bản vẽ (cửa mới có trong CSV).
+- **Nội thất:** chỉ dựng cho một tầng (tầng có nhiều đồ nhất). Tủ là tủ tham số theo loại đồ nhận ra (tủ áo, tủ bếp, kệ TV…), chưa đọc chi tiết cánh và ngăn từ bản vẽ.
+- **Tuyến:** chỉ dựng tuyến được chọn. Bộ hồ sơ chưa có trắc dọc các tuyến khác trong cùng bản vẽ.
+- **CNC:** G-code theo cấu hình máy trong Interior → Nesting (mặc định chung). **Phải chạy thử không phôi** trước khi cắt thật.

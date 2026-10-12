@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useRouter } from '../../state/router'
+import { useAutoRun } from '../../state/auto'
 import { toast } from '../../state/toast'
 import {
   recentProjects,
@@ -77,6 +78,7 @@ export function DashboardScreen() {
 
   const A = t.dashboard.all, Q = t.dashboard.quickActions
   const allActions = [
+    { label: t.auto.command, icon: <I.Sparkles size={18} />, run: () => useAutoRun.getState().show() },
     { label: Q.newDrawing, icon: <I.File size={18} />, run: newDrawing },
     { label: A.openFile, icon: <I.Upload size={18} />, run: () => fileInput.current?.click() },
     { label: A.newProject, icon: <I.FolderPlus size={18} />, run: () => setNewOpen(true) },

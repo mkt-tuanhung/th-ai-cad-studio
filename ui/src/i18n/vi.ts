@@ -5,6 +5,7 @@ import { civilVi } from './ws/civil'
 import { mechVi } from './ws/mechanical'
 import { rendersVi } from './ws/renders'
 import { fromCadVi } from './ws/fromCad'
+import { autoVi } from './ws/auto'
 
 export const vi: Messages = {
   app: {
@@ -534,6 +535,7 @@ export const vi: Messages = {
       rejectedToast: 'Đã từ chối {option}',
     },
   },
+  auto: autoVi,
   bim: {
     fromCad: fromCadVi,
     crumbs: { projects: 'Dự án', project: 'Villa Riverside', discipline: 'Kiến trúc' },
