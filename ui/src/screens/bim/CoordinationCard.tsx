@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, RefreshCw, Settings, TriangleAlert } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
+import { AnchoredMenu } from '../../components/ui/AnchoredMenu'
 import { useBim } from '../../state/bim'
 import { toast } from '../../state/toast'
 import type { CheckResult } from '../../bim/model'
@@ -8,7 +9,7 @@ import s from './CoordinationCard.module.css'
 export function CoordinationCard() {
   const T = useT()
   const t = T.bim.coord
-  const { checks, runChecks, set, model } = useBim()
+  const { checks, runChecks, set, model, coordOff, coordAuto, setCoord } = useBim()
   const run = () => {
     runChecks()
     const res = useBim.getState().checks
@@ -29,9 +30,22 @@ export function CoordinationCard() {
           <RefreshCw size={14} strokeWidth={1.9} />
           {t.check}
         </button>
-        <button type="button" className={s.gear} aria-label={t.settings} title={t.settings} onClick={() => toast(fmt(T.toast.notImplemented, { feature: t.settings }))}>
-          <Settings size={15} strokeWidth={1.7} />
-        </button>
+        <AnchoredMenu
+          label={t.settings}
+          className={s.gear}
+          icon={<Settings size={15} strokeWidth={1.7} />}
+          direction="down"
+          align="right"
+          width={230}
+          items={[
+            ...(Object.keys(t.rows) as CheckResult['key'][]).map((k) => ({
+              label: t.rows[k],
+              checked: !coordOff.includes(k),
+              onSelect: () => setCoord({ coordOff: coordOff.includes(k) ? coordOff.filter((x) => x !== k) : [...coordOff, k] }),
+            })),
+            { label: t.auto, checked: coordAuto, onSelect: () => setCoord({ coordAuto: !coordAuto }) },
+          ]}
+        />
       </header>
       <ul className={s.list}>
         {checks.map((c) => (
@@ -40,7 +54,7 @@ export function CoordinationCard() {
               <StatusDot c={c} big />
               <span className={s.name}>{t.rows[c.key]}</span>
               <StatusDot c={c} />
-              <span className={`${s.status} ${s[c.status]}`}>{c.count ? fmt(t.bad[c.key], { n: c.count }) : t.ok[c.key]}</span>
+              <span className={`${s.status} ${s[c.status]}`}>{c.status === 'off' ? t.off : c.count ? fmt(t.bad[c.key], { n: c.count }) : t.ok[c.key]}</span>
               <span className={s.count}>{c.count}</span>
             </button>
           </li>
@@ -55,7 +69,7 @@ function StatusDot({ c, big }: { c: CheckResult; big?: boolean }) {
   const cls = `${s.dot} ${big ? s.dotBig : ''} ${s[`d_${c.status}`]}`
   return (
     <span className={cls} style={{ width: size, height: size }}>
-      {c.status === 'ok' ? <Check size={big ? 10 : 9} strokeWidth={3.2} /> : c.key === 'clash' ? <TriangleAlert size={big ? 10 : 8} strokeWidth={2.6} /> : <AlertTriangle size={big ? 10 : 8} strokeWidth={2.6} />}
+      {c.status === 'off' ? null : c.status === 'ok' ? <Check size={big ? 10 : 9} strokeWidth={3.2} /> : c.key === 'clash' ? <TriangleAlert size={big ? 10 : 8} strokeWidth={2.6} /> : <AlertTriangle size={big ? 10 : 8} strokeWidth={2.6} />}
     </span>
   )
 }

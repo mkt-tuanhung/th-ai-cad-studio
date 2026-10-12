@@ -117,6 +117,16 @@ await step('Insertion Options are locked until Edit; rotation persists', async (
   assert.equal((await lib()).insert.rotation, 90)
 })
 
+await step('Insert into BIM: opens the BIM plan with the Component tool loaded with the desk (1600 × 700 × 750, auto-align)', async () => {
+  await panel().getByRole('button', { name: 'Insert into BIM' }).click()
+  await page.waitForURL(/#\/bim$/)
+  const st = await page.evaluate(() => { const s = window.__thcad.bim.getState(); return { pc: s.pendingComponent, tool: s.tool, view: s.view } })
+  assert.deepEqual(st, { pc: { name: 'Office Desk', w: 1600, d: 700, h: 750, rot: 90, autoAlign: true }, tool: 'component', view: 'plan' })
+  await page.evaluate(() => window.__thcad.bim.getState().set({ pendingComponent: null, tool: 'select' }))
+  await page.goto('http://127.0.0.1:5173/#/components')
+  await page.locator('article[aria-label="Office Desk"]').first().click()
+})
+
 await step('Associated Files downloads a real DXF of the component', async () => {
   const [dl] = await Promise.all([page.waitForEvent('download'), panel().getByRole('button', { name: 'Download Office_Desk.dxf' }).click()])
   assert.equal(dl.suggestedFilename(), 'Office_Desk.dxf')

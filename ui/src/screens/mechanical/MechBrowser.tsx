@@ -52,6 +52,9 @@ export function MechBrowser() {
     if (n.key.startsWith('c-')) return set({ browserSel: n.key, sel: n.key.slice(2), right: 'properties' })
     if (n.key.startsWith('mt-') || n.key === 'mates') return set({ browserSel: n.key, bottom: 'mates' })
     if (n.key.startsWith('b-') || n.key === 'asm') return set({ browserSel: n.key, bottom: 'bom' })
+    // a datum plane: the view normal to it; the origin / coordinate system: the home view
+    const view = ({ 'pl-XY Plane': 'top', 'pl-YZ Plane': 'right', 'pl-ZX Plane': 'front', origin: 'home', 'gcs-xyz': 'home' } as const)[n.key as 'origin']
+    if (view) return set({ browserSel: n.key, camReq: { view, label: n.label, n: (useMech.getState().camReq?.n ?? 0) + 1 } })
     if (!n.children) toast(fmt(t.toast.native, { what: n.label }))
   }
   return <WsTree title={b.title} placeholder={b.search} root={root} active={browserSel} onSelect={onSelect} collapseLabel={b.collapse} expandLabel={b.expand} rowH={20.6} indent={{ base: -15, step: 26, leaf: 14 }} extraTop={6} styleHead={{ height: 34 }} />

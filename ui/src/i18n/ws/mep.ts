@@ -81,7 +81,9 @@ export const mepEn = {
     findingText: '{target}: {rule} — {value} (limit {limit}).',
   },
   toast: {
-    native: '{what}: needs the MEP engine (not connected in this build)',
+    native: '{what} needs the live 3D model — desktop app, Shaded / Wireframe / Hidden Line mode.',
+    only: 'Showing only {what} — Visibility restores the other categories.',
+    none: 'There are no {what} in this model.',
     shareOffline: 'Sharing needs the project server (PWA module, later). The project stays on this computer.',
     exported: 'Exported {file}', undone: 'Undone: {label}', redone: 'Redone: {label}', nothing: 'Nothing to undo',
     checked: 'Clash detection: {n} clashes, {f} design issues', applied: 'Applied: {label} — ⌘Z to undo', invalid: 'Not applied — {why}', reset: 'Sample data restored',
@@ -171,7 +173,9 @@ export const mepVi: typeof mepEn = {
     findingText: '{target}: {rule} — {value} (giới hạn {limit}).',
   },
   toast: {
-    native: '{what}: cần engine MEP (chưa kết nối trong bản này)',
+    native: '{what} cần mô hình 3D trực tiếp — ứng dụng desktop, chế độ Shaded / Wireframe / Hidden Line.',
+    only: 'Chỉ hiện {what} — menu Hiển thị khôi phục các nhóm khác.',
+    none: 'Mô hình này không có {what}.',
     shareOffline: 'Chia sẻ cần máy chủ dự án (mô-đun PWA, làm sau). Dự án vẫn nằm trên máy này.',
     exported: 'Đã xuất {file}', undone: 'Đã hoàn tác: {label}', redone: 'Đã làm lại: {label}', nothing: 'Không có gì để hoàn tác',
     checked: 'Kiểm tra va chạm: {n} va chạm, {f} lỗi thiết kế', applied: 'Đã áp dụng: {label} — ⌘Z để hoàn tác', invalid: 'Không áp dụng — {why}', reset: 'Đã khôi phục dữ liệu mẫu',

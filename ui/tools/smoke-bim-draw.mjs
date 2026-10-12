@@ -161,6 +161,16 @@ await step('Select + Properties: the column is editable (width 500); Delete remo
   assert.equal((await bim()).columns.length, 1)
 })
 
+await step('Components → Insert into BIM: the sofa is placed at its real size, turned parallel to the nearest wall (W9, vertical)', async () => {
+  await page.evaluate(() => window.__thcad.bim.getState().set({ pendingComponent: { name: 'Modern Sofa 3-Seater', w: 2400, d: 950, h: 780, rot: 0, autoAlign: true }, tool: 'component', view: 'plan', selection: null }))
+  await clickAt(600, 6000)
+  const m = await bim()
+  const c = m.components.at(-1)
+  assert.equal(c.name, 'Modern Sofa 3-Seater')
+  assert.deepEqual([c.w, c.d, c.h, c.rot, c.level], [2400, 950, 780, 90, 'L1'])
+  await page.evaluate(() => window.__thcad.bim.getState().set({ pendingComponent: null, tool: 'select' }))
+})
+
 await step('deleting W25 takes its door and window with it; undo restores all three', async () => {
   await page.evaluate(() => window.__thcad.bim.getState().set({ selection: { category: 'wall', id: 'W25' } }))
   await plan().click({ position: { x: 5, y: 300 } }).catch(() => {})

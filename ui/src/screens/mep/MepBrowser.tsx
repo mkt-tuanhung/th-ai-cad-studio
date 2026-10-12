@@ -1,7 +1,7 @@
 import { Box, ChevronsUpDown, Folder, FolderClosed, LayoutPanelTop, Square } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
-import { useMep } from '../../state/mep'
+import { useMep, MEP_CATEGORIES } from '../../state/mep'
 import { WsTree, type TreeNode } from '../../components/workspace/Workspace'
 import type { EquipKind } from '../../mep/model'
 import s from './Mep.module.css'
@@ -67,9 +67,16 @@ export function MepBrowser() {
       return set({ browserSel: k, view: v, tool: 'select', discipline: v === 'coord' ? 'coordination' : (v as 'hvac' | 'plumbing' | 'electrical') })
     }
     if (k.startsWith('eq-')) return set({ browserSel: k, bottom: 'schedules', schedule: 'equipment' })
-    if (k === 'sys-hvac' || k === 'fam-ducts') return set({ browserSel: k, bottom: 'schedules', schedule: 'duct' })
-    if (k === 'sys-plumbing' || k === 'fam-pipes') return set({ browserSel: k, bottom: 'schedules', schedule: 'pipe' })
-    if (k === 'sys-electrical') return set({ browserSel: k, bottom: 'schedules', schedule: 'electrical' })
+    if (k === 'sys-hvac' || k === 'sys-hvac-sa' || k === 'fam-ducts') return set({ browserSel: k, bottom: 'schedules', schedule: 'duct' })
+    if (k === 'sys-plumbing' || k === 'sys-pl-all' || k === 'fam-pipes') return set({ browserSel: k, bottom: 'schedules', schedule: 'pipe' })
+    if (k === 'sys-electrical' || k === 'sys-el-all') return set({ browserSel: k, bottom: 'schedules', schedule: 'electrical' })
+    // a family with its own category: show only that category (plan + 3D); conduits / supports are not modelled
+    if (k === 'fam-trays' || k === 'fam-fixtures') {
+      const cat = k === 'fam-trays' ? 'trays' : 'fixtures'
+      set({ browserSel: k, hiddenCats: MEP_CATEGORIES.filter((c) => c !== cat && c !== 'beams') })
+      return toast(fmt(t.toast.only, { what: node.label }))
+    }
+    if (k === 'fam-conduits' || k === 'fam-supports') return toast(fmt(t.toast.none, { what: node.label.toLowerCase() }))
     if (!node.children) toast(fmt(t.toast.native, { what: node.label }))
   }
 

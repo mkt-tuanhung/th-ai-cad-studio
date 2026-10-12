@@ -136,3 +136,11 @@ li:last-child .row {
 .d_warning {
   background: #f5a524;
 }
+
+.off {
+  color: var(--text-subtle);
+}
+
+.d_off {
+  background: #c5ccd5;
+}

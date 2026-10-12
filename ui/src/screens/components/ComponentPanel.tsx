@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Download, Ellipsis, FileText } from 'lucide-rea
 import { fmt, useLang, useT } from '../../i18n'
 import type { Entity } from '../../cad/types'
 import { translateEntity } from '../../cad/geometry'
+import { useBim } from '../../state/bim'
 import { useCad } from '../../state/cad'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
@@ -138,6 +139,22 @@ export function ComponentPanel({ comp }: { comp: LibComponent | null }) {
                 <label className={s.check}><input type="checkbox" checked={ins.explode} onChange={(e) => setIns({ explode: e.target.checked })} />{T.explode}</label>
                 <label className={s.check}><input type="checkbox" checked={ins.currentLayer} onChange={(e) => setIns({ currentLayer: e.target.checked })} />{T.currentLayer}</label>
               </fieldset>
+              {comp.size && comp.kind !== 'Material' && (
+                <button
+                  type="button"
+                  className={s.toBim}
+                  title={T.toBimHelp}
+                  onClick={() => {
+                    const sz = comp.size!
+                    const h = sz.h ?? 750
+                    useBim.getState().set({ pendingComponent: { name: comp.name, w: sz.w, d: sz.d, h, rot: ins.rotation, autoAlign: ins.autoAlign }, tool: 'component', view: 'plan', selection: null })
+                    toast(fmt(T.toBimReady, { name: comp.name, w: sz.w, d: sz.d, h }))
+                    navigate('bim')
+                  }}
+                >
+                  {T.toBim}
+                </button>
+              )}
               <h3 className={s.mapTitle}>{T.layerMapping}</h3>
               <div className={s.mapRow}>
                 <span>{T.layer}</span>

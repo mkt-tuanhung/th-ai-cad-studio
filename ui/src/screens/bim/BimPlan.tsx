@@ -289,18 +289,29 @@ export function BimPlan() {
           full.components.map((c) => c.mark),
           'F',
         )
+        // a library component (Components → Insert into BIM) or the generic one; it sits on the level's floor
+        const pc = useBim.getState().pendingComponent
+        let rot = pc?.rot ?? 0
+        if (pc?.autoAlign) {
+          let best = 1000
+          for (const w of wallsOn(full, level)) {
+            const { a, b } = wallEnds(w)
+            const d = segDist(p, a, b).d
+            if (d < best) (best = d), (rot = (((w.angle ?? 0) % 180) + 180) % 180)
+          }
+        }
         const c = {
           id: uid('comp'),
           category: 'component' as const,
           mark,
-          name: t.componentName,
+          name: pc?.name ?? t.componentName,
           level,
           x: p[0],
           y: p[1],
-          w: 1200,
-          d: 600,
-          h: 750,
-          rot: 0,
+          w: pc?.w ?? 1200,
+          d: pc?.d ?? 600,
+          h: pc?.h ?? 750,
+          rot,
         }
         return add(mark, (m) => ({ ...m, components: [...m.components, c] }), {
           category: 'component',

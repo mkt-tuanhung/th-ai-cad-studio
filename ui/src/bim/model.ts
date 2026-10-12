@@ -328,7 +328,8 @@ export const wallVolume = (m: BimModel, w: Wall) => (wallArea(m, w) * typeOf(m, 
 
 export interface CheckResult {
   key: 'health' | 'clash' | 'standards' | 'rooms' | 'params'
-  status: 'ok' | 'error' | 'warning'
+  /** 'off' = disabled in Coordination settings. */
+  status: 'ok' | 'error' | 'warning' | 'off'
   count: number
   items: { elementId: string; message: string }[]
 }

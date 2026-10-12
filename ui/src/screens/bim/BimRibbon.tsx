@@ -50,7 +50,7 @@ export function BimRibbon() {
   const { tool, set } = useBim()
   const [levelOpen, setLevelOpen] = useState(false)
   // drawing tools work in the plan view of the current level
-  const pick = (k: ToolKey) => (k === 'level' ? setLevelOpen(true) : set({ tool: k as BimTool, view: 'plan', selection: null }))
+  const pick = (k: ToolKey) => (k === 'level' ? setLevelOpen(true) : set({ tool: k as BimTool, view: 'plan', selection: null, pendingComponent: null }))
   return (
     <div className={s.ribbon} role="toolbar">
       <div className={s.track}>

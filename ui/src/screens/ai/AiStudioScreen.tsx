@@ -1,3 +1,4 @@
+import { ScanToCadModal } from './ScanToCad'
 import { useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useAiStudio } from '../../state/aiStudio'
@@ -23,6 +24,7 @@ export function AiStudioScreen() {
   const navigate = useRouter((st) => st.navigate)
   const [approveOpen, setApproveOpen] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
+  const [scanFile, setScanFile] = useState<File | null>(null)
   const p = PROPOSALS[studio.option - 1]
   const optionLabel = fmt(t.option, { n: p.n })
   const file = `Office Layout - Option ${p.n}.dwg`
@@ -102,10 +104,12 @@ export function AiStudioScreen() {
         accept="image/*,.pdf"
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) toast(fmt(T.cad.ai.runtimeMissing, { name: `Scan to CAD — ${f.name}` }))
+          if (f) setScanFile(f)
           e.target.value = ''
         }}
       />
+
+      {scanFile && <ScanToCadModal file={scanFile} onClose={() => setScanFile(null)} />}
 
       {approveOpen && (
         <Modal

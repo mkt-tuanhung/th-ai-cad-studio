@@ -28,6 +28,10 @@ interface BimState {
   maximized: boolean
   comments: Comment[]
   checks: CheckResult[]
+  /** Coordination settings: checks turned off, and re-checking after every edit. */
+  coordOff: CheckResult['key'][]
+  coordAuto: boolean
+  setCoord: (patch: { coordOff?: CheckResult['key'][]; coordAuto?: boolean }) => void
   checkedAt: number | null
   appliedRecommendation: boolean
   tool: BimTool
@@ -35,6 +39,9 @@ interface BimState {
   discipline: 'architecture' | 'structure'
   /** Wall type the Wall tool draws with. */
   wallType: string
+  /** Component library → the next Component click places this (real size); autoAlign turns it parallel to
+   *  the nearest wall within 1 m. Session only. */
+  pendingComponent: { name: string; w: number; d: number; h: number; rot: number; autoAlign: boolean } | null
   /** Project Browser → 3D view request (session only): an elevation (orthographic side view), a section
    *  (clip plane through the building centre), or a named 3D view. `n` makes repeated requests distinct. */
   viewReq: { kind: 'elev' | 'section' | 'home' | 'sectionBox' | 'exterior'; face?: 'front' | 'back' | 'left' | 'right'; axis?: 'x' | 'y'; n: number } | null
@@ -46,7 +53,7 @@ interface BimState {
   undo: () => string | null
   redo: () => string | null
   runChecks: () => void
-  set: (patch: Partial<Pick<BimState, 'view' | 'display' | 'level' | 'scale' | 'scheduleCat' | 'checked' | 'selection' | 'rightTab' | 'browserCollapsed' | 'maximized' | 'appliedRecommendation' | 'browserSel' | 'tool' | 'wallType' | 'discipline'>>) => void
+  set: (patch: Partial<Pick<BimState, 'view' | 'display' | 'level' | 'scale' | 'scheduleCat' | 'checked' | 'selection' | 'rightTab' | 'browserCollapsed' | 'maximized' | 'appliedRecommendation' | 'browserSel' | 'tool' | 'wallType' | 'discipline' | 'pendingComponent'>>) => void
   /** Deletes the selected element (a wall takes its doors and windows with it). Returns its label or null. */
   deleteSelection: () => string | null
   toggleBrowser: (key: string) => void
@@ -60,6 +67,7 @@ export const useBim = create<BimState>()(
   persist(
     (set, get) => ({
       viewReq: null,
+      pendingComponent: null,
       requestView: (r) => set({ view: '3d', viewReq: { ...r, n: (get().viewReq?.n ?? 0) + 1 } }),
       model: initial,
       undoStack: [],
@@ -96,6 +104,7 @@ export const useBim = create<BimState>()(
         })
         if (bad) return bad.mark
         set({ model: after, undoStack: [...get().undoStack.slice(-99), { label, model: before }], redoStack: [] })
+        if (get().coordAuto) get().runChecks()
         return null
       },
       updateWall: (id, patch, label) => get().edit(label, (m) => ({ ...m, walls: m.walls.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
@@ -111,7 +120,16 @@ export const useBim = create<BimState>()(
         set({ model: next.model, redoStack: get().redoStack.slice(0, -1), undoStack: [...get().undoStack, { label: next.label, model: get().model }] })
         return next.label
       },
-      runChecks: () => set({ checks: runModelChecks(get().model), checkedAt: Date.now() }),
+      runChecks: () => {
+        const off = get().coordOff
+        set({ checks: runModelChecks(get().model).map((c) => (off.includes(c.key) ? { ...c, status: 'off' as const, count: 0, items: [] } : c)), checkedAt: Date.now() })
+      },
+      coordOff: [],
+      coordAuto: false,
+      setCoord: (patch) => {
+        set(patch)
+        get().runChecks()
+      },
       set: (patch) => set(patch),
       deleteSelection: () => {
         const sel = get().selection
@@ -158,6 +176,8 @@ export const useBim = create<BimState>()(
         browserCollapsed: s.browserCollapsed,
         browserOpen: s.browserOpen,
         browserSel: s.browserSel,
+        coordOff: s.coordOff,
+        coordAuto: s.coordAuto,
         comments: s.comments,
         checks: s.checks,
         checkedAt: s.checkedAt,

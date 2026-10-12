@@ -89,6 +89,18 @@ export function MechanicalScreen() {
     else if (!r.cancelled) toast(fmt(t.toast.invalid, { why: r.error ?? 'STEP' }), 'warning')
   }
 
+  // Browser → datum plane / origin view
+  useEffect(() => {
+    const r = st.camReq
+    if (!r) return
+    if (st.tab !== 'assembly') st.set({ tab: 'assembly' })
+    if (!live) return native(r.label)
+    let tries = 0
+    const go = () => (cam.current ? cam.current(r.view) : ++tries < 30 && setTimeout(go, 150))
+    go()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.camReq?.n])
+
   useEffect(() => {
     const onKey = undoKeys(st.undo, st.redo, (label, redo) => toast(label ? fmt(redo ? t.toast.redone : t.toast.undone, { label }) : t.toast.nothing))
     window.addEventListener('keydown', onKey)

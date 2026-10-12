@@ -34,6 +34,8 @@ interface MechState extends Undoable<MechModel> {
   partBounds: number[] | null
   partDialog: { kind: 'sketch' | FeatureKind; id?: string } | null
   camOpen: boolean
+  /** Browser → camera request on the assembly view (a plane's normal view, or home for the origin). */
+  camReq: { view: 'top' | 'front' | 'right' | 'home'; label: string; n: number } | null
   edit: (label: string, fn: (d: MechModel) => MechModel) => string | null
   undo: () => string | null
   redo: () => string | null
@@ -59,6 +61,7 @@ export const useMech = create<MechState>()(
       right: 'properties',
       mode: 'shaded',
       sel: 'casing',
+      camReq: null,
       browserSel: 'c-casing',
       checkedAt: null,
       bomAll: false,

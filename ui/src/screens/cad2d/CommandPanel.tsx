@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ChevronRight, CircleHelp, History, Settings, TriangleAlert } from 'lucide-react'
-import { UpMenu } from '../../components/ui/UpMenu'
+import { AnchoredMenu } from '../../components/ui/AnchoredMenu'
 import { bboxOf, unionBBox } from '../../cad/geometry'
 import { fmt, useT } from '../../i18n'
 import { useCad, type BottomTab } from '../../state/cad'
@@ -69,7 +69,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
             <History size={17} strokeWidth={1.6} />
           </button>
           <span className={s.toolsSep} />
-          <UpMenu
+          <AnchoredMenu
             label={t.settings}
             className={s.tbtn}
             icon={<Settings size={17} strokeWidth={1.6} />}

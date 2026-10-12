@@ -4,11 +4,11 @@ import { MenuList, type MenuItem } from './Popover'
 import s from './Popover.module.css'
 
 /**
- * Icon button with a menu that opens upwards, rendered in a portal (fixed position) so containers that
- * clip their overflow — status bar, command panel — do not cut it off. Closes on outside click / Escape.
+ * Icon button with a menu rendered in a portal (fixed position) so containers that clip their overflow —
+ * status bar, command panel, cards — do not cut it off. Opens up or down; closes on outside click / Escape.
  */
-export function UpMenu({ label, icon, className, items, width = 210, align = 'left' }: { label: string; icon: ReactNode; className?: string; items: MenuItem[]; width?: number; align?: 'left' | 'right' }) {
-  const [at, setAt] = useState<{ left: number; bottom: number } | null>(null)
+export function AnchoredMenu({ label, icon, className, items, width = 210, align = 'left', direction = 'up' }: { label: string; icon: ReactNode; className?: string; items: MenuItem[]; width?: number; align?: 'left' | 'right'; direction?: 'up' | 'down' }) {
+  const [at, setAt] = useState<{ left: number; top?: number; bottom?: number } | null>(null)
   const btn = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -28,7 +28,8 @@ export function UpMenu({ label, icon, className, items, width = 210, align = 'le
   const toggle = () => {
     if (at) return setAt(null)
     const r = btn.current!.getBoundingClientRect()
-    setAt({ left: align === 'left' ? r.left : r.right - width, bottom: window.innerHeight - r.top + 6 })
+    const left = align === 'left' ? r.left : r.right - width
+    setAt(direction === 'up' ? { left, bottom: window.innerHeight - r.top + 6 } : { left, top: r.bottom + 6 })
   }
   return (
     <>
@@ -37,7 +38,7 @@ export function UpMenu({ label, icon, className, items, width = 210, align = 'le
       </button>
       {at &&
         createPortal(
-          <div ref={panel} className={s.panel} role="menu" style={{ position: 'fixed', top: 'auto', left: at.left, bottom: at.bottom, width }}>
+          <div ref={panel} className={s.panel} role="menu" style={{ position: 'fixed', top: at.top ?? 'auto', left: at.left, bottom: at.bottom ?? 'auto', width }}>
             <MenuList items={items} onClose={() => setAt(null)} />
           </div>,
           document.body,

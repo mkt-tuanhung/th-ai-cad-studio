@@ -4,7 +4,7 @@ import { useCad, type DraftToggle } from '../../state/cad'
 import { useCursor } from '../../state/cursor'
 import { DEFAULT_LAYOUTS } from '../../cad/types'
 import { OSNAP_MODES } from '../../cad/geometry'
-import { UpMenu } from '../../components/ui/UpMenu'
+import { AnchoredMenu } from '../../components/ui/AnchoredMenu'
 import { LayoutToolIcon } from '../../components/icons'
 import s from './StatusBar.module.css'
 
@@ -36,7 +36,7 @@ function SnapMenu() {
   const T = useT().cad.status
   const { toggles, toggle, osnapModes, set } = useCad()
   return (
-    <UpMenu
+    <AnchoredMenu
       label={T.snapTo}
       className={s.ibtn}
       icon={<Focus size={18} strokeWidth={1.6} />}

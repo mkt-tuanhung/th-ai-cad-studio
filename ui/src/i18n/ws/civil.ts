@@ -76,7 +76,9 @@ export const civilEn = {
     added: 'Crossing {name} at {sta}: box culvert {size}, invert {z} m', exists: 'A structure already sits within 10 m of {sta}', outside: 'The station is outside the alignment',
   },
   toast: {
-    native: '{what}: needs the civil engine (not connected in this build)',
+    native: '{what}: import a survey first (Surfaces → Existing Ground) — the plan shown is DEMO imagery.',
+    notModelled: '{what} is not modelled in this project — only CANAL-01 has an alignment and profile.',
+    sheetView: '{sheet} shows {view}.',
     shareOffline: 'Sharing needs the project server (PWA module, later). The project stays on this computer.',
     exported: 'Exported {file}', undone: 'Undone: {label}', redone: 'Redone: {label}', nothing: 'Nothing to undo', invalid: 'Not applied — {why}', applied: 'Applied: {label} — ⌘Z to undo', reset: 'Sample data restored',
   },
@@ -160,7 +162,9 @@ export const civilVi: typeof civilEn = {
     added: 'Giao cắt {name} tại {sta}: cống hộp {size}, cao độ đáy {z} m', exists: 'Đã có công trình trong phạm vi 10 m quanh {sta}', outside: 'Lý trình nằm ngoài tuyến',
   },
   toast: {
-    native: '{what}: cần engine hạ tầng (chưa kết nối trong bản này)',
+    native: '{what}: hãy nhập số liệu khảo sát trước (Bề mặt → Mặt đất tự nhiên) — mặt bằng đang hiện là ảnh DEMO.',
+    notModelled: 'Dự án này chưa dựng {what} — chỉ CANAL-01 có tuyến và trắc dọc.',
+    sheetView: '{sheet} hiển thị {view}.',
     shareOffline: 'Chia sẻ cần máy chủ dự án (mô-đun PWA, làm sau). Dự án vẫn nằm trên máy này.',
     exported: 'Đã xuất {file}', undone: 'Đã hoàn tác: {label}', redone: 'Đã làm lại: {label}', nothing: 'Không có gì để hoàn tác', invalid: 'Không áp dụng — {why}', applied: 'Đã áp dụng: {label} — ⌘Z để hoàn tác', reset: 'Đã khôi phục dữ liệu mẫu',
   },

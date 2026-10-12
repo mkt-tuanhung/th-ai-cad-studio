@@ -51,6 +51,13 @@ export function CivilBrowser() {
     if (k === 'ch-typ') return set({ browserSel: k, view: 'section' })
     if (k === 'ch-lin') return set({ browserSel: k, bottom: 'channel', view: 'plan' })
     if (k === 'sh-3') return set({ browserSel: k, view: 'schedule' })
+    // sheets open the view placed on them
+    const sheet = ({ 'sh-0': ['profile', b.profiles], 'sh-1': ['section', b.sections], 'sh-2': ['plan', b.culverts] } as const)[k as 'sh-0']
+    if (sheet) {
+      set({ browserSel: k, view: sheet[0], ...(k === 'sh-2' ? { bottom: 'structures' as const } : {}) })
+      return toast(fmt(t.toast.sheetView, { sheet: n.label, view: sheet[1] }))
+    }
+    if (k === 'al-road1' || k === 'al-road2' || k === 'pr-road') return toast(fmt(t.toast.notModelled, { what: n.label }))
     if (k === 'sf-eg' && !doc.survey) return set({ browserSel: k, right: 'layers', importOpen: true })
     if (k === 'sf-eg' || k === 'sf-dg') return set({ browserSel: k, right: 'layers' })
     if (!n.children) toast(fmt(t.toast.native, { what: n.label }))

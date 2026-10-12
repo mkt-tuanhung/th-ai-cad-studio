@@ -72,6 +72,20 @@ await step('Check Model re-runs deterministic checks', async () => {
   assert.ok((await bim()).checkedAt > 0)
 })
 
+await step('Coordination settings: a check can be turned off (shows “Off”) and back on; auto-check after edits', async () => {
+  await page.getByRole('button', { name: 'Coordination settings' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Clash Detection' }).click()
+  assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Clash Detection' }).getAttribute('aria-checked'), 'false')
+  await page.keyboard.press('Escape')
+  assert.ok(await page.getByRole('button', { name: /^Clash Detection\s*Off/ }).isVisible())
+  await page.getByRole('button', { name: 'Coordination settings' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Clash Detection' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Check after every edit' }).click()
+  await page.keyboard.press('Escape')
+  assert.equal((await bim()).coordAuto, true)
+  assert.equal(await page.getByRole('button', { name: /^Clash Detection\s*Off/ }).count(), 0)
+})
+
 await step('AI recommendation: confirm → W1 type changes, volume 3.19 m³; undo restores', async () => {
   await page.getByRole('button', { name: 'Apply Suggestion' }).click()
   assert.ok(await page.getByRole('dialog').getByText(/not generated on this machine/).isVisible())
