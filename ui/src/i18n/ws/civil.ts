@@ -1,4 +1,6 @@
+import { civilFromCadEn, civilFromCadVi } from './civilFromCad'
 export const civilEn = {
+  fromCad: civilFromCadEn,
   crumbs: { projects: 'Projects', project: 'North Canal Project', discipline: 'Civil Design' },
   disciplines: { civil: 'Civil Design', survey: 'Survey / GIS import…' },
   views: { plan: 'Plan', profile: 'Profile', section: 'Section', '3d': '3D', schedule: 'Schedule' },
@@ -85,6 +87,7 @@ export const civilEn = {
 }
 
 export const civilVi: typeof civilEn = {
+  fromCad: civilFromCadVi,
   crumbs: { projects: 'Dự án', project: 'Dự án Kênh Bắc', discipline: 'Thiết kế hạ tầng' },
   disciplines: { civil: 'Thiết kế hạ tầng', survey: 'Nhập khảo sát / GIS…' },
   views: { plan: 'Mặt bằng', profile: 'Trắc dọc', section: 'Mặt cắt', '3d': '3D', schedule: 'Thống kê' },

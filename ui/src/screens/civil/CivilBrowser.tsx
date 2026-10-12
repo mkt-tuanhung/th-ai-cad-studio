@@ -11,22 +11,26 @@ export function CivilBrowser() {
   const t = useT().civil
   const b = t.browser
   const { doc, browserSel, set } = useCivil()
+  // a route read from a drawing: its own name and stakes instead of the sample's roads and 100 m stations
+  const drawn = doc.sections?.length ? doc.sections : null
   const root: TreeNode = {
     key: 'root',
     label: t.names[doc.alignment.site] ?? doc.alignment.site,
     icon: <Folder size={16} strokeWidth={1.6} fill="#3a4352" stroke="#3a4352" />,
     children: [
-      { key: 'alignments', label: b.alignments, icon: <FolderClosed {...I} />, children: [
+      { key: 'alignments', label: b.alignments, icon: <FolderClosed {...I} />, children: drawn ? [{ key: 'al-canal', label: doc.alignment.name, icon: <Spline {...I} /> }] : [
         { key: 'al-canal', label: 'CANAL-01 (Main)', icon: <Spline {...I} /> },
         { key: 'al-road1', label: 'Access Road-01', icon: <TrendingDown {...I} /> },
         { key: 'al-road2', label: 'Access Road-02', icon: <TrendingDown {...I} /> },
       ] },
-      { key: 'profiles', label: b.profiles, icon: <FolderClosed {...I} />, children: [
+      { key: 'profiles', label: b.profiles, icon: <FolderClosed {...I} />, children: drawn ? [{ key: 'pr-canal', label: `${doc.alignment.name} - Profile`, icon: <TrendingDown {...I} /> }] : [
         { key: 'pr-canal', label: 'CANAL-01 - Profile', icon: <TrendingDown {...I} /> },
         { key: 'pr-road', label: 'Road-01 - Profile', icon: <TrendingDown {...I} /> },
       ] },
       { key: 'xsections', label: b.sections, icon: <FolderClosed {...I} />, children: [
-        { key: 'xs-canal', label: b.sectionsOf, icon: <FolderClosed {...I} />, children: [0, 100, 200, 300, 400, 500].map((x) => ({ key: `sta-${x}`, label: `STA ${sta(x)}`, icon: <Box {...I} /> })) },
+        drawn
+          ? { key: 'xs-canal', label: doc.alignment.name, icon: <FolderClosed {...I} />, children: drawn.map((x) => ({ key: `sta-${x.station}`, label: `${x.name} · ${sta(x.station)}`, icon: <Box {...I} /> })) }
+          : { key: 'xs-canal', label: b.sectionsOf, icon: <FolderClosed {...I} />, children: [0, 100, 200, 300, 400, 500].map((x) => ({ key: `sta-${x}`, label: `STA ${sta(x)}`, icon: <Box {...I} /> })) },
       ] },
       { key: 'surfaces', label: b.surfaces, icon: <FolderClosed {...I} />, children: [
         { key: 'sf-eg', label: doc.survey ? `${b.eg} – ${doc.survey.name}` : b.eg, icon: <Waves {...I} /> },

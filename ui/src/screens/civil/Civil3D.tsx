@@ -25,7 +25,7 @@ export function Civil3D() {
   const cam = useRef<SceneCamera | null>(null)
   const tools = useSceneTools('North Canal - CANAL-01 3D')
   const scene = useMemo(() => civilScene(st.doc, st.ve), [st.doc, st.ve])
-  const statsText = fmt(t.stats, { n: scene.stats.stations, t: scene.stats.triangles.toLocaleString('en-US'), g: scene.stats.terrain === 'survey' ? t.survey : t.sample })
+  const statsText = fmt(t.stats, { n: scene.stats.stations, t: scene.stats.triangles.toLocaleString('en-US'), g: scene.stats.terrain === 'survey' ? t.survey : scene.stats.terrain === 'drawing' ? T.civil.fromCad.ground3d : t.sample })
   return (
     <div className={s.chartBox} style={{ position: 'relative' }} data-testid="civil-3d">
       {host ? (
@@ -67,14 +67,23 @@ function Wireframe() {
   const lines: [number, number, number][][] = []
   const water: [number, number, number][][] = []
   const hy = hydraulics(m)
-  for (let x = m.alignment.start; x <= m.alignment.end; x += 20) {
+  const grounds: [number, number, number][][] = []
+  if (m.sections?.length) {
+    // a route read from a drawing: its own design and ground lines (drawn offsets are + to the right)
+    for (const sec of m.sections) {
+      const p = f.at(sec.station)
+      const pt = (o: number, z: number): [number, number, number] => [p.x + p.dy * o - f.origin[0], p.y - p.dx * o - f.origin[1], z]
+      lines.push(sec.design.map(([o, z]) => pt(o, z)))
+      grounds.push(sec.ground.map(([o, z]) => pt(o, z)))
+    }
+  } else for (let x = m.alignment.start; x <= m.alignment.end; x += 20) {
     const p = f.at(x)
     const pt = (o: number, z: number): [number, number, number] => [p.x - p.dy * o - f.origin[0], p.y + p.dx * o - f.origin[1], z]
     lines.push(template(m, x, f).map((q) => pt(q.o, q.z)))
     const wy = m.params.bottomWidth / 2 + m.params.sideSlope * hy.y, wz = interp(m.invert, x) + hy.y
     water.push([pt(wy, wz), pt(-wy, wz)])
   }
-  const zRef = Math.min(...m.invert.map(([, z]) => z))
+  const zRef = Math.min(...m.invert.map(([, z]) => z), ...grounds.flat().map((q) => q[2]))
   // isometric: x along, y across, z up (exaggerated)
   const iso = ([x, y, z]: [number, number, number]) => [x * 0.87 - y * 0.87, x * 0.5 + y * 0.5 - (z - zRef) * ve * 6] as const
   const all = lines.flat().map(iso)
@@ -84,10 +93,15 @@ function Wireframe() {
     <svg viewBox={`${x0} ${y0} ${x1 - x0} ${y1 - y0}`} width="100%" height="100%" role="img" aria-label="Corridor wireframe">
       {lines.map((l, i) => <path key={i} d={path(l)} className={s.wire} />)}
       {water.map((l, i) => <path key={'w' + i} d={path(l)} className={s.wireWater} />)}
-      <path d={path(lines.map((l) => l[4]))} className={s.wire} />
-      <path d={path(lines.map((l) => l[5]))} className={s.wire} />
-      <path d={path(lines.map((l) => l[0]))} className={s.wireGround} />
-      <path d={path(lines.map((l) => l[l.length - 1]))} className={s.wireGround} />
+      {grounds.map((l, i) => <path key={'g' + i} d={path(l)} className={s.wireGround} />)}
+      {!grounds.length && (
+        <>
+          <path d={path(lines.map((l) => l[4]))} className={s.wire} />
+          <path d={path(lines.map((l) => l[5]))} className={s.wire} />
+          <path d={path(lines.map((l) => l[0]))} className={s.wireGround} />
+          <path d={path(lines.map((l) => l[l.length - 1]))} className={s.wireGround} />
+        </>
+      )}
     </svg>
   )
 }

@@ -1,5 +1,5 @@
 import { fmt, useT } from '../../i18n'
-import { groundOf, hydraulics, interp, segments, sta, type CivilModel, type CivilNote } from '../../civil/model'
+import { groundOf, hydraulics, interp, sectionNear, segments, sta, type CivilModel, type CivilNote, type DrawnSection } from '../../civil/model'
 import { crossLine } from '../../civil/tin'
 import { tinOf } from '../../civil/surveyModel'
 import s from './Civil.module.css'
@@ -37,16 +37,19 @@ export interface ChartTool {
 export function ProfileChart({ m, w, h, station, onStation, tool, range }: { m: CivilModel; w: number; h: number; station: number; onStation: (s: number) => void; tool?: ChartTool; range?: [number, number] | null }) {
   const T = useT().civil
   const t = T.profile
-  const { H } = hydraulics(m)
+  const hy = hydraulics(m)
+  const { H } = hy
   const pad = { l: 44, r: 10, t: 10, b: 24 }
   const s0 = range?.[0] ?? m.alignment.start, s1 = range?.[1] ?? m.alignment.end
   const EG = groundOf(m)
-  const zs = [...EG.map(([, z]) => z), ...m.invert.map(([, z]) => z), ...m.invert.map(([, z]) => z + H)]
+  // top of bank: the drawn design banks (route from a drawing), else invert + section depth
+  const banks = [m.banks?.left, m.banks?.right].filter((b): b is [number, number][] => !!b && b.length >= 2)
+  const zs = [...EG.map(([, z]) => z), ...m.invert.map(([, z]) => z), ...(banks.length ? banks.flat().map(([, z]) => z) : m.invert.map(([, z]) => z + H))]
   const zmin = Math.floor(Math.min(...zs) - 0.5), zmax = Math.ceil(Math.max(...zs) + 0.8)
   const X = (st: number) => pad.l + ((st - s0) / (s1 - s0)) * (w - pad.l - pad.r)
   const Y = (z: number) => pad.t + ((zmax - z) / (zmax - zmin)) * (h - pad.t - pad.b)
   const line = (pts: [number, number][]) => pts.map(([a, b], i) => `${i ? 'L' : 'M'}${X(a).toFixed(1)},${Y(b).toFixed(1)}`).join(' ')
-  const tob = m.invert.map(([a, b]) => [a, b + H] as [number, number])
+  const tobs = banks.length ? banks : [m.invert.map(([a, b]) => [a, b + H] as [number, number])]
   const flat = segments(m.invert).filter((g) => g.slope < m.params.slopeMin)
   const yTicks: number[] = []
   const stepZ = zmax - zmin > 8 ? 2 : 1
@@ -63,7 +66,7 @@ export function ProfileChart({ m, w, h, station, onStation, tool, range }: { m: 
         if (st >= s0 && st <= s1) tool.onPoint(Math.round(st * 10) / 10, Math.round(z * 1000) / 1000)
         return
       }
-      if (st >= s0 && st <= s1) onStation(Math.round(st / 20) * 20)
+      if (st >= s0 && st <= s1) onStation(m.sections?.length ? sectionNear(m, st)!.station : Math.round(st / 20) * 20)
     }}>
       {yTicks.map((z) => (
         <g key={z}>
@@ -78,12 +81,13 @@ export function ProfileChart({ m, w, h, station, onStation, tool, range }: { m: 
         </g>
       ))}
       <text x={12} y={(h - pad.b) / 2 + pad.t} className={s.axis} transform={`rotate(-90 12 ${(h - pad.b) / 2 + pad.t})`} textAnchor="middle">{t.elev}</text>
-      <path d={`${line(m.invert)} L${X(s1)},${Y(interp(m.invert, s1) + hydraulics(m).y)} ${m.invert.slice().reverse().map(([a, b]) => `L${X(a).toFixed(1)},${Y(b + hydraulics(m).y).toFixed(1)}`).join(' ')} Z`} className={s.water} />
+      {hy.ok && <path d={`${line(m.invert)} L${X(s1)},${Y(interp(m.invert, s1) + hy.y)} ${m.invert.slice().reverse().map(([a, b]) => `L${X(a).toFixed(1)},${Y(b + hy.y).toFixed(1)}`).join(' ')} Z`} className={s.water} />}
       <defs>
         <clipPath id="profClip"><rect x={pad.l} y={pad.t} width={w - pad.l - pad.r} height={h - pad.t - pad.b} /></clipPath>
       </defs>
       <path d={line(EG)} className={s.eg} clipPath="url(#profClip)" />
-      <path d={line(tob)} className={s.tob} clipPath="url(#profClip)" />
+      {tobs.map((tb, i) => <path key={i} d={line(tb)} className={s.tob} clipPath="url(#profClip)" />)}
+      {(m.sections ?? []).map((x) => <line key={x.name} x1={X(x.station)} x2={X(x.station)} y1={h - pad.b} y2={h - pad.b - 5} className={s.tick} stroke="currentColor" />)}
       <path d={line(m.invert)} className={s.dg} clipPath="url(#profClip)" />
       {flat.map((g) => <path key={g.from} d={line([[g.from, interp(m.invert, g.from)], [g.to, interp(m.invert, g.to)]])} className={s.flat}><title>{`${sta(g.from)}–${sta(g.to)}: ${t.flat}`}</title></path>)}
       {m.culverts.map((c) => (
@@ -107,8 +111,103 @@ export function ProfileChart({ m, w, h, station, onStation, tool, range }: { m: 
   )
 }
 
-/** Trapezoidal cross section at a station: design section, normal-depth water, existing ground and dimensions. */
+/** Cross section at a station: the drawn section nearest it (route read from a drawing), else the typical one. */
 export function SectionChart({ m, w, h, station, tool }: { m: CivilModel; w: number; h: number; station: number; tool?: ChartTool }) {
+  const drawn = sectionNear(m, station)
+  if (drawn) return <DrawnSectionChart m={m} sec={drawn} w={w} h={h} tool={tool} />
+  return <TypicalSectionChart m={m} w={w} h={h} station={station} tool={tool} />
+}
+
+/**
+ * A cross section read from a drawing: its ground and design lines as drawn, cut (ground above the final surface)
+ * and fill (below it) shaded, the computed areas next to the designer's own. Undistorted unless very flat.
+ */
+export function DrawnSectionChart({ m, sec, w, h, tool }: { m: CivilModel; sec: DrawnSection; w: number; h: number; tool?: ChartTool }) {
+  const t = useT().civil.fromCad
+  const pts = [...sec.ground, ...sec.design]
+  const o0 = Math.min(...pts.map(([o]) => o)), o1 = Math.max(...pts.map(([o]) => o))
+  const z0 = Math.min(...pts.map(([, z]) => z)) - 0.5, z1 = Math.max(...pts.map(([, z]) => z)) + 1.2
+  const sx = (w - 50) / Math.max(1, o1 - o0)
+  const sy = Math.min((h - 40) / (z1 - z0), sx * 5)
+  const X = (o: number) => 30 + (o - o0) * sx
+  const Y = (z: number) => h - 22 - (z - z0) * sy
+  const path = (p: [number, number][]) => p.map(([o, z], i) => `${i ? 'L' : 'M'}${X(o).toFixed(1)},${Y(z).toFixed(1)}`).join(' ')
+  // shading: sample ground and final surface every 5 cm
+  const seg = (p: [number, number][]) => p.slice(1).map((q, i) => [p[i][0], p[i][1], q[0], q[1]] as const)
+  const at = (sg: readonly (readonly [number, number, number, number])[], o: number) => {
+    let best: number | null = null
+    for (const [a, za, b, zb] of sg) { const lo = Math.min(a, b), hi = Math.max(a, b); if (o < lo || o > hi) continue; const z = hi - lo < 1e-9 ? Math.max(za, zb) : za + ((zb - za) * (o - a)) / (b - a); if (best === null || z > best) best = z }
+    return best
+  }
+  const gs = seg(sec.ground), ds = seg(sec.design)
+  const cuts: string[] = [], fills: string[] = []
+  for (let o = o0; o < o1; o += 0.05) {
+    const g = at(gs, o + 0.025), d = at(ds, o + 0.025)
+    if (g === null || d === null || Math.abs(g - d) < 1e-3) continue
+    ;(g > d ? cuts : fills).push(`M${X(o).toFixed(1)},${Y(Math.max(g, d)).toFixed(1)}h${(0.05 * sx).toFixed(2)}V${Y(Math.min(g, d)).toFixed(1)}h${(-0.05 * sx).toFixed(2)}Z`)
+  }
+  const n2 = (v?: number) => (v === undefined ? '—' : `${v.toFixed(2)} m²`)
+  return (
+    <svg className={`${s.chart} ${tool?.active ? s.chartTool : ''}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`Cross section ${sec.name} ${sta(sec.station)}`} data-testid="section-chart" data-section={sec.name} onClick={(e) => {
+      if (!tool?.active) return
+      const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+      tool.onPoint(Math.round((o0 + (e.clientX - r.left - 30) / sx) * 100) / 100, Math.round((z0 + (h - 22 - (e.clientY - r.top)) / sy) * 1000) / 1000)
+    }}>
+      <path d={cuts.join('')} className={s.cutArea} />
+      <path d={fills.join('')} className={s.fillArea} />
+      <path d={path(sec.ground)} className={s.egLine} fill="none" data-testid="section-drawn-ground" />
+      <path d={path(sec.design)} className={s.secLine} fill="none" data-testid="section-drawn-design" />
+      <line x1={X(0)} x2={X(0)} y1={Y(z1) + 4} y2={Y(z0)} className={s.ext} strokeDasharray="4 3" />
+      <text x={X(0) + 4} y={Y(z0) - 4} className={s.slope}>{t.axis}</text>
+      <g className={s.dim}>
+        <text x={8} y={14}>{`${sec.name} · ${fmt(t.km, { sta: sta(sec.station) })}`}</text>
+        <text x={8} y={28}>{fmt(t.areas, { cut: n2(sec.cut), fill: n2(sec.fill) })}</text>
+        {sec.drawn && <text x={8} y={42}>{fmt(t.drawnAreas, { cut: n2(sec.drawn.cut), fill: n2(sec.drawn.fill) })}</text>}
+      </g>
+      <text x={w - 6} y={h - 3} className={s.slope} textAnchor="end">V:H = {(sy / sx).toFixed(1)}:1</text>
+      <Notes notes={(m.notes ?? []).filter((n) => n.view === 'section' && n.station === sec.station)} X={X} Y={Y} pending={tool?.pending} label={(n) => { const l = Math.hypot(n.b![0] - n.a[0], 0), dz = n.b![1] - n.a[1]; return `${Math.hypot(l, dz).toFixed(2)} m · Δz ${dz.toFixed(2)} m` }} />
+    </svg>
+  )
+}
+
+/**
+ * Plan of a route read from long profile + cross sections: no plan coordinates exist in such a set, so the route is
+ * drawn straight by chainage, with the width between the outer design edges at each section and the stakes.
+ */
+export function RouteStrip({ m, w, h, station, onStation }: { m: CivilModel; w: number; h: number; station: number; onStation: (s: number) => void }) {
+  const t = useT().civil.fromCad
+  const secs = m.sections ?? []
+  const s0 = m.alignment.start, s1 = m.alignment.end
+  const half = Math.max(5, ...secs.flatMap((x) => x.design.map(([o]) => Math.abs(o))))
+  const X = (st: number) => 30 + ((st - s0) / Math.max(1, s1 - s0)) * (w - 60)
+  const k = Math.min((h - 90) / (2 * half), 8)
+  const cy = h / 2
+  const Y = (o: number) => cy - o * k
+  const edge = (side: 1 | -1) => secs.map((x) => { const ds = x.design.map(([o]) => o).filter((o) => o * side > 0); const o = ds.length ? (side > 0 ? Math.max(...ds) : Math.min(...ds)) : 0; return `${X(x.station).toFixed(1)},${Y(o).toFixed(1)}` })
+  return (
+    <svg className={s.chart} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={t.strip} data-testid="route-strip" onClick={(e) => {
+      const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+      const st = s0 + ((e.clientX - r.left - 30) / (w - 60)) * (s1 - s0)
+      const near = sectionNear(m, st)
+      if (near) onStation(near.station)
+    }}>
+      <polygon points={[...edge(1), ...edge(-1).reverse()].join(' ')} className={s.fillArea} />
+      <line x1={X(s0)} x2={X(s1)} y1={cy} y2={cy} className={s.dg} />
+      {secs.map((x) => (
+        <g key={x.name}>
+          <line x1={X(x.station)} x2={X(x.station)} y1={cy - 6} y2={cy + 6} className={s.tob} />
+          <text x={X(x.station)} y={cy + 20} textAnchor="middle" className={s.tick}>{x.name}</text>
+        </g>
+      ))}
+      <line x1={X(station)} x2={X(station)} y1={20} y2={h - 30} className={s.cursor} />
+      <text x={8} y={16} className={s.label}>{`${m.alignment.name} · ${fmt(t.km, { sta: sta(s0) })} – ${sta(s1)}`}</text>
+      <text x={8} y={h - 8} className={s.slope}>{t.stripNote}</text>
+    </svg>
+  )
+}
+
+/** Trapezoidal cross section at a station: design section, normal-depth water, existing ground and dimensions. */
+function TypicalSectionChart({ m, w, h, station, tool }: { m: CivilModel; w: number; h: number; station: number; tool?: ChartTool }) {
   const hy = hydraulics(m)
   const { bottomWidth: b, sideSlope: k } = m.params
   const H = hy.H

@@ -59,6 +59,25 @@ export interface CivilModel {
   /** Notes and measured dimensions placed on the profile (x = station, z = elevation) or a cross section
    *  (x = offset from the centre line, z = elevation; `station` = which section). */
   notes?: CivilNote[]
+  /** Cross sections read from a CAD drawing (station, ground and design lines, computed and drawn areas): when
+   *  present they replace the typical section in the earthwork, the section view and the 3D corridor. */
+  sections?: DrawnSection[]
+  /** Design top of bank along the route (left / right, m), from the long profile. */
+  banks?: { left?: Profile; right?: Profile }
+  /** Where the route came from (file, route name), shown in the UI. */
+  source?: { file: string; route: string }
+}
+
+export interface DrawnSection {
+  name: string
+  station: number
+  /** [offset (m, + right of the design centre line), elevation (m)]. */
+  ground: [number, number][]
+  design: [number, number][]
+  cut: number
+  fill: number
+  /** Areas written by the designer next to the section (m²). */
+  drawn?: { cut?: number; fill?: number }
 }
 
 export interface CivilNote {
@@ -141,17 +160,34 @@ export function normalDepth(p: DesignParams, S: number): number {
   return (lo + hi) / 2
 }
 
-/** Governing (design) slope for the typical section: the mid-length grade. */
-export const typicalSlope = (m: CivilModel) => (interp(m.invert, 250) - interp(m.invert, 480)) / 230
+/** Governing (design) slope for the typical section: the mid-length grade (sample); over the whole route for a
+ *  route read from a drawing. */
+export const typicalSlope = (m: CivilModel) =>
+  m.sections ? (m.invert[0][1] - m.invert[m.invert.length - 1][1]) / Math.max(1e-9, m.invert[m.invert.length - 1][0] - m.invert[0][0]) : (interp(m.invert, 250) - interp(m.invert, 480)) / 230
 
+/**
+ * Normal-depth hydraulics of the typical section. `ok` is false when there is no flow to compute (a flat or
+ * adverse invert — e.g. a dredged canal drawn with a level bottom); H is then the drawn bank depth.
+ */
 export function hydraulics(m: CivilModel, S = typicalSlope(m)) {
   const p = m.params
+  if (!(S > 1e-7)) {
+    const H = bankDepth(m) ?? p.freeboard
+    return { S, y: 0, v: 0, fr: 0, A: 0, H, top: p.bottomWidth + 2 * p.sideSlope * H, ok: false as boolean }
+  }
   const y = normalDepth(p, S)
   const sec = section(p.bottomWidth, p.sideSlope, y)
   const v = p.discharge / sec.A
   const fr = v / Math.sqrt(9.81 * (sec.A / sec.T))
   const H = Math.ceil((y + p.freeboard) * 20) / 20 // section depth rounded up to 0.05 m
-  return { S, y, v, fr, A: sec.A, H, top: p.bottomWidth + 2 * p.sideSlope * H }
+  return { S, y, v, fr, A: sec.A, H, top: p.bottomWidth + 2 * p.sideSlope * H, ok: true as boolean }
+}
+
+/** Mean design bank height above the invert along the route (from the long profile), null without banks. */
+export function bankDepth(m: CivilModel): number | null {
+  const b = [...(m.banks?.left ?? []), ...(m.banks?.right ?? [])]
+  if (!b.length) return null
+  return b.reduce((a, [s, z]) => a + (z - interp(m.invert, s)), 0) / b.length
 }
 
 /* ---------------- earthwork ---------------- */
@@ -213,6 +249,7 @@ export interface EarthRow {
 
 /** Average-end-area volumes per 100 m, integrated on 20 m sections. */
 export function earthwork(m: CivilModel, step = 100): EarthRow[] {
+  if (m.sections && m.sections.length >= 2) return sectionEarthwork(m.sections, step)
   const { H } = hydraulics(m)
   const rows: EarthRow[] = []
   for (let a = m.alignment.start; a < m.alignment.end; a += step) {
@@ -228,6 +265,37 @@ export function earthwork(m: CivilModel, step = 100): EarthRow[] {
   }
   return rows
 }
+
+/**
+ * Average-end-area volumes between the drawn sections, reported per `step` metres: a stretch crossing a row
+ * boundary is split with the areas interpolated linearly at the boundary.
+ */
+export function sectionEarthwork(sections: DrawnSection[], step = 100): EarthRow[] {
+  const s = [...sections].sort((a, b) => a.station - b.station)
+  const start = s[0].station, end = s[s.length - 1].station
+  const areaAt = (x: number, k: 'cut' | 'fill') => {
+    for (let i = 1; i < s.length; i++)
+      if (x <= s[i].station) return s[i - 1][k] + ((s[i][k] - s[i - 1][k]) * (x - s[i - 1].station)) / Math.max(1e-9, s[i].station - s[i - 1].station)
+    return s[s.length - 1][k]
+  }
+  const rows: EarthRow[] = []
+  for (let a = Math.floor(start / step) * step; a < end; a += step) {
+    const lo = Math.max(a, start), hi = Math.min(a + step, end)
+    if (hi <= lo) continue
+    const cuts = [lo, ...s.map((x) => x.station).filter((x) => x > lo && x < hi), hi]
+    let cut = 0, fill = 0
+    for (let i = 1; i < cuts.length; i++) {
+      const L = cuts[i] - cuts[i - 1]
+      cut += ((areaAt(cuts[i - 1], 'cut') + areaAt(cuts[i], 'cut')) / 2) * L
+      fill += ((areaAt(cuts[i - 1], 'fill') + areaAt(cuts[i], 'fill')) / 2) * L
+    }
+    rows.push({ from: lo, to: hi, length: hi - lo, cut, fill, net: cut - fill })
+  }
+  return rows
+}
+
+/** The drawn section nearest a station. */
+export const sectionNear = (m: CivilModel, st: number) => (m.sections ?? []).reduce<DrawnSection | null>((b, x) => (!b || Math.abs(x.station - st) < Math.abs(b.station - st) ? x : b), null)
 
 export function liningQuantities(m: CivilModel) {
   const { H } = hydraulics(m)
@@ -267,7 +335,7 @@ export function narrowerOption(m: CivilModel) {
   const alt: CivilModel = { ...m, params: { ...m.params, bottomWidth: b } }
   const cut0 = earthwork(m).reduce((a, r) => a + r.cut + r.fill, 0)
   const cut1 = earthwork(alt).reduce((a, r) => a + r.cut + r.fill, 0)
-  return { b, saving: (cut0 - cut1) / cut0, alt: hydraulics(alt) }
+  return { b, saving: cut0 > 0 ? (cut0 - cut1) / cut0 : 0, alt: hydraulics(alt) }
 }
 
 export const sta = (s: number) => `${Math.floor(s / 1000)}+${String(Math.round(s % 1000)).padStart(3, '0')}`

@@ -62,7 +62,55 @@ export function template(m: CivilModel, s: number, f: CorridorFrame): { o: numbe
   return [L, { o: half + CREST, z: crestZ }, { o: half, z: crestZ }, { o: half, z: inv + H }, { o: b / 2, z: inv }, { o: -b / 2, z: inv }, { o: -half, z: inv + H }, { o: -half, z: crestZ }, { o: -(half + CREST), z: crestZ }, R]
 }
 
-export function civilScene(m: CivilModel, ve = 3, step = 10): Scene & { stats: { stations: number; triangles: number; terrain: 'survey' | 'sample' } } {
+/**
+ * Corridor of a route read from a drawing: the existing ground and the design surface lofted between consecutive
+ * drawn cross sections (strips at every vertex offset of either section, across their common width). Straight by chainage unless a
+ * plan alignment exists. No water: such a drawing gives no discharge.
+ */
+function drawnScene(m: CivilModel, ve: number): Scene & { stats: { stations: number; triangles: number; terrain: 'survey' | 'sample' | 'drawing' } } {
+  const secs = [...(m.sections ?? [])].sort((a, b) => a.station - b.station)
+  const f = corridorFrame(m, null)
+  const [ox, oy] = f.origin
+  const zRef = Math.min(...secs.flatMap((x) => [...x.ground, ...x.design].map(([, z]) => z))) - 1
+  // drawn offsets are + to the right; the frame's are + to the left
+  const world = (st: number, o: number, z: number): number[] => {
+    const p = f.at(st)
+    return [(p.x + p.dy * o - ox) * 1000, (p.y - p.dx * o - oy) * 1000, (z - zRef) * ve * 1000]
+  }
+  const zAt = (line: [number, number][], o: number) => {
+    if (o <= line[0][0]) return line[0][1]
+    for (let i = 1; i < line.length; i++) if (o <= line[i][0]) { const [a, za] = line[i - 1], [b, zb] = line[i]; return b - a < 1e-9 ? Math.max(za, zb) : za + ((zb - za) * (o - a)) / (b - a) }
+    return line[line.length - 1][1]
+  }
+  const range = (l: [number, number][]) => [Math.min(...l.map(([o]) => o)), Math.max(...l.map(([o]) => o))] as const
+  const terrain: number[] = [], design: number[] = []
+  const quad = (out: number[], a: number[], b: number[], c: number[], d: number[]) => out.push(...a, ...b, ...c, ...a, ...c, ...d)
+  const loft = (out: number[], A: (typeof secs)[number], B: (typeof secs)[number], pick: (x: (typeof secs)[number]) => [number, number][], dz = 0) => {
+    const la = pick(A), lb = pick(B)
+    if (la.length < 2 || lb.length < 2) return
+    const [a0, a1] = range(la), [b0, b1] = range(lb)
+    const lo = Math.max(a0, b0), hi = Math.min(a1, b1)
+    // strips at every vertex of either line: exact for piecewise-linear sections, and few triangles
+    const cuts = [...new Set([lo, hi, ...la.map(([o]) => o), ...lb.map(([o]) => o)].filter((o) => o >= lo && o <= hi).map((o) => Math.round(o * 1000) / 1000))].sort((x, y) => x - y)
+    for (let j = 1; j < cuts.length; j++) {
+      const o = cuts[j - 1], o2 = cuts[j]
+      if (o2 - o < 1e-3) continue
+      quad(out, world(A.station, o, zAt(la, o) + dz), world(B.station, o, zAt(lb, o) + dz), world(B.station, o2, zAt(lb, o2) + dz), world(A.station, o2, zAt(la, o2) + dz))
+    }
+  }
+  for (let i = 1; i < secs.length; i++) {
+    loft(terrain, secs[i - 1], secs[i], (x) => x.ground, -0.02)
+    loft(design, secs[i - 1], secs[i], (x) => x.design)
+  }
+  const items: Scene['items'] = [
+    { id: 'terrain', rgb: hex('#9fae7f'), transparency: 0.35, parts: [{ k: 'mesh', o: [0, 0, 0], s: [0, 0, 0], tri: terrain }] },
+    { id: 'banks', rgb: hex('#c8b98f'), parts: [{ k: 'mesh', o: [0, 0, 0], s: [0, 0, 0], tri: design }] },
+  ]
+  return { items, stats: { stations: secs.length, triangles: (terrain.length + design.length) / 9, terrain: 'drawing' } }
+}
+
+export function civilScene(m: CivilModel, ve = 3, step = 10): Scene & { stats: { stations: number; triangles: number; terrain: 'survey' | 'sample' | 'drawing' } } {
+  if (m.sections && m.sections.length >= 2) return drawnScene(m, ve)
   const tin = tinOf(m)
   const f = corridorFrame(m, tin)
   const [ox, oy] = f.origin

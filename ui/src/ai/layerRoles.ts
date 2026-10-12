@@ -13,12 +13,12 @@ import { LAYER_ROLES, type LayerRole, type LayerStat } from '../bim/fromCad'
 const lit = (s: string) => JSON.stringify(JSON.stringify(s))
 
 /** GBNF for {"layers":[{"name": <layer>, "role": <role>}, …]}. */
-export function layerGrammar(names: string[]): string {
+export function layerGrammar(names: string[], roles: readonly string[] = LAYER_ROLES): string {
   return [
     `root ::= "{" ws "\\"layers\\"" ws ":" ws "[" ws item ( ws "," ws item )* ws "]" ws "}"`,
     `item ::= "{" ws "\\"name\\"" ws ":" ws name ws "," ws "\\"role\\"" ws ":" ws role ws "}"`,
     `name ::= ${names.map(lit).join(' | ')}`,
-    `role ::= ${LAYER_ROLES.map(lit).join(' | ')}`,
+    `role ::= ${roles.map(lit).join(' | ')}`,
     `ws ::= [ \\t\\n]{0,4}`,
   ].join('\n')
 }
@@ -45,14 +45,14 @@ export function layerFacts(stats: LayerStat[]): string {
 }
 
 /** Parses the reply into role suggestions for known layers (anything else is ignored). */
-export function parseLayerRoles(text: string, names: string[]): Record<string, LayerRole> {
+export function parseLayerRoles<R extends string = LayerRole>(text: string, names: string[], roles: readonly string[] = LAYER_ROLES): Record<string, R> {
   const i = text.indexOf('{'), j = text.lastIndexOf('}')
   if (i < 0 || j <= i) return {}
   try {
     const v = JSON.parse(text.slice(i, j + 1)) as { layers?: { name?: unknown; role?: unknown }[] }
-    const out: Record<string, LayerRole> = {}
+    const out: Record<string, R> = {}
     for (const x of v.layers ?? [])
-      if (typeof x.name === 'string' && names.includes(x.name) && typeof x.role === 'string' && (LAYER_ROLES as string[]).includes(x.role)) out[x.name] = x.role as LayerRole
+      if (typeof x.name === 'string' && names.includes(x.name) && typeof x.role === 'string' && roles.includes(x.role)) out[x.name] = x.role as R
     return out
   } catch {
     return {}
@@ -74,4 +74,28 @@ export async function suggestLayerRoles(host: HostApi, stats: LayerStat[]): Prom
   if (!r.ok) return { roles: {}, seconds: r.seconds, model: r.model, error: r.error ?? 'no reply' }
   const roles = parseLayerRoles(r.text, names)
   return { roles, seconds: r.seconds, model: r.model, ...(Object.keys(roles).length ? {} : { error: 'reply was not a valid layer list' }) }
+}
+
+const CIVIL_SYSTEM = `You classify the layers of Vietnamese canal / road design drawings (long profile "trắc dọc" and cross sections "trắc ngang").
+Roles: ground (the natural / existing ground line of the cross sections: "mặt đất tự nhiên", "hiện trạng", "TN"), design (the design section line:
+"thiết kế", "TK", "mặt cắt thiết kế"), ignore (everything else: hatches, dimensions, frames, texts, grid / drop lines "đường dóng", scales, titles,
+plans, existing structures, roads "đường hiện trạng").
+Answer only JSON: {"layers":[{"name":"…","role":"…"}]} with every listed layer exactly once.`
+
+export interface CivilLayerFacts {
+  name: string
+  lines: number
+  texts: string[]
+}
+
+/** Ground / design roles of the line layers of a canal or road drawing (grammar-constrained). */
+export async function suggestCivilRoles(host: HostApi, layers: CivilLayerFacts[]): Promise<{ roles: Record<string, 'ground' | 'design' | 'ignore'>; seconds: number; model?: string; error?: string }> {
+  const pick = layers.slice(0, 60)
+  const names = pick.map((l) => l.name)
+  const roles = ['ground', 'design', 'ignore'] as const
+  const facts = pick.map((l) => `- ${JSON.stringify(l.name)}: ${l.lines} lines${l.texts.length ? `; texts: ${l.texts.map((t) => JSON.stringify(t.slice(0, 24))).join(' ')}` : ''}`).join('\n')
+  const r = await task(host, CIVIL_SYSTEM, `Layers:\n${facts}`, layerGrammar(names, roles), Math.min(1800, 40 + 22 * names.length))
+  if (!r.ok) return { roles: {}, seconds: r.seconds, model: r.model, error: r.error ?? 'no reply' }
+  const out = parseLayerRoles<'ground' | 'design' | 'ignore'>(r.text, names, roles)
+  return { roles: out, seconds: r.seconds, model: r.model, ...(Object.keys(out).length ? {} : { error: 'reply was not a valid layer list' }) }
 }

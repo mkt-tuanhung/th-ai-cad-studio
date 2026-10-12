@@ -84,9 +84,11 @@ function Hydraulics() {
       <PRow label={p.q}><NumField label={p.q} value={doc.params.discharge} min={0.01} max={500} onCommit={(v) => up(p.q, { discharge: v })} unit="m³/s" /></PRow>
       <PRow label={p.n}><NumField label={p.n} value={doc.params.manningN} min={0.009} max={0.05} onCommit={(v) => up(p.n, { manningN: v })} /></PRow>
       <PRow label={p.s}><span>{h.S.toFixed(4)}</span></PRow>
-      <PRow label={p.y}><span>{h.y.toFixed(2)} m</span></PRow>
-      <PRow label={p.v}><span>{h.v.toFixed(2)} m/s</span></PRow>
-      <PRow label={p.fr}><span>{h.fr.toFixed(2)}</span></PRow>
+      {/* no flow to compute (level bottom from a drawing): no normal depth, velocity or Froude number */}
+      <PRow label={p.y}><span>{h.ok ? `${h.y.toFixed(2)} m` : '—'}</span></PRow>
+      <PRow label={p.v}><span>{h.ok ? `${h.v.toFixed(2)} m/s` : '—'}</span></PRow>
+      <PRow label={p.fr}><span>{h.ok ? h.fr.toFixed(2) : '—'}</span></PRow>
+      {!h.ok && <p style={{ margin: '4px 10px', fontSize: 11, color: '#8a4b00' }} data-testid="civil-noflow">{t.fromCad.noFlow}</p>}
       <PRow label={p.depth}><span>{h.H.toFixed(2)} m</span></PRow>
       <PRow label={p.top}><span>{h.top.toFixed(2)} m</span></PRow>
     </Section>
@@ -172,6 +174,7 @@ function AiCard() {
   if (!aiOpen) return null
   const k = checks(doc)
   const opt = narrowerOption(doc)
+  const flow = k.h.ok
   const bad = [!k.velocityOk && 'velocity', !k.froudeOk && 'Froude', !k.freeboardOk && 'freeboard', k.steep.length && 'slope max'].filter(Boolean).join(', ')
   const pct = Math.round(opt.saving * 100)
   const items = [
@@ -186,9 +189,9 @@ function AiCard() {
     },
     {
       tab: 'check' as CivilAiTab,
-      tone: bad ? 'warn' : 'ok',
+      tone: !flow || bad ? 'warn' : 'ok',
       title: a.complianceTitle,
-      lines: [bad ? fmt(a.complianceBad, { what: bad }) : fmt(a.complianceOk, { v: k.h.v.toFixed(2), fr: k.h.fr.toFixed(2), fb: doc.params.freeboard.toFixed(2) })],
+      lines: [!flow ? t.fromCad.noFlow : bad ? fmt(a.complianceBad, { what: bad }) : fmt(a.complianceOk, { v: k.h.v.toFixed(2), fr: k.h.fr.toFixed(2), fb: doc.params.freeboard.toFixed(2) })],
       onClick: () => set({ view: 'section' }),
     },
     {
@@ -202,6 +205,8 @@ function AiCard() {
       },
     },
   ]
+  // a route from a drawing has fixed drawn sections: a narrower bottom would not change its earthwork
+  const shown = doc.sections ? items.filter((it) => it.tab !== 'optimize') : items
   return (
     <section className={s.ai} aria-label={a.title}>
       <header>
@@ -215,7 +220,7 @@ function AiCard() {
           <button key={k2} type="button" role="tab" aria-selected={aiTab === k2} className={aiTab === k2 ? s.aiTabOn : undefined} onClick={() => set({ aiTab: k2 })}>{a.tabs[k2]}</button>
         ))}
       </div>
-      {items.map((it) => (
+      {shown.map((it) => (
         <button key={it.title} type="button" className={`${s.aiItem} ${s[`t_${it.tone}`]} ${it.tab === aiTab ? s.aiItemOn : ''}`} onClick={it.onClick} title={it.tab === 'optimize' ? a.apply : undefined}>
           <span className={s.aiIcon}>{it.tone === 'err' || it.tone === 'warn' ? <AlertTriangle size={17} /> : it.tone === 'ok' ? <CheckCircle2 size={18} /> : <Lightbulb size={17} />}</span>
           <span className={s.aiText}>

@@ -1,0 +1,42 @@
+{
+ "note": "SYNTHETIC — ui/tools/make-route-fixtures.mjs; areas exact (analytic), volumes by average end areas.",
+ "route": "kênh mẫu 1, l=150m",
+ "sections": [
+  {
+   "name": "C1",
+   "station": 0,
+   "cut": 4.7873,
+   "fill": 5.4923,
+   "tableError": false,
+   "verticalTable": false
+  },
+  {
+   "name": "C2",
+   "station": 50,
+   "cut": 4.6566,
+   "fill": 6.0454,
+   "tableError": false,
+   "verticalTable": false
+  },
+  {
+   "name": "C3",
+   "station": 100,
+   "cut": 3.9165,
+   "fill": 2.3827,
+   "tableError": false,
+   "verticalTable": true
+  },
+  {
+   "name": "C4",
+   "station": 150,
+   "cut": 4.0637,
+   "fill": 7.3099,
+   "tableError": true,
+   "verticalTable": false
+  }
+ ],
+ "volume": {
+  "cut": 649.93,
+  "fill": 741.46
+ }
+}
