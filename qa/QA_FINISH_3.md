@@ -130,3 +130,23 @@ Build: macOS arm64 (M1 Max). Bản Windows được build và chạy tự kiểm
 - Giọng nói thật của người qua micro thật (đã kiểm bằng giọng tổng hợp; cần anh cấp quyền micro).
 - Whisper trên Windows: chỉ chạy trên CPU, nên chậm hơn.
 - AutoCAD mở DXF / DWG có layout: đã kiểm bằng ezdxf và LibreDWG, máy này không có AutoCAD.
+
+## Bổ sung: tăng tốc GPU trên Windows (2026-10-12)
+
+**Whisper (Voice CAD)**
+- Trên Windows, whisper.cpp được build từ mã nguồn đã ghim với backend **Vulkan**. Vulkan dùng được GPU của mọi hãng (NVIDIA, AMD, Intel, kể cả GPU tích hợp Iris Xe / UHD / Radeon Vega) qua driver card màn hình.
+- Kèm mọi biến thể CPU (AVX2 / AVX-512…), nạp lúc chạy (`GGML_BACKEND_DL`). Máy không có driver Vulkan thì tự chạy CPU, không lỗi.
+
+**AI chat (llama.cpp)**
+- Dùng `ggml[vulkan]` từ vcpkg. Mô hình được đẩy toàn bộ lên GPU (`n_gpu_layers = -1`), trừ khi người dùng tắt "Dùng GPU" trong Cài đặt.
+
+**App báo đúng thiết bị đang dùng**
+- Cài đặt → AI cục bộ: "Đang chạy trên máy này — Apple M1 Max (Metal)". Trên Windows sẽ là "… (Vulkan)" hoặc "CPU".
+- Quản lý mô hình → Nhận dạng giọng nói: "Tính toán trên: …", lấy từ log của lần chạy gần nhất (kể cả lượt làm nóng).
+- Mac đã kiểm: cả hai báo "Apple M1 Max (Metal)".
+
+**CI Windows**
+- Build ggml-vulkan.dll; thiếu thì build hỏng chứ không âm thầm bỏ qua.
+- Chạy một lượt nhận dạng thật bằng mô hình tiny trên máy CI (không có GPU), để kiểm đường lùi về CPU và việc nạp backend.
+
+**Chưa kiểm được ở đây:** tốc độ trên một PC Windows có GPU thật — GitHub runner không có GPU.
