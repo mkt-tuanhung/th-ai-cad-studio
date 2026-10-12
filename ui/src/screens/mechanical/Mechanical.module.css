@@ -417,3 +417,18 @@
   font-weight: 600;
   color: #13a35f;
 }
+
+.dims {
+  position: absolute;
+  left: 50%;
+  top: 52px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  z-index: 2;
+}

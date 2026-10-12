@@ -11,6 +11,8 @@ export interface SceneLoad {
   failures?: number
   ms?: number
   volumes?: Record<string, number>
+  /** Feature-part build messages: "item: feature: reason". */
+  errors?: string[]
 }
 
 /** Camera commands for toolbars outside the view (Home / Fit / presets / zoom). */

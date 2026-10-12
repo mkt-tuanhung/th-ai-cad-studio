@@ -43,4 +43,8 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), mep: useMep }
   })
+  import('./state/mech').then(({ useMech }) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), mech: useMech }
+  })
 }

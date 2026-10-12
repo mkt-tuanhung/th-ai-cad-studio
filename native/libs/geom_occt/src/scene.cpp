@@ -60,6 +60,7 @@
 
 #include "platform_window.hpp"
 #include "solid_impl.hpp"
+#include "part_impl.hpp"
 #include <BRepBuilderAPI_Transform.hxx>
 
 namespace thcad::occt {
@@ -131,7 +132,15 @@ TopoDS_Shape build(const Prim& p) {
   return {};
 }
 
-TopoDS_Shape buildItem(const SceneItem& it, bool* failed) {
+TopoDS_Shape buildItem(const SceneItem& it, bool* failed, std::vector<std::string>* errors = nullptr) {
+  if (it.part) {
+    std::vector<std::string> errs;
+    TopoDS_Shape s = buildPart(*it.part, &errs);
+    if (!errs.empty()) *failed = true;
+    if (errors)
+      for (const auto& e : errs) errors->push_back(it.id + ": " + e);
+    return s;
+  }
   std::vector<TopoDS_Shape> parts;
   for (const auto& p : it.parts) {
     try {
@@ -227,6 +236,7 @@ std::vector<SceneItem> sceneFromJson(const json::Value& v) {
       for (const auto& p : *ps->arr()) it.parts.push_back(primFromJson(p));
     if (const json::Value* cs = io.get("cuts"); cs && cs->arr())
       for (const auto& p : *cs->arr()) it.cuts.push_back(primFromJson(p));
+    if (const json::Value* pt = io.get("part"); pt && pt->obj()) it.part = std::make_shared<PartDef>(partFromJson(*pt));
     out.push_back(std::move(it));
   }
   return out;
@@ -282,6 +292,7 @@ struct SceneView::Impl {
   double ms = 0, buildMs = 0;
   bool ok = false, fitted = false;
   std::vector<Handle(Graphic3d_ClipPlane)> clips;
+  std::vector<std::string> errors;
   // final render state
   Handle(Standard_Transient) fbo;
   RenderParams rp;
@@ -341,10 +352,11 @@ int SceneView::setItems(const std::vector<SceneItem>& items) {
   const auto t0 = std::chrono::steady_clock::now();
   for (auto& [id, e] : d->items) d->ctx->Remove(e.ais, false);
   d->items.clear();
+  d->errors.clear();
   int failures = 0;
   for (const auto& it : items) {
     bool failed = false;
-    TopoDS_Shape s = buildItem(it, &failed);
+    TopoDS_Shape s = buildItem(it, &failed, &d->errors);
     if (failed) ++failures;
     if (s.IsNull()) continue;
     Impl::Entry e;
@@ -507,6 +519,8 @@ void SceneView::setHidden(const std::vector<std::string>& ids, const std::vector
   d->applyStyle();
 }
 
+std::vector<std::string> SceneView::buildErrors() const { return d->errors; }
+
 int SceneView::visibleCount() const {
   int n = 0;
   for (const auto& [id, e] : d->items) n += d->ctx->IsDisplayed(e.ais) ? 1 : 0;
@@ -516,7 +530,7 @@ int SceneView::visibleCount() const {
 std::array<double, 6> SceneView::bounds(const std::vector<std::string>& ids) const {
   Bnd_Box b;
   for (const auto& [id, e] : d->items)
-    if (ids.empty() || std::find(ids.begin(), ids.end(), id) != ids.end()) BRepBndLib::Add(e.shape, b);
+    if (ids.empty() || std::find(ids.begin(), ids.end(), id) != ids.end()) BRepBndLib::AddOptimal(e.shape, b, false, false);
   if (b.IsVoid()) return {0, 0, 0, 0, 0, 0};
   double x0, y0, z0, x1, y1, z1;
   b.Get(x0, y0, z0, x1, y1, z1);

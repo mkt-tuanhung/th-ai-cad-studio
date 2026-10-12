@@ -9,6 +9,7 @@
  *  - nozzles: DN series (EN 1092-1) with discharge ≤ suction (ISO 5199 layout);
  *  - manufacturability: minimum sand-cast wall 6 mm.
  */
+import type { Part } from './part'
 
 import { DEFAULT_SHAFT, shaftFea, type ShaftInputs, type ShaftReport } from './fea'
 
@@ -81,6 +82,8 @@ export interface MechModel {
   bom: BomLine[]
   mates: Mate[]
   configs: { name: string; motorKw: number; active: boolean }[]
+  /** Part Studio documents (feature-based parts, mech/part.ts). */
+  parts?: Part[]
 }
 
 export function createPump(): MechModel {

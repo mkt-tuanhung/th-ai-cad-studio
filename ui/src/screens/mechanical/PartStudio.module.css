@@ -1,0 +1,354 @@
+.tree {
+  height: 100%;
+  overflow: auto;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: #1f2937;
+}
+.treeHead {
+  display: grid;
+  gap: 2px;
+  padding: 6px 4px 10px;
+  border-bottom: 1px solid #e5e9ee;
+}
+.treeHead span {
+  font-size: 11px;
+  color: #6b7280;
+}
+.tree h4 {
+  margin: 12px 4px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+.tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tree li {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto auto;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tree li:hover {
+  background: #f1f5f8;
+}
+.tree li.on {
+  background: #e6f4f2;
+  color: #0f5e57;
+}
+.tree li.off .name {
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+.tree li.bad {
+  color: #b42318;
+}
+.tree li small {
+  color: #6b7280;
+  font-size: 10.5px;
+}
+.tree li button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  color: #6b7280;
+  background: transparent;
+  cursor: pointer;
+}
+.tree li button:hover {
+  color: #111827;
+  background: #e5e9ee;
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.err {
+  grid-column: 2 / -1;
+  font-size: 11px;
+  font-style: normal;
+  color: #b42318;
+}
+.empty {
+  margin: 8px 4px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.preview {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  background: linear-gradient(180deg, #eef1f4 0%, #e1e5e9 100%);
+}
+.preview svg {
+  width: 100%;
+  height: 100%;
+  padding: 40px;
+}
+.prevShape {
+  fill: rgba(107, 114, 128, 0.18);
+  stroke: #374151;
+  stroke-width: 0.6;
+}
+.prevHole {
+  fill: #fff;
+  stroke: #374151;
+  stroke-width: 0.5;
+}
+.previewNote {
+  position: absolute;
+  left: 12px;
+  bottom: 56px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.props {
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+.props h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-size: 12.5px;
+}
+.row span {
+  color: #4b5563;
+}
+.row input,
+.row select {
+  height: 28px;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid #d5dbe2;
+  border-radius: 6px;
+  font: inherit;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  font-size: 12.5px;
+}
+.errs {
+  margin-top: 10px;
+  padding: 8px;
+  border-radius: 6px;
+  color: #7a271a;
+  background: #fef3f2;
+}
+.errs h5 {
+  margin: 0 0 4px;
+}
+.errs p {
+  margin: 2px 0;
+  font-size: 12px;
+}
+.note {
+  font-size: 12px;
+  color: #6b7280;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  color: #fff;
+  background: #0f766e;
+  cursor: pointer;
+}
+
+.sketch {
+  display: grid;
+  grid-template-columns: 560px 1fr;
+  gap: 16px;
+}
+.sketchBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.sketchBar button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe2;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.sketchBar button.on {
+  color: #fff;
+  border-color: #0f766e;
+  background: #0f766e;
+}
+.sketchBar small {
+  margin-left: 6px;
+  font-size: 11px;
+  color: #6b7280;
+}
+.canvas {
+  display: block;
+  border: 1px solid #d5dbe2;
+  border-radius: 8px;
+  background: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+.gridLine {
+  stroke: #eef1f4;
+}
+.axis {
+  stroke: #9ca3af;
+  stroke-dasharray: 4 3;
+}
+.shape {
+  fill: rgba(15, 118, 110, 0.12);
+  stroke: #0f766e;
+  stroke-width: 1.4;
+}
+.rubber {
+  fill: none;
+  stroke: #d97706;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 3;
+}
+.sketchSide {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.shapeList {
+  display: grid;
+  gap: 4px;
+  max-height: 200px;
+  overflow: auto;
+}
+.shapeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.shapeRow input {
+  width: 54px;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid #d5dbe2;
+  border-radius: 4px;
+  font: inherit;
+}
+.shapeRow b {
+  width: 64px;
+  font-weight: 600;
+}
+.shapeRow button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.actions button {
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid #d5dbe2;
+  border-radius: 6px;
+  font: inherit;
+  background: #fff;
+  cursor: pointer;
+}
+.actions .primary {
+  color: #fff;
+  border-color: #0f766e;
+  background: #0f766e;
+}
+.actions .primary:disabled {
+  opacity: 0.5;
+}
+.form {
+  display: grid;
+  gap: 4px;
+}
+
+.cam {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 16px;
+}
+.camPreview {
+  width: 100%;
+  height: 360px;
+  border: 1px solid #e3e8ee;
+  border-radius: 8px;
+  background: #fbfbfa;
+}
+.stock {
+  fill: #f1ede6;
+  stroke: #b8b0a2;
+  stroke-width: 0.4;
+}
+.mill {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 0.25;
+  opacity: 0.7;
+}
+.drill {
+  fill: #b91c1c;
+  stroke: #b91c1c;
+  stroke-width: 0.3;
+}
+.good {
+  font-size: 12px;
+  color: #027a48;
+}
+.bad {
+  font-size: 12px;
+  color: #b42318;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #eef1f4;
+}

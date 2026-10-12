@@ -25,6 +25,8 @@ export interface SceneItem {
   mat?: 'matte' | 'glossy' | 'metal' | 'glass' | 'emissive'
   parts: Prim[]
   cuts?: Prim[]
+  /** Feature-based part evaluated natively instead of parts / cuts (mech/part.ts). */
+  part?: object
 }
 
 export interface Scene {

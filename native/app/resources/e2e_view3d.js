@@ -101,6 +101,8 @@
     btn('Remove section box').click(); await nextFrame(g)
 
     // ── Mechanical ────────────────────────────────────────────────────────
+    location.hash = '#/mechanical'; await sleep(600)
+    ;[...document.querySelectorAll('[role=tab]')].find((t) => t.textContent.trim() === 'Assembly')?.click()
     f = await live('#/mechanical'); await sleep(1500); f = frame()
     aria('Isolate').click(); g = await nextFrame(f)
     check('Mechanical: Isolate the casing', g !== f && /Isolated — 1 shown/.test(chips()), chips())

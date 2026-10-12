@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { createPump, type MechModel } from '../mech/model'
 import { undoableActions, type Undoable } from './undoable'
 import { DEFAULT_SHAFT, type ShaftInputs } from '../mech/fea'
+import type { FeatureKind } from '../mech/part'
 
 export type MechMode = 'shaded' | 'wireframe' | 'hidden' | 'realistic'
 export type MechBottom = 'parameters' | 'bom' | 'mates' | 'checks'
@@ -25,6 +26,14 @@ interface MechState extends Undoable<MechModel> {
   /** Shaft FEA load / support inputs (persisted). */
   fea: ShaftInputs
   feaOpen: boolean
+  /** Part Studio: open part, selected tree node, native build results, dialogs. */
+  activePart: string | null
+  partSel: string | null
+  partErrors: string[]
+  partVolume: number | null
+  partBounds: number[] | null
+  partDialog: { kind: 'sketch' | FeatureKind; id?: string } | null
+  camOpen: boolean
   edit: (label: string, fn: (d: MechModel) => MechModel) => string | null
   undo: () => string | null
   redo: () => string | null
@@ -59,10 +68,17 @@ export const useMech = create<MechState>()(
       nativeOverlap: null,
       fea: DEFAULT_SHAFT,
       feaOpen: false,
+      activePart: null,
+      partSel: null,
+      partErrors: [],
+      partVolume: null,
+      partBounds: null,
+      partDialog: null,
+      camOpen: false,
       ...undoableActions<MechModel, MechState>(get, set, validateMech),
       set: (p) => set(p),
       reset: () => set({ doc: createPump(), undoStack: [], redoStack: [], sel: 'casing' }),
     }),
-    { name: 'thcad.mech', version: 1, partialize: (s) => ({ doc: s.doc, mode: s.mode, bottom: s.bottom, fea: s.fea }) },
+    { name: 'thcad.mech', version: 1, partialize: (s) => ({ doc: s.doc, mode: s.mode, bottom: s.bottom, fea: s.fea, tab: s.tab, activePart: s.activePart }) },
   ),
 )

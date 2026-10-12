@@ -148,3 +148,59 @@ TEST("OCCT scene: primitives build exact solids; fuse, cut, common, pick and STE
   CHECK(v.writeStep(step).empty());
   CHECK(std::filesystem::file_size(step) > 1000);
 }
+
+TEST("OCCT feature part: extrude, through hole, linear pattern, fillet, revolve, chamfer; failures are reported") {
+  auto load = [](const char* text) {
+    auto parsed = json::parse(text);
+    return occt::sceneFromJson(std::get<json::Value>(parsed));
+  };
+  // 100 × 60 × 10 plate, three Ø10 through holes 30 mm apart, vertical corners rounded r 5
+  auto items = load(R"({"items":[{"id":"plate","part":{
+    "sketches":[{"id":"s1","plane":"XY","offset":0,"shapes":[{"t":"rect","x":0,"y":0,"w":100,"h":60}]}],
+    "features":[{"id":"f1","kind":"extrude","sketch":"s1","depth":10},
+                {"id":"f2","kind":"hole","x":20,"y":30,"dia":10,"through":true},
+                {"id":"f3","kind":"pattern","source":"f2","type":"linear","count":3,"dx":30,"dy":0},
+                {"id":"f4","kind":"fillet","edges":"vertical","r":5}]}}]})");
+  auto r = occt::analyzeScene(items, false);
+  const double pi = 3.14159265358979323846;
+  const double expected = 100 * 60 * 10 - 3 * pi * 25 * 10 - 4 * (25 - pi * 25 / 4) * 10;
+  CHECK(r.items[0].built);
+  CHECK_NEAR(r.items[0].volume * 1e9, expected, 0.5);
+  // revolve a 10 × 20 rectangle on XZ about its v axis (world Z) → cylinder r 10, h 20
+  items = load(R"({"items":[{"id":"cyl","part":{"sketches":[{"id":"s","plane":"XZ","shapes":[{"t":"rect","x":0,"y":0,"w":10,"h":20}]}],
+    "features":[{"id":"f1","kind":"revolve","sketch":"s","axis":"v","angle":360}]}}]})");
+  r = occt::analyzeScene(items, false);
+  CHECK_NEAR(r.items[0].volume * 1e9, pi * 100 * 20, 0.5);
+  // chamfer the top edges of a 20 mm cube: smaller than the cube, still a valid solid
+  items = load(R"({"items":[{"id":"c","part":{"sketches":[{"id":"s","shapes":[{"t":"rect","x":0,"y":0,"w":20,"h":20}]}],
+    "features":[{"id":"f1","kind":"extrude","sketch":"s","depth":20},{"id":"f2","kind":"chamfer","edges":"top","r":2}]}}]})");
+  r = occt::analyzeScene(items, false);
+  CHECK(r.items[0].built);
+  CHECK(r.items[0].volume * 1e9 < 8000 - 100 && r.items[0].volume * 1e9 > 8000 - 200);
+  // a fillet bigger than the plate allows fails, is reported, and leaves the previous body
+  items = load(R"({"items":[{"id":"bad","part":{"sketches":[{"id":"s","shapes":[{"t":"rect","x":0,"y":0,"w":20,"h":20}]}],
+    "features":[{"id":"f1","kind":"extrude","sketch":"s","depth":5},{"id":"f2","kind":"fillet","edges":"vertical","r":15}]}}]})");
+  r = occt::analyzeScene(items, false);
+  CHECK(!r.items[0].built);
+  CHECK_NEAR(r.items[0].volume * 1e9, 2000, 0.5);
+}
+
+TEST("OCCT feature part: holes start on the material under them (counterbores in a plate below a boss)") {
+  auto parsed = json::parse(R"({"items":[{"id":"bracket","part":{
+    "sketches":[{"id":"s1","shapes":[{"t":"rect","x":0,"y":0,"w":120,"h":80}]},{"id":"s2","offset":12,"shapes":[{"t":"circle","x":60,"y":40,"r":22}]}],
+    "features":[{"id":"f1","kind":"extrude","sketch":"s1","depth":12},
+                {"id":"f2","kind":"fillet","edges":"vertical","r":6},
+                {"id":"f3","kind":"extrude","sketch":"s2","depth":18},
+                {"id":"f4","kind":"hole","x":60,"y":40,"dia":25,"through":true},
+                {"id":"f5","kind":"hole","x":15,"y":15,"dia":9,"through":true,"cbDia":15,"cbDepth":5},
+                {"id":"f6","kind":"pattern","source":"f5","type":"linear","count":2,"dx":90},
+                {"id":"f7","kind":"hole","x":15,"y":65,"dia":9,"through":true,"cbDia":15,"cbDepth":5},
+                {"id":"f8","kind":"pattern","source":"f7","type":"linear","count":2,"dx":90}]}}]})");
+  auto r = occt::analyzeScene(occt::sceneFromJson(std::get<json::Value>(parsed)), false);
+  const double pi = 3.14159265358979323846;
+  const double plate = 120 * 80 * 12 - 4 * (36 - pi * 36 / 4) * 12;
+  const double boss = pi * 22 * 22 * 18, bore = pi * 12.5 * 12.5 * 30;
+  const double mounts = 4 * (pi * 4.5 * 4.5 * 12 + pi * (7.5 * 7.5 - 4.5 * 4.5) * 5);
+  CHECK(r.items[0].built);
+  CHECK_NEAR(r.items[0].volume * 1e9, plate + boss - bore - mounts, 1.0);
+}

@@ -316,7 +316,9 @@ QJsonObject HostBridge::scene3dLoad(const QString& key, const QString& json) {
   const json::Value* wantVol = root.get("volumes");
   if (wantVol && wantVol->boolean() && *wantVol->boolean())
     for (const auto& it : items) volumes[QString::fromStdString(it.id)] = v->volumeM3(it.id);
-  return {{"ok", true}, {"items", static_cast<int>(items.size())}, {"failures", failures}, {"ms", v->lastBuildMs()}, {"volumes", volumes}};
+  QJsonArray errors;
+  for (const auto& e : v->buildErrors()) errors.append(QString::fromStdString(e));
+  return {{"ok", true}, {"items", static_cast<int>(items.size())}, {"failures", failures}, {"ms", v->lastBuildMs()}, {"volumes", volumes}, {"errors", errors}};
 }
 
 QJsonObject HostBridge::scene3dFrame(const QString& key, int w, int h, const QString& mode, const QString& selected, const QString& highlightedCsv) {

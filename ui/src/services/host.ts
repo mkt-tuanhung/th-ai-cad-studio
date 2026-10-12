@@ -36,7 +36,7 @@ export interface HostApi {
   bim3dLoad(modelJson: string): Promise<{ ok: boolean }>
   bim3dFrame(w: number, h: number, mode: string, selectedWall: string): Promise<{ ok: boolean; url?: string; ms?: number }>
   bim3dCamera(action: string, a: number, b: number, c: number, d: number): Promise<void>
-  scene3dLoad(key: string, json: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; volumes?: Record<string, number>; error?: string }>
+  scene3dLoad(key: string, json: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; volumes?: Record<string, number>; errors?: string[]; error?: string }>
   scene3dFrame(key: string, w: number, h: number, mode: string, selected: string, highlightedCsv: string): Promise<{ ok: boolean; url?: string; ms?: number }>
   scene3dCamera(key: string, action: string, a: number, b: number, c: number): Promise<void>
   scene3dPick(key: string, x: number, y: number): Promise<string>

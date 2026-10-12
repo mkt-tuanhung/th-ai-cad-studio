@@ -12,6 +12,7 @@
 
 #include "thcad/bim/model.hpp"
 #include "thcad/core/json.hpp"
+#include "thcad/occt/part.hpp"
 
 namespace thcad::occt {
 
@@ -43,6 +44,8 @@ struct SceneItem {
   bool fuse = false;
   /** Surface model for the path tracer: "matte" | "glossy" | "metal" | "glass" | "emissive". */
   std::string mat = "matte";
+  /** Feature-based part: when set, the solid comes from its sketches and features (parts/cuts ignored). */
+  std::shared_ptr<PartDef> part;
 };
 
 /** Final-quality render of a scene (OCCT ray / path tracing, offscreen, progressive). */
@@ -99,6 +102,8 @@ class SceneView {
   void preset(const std::string& name);  // "home" | "top" | "front" | "right"
   /** Items not drawn (isolate = hide everything else). */
   void setHidden(const std::vector<std::string>& ids, const std::vector<std::string>& keepOnly = {});
+  /** Build messages of the last setItems: "item id: feature id: reason". */
+  std::vector<std::string> buildErrors() const;
   /** Number of items drawn. */
   int visibleCount() const;
   /** Section box: 6 clipping planes with capped cut faces; empty `around` = model box cut at `topZ`
