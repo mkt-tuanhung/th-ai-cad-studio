@@ -14,8 +14,9 @@ UiSchemeHandler::UiSchemeHandler(QDir root, QObject* parent) : QWebEngineUrlSche
 void UiSchemeHandler::registerScheme() {
   QWebEngineUrlScheme s("thcad");
   s.setSyntax(QWebEngineUrlScheme::Syntax::Host);
+  // FetchApiAllowed: fetch() of the app's own files (OCR models loaded by a web worker) works on thcad://
   s.setFlags(QWebEngineUrlScheme::SecureScheme | QWebEngineUrlScheme::LocalAccessAllowed | QWebEngineUrlScheme::CorsEnabled |
-             QWebEngineUrlScheme::ContentSecurityPolicyIgnored);
+             QWebEngineUrlScheme::ContentSecurityPolicyIgnored | QWebEngineUrlScheme::FetchApiAllowed);
   QWebEngineUrlScheme::registerScheme(s);
 }
 

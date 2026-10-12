@@ -5,10 +5,10 @@ license; the full license texts ship with the installer under `licenses/`.
 
 | Component | Use | License | Notes |
 |---|---|---|---|
-| Qt 6 (Core, Gui, Widgets, WebEngine, WebChannel) | desktop host, web view | LGPL-3.0 | dynamically linked; Qt WebEngine includes Chromium (BSD-3-Clause and others) |
+| Qt 6 (Core, Gui, Widgets, WebEngine, WebChannel, Network) | desktop host, web view | LGPL-3.0 | dynamically linked; Qt WebEngine includes Chromium (BSD-3-Clause and others) |
 | Open CASCADE Technology 7.9 | 3D solids, STEP, offscreen 3D view | LGPL-2.1 with OCCT exception | dynamically linked |
 | llama.cpp / ggml | local AI runtime | MIT | |
-| **LibreDWG 0.14** (`dwg2dxf`, `dwgadd`) | opening and saving `.dwg` files | **GPL-3.0-or-later** | shipped as a **separate program**, run as a child process; not linked into the app. The complete source of the shipped version is included in the installer (`licenses/libredwg/`). See `native/third_party/libredwg/README.md` |
+| **LibreDWG 0.14** (`dwg2dxf`, `dwgadd`, `dxf2dwg`) | opening and saving `.dwg` files (with layouts) | **GPL-3.0-or-later** | shipped as a **separate program**, run as a child process; not linked into the app. The complete source of the shipped version is included in the installer (`licenses/libredwg/`). See `native/third_party/libredwg/README.md` |
 | **whisper.cpp 1.9.4** (`whisper-cli`) | Voice CAD speech recognition | MIT | separate program, run as a child process (its own ggml); see `native/third_party/whisper/README.md` |
 | GNU libiconv (Windows only) | character sets for LibreDWG | LGPL-2.1-or-later | DLL from the LibreDWG Windows build |
 | React, React DOM | UI | MIT | |
@@ -17,6 +17,8 @@ license; the full license texts ship with the installer under `licenses/`.
 | earcut | polygon triangulation (GPU 2D layer) | ISC | |
 | delaunator | terrain TIN (Civil) | ISC | |
 | pdf.js (pdfjs-dist 4.10.38) | Scan to CAD: reading vector PDFs | Apache-2.0 | |
+| tesseract.js 5.1.1 (Tesseract OCR + Leptonica, WASM) | Scan to CAD: reading text in scans | Apache-2.0 (Tesseract), BSD-2-Clause (Leptonica) | runs offline in a web worker |
+| Tesseract model `vie` (tessdata_best 4.1.0) | Vietnamese OCR | Apache-2.0 | shipped in `ui/ocr/lang/` (12.4 MB) |
 | Roboto (Fontsource) | UI font | SIL Open Font License 1.1 | |
 
 ## Not included in the installers

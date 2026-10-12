@@ -41,16 +41,63 @@ await step('exact size: the plot frame (5 mm inside the A3 edge = 410 mm) comes 
   assert.ok(Math.abs(w - 41000) < 0.01, String(w))
 })
 
-await step('raster PNG → underlay with an honest note (vision model not included); 150 dpi at 1:100', async () => {
+await step('raster PNG → underlay with an honest note (image processing, not AI); 150 dpi at 1:100', async () => {
   await page.goto('http://127.0.0.1:5173/#/ai-studio')
   await page.locator('input[type=file][accept="image/*,.pdf"]').setInputFiles(FX + 'canal_plot_raster.png')
   const dlg = page.getByRole('dialog', { name: /Scan to CAD — canal_plot_raster\.png/ })
-  await dlg.getByText(/needs a vision model, which this build does not include/).waitFor()
+  await dlg.getByText(/not an AI that understands the drawing/).waitFor()
   await dlg.getByRole('button', { name: 'Open as underlay' }).click()
   await page.waitForURL(/#\/cad2d$/)
   const d = await cad()
   assert.equal(d.n, 0)
   assert.ok(d.underlay && Math.abs(d.underlay.mm - (25.4 / 150) * 100) < 1e-6, JSON.stringify(d.underlay))
+})
+
+await step('raster plan (synthetic, Vietnamese labels) → vectorised: lines + circle at true size, text read by OCR', async () => {
+  await page.goto('http://127.0.0.1:5173/#/ai-studio')
+  await page.locator('input[type=file][accept="image/*,.pdf"]').setInputFiles(FX + 'vi_plan_SYNTHETIC.png')
+  const dlg = page.getByRole('dialog', { name: /vi_plan_SYNTHETIC\.png/ })
+  await dlg.getByLabel('Drawing scale').selectOption('50')
+  await dlg.getByLabel('Scan resolution (dpi)').selectOption('200')
+  await dlg.getByRole('button', { name: 'Vectorise' }).click()
+  await dlg.getByText(/^Traced:/).waitFor({ timeout: 120000 })
+  results.push(['INFO', await dlg.getByTestId('scan-vector').textContent()])
+  results.push(['INFO', await page.evaluate(() => JSON.stringify(window.__lastVectorize?.allWords))])
+  await dlg.getByRole('button', { name: 'Open vectors in CAD 2D' }).click()
+  await page.waitForURL(/#\/cad2d$/)
+  const r = await page.evaluate(() => {
+    const s = window.__thcad.cad.getState(); const d = s.docs[s.activeId]
+    const lines = d.entities.filter((e) => e.layer === 'SCAN-LINES' && e.kind !== 'circle')
+    const xs = lines.flatMap((e) => (e.kind === 'line' ? [e.a.x, e.b.x] : e.pts.map((p) => p.x)))
+    const ys = lines.flatMap((e) => (e.kind === 'line' ? [e.a.y, e.b.y] : e.pts.map((p) => p.y)))
+    return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys), circles: d.entities.filter((e) => e.kind === 'circle').map((c) => Math.round(c.r)), texts: d.entities.filter((e) => e.kind === 'text').map((t) => t.value).join(' '), underlay: !!d.underlay }
+  })
+  results.push(['INFO', JSON.stringify(r)])
+  const mm = 25.4 / 200 * 50
+  assert.ok(Math.abs(r.w - 1400 * mm) < 1400 * mm * 0.01, `width ${r.w} vs ${1400 * mm}`)
+  assert.ok(Math.abs(r.h - 800 * mm) < 800 * mm * 0.01, `height ${r.h} vs ${800 * mm}`)
+  assert.ok(r.circles.some((x) => Math.abs(x - 120 * mm) < 120 * mm * 0.05), `circles ${r.circles}`)
+  for (const wd of ['PHÒNG', 'KHÁCH', 'BẾP', 'MẶT', 'BẰNG', 'TẦNG']) assert.ok(r.texts.includes(wd), `${wd} in "${r.texts}"`)
+  assert.ok(r.underlay)
+})
+
+await step('real drawing scanned at 200 dpi (the canal sheet) → lines + Vietnamese text', async () => {
+  await page.goto('http://127.0.0.1:5173/#/ai-studio')
+  await page.locator('input[type=file][accept="image/*,.pdf"]').setInputFiles(FX + 'canal_plot_200dpi.png')
+  const dlg = page.getByRole('dialog', { name: /canal_plot_200dpi\.png/ })
+  await dlg.getByLabel('Drawing scale').selectOption('1')
+  await dlg.getByLabel('Scan resolution (dpi)').selectOption('200')
+  await dlg.getByRole('button', { name: 'Vectorise' }).click()
+  await dlg.getByText(/^Traced:/).waitFor({ timeout: 180000 })
+  results.push(['INFO', await dlg.getByTestId('scan-vector').textContent()])
+  await dlg.getByRole('button', { name: 'Open vectors in CAD 2D' }).click()
+  await page.waitForURL(/#\/cad2d$/)
+  await page.waitForTimeout(800)
+  await page.screenshot({ path: '../qa/scan_canal_vectorised.png' })
+  const r = await page.evaluate(() => { const s = window.__thcad.cad.getState(); const d = s.docs[s.activeId]; const ls = d.entities.filter((e) => e.layer === 'SCAN-LINES'); const xs = ls.flatMap((e) => (e.kind === 'line' ? [e.a.x, e.b.x] : e.kind === 'polyline' ? e.pts.map((p) => p.x) : [])); return { texts: d.entities.filter((e) => e.kind === 'text').map((t) => t.value).join(' '), frame: Math.max(...xs) - Math.min(...xs) } })
+  results.push(['INFO', JSON.stringify(r).slice(0, 600)])
+  for (const wd of ['Kênh', 'thống', 'tưới', 'THỦY', 'LỢI', 'Dũng']) assert.ok(r.texts.includes(wd), `${wd} in "${r.texts}"`)
+  assert.ok(Math.abs(r.frame - 410) < 3, `frame ${r.frame} mm vs 410`)
 })
 
 await step('no console errors', async () => assert.deepEqual(errors, []))

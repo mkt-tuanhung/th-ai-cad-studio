@@ -84,12 +84,12 @@ export function ModelViewport({ doc }: { doc: CadDocument }) {
 
   const zoomExtents = useCallback(() => setView(doc.id, zoomExtentsView(doc, w, h)), [doc, w, h, setView])
   // First show of each document: keep the approved framing when the canvas is at least
-  // mockup-sized, otherwise (and for every drawing without the mockup underlay) fit.
+  // mockup-sized, otherwise (and for every other drawing, scans with an underlay included) fit.
   const fitted = useRef<string | null>(null)
   useEffect(() => {
     if (fitted.current === doc.id || w === 0) return
     fitted.current = doc.id
-    if (!useCad.getState().views[doc.id] && (w < 830 || h < 580 || !doc.underlay)) zoomExtents()
+    if (!useCad.getState().views[doc.id] && (w < 830 || h < 580 || !(doc.underlay && doc.source === 'seed'))) zoomExtents()
   }, [w, h, doc, zoomExtents])
   useEffect(() => {
     cadUi.zoomExtents = zoomExtents

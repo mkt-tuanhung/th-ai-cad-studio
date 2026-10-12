@@ -12,3 +12,4 @@ ui/test-results/
 .claude/
 native/packaging/windows/build-win/
 native/third_party/downloads/
+ui/public/ocr/

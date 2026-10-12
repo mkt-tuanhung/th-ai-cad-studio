@@ -244,5 +244,6 @@ export const useCad = create<CadState>()(
   ),
 )
 
+/** The approved mockup framing belongs to the sample drawing (with its scan underlay) only. */
 export const defaultView = (doc: CadDocument): ViewState =>
-  doc.underlay ? { ...SEED_VIEW } : { center: { x: 5000, y: 3500 }, mmPerPx: 15 }
+  doc.underlay && doc.source === 'seed' ? { ...SEED_VIEW } : { center: { x: 5000, y: 3500 }, mmPerPx: 15 }
