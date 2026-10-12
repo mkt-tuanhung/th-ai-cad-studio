@@ -10,7 +10,7 @@ Date: 2026-10-12 · build: macOS arm64, native engine + UI from `ui/` (Vite dev 
 | **HATCH** | Pick inside a closed boundary: a closed polyline, a circle, or a region closed by line segments. The result is a filled closed polyline (SOLID in DXF/DWG, triangulated), and its area is reported. |
 | **OFFSET** | Lines, circles and arcs as before, plus polylines (mitred corners, open or closed) and arcs. Other kinds report clearly that they are not supported. |
 | **PLOT** | Plots the active layout (paper + scale) to a vector PDF. From Model it plots A3 at the fitting scale. |
-| **Layouts** | Each drawing has a list of layouts, each with a name, paper (A4–A0) and scale (1:n or fit). “+” adds a layout and 🗑 deletes one. The preview is the same SVG page that is plotted, so what is shown is what prints. |
+| **Layouts** | Each drawing has a list of layouts, each with a name, paper (A4–A1) and scale (1:n or fit). “+” adds a layout and 🗑 deletes one. The preview is the same SVG page that is plotted, so what is shown is what prints. |
 | **Sheet Set** | Plots every layout into ONE multi-page PDF on the desktop (native `cadExportPdf({pages:[…]})`, `QPdfWriter::newPage`, and a page size per page). In the browser it opens a print window with one page per layout. |
 
 ## Evidence

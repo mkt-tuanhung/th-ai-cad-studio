@@ -62,6 +62,10 @@ export interface HostApi {
   setModelsDir(dir: string): Promise<{ ok: boolean; model?: string; loaded?: boolean; error?: string }>
   setAiGpu(on: boolean): Promise<boolean>
   pickFolder(title: string, start: string): Promise<string>
+  /** Batch output into a folder picked with pickFolder in this session (never overwrites: “name (2).ext”). */
+  writeFileTo(dir: string, name: string, base64: string): Promise<{ ok: boolean; path?: string; bytes?: number; error?: string }>
+  cadExportPdfTo(pageJson: string, dir: string, name: string): Promise<{ ok: boolean; path?: string; bytes?: number; pages?: number; error?: string }>
+  dwgWriteTo(script: string, dir: string, name: string): Promise<{ ok: boolean; path?: string; bytes?: number; entities?: number; error?: string }>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
   on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText', fn: (payload: unknown) => void): void

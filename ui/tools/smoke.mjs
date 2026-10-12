@@ -98,12 +98,58 @@ await step('⌘K focuses search; typing shows results; Enter opens project', asy
   await goHome()
 })
 
-await step('Open File adds a .dwg to Recent Files (metadata only) and rejects unsupported types', async () => {
-  const input = page.locator('input[type=file]')
-  await input.setInputFiles({ name: 'Site Plan.dwg', mimeType: 'application/acad', buffer: Buffer.alloc(2048) })
-  assert.ok(await page.getByRole('button', { name: 'Site Plan.dwg', exact: true }).isVisible())
-  await input.setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') })
+const DXF = (n) => ['0', 'SECTION', '2', 'ENTITIES', ...Array.from({ length: n }, (_, i) => ['0', 'LINE', '8', '0', '10', String(i * 1000), '20', '0', '11', String(i * 1000 + 800), '21', '500']).flat(), '0', 'ENDSEC', '0', 'EOF'].join('\n')
+
+await step('Open File: a .dxf opens in CAD 2D; .ifc is listed with an honest note; unsupported types rejected', async () => {
+  const input = page.locator('input[type=file]').last()
+  await input.setInputFiles({ name: 'Site Plan.dxf', mimeType: 'application/dxf', buffer: Buffer.from(DXF(3)) })
+  await page.waitForURL(/#\/cad2d$/)
+  await page.getByRole('tab', { name: /Site Plan\.dxf/ }).waitFor()
+  await goHome()
+  assert.ok(await page.getByRole('button', { name: 'Site Plan.dxf', exact: true }).isVisible())
+  await page.locator('input[type=file]').last().setInputFiles({ name: 'Tower.ifc', mimeType: 'application/x-step', buffer: Buffer.from('ISO-10303-21;') })
+  assert.ok(await page.getByText(/“Tower.ifc” added to Recent Files\. IFC files cannot be opened in this build/).isVisible())
+  await page.locator('input[type=file]').last().setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') })
   assert.ok(await page.getByText('Unsupported file type: .txt').isVisible())
+})
+
+await step('Batch Process Files (browser): 2 DXF → DXF + PNG downloads; PDF reports that it needs the desktop app', async () => {
+  await page.getByRole('button', { name: 'Batch Process Files' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Batch Process Files' })
+  await dlg.locator('input[type=file]').setInputFiles([
+    { name: 'A.dxf', mimeType: 'application/dxf', buffer: Buffer.from(DXF(2)) },
+    { name: 'B.dxf', mimeType: 'application/dxf', buffer: Buffer.from(DXF(5)) },
+  ])
+  assert.equal(await dlg.getByTestId('batch-count').textContent(), '2 file(s) selected')
+  await dlg.getByLabel('DXF', { exact: true }).check()
+  await dlg.getByLabel('PNG (200 dpi)').check()
+  const downloads = []
+  page.on('download', (d) => downloads.push(d.suggestedFilename()))
+  await dlg.getByRole('button', { name: 'Run batch' }).click()
+  await dlg.getByText('Batch finished: 0 of 2 file(s) converted').waitFor()
+  const txt = await dlg.getByTestId('batch-results').textContent()
+  assert.match(txt, /A\.dxf · 2 entities/)
+  assert.match(txt, /B\.dxf · 5 entities/)
+  assert.match(txt, /✕ A\.pdf: needs the desktop app/)
+  assert.match(txt, /✓ B\.dxf/)
+  await page.waitForTimeout(500)
+  assert.deepEqual(downloads.sort(), ['A.dxf', 'A.png', 'B.dxf', 'B.png'])
+  await dlg.getByRole('button', { name: 'Close' }).click()
+})
+
+await step('See all: every quick action; Learning opens the getting-started guide that navigates', async () => {
+  await page.getByRole('button', { name: 'See all' }).click()
+  const all = page.getByRole('dialog', { name: 'All quick actions' })
+  assert.equal(await all.getByRole('button').count(), 11) // 10 actions + close
+  await all.getByRole('button', { name: 'Component library' }).click()
+  assert.match(page.url(), /#\/components$/)
+  await goHome()
+  await page.getByRole('button', { name: /Get started with/ }).click()
+  const guide = page.getByRole('dialog', { name: 'Get started with TH AI CAD Studio' })
+  assert.equal(await guide.getByRole('listitem').count(), 6)
+  await guide.getByRole('listitem').filter({ hasText: 'Design parts' }).getByRole('button', { name: 'Open' }).click()
+  assert.match(page.url(), /#\/mechanical$/)
+  await goHome()
 })
 
 await step('Quick action "New Drawing (DWG)" creates a drawing and opens CAD workspace', async () => {

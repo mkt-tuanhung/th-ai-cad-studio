@@ -109,8 +109,13 @@ class HostBridge : public QObject {
   Q_INVOKABLE bool setAiGpu(bool on);
   /** Opens a folder in Finder / Explorer. */
   Q_INVOKABLE bool revealFolder(const QString& path);
-  /** Native folder chooser; empty string when cancelled. */
+  /** Native folder chooser; empty string when cancelled. The chosen folder may then be written by
+   *  writeFileTo / cadExportPdfTo / dwgWriteTo (batch jobs) — no other folder can. */
   Q_INVOKABLE QString pickFolder(const QString& title, const QString& start);
+  /** Batch output into a folder picked with pickFolder: {ok, path, bytes} or {ok:false, error}. */
+  Q_INVOKABLE QJsonObject writeFileTo(const QString& dir, const QString& name, const QString& base64);
+  Q_INVOKABLE QJsonObject cadExportPdfTo(const QString& pageJson, const QString& dir, const QString& name);
+  Q_INVOKABLE QJsonObject dwgWriteTo(const QString& script, const QString& dir, const QString& name);
   /** QA only (THCAD_QA=1): bytes of $THCAD_DWG_SAMPLE as base64 (the page cannot read files). */
   Q_INVOKABLE QString qaSampleDwg() const;
   /** QA only (THCAD_QA=1): saves a Qt grab of the window. */
@@ -130,6 +135,10 @@ class HostBridge : public QObject {
  private:
   QJsonObject proposalJson(const Proposal& p) const;
   QJsonObject result(std::optional<ValidationError> err) const;
+  /** Free path for `name` inside a folder the user picked (never an existing file), or empty. */
+  QString pickedPath(const QString& dir, const QString& name) const;
+  static QJsonObject writePdf(const QJsonObject& doc, const QString& path);
+  QStringList pickedDirs_;
 
   NativeViewport* viewport_;
   DwgReader* dwg_;

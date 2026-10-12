@@ -928,7 +928,10 @@ bool HostBridge::revealFolder(const QString& path) {
 }
 
 QString HostBridge::pickFolder(const QString& title, const QString& start) {
-  return QFileDialog::getExistingDirectory(qobject_cast<QWidget*>(parent()), title, start.isEmpty() ? QDir::homePath() : start);
+  QString dir = qEnvironmentVariable("THCAD_PICK_DIR");  // QA: skip the dialog
+  if (dir.isEmpty()) dir = QFileDialog::getExistingDirectory(qobject_cast<QWidget*>(parent()), title, start.isEmpty() ? QDir::homePath() : start);
+  if (const QString c = QDir(dir).canonicalPath(); !dir.isEmpty() && !c.isEmpty() && !pickedDirs_.contains(c)) pickedDirs_ << c;
+  return dir;
 }
 
 QJsonObject HostBridge::dwgWrite(const QString& script, const QString& suggestedName) {
@@ -947,15 +950,52 @@ QJsonObject HostBridge::dwgWrite(const QString& script, const QString& suggested
 QJsonObject HostBridge::cadExportPdf(const QString& pageJson, const QString& suggestedName) {
   // one page {w, h, prims} or a sheet set {name, pages: [page, …]} written as one multi-page PDF
   const QJsonObject doc = QJsonDocument::fromJson(pageJson.toUtf8()).object();
-  QJsonArray pages = doc.value("pages").toArray();
-  if (pages.isEmpty()) pages.append(doc);
-  const QJsonObject first = pages.first().toObject();
   QString path = qEnvironmentVariable("THCAD_PDF_OUT");  // QA: skip the dialog
   if (path.isEmpty()) {
     const QString start = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + suggestedName;
     path = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Export PDF"), start, "PDF (*.pdf)");
   }
   if (path.isEmpty()) return {{"ok", false}, {"cancelled", true}};
+  return writePdf(doc, path);
+}
+
+QString HostBridge::pickedPath(const QString& dir, const QString& name) const {
+  const QString d = QDir(dir).canonicalPath();
+  if (d.isEmpty() || !pickedDirs_.contains(d)) return {};
+  if (name.isEmpty() || name.contains('/') || name.contains('\\') || name.startsWith('.')) return {};
+  // never overwrite (a source drawing may live in this folder): "name (2).ext", "name (3).ext", …
+  const QFileInfo fi(name);
+  QString path = d + "/" + name;
+  for (int n = 2; QFileInfo::exists(path); ++n) path = QStringLiteral("%1/%2 (%3).%4").arg(d, fi.completeBaseName()).arg(n).arg(fi.suffix());
+  return path;
+}
+
+QJsonObject HostBridge::writeFileTo(const QString& dir, const QString& name, const QString& base64) {
+  const QString path = pickedPath(dir, name);
+  if (path.isEmpty()) return {{"ok", false}, {"error", "folder not chosen in this session"}};
+  QFile f(path);
+  if (!f.open(QIODevice::WriteOnly)) return {{"ok", false}, {"error", "cannot write " + path}};
+  const qint64 n = f.write(QByteArray::fromBase64(base64.toLatin1()));
+  return {{"ok", n >= 0}, {"path", path}, {"bytes", static_cast<double>(n)}};
+}
+
+QJsonObject HostBridge::cadExportPdfTo(const QString& pageJson, const QString& dir, const QString& name) {
+  const QString path = pickedPath(dir, name);
+  if (path.isEmpty()) return {{"ok", false}, {"error", "folder not chosen in this session"}};
+  return writePdf(QJsonDocument::fromJson(pageJson.toUtf8()).object(), path);
+}
+
+QJsonObject HostBridge::dwgWriteTo(const QString& script, const QString& dir, const QString& name) {
+  if (DwgReader::writerPath().isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
+  const QString path = pickedPath(dir, name);
+  if (path.isEmpty()) return {{"ok", false}, {"error", "folder not chosen in this session"}};
+  return DwgReader::write(script, path);
+}
+
+QJsonObject HostBridge::writePdf(const QJsonObject& doc, const QString& path) {
+  QJsonArray pages = doc.value("pages").toArray();
+  if (pages.isEmpty()) pages.append(doc);
+  const QJsonObject first = pages.first().toObject();
   const auto sizeOf = [](const QJsonObject& pg) { return QPageSize(QSizeF(pg.value("w").toDouble(420), pg.value("h").toDouble(297)), QPageSize::Millimeter); };
   QPdfWriter pdf(path);
   pdf.setPageSize(sizeOf(first));

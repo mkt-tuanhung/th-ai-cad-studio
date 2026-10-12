@@ -21,6 +21,8 @@ import { LocalAiCard } from './LocalAiCard'
 import { QuickActions } from './QuickActions'
 import { LearningCard } from './LearningCard'
 import { NewProjectModal, RenameProjectModal } from './ProjectModals'
+import { actionIcons as I, AllActionsModal, BatchModal, GuideModal } from './DashboardDialogs'
+import { cadInbox } from '../../state/cadSession'
 import s from './DashboardScreen.module.css'
 
 const ACCEPT = Object.keys(SUPPORTED_EXTENSIONS).map((e) => `.${e}`).join(',')
@@ -34,6 +36,7 @@ export function DashboardScreen() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [renaming, setRenaming] = useState<Project | null>(null)
+  const [dialog, setDialog] = useState<'batch' | 'all' | 'guide' | null>(null)
 
   const openProject = (p: Project) => {
     ws.touchProject(p.id)
@@ -41,12 +44,18 @@ export function DashboardScreen() {
   }
 
   /**
-   * Open File: the browser prototype can only read file metadata. Geometry is opened by the native
-   * CAD engine once the desktop host is attached — we never pretend to have parsed the file.
+   * Open File: DWG / DXF open in CAD 2D (which reads them and lists them in Recent Files). Other formats
+   * are listed only — this build has no reader for them, and we never pretend to have parsed a file.
    */
   const onFilesChosen = (list: FileList | null) => {
     if (!list) return
+    const drawings = Array.from(list).filter((f) => /\.(dwg|dxf)$/i.test(f.name))
+    if (drawings.length) {
+      cadInbox.files = drawings
+      navigate('cad2d')
+    }
     for (const file of Array.from(list)) {
+      if (drawings.includes(file)) continue
       const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
       const format = SUPPORTED_EXTENSIONS[ext]
       if (!format) {
@@ -54,7 +63,7 @@ export function DashboardScreen() {
         continue
       }
       ws.addFile({ name: file.name, format, projectId: null, modifiedAt: file.lastModified || Date.now(), sizeBytes: file.size, source: 'local-import' })
-      toast(fmt(t.toast.fileAdded, { name: file.name }), 'success')
+      toast(fmt(t.toast.fileAdded, { name: file.name, format }), 'info')
     }
     if (fileInput.current) fileInput.current.value = ''
   }
@@ -66,7 +75,19 @@ export function DashboardScreen() {
     navigate('cad2d')
   }
 
-  const notImplemented = (feature: string) => toast(fmt(t.toast.notImplemented, { feature }))
+  const A = t.dashboard.all, Q = t.dashboard.quickActions
+  const allActions = [
+    { label: Q.newDrawing, icon: <I.File size={18} />, run: newDrawing },
+    { label: A.openFile, icon: <I.Upload size={18} />, run: () => fileInput.current?.click() },
+    { label: A.newProject, icon: <I.FolderPlus size={18} />, run: () => setNewOpen(true) },
+    { label: Q.batch, icon: <I.Layers size={18} />, run: () => setDialog('batch') },
+    { label: Q.aiFromSketch, icon: <I.Sparkles size={18} />, run: () => navigate('ai-studio') },
+    { label: A.projects, icon: <I.FolderOpen size={18} />, run: () => navigate('projects') },
+    { label: A.bim, icon: <I.Box size={18} />, run: () => navigate('bim') },
+    { label: A.components, icon: <I.Cpu size={18} />, run: () => navigate('components') },
+    { label: A.renders, icon: <I.Image size={18} />, run: () => navigate('renders') },
+    { label: A.settings, icon: <I.Settings size={18} />, run: () => navigate('settings') },
+  ]
 
   return (
     <div className={s.layout}>
@@ -126,10 +147,10 @@ export function DashboardScreen() {
           onNewDrawing={newDrawing}
           onImport={() => fileInput.current?.click()}
           onAiSketch={() => navigate('ai-studio')}
-          onBatch={() => notImplemented(t.dashboard.quickActions.batch)}
-          onSeeAll={() => notImplemented(t.dashboard.quickActions.title)}
+          onBatch={() => setDialog('batch')}
+          onSeeAll={() => setDialog('all')}
         />
-        <LearningCard onOpenGuide={() => notImplemented(t.dashboard.learning.title)} />
+        <LearningCard onOpenGuide={() => setDialog('guide')} />
       </aside>
 
       <input ref={fileInput} type="file" accept={ACCEPT} multiple hidden onChange={(e) => onFilesChosen(e.target.files)} />
@@ -144,6 +165,9 @@ export function DashboardScreen() {
           }}
         />
       )}
+      {dialog === 'batch' && <BatchModal onClose={() => setDialog(null)} />}
+      {dialog === 'all' && <AllActionsModal onClose={() => setDialog(null)} actions={allActions} />}
+      {dialog === 'guide' && <GuideModal onClose={() => setDialog(null)} go={navigate} />}
       {renaming && (
         <RenameProjectModal
           project={renaming}
