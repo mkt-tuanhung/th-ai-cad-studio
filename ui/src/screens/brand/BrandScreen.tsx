@@ -62,6 +62,10 @@ function DmgBackground() {
         <path d="M 6 20 H 180" />
         <path d="M 168 10 L 184 20 L 168 30" />
       </svg>
+      {/* name plates under the two icons: Finder draws the labels in the system colour (black in light mode,
+          white in dark), so they sit on a mid-tone silver that reads in both */}
+      <span className={s.dmgPlate} style={{ left: 165 }} />
+      <span className={s.dmgPlate} style={{ left: 495 }} />
       <p className={s.dmgHint}>Kéo MD CAD AI STUDIO vào Applications để cài đặt · Drag to Applications to install</p>
       <p className={s.dmgCredit}>{BRAND.credit}</p>
     </div>

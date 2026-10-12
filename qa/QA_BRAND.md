@@ -43,7 +43,9 @@
   - Lời chào tiếng Anh / tiếng Việt kèm đúng dòng credit; file `.iss` là UTF-8 có BOM để tiếng Việt hiển thị đúng.
 - *macOS:* cửa sổ DMG dựng bằng dmgbuild, gồm:
   - nền brand (1× + 2×), tagline, mũi tên app → Applications, dòng credit;
-  - icon đặt tại (165, 242) và (495, 242), đã đọc lại từ `.DS_Store` để xác nhận.
+  - icon đặt tại (165, 242) và (495, 242), đã đọc lại từ `.DS_Store` để xác nhận;
+  - tấm nhãn màu bạc dưới hai icon: Finder vẽ tên icon bằng màu hệ thống (đen ở chế độ sáng), trước đây chữ đen nằm trên nền tối nên gần như không đọc được;
+  - cửa sổ cao 448 = 420 nền + 28 thanh tiêu đề; trước đây là 420 nên dòng credit bị cắt mất nửa dưới.
 
 **BrandLoader dùng ở:** khởi động (thanh tiến độ của intro), nạp mô hình AI (Cài đặt), mở DWG (CAD 2D).
 
@@ -54,6 +56,7 @@
 - **Intro trong app desktop:**
   - `desktop_intro_2600/4200/6500ms.png`: intro, sau đó là Dashboard tiếng Việt với logo mới ở sidebar.
   - `dmg_app_intro.png`: app chạy từ DMG.
+- **Cửa sổ DMG thật trong Finder:** `dmg_finder_window.png`, chụp khi mở file DMG đã đóng gói. Thấy rõ logo, tagline, hai icon có tên, mũi tên và dòng credit đầy đủ.
 - **Installer:** `installer_welcome.png`, `windows_wizard_250.png`, `dmg_background@2x.png`, `app_icon_preview.png`, `brand_screen.png`.
 - **`smoke-brand.mjs` 7/7:**
   - intro chạy hết rồi vào Dashboard (4,5 s); Esc bỏ qua được;
@@ -66,5 +69,4 @@
   - e2e desktop đều PASS, intro tự tắt khi chạy kiểm thử: `e2e_cad` 12/12, `e2e_scan` 6/6, `e2e_voice` 3/3, `e2e_bimviews` 11/11.
 
 ## Chưa kiểm chứng được
-- Ảnh chụp cửa sổ Finder của DMG: cần quyền ghi màn hình. Đã thay bằng việc kiểm tra `.DS_Store` và ảnh nền.
 - Giao diện cài đặt thật trên Windows: CI chỉ build và biên dịch installer, không chụp được màn hình.

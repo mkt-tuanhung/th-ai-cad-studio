@@ -139,6 +139,18 @@
   stroke-linejoin: round;
 }
 
+.dmgPlate {
+  position: absolute;
+  top: 304px;
+  width: 150px;
+  height: 22px;
+  margin-left: -75px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #7f969e 0%, #6a8189 100%);
+  border: 1px solid rgba(160, 222, 226, 0.35);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+
 .dmgHint {
   position: absolute;
   bottom: 52px;
