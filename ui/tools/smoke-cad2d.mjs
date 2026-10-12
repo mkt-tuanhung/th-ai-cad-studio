@@ -202,9 +202,31 @@ await step('Layouts: Layout1 sheet; add a layout, set A4 1:200, delete it; MODEL
   assert.equal(await page.getByRole('tab', { name: 'Model' }).getAttribute('aria-selected'), 'true')
 })
 
-await step('AI Assist: suggestion explains runtime is not connected; close + reopen from ribbon', async () => {
+await step('Snap settings menu: OSNAP modes toggle and persist; command line settings (text size, Space = Enter)', async () => {
+  await page.getByRole('button', { name: 'Snap settings' }).click()
+  const quad = page.getByRole('menuitemcheckbox', { name: 'Quadrant' })
+  assert.equal(await quad.getAttribute('aria-checked'), 'false')
+  await quad.click()
+  assert.equal(await quad.getAttribute('aria-checked'), 'true')
+  assert.equal(await page.getByRole('menuitemcheckbox', { name: 'Endpoint' }).getAttribute('aria-checked'), 'true')
+  await page.keyboard.press('Escape')
+  assert.equal(await page.evaluate(() => window.__thcad.cad.getState().osnapModes.quadrant), true)
+  await page.getByRole('button', { name: 'Command line settings' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Text size: 15px' }).click()
+  await page.keyboard.press('Escape')
+  assert.equal(await page.getByRole('log').evaluate((e) => getComputedStyle(e).fontSize), '15px')
+  await page.getByRole('button', { name: 'Command line settings' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Text size: 13px' }).click()
+  await page.keyboard.press('Escape')
+})
+
+await step('AI Assist: a suggestion is sent to AI Studio (browser: honest “no model” reply); close + reopen from ribbon', async () => {
   await page.getByRole('button', { name: /Detect similar rooms/ }).click()
-  assert.ok(await page.getByText(/Local AI runtime is not connected/).first().isVisible())
+  await page.waitForURL(/#\/ai-studio$/)
+  await page.getByText('Which rooms in this drawing have the same size and shape? List them in groups.').first().waitFor()
+  assert.ok(await page.getByText(/No local AI model is available here/).first().isVisible())
+  await page.goto('http://127.0.0.1:5173/#/cad2d')
+  await page.getByRole('heading', { name: 'AI Assist' }).waitFor()
   await page.getByRole('button', { name: 'Close', exact: true }).click()
   assert.equal(await page.getByRole('heading', { name: 'AI Assist' }).count(), 0)
   await page.getByRole('button', { name: 'AI Assist', exact: true }).click()

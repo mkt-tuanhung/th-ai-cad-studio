@@ -90,7 +90,7 @@ await step('sending a message gets an honest "runtime not integrated" reply, no 
   await page.getByRole('textbox', { name: 'Ask or describe your CAD task...' }).fill('Add a door to office 4')
   await page.getByRole('button', { name: 'Send' }).click()
   assert.ok(await page.getByText('Add a door to office 4').isVisible())
-  assert.ok(await page.getByText(/not integrated in this UI prototype/).isVisible())
+  assert.ok(await page.getByText(/No local AI model is available here/).isVisible())
 })
 
 await step('New Chat clears; menu re-opens the sample session; persisted across reload', async () => {

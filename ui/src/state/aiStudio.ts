@@ -1,3 +1,4 @@
+import { useRouter } from './router'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getMessages } from '../i18n'
@@ -34,6 +35,15 @@ interface AiStudioState {
 const now = () => new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 let seq = 0
 const id = (p: string) => `${p}-${Date.now().toString(36)}-${++seq}`
+
+/** A request sent from another screen (CAD 2D AI Assist): AI Studio sends it as soon as the chat opens. */
+export const chatInbox: { text: string | null } = { text: null }
+
+/** Opens AI Studio and sends `text` there (routing, preview and approval happen in its chat). */
+export function sendToAiStudio(text: string) {
+  chatInbox.text = text
+  useRouter.getState().navigate('ai-studio')
+}
 
 export const useAiStudio = create<AiStudioState>()(
   persist(

@@ -6,8 +6,10 @@ import {
   bboxOf,
   dist,
   distanceTo,
+  nearestOn,
   norm,
   perp,
+  perpendicularFeet,
   snapPoints,
   sub,
   translateEntity,
@@ -19,6 +21,7 @@ import { cadUi, hitTest, insertQueue, useCadSession, type Stage } from '../../st
 import { useCursor } from '../../state/cursor'
 import { DrawingSvg, projector, renderEntity, type Projector } from './DrawingSvg'
 import { GpuLayer, wantsGpu } from './gpu/GpuLayer'
+import { intersectionsWith } from '../../cad/edit'
 import s from './ModelViewport.module.css'
 
 const POINT_STAGES: Stage[] = [
@@ -58,6 +61,7 @@ export function ModelViewport({ doc }: { doc: CadDocument }) {
   const setView = useCad((st) => st.setView)
   const selection = useCad((st) => st.selection)
   const toggles = useCad((st) => st.toggles)
+  const osnapModes = useCad((st) => st.osnapModes)
   const tool = useCad((st) => st.tool)
   const session = useCadSession()
   const cursorSet = useCursor((st) => st.set)
@@ -112,15 +116,28 @@ export function ModelViewport({ doc }: { doc: CadDocument }) {
     if (!wantsPoint) return { p: raw, snap: null }
     if (toggles.osnap) {
       let best: { p: Vec2; kind: SnapKind; d: number } | null = null
+      const consider = (p: Vec2, kind: SnapKind) => {
+        const d = dist(p, raw) / P.s
+        if (d < OSNAP_PX && (!best || d < best.d)) best = { p, kind, d }
+      }
       const visible = new Set(doc.layers.filter((l) => l.visible).map((l) => l.name))
+      const near: Entity[] = []
       for (const e of doc.entities) {
         if (!visible.has(e.layer)) continue
-        for (const sp of snapPoints(e)) {
-          const d = dist(sp.p, raw) / P.s
-          if (d < OSNAP_PX && (!best || d < best.d)) best = { ...sp, d }
-        }
+        for (const sp of snapPoints(e)) if (osnapModes[sp.kind as keyof typeof osnapModes]) consider(sp.p, sp.kind)
+        if ((osnapModes.intersection || osnapModes.perpendicular || osnapModes.nearest) && distanceTo(e, raw) / P.s < OSNAP_PX) near.push(e)
       }
-      if (best) return { p: best.p, snap: { p: best.p, kind: best.kind } }
+      if (osnapModes.intersection) for (const e of near) for (const q of intersectionsWith(e, near)) consider(q, 'intersection')
+      const from = session.points.at(-1)
+      if (osnapModes.perpendicular && from) for (const e of near) for (const q of perpendicularFeet(e, from)) consider(q, 'perpendicular')
+      // NEArest only when no other snap is in reach (it is always ~0 px away)
+      if (!best && osnapModes.nearest) {
+        const e = near.sort((a, b) => distanceTo(a, raw) - distanceTo(b, raw))[0]
+        const q = e && nearestOn(e, raw)
+        if (q) consider(q, 'nearest')
+      }
+      const b = best as { p: Vec2; kind: SnapKind } | null
+      if (b) return { p: b.p, snap: { p: b.p, kind: b.kind } }
     }
     let p = raw
     if (toggles.snap) p = { x: Math.round(p.x / SNAP_UNIT) * SNAP_UNIT, y: Math.round(p.y / SNAP_UNIT) * SNAP_UNIT }
@@ -325,6 +342,10 @@ function SnapMarker({ p, kind }: { p: Vec2; kind: SnapKind }): ReactNode {
   const c = '#e8a400'
   if (kind === 'midpoint') return <path d={`M${p.x},${p.y - 6}L${p.x + 6},${p.y + 5}L${p.x - 6},${p.y + 5}Z`} fill="none" stroke={c} strokeWidth={2} />
   if (kind === 'center') return <circle cx={p.x} cy={p.y} r={6} fill="none" stroke={c} strokeWidth={2} />
+  if (kind === 'quadrant') return <path d={`M${p.x},${p.y - 7}L${p.x + 7},${p.y}L${p.x},${p.y + 7}L${p.x - 7},${p.y}Z`} fill="none" stroke={c} strokeWidth={2} />
+  if (kind === 'intersection') return <path d={`M${p.x - 6},${p.y - 6}L${p.x + 6},${p.y + 6}M${p.x + 6},${p.y - 6}L${p.x - 6},${p.y + 6}`} stroke={c} strokeWidth={2} />
+  if (kind === 'perpendicular') return <path d={`M${p.x - 6},${p.y - 6}V${p.y + 6}H${p.x + 6}M${p.x - 6},${p.y}H${p.x}V${p.y + 6}`} fill="none" stroke={c} strokeWidth={2} />
+  if (kind === 'nearest') return <path d={`M${p.x - 6},${p.y - 6}H${p.x + 6}L${p.x - 6},${p.y + 6}H${p.x + 6}Z`} fill="none" stroke={c} strokeWidth={2} />
   return <rect x={p.x - 5.5} y={p.y - 5.5} width={11} height={11} fill="none" stroke={c} strokeWidth={2} />
 }
 

@@ -42,6 +42,11 @@ interface CadState {
   sheet: SheetTab
   aiPanel: { open: boolean; minimized: boolean; tab: AiTab }
   scale: string
+  /** Running object-snap modes (OSNAP on/off is toggles.osnap). */
+  osnapModes: Record<import('../cad/geometry').OsnapMode, boolean>
+  /** Command line: font size (px), Space acts as Enter (AutoCAD). */
+  cmdFont: number
+  spaceEnter: boolean
   // ---- session-only (not persisted) ----
   history: Record<string, History>
   views: Record<string, ViewState>
@@ -66,7 +71,8 @@ interface CadState {
   setTool: (t: ToolId) => void
   toggle: (k: DraftToggle) => void
   print: (text: string, tone?: LogLine['tone']) => void
-  set: (patch: Partial<Pick<CadState, 'rightTab' | 'bottomTab' | 'sheet' | 'scale'>>) => void
+  set: (patch: Partial<Pick<CadState, 'rightTab' | 'bottomTab' | 'sheet' | 'scale' | 'osnapModes' | 'cmdFont' | 'spaceEnter'>>) => void
+  clearLog: () => void
   /** Paper-space layouts of the active document (not an undoable model edit; marks the drawing modified). */
   setLayouts: (layouts: import('../cad/types').Layout[]) => void
   setAi: (patch: Partial<CadState['aiPanel']>) => void
@@ -97,6 +103,9 @@ export const useCad = create<CadState>()(
       activeId: villa.id,
       // States shown in mockup 02: OSNAP, SNAP, MODEL on; ORTHO, GRID, POLAR off.
       toggles: { ortho: false, osnap: true, grid: false, snap: true, polar: false, model: true },
+      osnapModes: { endpoint: true, midpoint: true, center: true, quadrant: false, intersection: true, perpendicular: false, nearest: false },
+      cmdFont: 13,
+      spaceEnter: true,
       rightTab: 'properties',
       bottomTab: 'command',
       sheet: 'model',
@@ -211,6 +220,7 @@ export const useCad = create<CadState>()(
         set({ docs: { ...get().docs, [doc.id]: { ...doc, layouts, dirty: true } } })
       },
       set: (patch) => set(patch),
+      clearLog: () => set({ log: [] }),
       setAi: (patch) => set({ aiPanel: { ...get().aiPanel, ...patch } }),
     }),
     {
@@ -226,6 +236,9 @@ export const useCad = create<CadState>()(
         bottomTab: s.bottomTab,
         aiPanel: s.aiPanel,
         scale: s.scale,
+        osnapModes: s.osnapModes,
+        cmdFont: s.cmdFont,
+        spaceEnter: s.spaceEnter,
       }),
     },
   ),

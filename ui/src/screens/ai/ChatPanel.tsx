@@ -10,7 +10,7 @@ import { useVoice } from '../../ai/voice'
 import { useLang } from '../../i18n'
 import { fromNativeOps } from '../../services/nativeCad'
 import { cadMirror } from '../../state/cad'
-import { useAiStudio } from '../../state/aiStudio'
+import { chatInbox, useAiStudio } from '../../state/aiStudio'
 import { toast } from '../../state/toast'
 import { PROPOSALS, type ChatTurn } from '../../ai/sampleSession'
 import { AiSparkIcon } from '../../components/icons'
@@ -54,8 +54,18 @@ export function ChatPanel() {
     if (!sample) listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [turns.length, sample])
 
-  const submit = async () => {
-    const text = draft.trim()
+  // a request sent from CAD 2D (AI Assist): shown in the composer, then sent — its result is still a preview
+  useEffect(() => {
+    const text = chatInbox.text
+    if (!text) return
+    chatInbox.text = null
+    set({ draft: text })
+    void submit(text)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const submit = async (queued?: string) => {
+    const text = (queued ?? draft).trim()
     if (!text) return
     // Desktop app with a loaded local model → real inference; otherwise the honest notice.
     if (!(await nativeAiReady())) return send(text, t.runtimeReply)

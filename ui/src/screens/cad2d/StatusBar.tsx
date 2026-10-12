@@ -1,8 +1,10 @@
 import { ChevronDown, Focus, LayoutGrid } from 'lucide-react'
-import { fmt, useT } from '../../i18n'
+import { useT } from '../../i18n'
 import { useCad, type DraftToggle } from '../../state/cad'
 import { useCursor } from '../../state/cursor'
-import { toast } from '../../state/toast'
+import { DEFAULT_LAYOUTS } from '../../cad/types'
+import { OSNAP_MODES } from '../../cad/geometry'
+import { UpMenu } from '../../components/ui/UpMenu'
 import { LayoutToolIcon } from '../../components/icons'
 import s from './StatusBar.module.css'
 
@@ -23,9 +25,33 @@ export function CursorReadout() {
   return <span className={s.coords}>{`${w.x.toFixed(3)}, ${w.y.toFixed(3)}, 0.000`}</span>
 }
 
+/** MODEL ⇄ first layout of the drawing. */
+export const toggleModel = () => {
+  const st = useCad.getState()
+  st.set({ sheet: st.sheet === 'model' ? (st.activeDoc()?.layouts ?? DEFAULT_LAYOUTS)[0].id : 'model' })
+}
+
+/** Snap settings: OSNAP on/off and the running object-snap modes. */
+function SnapMenu() {
+  const T = useT().cad.status
+  const { toggles, toggle, osnapModes, set } = useCad()
+  return (
+    <UpMenu
+      label={T.snapTo}
+      className={s.ibtn}
+      icon={<Focus size={18} strokeWidth={1.6} />}
+      width={200}
+      items={[
+        { label: T.osnapOn, checked: toggles.osnap, onSelect: () => toggle('osnap') },
+        ...OSNAP_MODES.map((m) => ({ label: T.modes[m], checked: osnapModes[m], onSelect: () => set({ osnapModes: { ...osnapModes, [m]: !osnapModes[m] } }) })),
+      ]}
+    />
+  )
+}
+
 export function StatusBar() {
   const T = useT()
-  const { toggles, toggle, sheet, set } = useCad()
+  const { toggles, toggle, sheet } = useCad()
   const isOn = (k: DraftToggle) => (k === 'model' ? sheet === 'model' : toggles[k])
   return (
     <div className={s.bar}>
@@ -34,9 +60,7 @@ export function StatusBar() {
         <button type="button" className={s.ibtn} aria-pressed={toggles.grid} aria-label={T.cad.status.gridDisplay} title={T.cad.status.gridDisplay} onClick={() => toggle('grid')}>
           <LayoutGrid size={18} strokeWidth={1.6} />
         </button>
-        <button type="button" className={s.ibtn} aria-label={T.cad.status.snapTo} title={T.cad.status.snapTo} onClick={() => toast(fmt(T.toast.notImplemented, { feature: T.cad.status.snapTo }))}>
-          <Focus size={18} strokeWidth={1.6} />
-        </button>
+        <SnapMenu />
       </div>
       <div className={s.toggles}>
         {TOGGLES.map(({ k, label, style, key, w, ml }) => {
@@ -49,7 +73,7 @@ export function StatusBar() {
               aria-pressed={on}
               style={{ width: w, marginLeft: ml }}
               title={key ? `${label} (${key})` : label}
-              onClick={() => (k === 'model' ? set({ sheet: sheet === 'model' ? 'layout1' : 'model' }) : toggle(k))}
+              onClick={() => (k === 'model' ? toggleModel() : toggle(k))}
             >
               {style === 'switch' && <span className={s.knob} />}
               {label}
@@ -63,7 +87,7 @@ export function StatusBar() {
 
 export function StatusRight() {
   const T = useT()
-  const { scale, set, sheet } = useCad()
+  const { scale, set } = useCad()
   return (
     <div className={s.right}>
       <label className={s.scale} title={T.cad.status.scale}>
@@ -75,7 +99,7 @@ export function StatusRight() {
           ))}
         </select>
       </label>
-      <button type="button" className={s.paper} aria-label={T.cad.status.paper} title={T.cad.status.paper} onClick={() => set({ sheet: sheet === 'model' ? 'layout1' : 'model' })}>
+      <button type="button" className={s.paper} aria-label={T.cad.status.paper} title={T.cad.status.paper} onClick={toggleModel}>
         <LayoutToolIcon size={21} strokeWidth={1.5} />
       </button>
     </div>

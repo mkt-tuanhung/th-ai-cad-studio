@@ -1,6 +1,7 @@
 // TRIM / HATCH / OFFSET geometry (run: UNIT=edit node tools/test-cam.mjs run).
 import { hatchBoundary, intersectionsWith, offsetMore, polyArea, triangulate, trimEntity } from '../../src/cad/edit'
 import { toDwgAdd } from '../../src/cad/dwgWrite'
+import { nearestOn, perpendicularFeet, snapPoints } from '../../src/cad/geometry'
 import type { CadDocument, Entity } from '../../src/cad/types'
 
 const base = { layer: '0', color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer' } as const
@@ -44,4 +45,19 @@ export function dwgScript() {
   const sq = { ...base, id: 'h1', kind: 'polyline', closed: true, filled: true, pts: [{ x: 0, y: 0 }, { x: 1000, y: 0 }, { x: 1000, y: 500 }, { x: 500, y: 500 }, { x: 500, y: 1000 }, { x: 0, y: 1000 }] }
   const doc = { name: 'hatch', layers: [{ name: '0', color: '#111827', visible: true, locked: false, linetype: 'Continuous', lineweight: 0.25 }], entities: [sq] } as unknown as CadDocument
   return toDwgAdd(doc).script
+}
+
+/** Object-snap geometry: quadrants, nearest point, perpendicular feet. */
+export function snaps() {
+  const c = { ...base, id: 'c1', kind: 'circle', c: { x: 0, y: 0 }, r: 10 } as Entity
+  const r2 = (p: { x: number; y: number } | null) => p && [Math.round(p.x * 100) / 100, Math.round(p.y * 100) / 100]
+  return {
+    quadrants: snapPoints(c).filter((s) => s.kind === 'quadrant').map((s) => r2(s.p)),
+    nearestCircle: r2(nearestOn(c, { x: 20, y: 0.0 })),
+    nearestLine: r2(nearestOn(L(0, 0, 100, 0), { x: 40, y: 7 })),
+    nearestPastEnd: r2(nearestOn(L(0, 0, 100, 0), { x: 140, y: 7 })),
+    perpLine: perpendicularFeet(L(0, 0, 100, 0), { x: 25, y: 30 }).map(r2),
+    perpOutside: perpendicularFeet(L(0, 0, 100, 0), { x: 140, y: 30 }).map(r2),
+    perpCircle: perpendicularFeet(c, { x: 0, y: 30 }).map(r2),
+  }
 }

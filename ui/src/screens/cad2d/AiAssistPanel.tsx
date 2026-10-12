@@ -1,8 +1,9 @@
-import type { ComponentType } from 'react'
+import { useState, type ComponentType } from 'react'
 import { ChevronRight, DraftingCompass, FileCheck2, FileScan, Minus, SquarePen, X } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { useCad, type AiTab } from '../../state/cad'
 import { toast } from '../../state/toast'
+import { sendToAiStudio } from '../../state/aiStudio'
 import { AiSparkIcon } from '../../components/icons'
 import s from './AiAssistPanel.module.css'
 
@@ -10,15 +11,20 @@ const ICONS: ComponentType<{ size?: number; strokeWidth?: number }>[] = [FileSca
 const TABS: AiTab[] = ['suggestions', 'generate', 'modify']
 
 /**
- * AI Assist. The local runtime (llama.cpp / MLX) is not attached in the UI prototype, so actions
- * say so instead of pretending. When attached, each item produces a CadOp that is previewed and
- * must be approved before commit (see docs/ARCHITECTURE.md §2).
+ * AI Assist: each suggestion / description is sent to AI Studio's chat, which routes it on the local model
+ * (answer, or an edit of the open drawing). Edits come back as a proposal that is previewed and must be
+ * approved before commit (see docs/ARCHITECTURE.md §2); without a model the chat says so.
  */
 export function AiAssistPanel() {
   const t = useT().cad.ai
   const { aiPanel, setAi } = useCad()
   const selection = useCad((st) => st.selection)
-  const notConnected = (name: string) => toast(fmt(t.runtimeMissing, { name }))
+  const [gen, setGen] = useState('')
+  const [mod, setMod] = useState('')
+  const ask = (name: string, text: string) => {
+    toast(fmt(t.sent, { name }))
+    sendToAiStudio(text)
+  }
 
   return (
     <section className={`${s.card} ${aiPanel.minimized ? s.min : ''}`} aria-label={t.title}>
@@ -47,7 +53,7 @@ export function AiAssistPanel() {
                 const Icon = ICONS[i]
                 return (
                   <li key={it.title}>
-                    <button type="button" className={`${s.item} ${i === 0 ? s.itemHi : ''}`} onClick={() => notConnected(it.title)}>
+                    <button type="button" className={`${s.item} ${i === 0 ? s.itemHi : ''}`} onClick={() => ask(it.title, it.prompt)}>
                       <span className={s.itemIcon}>
                         <Icon size={20} strokeWidth={1.5} />
                       </span>
@@ -67,21 +73,32 @@ export function AiAssistPanel() {
               className={s.form}
               onSubmit={(e) => {
                 e.preventDefault()
-                notConnected(t.generate)
+                if (gen.trim()) ask(t.generate, gen.trim())
               }}
             >
-              <textarea className={s.prompt} placeholder={t.generatePlaceholder} rows={4} />
-              <button type="submit" className={s.run}>
+              <textarea className={s.prompt} placeholder={t.generatePlaceholder} aria-label={t.generatePlaceholder} rows={4} value={gen} onChange={(e) => setGen(e.target.value)} />
+              <button type="submit" className={s.run} disabled={!gen.trim()}>
                 <AiSparkIcon size={16} strokeWidth={1.8} />
                 {t.generateRun}
               </button>
             </form>
           )}
           {aiPanel.tab === 'modify' && (
-            <div className={s.form}>
+            <form
+              className={s.form}
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (mod.trim() && selection.length) ask(t.modify, fmt(t.modifyPrompt, { ids: selection.join(', '), text: mod.trim() }))
+              }}
+            >
               <p className={s.hint}>{t.modifyHint}</p>
               <p className={s.count}>{fmt(t.selectedCount, { n: selection.length })}</p>
-            </div>
+              <textarea className={s.prompt} placeholder={t.modifyPlaceholder} aria-label={t.modifyPlaceholder} rows={3} value={mod} onChange={(e) => setMod(e.target.value)} />
+              <button type="submit" className={s.run} disabled={!mod.trim() || !selection.length}>
+                <AiSparkIcon size={16} strokeWidth={1.8} />
+                {t.modifyRun}
+              </button>
+            </form>
           )}
         </>
       )}

@@ -158,8 +158,52 @@ export const bboxInside = (inner: BBox, outer: BBox) =>
   inner.minX >= outer.minX && inner.maxX <= outer.maxX && inner.minY >= outer.minY && inner.maxY <= outer.maxY
 export const bboxIntersects = (a: BBox, b: BBox) => a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY
 
-/** Object-snap candidates: endpoints, midpoints, centres. */
-export type SnapKind = 'endpoint' | 'midpoint' | 'center' | 'grid'
+/** Object-snap candidates: endpoints, midpoints, centres, quadrants (intersection / perpendicular /
+ *  nearest are found against the cursor, see ModelViewport). */
+export type SnapKind = 'endpoint' | 'midpoint' | 'center' | 'quadrant' | 'intersection' | 'perpendicular' | 'nearest' | 'grid'
+export type OsnapMode = Exclude<SnapKind, 'grid'>
+export const OSNAP_MODES: OsnapMode[] = ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'perpendicular', 'nearest']
+
+const footOnSegment = (p: Vec2, a: Vec2, b: Vec2, clamp: boolean): Vec2 | null => {
+  const ab = sub(b, a)
+  const l2 = ab.x * ab.x + ab.y * ab.y
+  if (l2 < 1e-12) return null
+  const t = ((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / l2
+  if (!clamp && (t < -1e-9 || t > 1 + 1e-9)) return null
+  return add(a, scale(ab, Math.max(0, Math.min(1, t))))
+}
+const segmentsOf = (e: Entity): [Vec2, Vec2][] =>
+  e.kind === 'line' ? [[e.a, e.b]]
+    : e.kind === 'polyline' ? [...e.pts.slice(1).map((p, i) => [e.pts[i], p] as [Vec2, Vec2]), ...(e.closed && e.pts.length > 2 ? [[e.pts[e.pts.length - 1], e.pts[0]] as [Vec2, Vec2]] : [])]
+      : []
+
+/** NEArest: the point of the entity closest to p (lines, polylines, circles, arcs). */
+export function nearestOn(e: Entity, p: Vec2): Vec2 | null {
+  if (e.kind === 'circle' || e.kind === 'arc') {
+    const a = angleOf(sub(p, e.c))
+    if (e.kind === 'arc' && !angleInArc(a, e.start, e.end)) {
+      const s = arcPoint(e.c, e.r, e.start), t = arcPoint(e.c, e.r, e.end)
+      return dist(p, s) < dist(p, t) ? s : t
+    }
+    return arcPoint(e.c, e.r, a)
+  }
+  let best: Vec2 | null = null
+  for (const [a, b] of segmentsOf(e)) {
+    const f = footOnSegment(p, a, b, true)
+    if (f && (!best || dist(f, p) < dist(best, p))) best = f
+  }
+  return best
+}
+
+/** PERpendicular: feet of the perpendicular from `from` onto the entity (on the segment / arc only). */
+export function perpendicularFeet(e: Entity, from: Vec2): Vec2[] {
+  if (e.kind === 'circle' || e.kind === 'arc') {
+    const a = angleOf(sub(from, e.c))
+    return [a, a + Math.PI].filter((x) => e.kind === 'circle' || angleInArc(x, e.start, e.end)).map((x) => arcPoint(e.c, e.r, x))
+  }
+  return segmentsOf(e).map(([a, b]) => footOnSegment(from, a, b, false)).filter((f): f is Vec2 => !!f)
+}
+
 export function snapPoints(e: Entity): { p: Vec2; kind: SnapKind }[] {
   switch (e.kind) {
     case 'line':
@@ -175,12 +219,13 @@ export function snapPoints(e: Entity): { p: Vec2; kind: SnapKind }[] {
       return out
     }
     case 'circle':
-      return [{ p: e.c, kind: 'center' }]
+      return [{ p: e.c, kind: 'center' }, ...[0, 1, 2, 3].map((k) => ({ p: arcPoint(e.c, e.r, (k * Math.PI) / 2), kind: 'quadrant' as const }))]
     case 'arc':
       return [
         { p: e.c, kind: 'center' },
         { p: arcPoint(e.c, e.r, e.start), kind: 'endpoint' },
         { p: arcPoint(e.c, e.r, e.end), kind: 'endpoint' },
+        ...[0, 1, 2, 3].filter((k) => angleInArc((k * Math.PI) / 2, e.start, e.end)).map((k) => ({ p: arcPoint(e.c, e.r, (k * Math.PI) / 2), kind: 'quadrant' as const })),
       ]
     case 'text':
       return [{ p: e.p, kind: 'endpoint' }]

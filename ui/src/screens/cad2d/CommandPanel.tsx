@@ -1,9 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ChevronRight, CircleHelp, History, Settings, TriangleAlert } from 'lucide-react'
+import { UpMenu } from '../../components/ui/UpMenu'
+import { bboxOf, unionBBox } from '../../cad/geometry'
 import { fmt, useT } from '../../i18n'
 import { useCad, type BottomTab } from '../../state/cad'
 import { useCadSession } from '../../state/cadSession'
 import { toast } from '../../state/toast'
+import { sendToAiStudio } from '../../state/aiStudio'
 import { runChecks } from '../../cad/checks'
 import { formatLength } from '../../cad/geometry'
 import s from './CommandPanel.module.css'
@@ -15,7 +18,7 @@ export interface CommandPanelHandle {
 export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel(_, ref) {
   const T = useT()
   const t = T.cad.cmd
-  const { bottomTab, set, log, print, setSelection } = useCad()
+  const { bottomTab, set, log, print, setSelection, cmdFont, spaceEnter, clearLog, setView } = useCad()
   const doc = useCad((st) => st.activeDoc())
   const session = useCadSession()
   const [value, setValue] = useState('')
@@ -66,9 +69,18 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
             <History size={17} strokeWidth={1.6} />
           </button>
           <span className={s.toolsSep} />
-          <button type="button" className={s.tbtn} aria-label={t.settings} title={t.settings} onClick={() => toast(fmt(T.toast.notImplemented, { feature: t.settings }))}>
-            <Settings size={17} strokeWidth={1.6} />
-          </button>
+          <UpMenu
+            label={t.settings}
+            className={s.tbtn}
+            icon={<Settings size={17} strokeWidth={1.6} />}
+            width={220}
+            align="right"
+            items={[
+              ...[12, 13, 15].map((n) => ({ label: fmt(t.fontSize, { n }), checked: cmdFont === n, onSelect: () => set({ cmdFont: n }) })),
+              { label: t.spaceEnter, checked: spaceEnter, onSelect: () => set({ spaceEnter: !spaceEnter }) },
+              { label: t.clear, onSelect: clearLog, danger: true },
+            ]}
+          />
           <button type="button" className={s.tbtn} aria-label={t.help} title={`${t.help} (F1)`} onClick={() => print(t.helpText, 'info')}>
             <CircleHelp size={17} strokeWidth={1.6} />
           </button>
@@ -77,7 +89,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
 
       {bottomTab === 'command' && (
         <>
-          <div ref={logRef} className={`${s.log} scroll-y`} role="log" aria-live="polite">
+          <div ref={logRef} className={`${s.log} scroll-y`} role="log" aria-live="polite" style={{ fontSize: cmdFont }}>
             {log.map((l) => (
               <div key={l.id} className={l.tone === 'error' ? s.err : l.tone === 'info' ? s.info : undefined}>
                 {l.text}
@@ -89,6 +101,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
             <input
               ref={input}
               className={s.input}
+              style={{ fontSize: cmdFont }}
               value={value}
               spellCheck={false}
               autoComplete="off"
@@ -113,7 +126,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
                   const i = recallIdx + 1
                   setRecallIdx(i >= recall.length ? -1 : i)
                   setValue(i >= recall.length ? '' : recall[i])
-                } else if (e.key === ' ' && !value.trim() && session.stage !== 'textValue') {
+                } else if (e.key === ' ' && spaceEnter && !value.trim() && session.stage !== 'textValue') {
                   // AutoCAD: space = Enter on the command line
                   e.preventDefault()
                   submit()
@@ -129,7 +142,17 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
           {findings.length === 0 && <li className={s.none}>{T.cad.detected.none}</li>}
           {findings.map((f) => (
             <li key={f.id}>
-              <button type="button" className={s.finding} onClick={() => setSelection([f.entityId])}>
+              <button
+                type="button"
+                className={s.finding}
+                onClick={() => {
+                  setSelection([f.entityId])
+                  // zoom to it: the entity's box fills about a third of the view
+                  const e = doc?.entities.find((x) => x.id === f.entityId)
+                  const b = e && unionBBox([bboxOf(e)])
+                  if (doc && b) setView(doc.id, { center: { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 }, mmPerPx: Math.max(1, Math.max(b.maxX - b.minX, b.maxY - b.minY) / 300) })
+                }}
+              >
                 <TriangleAlert size={15} strokeWidth={1.8} />
                 <span>
                   {f.kind === 'dimension-override'
@@ -147,7 +170,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
         <ul className={`${s.list} scroll-y`}>
           {T.cad.ai.items.map((it) => (
             <li key={it.title}>
-              <button type="button" className={s.finding} onClick={() => toast(fmt(T.cad.ai.runtimeMissing, { name: it.title }))}>
+              <button type="button" className={s.finding} onClick={() => { toast(fmt(T.cad.ai.sent, { name: it.title })); sendToAiStudio(it.prompt) }}>
                 <ChevronRight size={15} strokeWidth={1.8} />
                 <span>
                   {it.title} — {it.desc}
