@@ -1,11 +1,16 @@
-import { parseSurvey, previewCsv } from '../../src/civil/survey'
+import { parseShapefile, parseSurvey, previewCsv } from '../../src/civil/survey'
 import { buildTin, contours, elevationAt, groundProfile, polyLength, crossLine } from '../../src/civil/tin'
 import { EXISTING_GROUND, interp } from '../../src/civil/model'
 
-declare global { interface Window { runSurveyTests: (files: Record<string, string>) => unknown } }
+declare global { interface Window { runSurveyTests: (files: Record<string, string>, shp: { shp: string; dbf: string; prj: string; al: string; aldbf: string }) => unknown } }
+const b64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)).buffer
 
-window.runSurveyTests = (files) => {
+window.runSurveyTests = (files, shp) => {
   const out: Record<string, unknown> = {}
+  const pts = parseShapefile('canal_points_SYNTHETIC.shp', b64(shp.shp), b64(shp.dbf), shp.prj)
+  const al = parseShapefile('canal_centreline_SYNTHETIC.shp', b64(shp.al), b64(shp.aldbf), shp.prj)
+  const stin = buildTin(pts)
+  out.shapefile = { points: pts.x.length, tris: stin.tri.length / 3, area: Math.round(stin.area), crs: pts.crs, alignment: al.alignment?.length, alName: al.alignmentName, length: al.alignment ? +polyLength(al.alignment).toFixed(2) : null, maxErr: Math.max(...groundProfile(stin, al.alignment!, 20).profile.map(([st, z]) => Math.abs(z - interp(EXISTING_GROUND, st)))).toFixed(3) }
   for (const [name, text] of Object.entries(files)) {
     const t0 = performance.now()
     const s = parseSurvey(name, text)
