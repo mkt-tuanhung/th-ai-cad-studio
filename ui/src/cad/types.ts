@@ -116,4 +116,18 @@ export interface CadDocument {
   savedAt: number | null
   /** Where the document came from — shown in References. */
   source: 'seed' | 'new' | 'dxf-import'
+  /** Paper-space layouts (paper size and plot scale; scale null = the largest standard scale that fits). */
+  layouts?: Layout[]
 }
+
+export interface Layout {
+  id: string
+  name: string
+  paper: 'A4' | 'A3' | 'A2' | 'A1'
+  scale: number | null
+}
+
+export const DEFAULT_LAYOUTS: Layout[] = [
+  { id: 'layout1', name: 'Layout1', paper: 'A3', scale: null },
+  { id: 'layout2', name: 'Layout2', paper: 'A1', scale: null },
+]

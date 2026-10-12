@@ -16,7 +16,8 @@ import type { ToolId } from '../cad/commands'
 export type DraftToggle = 'ortho' | 'osnap' | 'grid' | 'snap' | 'polar' | 'model'
 export type RightTab = 'properties' | 'layers' | 'blocks' | 'references'
 export type BottomTab = 'command' | 'detected' | 'ai'
-export type SheetTab = 'model' | 'layout1' | 'layout2'
+/** 'model' or a layout id of the active document. */
+export type SheetTab = string
 export type AiTab = 'suggestions' | 'generate' | 'modify'
 
 export interface ViewState {
@@ -66,6 +67,8 @@ interface CadState {
   toggle: (k: DraftToggle) => void
   print: (text: string, tone?: LogLine['tone']) => void
   set: (patch: Partial<Pick<CadState, 'rightTab' | 'bottomTab' | 'sheet' | 'scale'>>) => void
+  /** Paper-space layouts of the active document (not an undoable model edit; marks the drawing modified). */
+  setLayouts: (layouts: import('../cad/types').Layout[]) => void
   setAi: (patch: Partial<CadState['aiPanel']>) => void
 }
 
@@ -202,6 +205,11 @@ export const useCad = create<CadState>()(
       setTool: (tool) => set({ tool }),
       toggle: (k) => set({ toggles: { ...get().toggles, [k]: !get().toggles[k] } }),
       print: (text, tone) => set({ log: [...get().log.slice(-300), line(text, tone)] }),
+      setLayouts: (layouts) => {
+        const doc = get().activeDoc()
+        if (!doc) return
+        set({ docs: { ...get().docs, [doc.id]: { ...doc, layouts, dirty: true } } })
+      },
       set: (patch) => set(patch),
       setAi: (patch) => set({ aiPanel: { ...get().aiPanel, ...patch } }),
     }),

@@ -113,9 +113,15 @@ await step('Detected tab lists the 3 dimension texts that disagree with measured
   await page.getByRole('tab', { name: 'Command Line' }).click()
 })
 
-await step('native-only command (TRIM) reports honestly instead of faking', async () => {
+await step('TRIM / HATCH prompt for their picks; PLOT runs the plot (no "native engine" notice any more)', async () => {
   await cmd('TR')
-  assert.match(await log(), /TRIM: needs the native CAD engine/)
+  assert.ok(await page.getByText(/Select the part of an object to trim/).isVisible())
+  await page.keyboard.press('Escape')
+  await cmd('H')
+  assert.ok(await page.getByText(/Pick an internal point or a closed boundary/).isVisible())
+  await page.keyboard.press('Escape')
+  await cmd('PLOT')
+  assert.doesNotMatch(await log(), /needs the native CAD engine/)
 })
 
 await step('Export DXF downloads a valid R12 file; importing it opens a new tab with the same vector count', async () => {
@@ -179,10 +185,19 @@ await step('new drawing tab (+) and close tab', async () => {
   assert.equal(await page.getByRole('tab', { name: /Drawing1\.dwg/ }).count(), 0)
 })
 
-await step('Layout1 shows the paper-space sheet; MODEL toggles back', async () => {
+await step('Layouts: Layout1 sheet; add a layout, set A4 1:200, delete it; MODEL toggles back', async () => {
   await page.getByRole('tab', { name: 'Villa Riverside - Floor Plan.dwg' }).click()
   await page.getByRole('tab', { name: 'Layout1' }).click()
-  await page.getByText('ISO A3 — Layout1').waitFor()
+  assert.equal(await page.getByLabel('Paper', { exact: true }).inputValue(), 'A3')
+  await page.getByRole('button', { name: 'New layout' }).click()
+  await page.getByRole('tab', { name: 'Layout3' }).waitFor()
+  await page.getByLabel('Paper', { exact: true }).selectOption('A4')
+  await page.getByLabel('Scale', { exact: true }).selectOption('200')
+  assert.equal(await page.getByTestId('paper-sheet').getAttribute('data-scale'), '200')
+  assert.ok((await page.getByTestId('paper-sheet').innerHTML()).includes('A4'))
+  await page.getByRole('button', { name: 'Delete layout' }).click()
+  assert.equal(await page.getByRole('tab', { name: 'Layout3' }).count(), 0)
+  await page.getByRole('tab', { name: 'Layout1' }).click()
   await page.getByRole('button', { name: 'MODEL', exact: true }).click()
   assert.equal(await page.getByRole('tab', { name: 'Model' }).getAttribute('aria-selected'), 'true')
 })

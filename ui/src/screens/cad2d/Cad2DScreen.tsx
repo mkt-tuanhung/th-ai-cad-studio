@@ -1,3 +1,4 @@
+import { DEFAULT_LAYOUTS } from '../../cad/types'
 import { useEffect, useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useCad } from '../../state/cad'
@@ -77,29 +78,54 @@ export function Cad2DScreen() {
     say(msg, 'info')
     toast(msg, 'success')
   }
-  const exportPlot = async (kind: 'pdf' | 'png') => {
+  /** Plot to PDF / PNG: the active layout (paper + scale), or A3 at the fitting scale from Model. */
+  const exportPlot = async (kind: 'pdf' | 'png', layoutId?: string) => {
     if (!doc) return
-    const page = plotPage(doc, 'A3')
+    const layouts = doc.layouts ?? DEFAULT_LAYOUTS
+    const lay = layouts.find((l) => l.id === (layoutId ?? cad.sheet))
+    const paper = lay?.paper ?? 'A3'
+    const page = plotPage(doc, paper, lay?.scale ?? undefined)
+    const name = lay ? `${baseName()} - ${lay.name}` : baseName()
     if (kind === 'png') {
-      const file = `${baseName()}.png`
+      const file = `${name}.png`
       downloadFile(file, new Uint8Array(await (await pagePng(page, 200)).arrayBuffer()), 'image/png')
-      return toast(fmt(T.cad.toast.pngSaved, { file, paper: 'A3', dpi: 200, scale: page.scale }), 'success')
+      return toast(fmt(T.cad.toast.pngSaved, { file, paper, dpi: 200, scale: page.scale }), 'success')
     }
     const host = await getHost()
     if (!host) {
       // browser: the vector page in a print window — the system dialog saves it as PDF
       const w = window.open('', '_blank')
       if (w) {
-        w.document.write(`<!doctype html><title>${baseName()}</title><style>@page{size:${page.w}mm ${page.h}mm;margin:0}body{margin:0}</style>${pageSvg(page)}<script>onload=()=>print()<\/script>`)
+        w.document.write(`<!doctype html><title>${name}</title><style>@page{size:${page.w}mm ${page.h}mm;margin:0}body{margin:0}</style>${pageSvg(page)}<script>onload=()=>print()<\/script>`)
         w.document.close()
       }
-      return toast(fmt(T.cad.toast.pdfBrowser, { paper: 'A3', scale: page.scale }), 'info')
+      return toast(fmt(T.cad.toast.pdfBrowser, { paper, scale: page.scale }), 'info')
     }
-    const r = await host.cadExportPdf(JSON.stringify(page), `${baseName()}.pdf`)
+    const r = await host.cadExportPdf(JSON.stringify(page), `${name}.pdf`)
     if (r.cancelled) return
     if (!r.ok) return toast(r.error ?? 'PDF', 'warning')
     const file = r.path!.split(/[\\/]/).pop()!
-    toast(fmt(T.cad.toast.pdfSaved, { file, paper: 'A3', scale: page.scale }), 'success')
+    toast(fmt(T.cad.toast.pdfSaved, { file, paper, scale: page.scale }), 'success')
+  }
+
+  /** Sheet set: every layout as one multi-page PDF (desktop) or a print window with one page per layout. */
+  const plotSheetSet = async () => {
+    if (!doc) return
+    const layouts = doc.layouts ?? DEFAULT_LAYOUTS
+    const pages = layouts.map((l) => ({ ...plotPage(doc, l.paper, l.scale ?? undefined), name: `${baseName()} - ${l.name}` }))
+    const host = await getHost()
+    if (!host) {
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.write(`<!doctype html><title>${baseName()} - sheet set</title><style>@page{margin:0}body{margin:0}.p{page-break-after:always}</style>${pages.map((p) => `<div class="p" style="width:${p.w}mm;height:${p.h}mm">${pageSvg(p)}</div>`).join('')}<script>onload=()=>print()<\/script>`)
+        w.document.close()
+      }
+      return toast(fmt(T.cad.sheets.setBrowser, { n: pages.length }), 'info')
+    }
+    const r = await host.cadExportPdf(JSON.stringify({ pages, name: `${baseName()} - sheet set` }), `${baseName()} - sheet set.pdf`)
+    if (r.cancelled) return
+    if (!r.ok) return toast(r.error ?? 'PDF', 'warning')
+    toast(fmt(T.cad.sheets.setPlotted, { n: pages.length, file: r.path!.split(/[\\/]/).pop()! }), 'success')
   }
 
   const openFiles = async (list: FileList | File[] | null) => {
@@ -164,6 +190,7 @@ export function Cad2DScreen() {
   useEffect(() => {
     cadUi.openFile = () => fileInput.current?.click()
     cadUi.exportDxf = exportDxf
+    cadUi.plot = () => void exportPlot('pdf')
   })
 
   // AutoCAD-style keyboard: typing goes to the command line; F-keys toggle drafting aids.
@@ -227,11 +254,6 @@ export function Cad2DScreen() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const native = (msg: string) => {
-    say(msg, 'error')
-    toast(msg, 'warning')
-  }
-
   return (
     <div className={`${s.screen} ${cad.aiPanel.open ? '' : s.noAi} ${cad.aiPanel.minimized ? s.aiMin : ''}`}>
       <div className={s.tabs}>
@@ -260,8 +282,8 @@ export function Cad2DScreen() {
           onViewport={() => {
             cad.set({ sheet: 'model' })
                 }}
-          onLayout={() => cad.set({ sheet: cad.sheet === 'model' ? 'layout1' : 'model' })}
-          onSheetSet={() => native(T.cad.toast.layoutNative)}
+          onLayout={() => cad.set({ sheet: cad.sheet === 'model' ? (doc?.layouts ?? DEFAULT_LAYOUTS)[0].id : 'model' })}
+          onSheetSet={() => void plotSheetSet()}
           onSettings={() => navigate('settings')}
         />
       </div>
@@ -269,7 +291,7 @@ export function Cad2DScreen() {
         <ToolPalette />
       </div>
       <div className={s.canvas}>
-        <CanvasCard />
+        <CanvasCard onPlot={(id) => void exportPlot('pdf', id)} />
       </div>
       <div className={s.side}>
         <div className={s.props}>

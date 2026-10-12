@@ -1,37 +1,48 @@
 import { Plus } from 'lucide-react'
-import { useT } from '../../i18n'
-import { useCad, type SheetTab } from '../../state/cad'
+import { fmt, useT } from '../../i18n'
+import { useCad } from '../../state/cad'
 import { toast } from '../../state/toast'
+import { DEFAULT_LAYOUTS } from '../../cad/types'
 import { ModelViewport } from './ModelViewport'
 import { PaperSpace } from './PaperSpace'
 import s from './CanvasCard.module.css'
 
-const SHEETS: SheetTab[] = ['model', 'layout1', 'layout2']
-
 /**
- * Drawing area. In the desktop host (architecture option A) the native OCCT viewport is placed into
- * this slot (`data-native-viewport-slot`); in the browser the prototype SVG viewport renders here.
+ * Drawing area: Model plus the document's paper-space layouts (paper size + plot scale, previewed exactly as
+ * they plot). In the desktop host the native viewport is placed into this slot (`data-native-viewport-slot`).
  */
-export function CanvasCard() {
+export function CanvasCard({ onPlot }: { onPlot?: (layoutId: string) => void }) {
   const t = useT().cad
   const doc = useCad((st) => st.activeDoc())
-  const { sheet, set } = useCad()
+  const { sheet, set, setLayouts } = useCad()
+  const layouts = doc?.layouts ?? DEFAULT_LAYOUTS
+  const current = layouts.find((l) => l.id === sheet)
+  const addLayout = () => {
+    const n = layouts.length + 1
+    const l = { id: `layout-${Date.now().toString(36)}`, name: `Layout${n}`, paper: 'A3' as const, scale: null }
+    setLayouts([...layouts, l])
+    set({ sheet: l.id })
+    toast(fmt(t.sheets.added, { name: l.name }))
+  }
   return (
     <section className={s.card}>
       <div className={s.tabs} role="tablist">
-        {SHEETS.map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={sheet === k} className={`${s.tab} ${sheet === k ? s.on : ''}`} onClick={() => set({ sheet: k })}>
-            {t.sheets[k]}
+        <button type="button" role="tab" aria-selected={sheet === 'model' || !current} className={`${s.tab} ${sheet === 'model' || !current ? s.on : ''}`} onClick={() => set({ sheet: 'model' })}>
+          {t.sheets.model}
+        </button>
+        {layouts.map((l) => (
+          <button key={l.id} type="button" role="tab" aria-selected={sheet === l.id} className={`${s.tab} ${sheet === l.id ? s.on : ''}`} onClick={() => set({ sheet: l.id })}>
+            {l.name}
           </button>
         ))}
         <span className={s.sep} />
-        <button type="button" className={s.add} aria-label={t.sheets.add} title={t.sheets.add} onClick={() => toast(t.toast.layoutNative)}>
+        <button type="button" className={s.add} aria-label={t.sheets.add} title={t.sheets.add} onClick={addLayout}>
           <Plus size={17} strokeWidth={1.6} />
         </button>
       </div>
       <div className={s.area} data-native-viewport-slot>
-        {doc && sheet === 'model' && <ModelViewport key={doc.id} doc={doc} />}
-        {doc && sheet !== 'model' && <PaperSpace doc={doc} sheet={t.sheets[sheet]} />}
+        {doc && !current && <ModelViewport key={doc.id} doc={doc} />}
+        {doc && current && <PaperSpace doc={doc} layout={current} onPlot={() => onPlot?.(current.id)} />}
       </div>
     </section>
   )

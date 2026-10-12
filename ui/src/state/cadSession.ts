@@ -18,6 +18,7 @@ import type { CadOp, ValidationError } from '../cad/commandBus'
 import { fmt, getMessages } from '../i18n'
 import { useSettings } from './settings'
 import { useCad, type DraftToggle } from './cad'
+import { hatchBoundary, offsetMore, polyArea, trimEntity } from '../cad/edit'
 import { formatAngle, formatArea, formatLength, polygonMetrics } from '../lib/units'
 
 /**
@@ -55,6 +56,8 @@ export type Stage =
   | 'areaFirst'
   | 'areaNext'
   | 'insertPoint'
+  | 'trimPick'
+  | 'hatchPick'
 
 interface SessionState {
   stage: Stage
@@ -78,7 +81,7 @@ interface SessionState {
 }
 
 /** UI hooks registered by the CAD screen (zoom, file dialogs, export). */
-export const cadUi: { zoomExtents?: () => void; openFile?: () => void; exportDxf?: () => void } = {}
+export const cadUi: { zoomExtents?: () => void; openFile?: () => void; exportDxf?: () => void; plot?: () => void } = {}
 /**
  * Block waiting to be placed by INSERT (set by the Components library). Entities are in block
  * coordinates, already offset to the chosen insertion point and rotated.
@@ -137,6 +140,8 @@ const firstStage: Partial<Record<ToolId, Stage>> = {
   dist: 'distP1',
   area: 'areaFirst',
   insert: 'insertPoint',
+  trim: 'trimPick',
+  hatch: 'hatchPick',
 }
 
 export const useCadSession = create<SessionState>()((set, get) => {
@@ -354,6 +359,28 @@ export const useCadSession = create<SessionState>()((set, get) => {
           run({ type: 'replace', label: 'MOVE', entities: moved })
           return finish()
         }
+        case 'trim': {
+          if (s.stage !== 'trimPick') return
+          const target = hitId ? doc.entities.find((e) => e.id === hitId) : null
+          if (!target) return
+          const vis = new Set(doc.layers.filter((l) => l.visible).map((l) => l.name))
+          const pieces = trimEntity(target, doc.entities.filter((e) => vis.has(e.layer)), p, newId)
+          if (!pieces) return print(L.trimNothing, 'error')
+          const err = cad().execBatch(
+            pieces.length ? [{ type: 'replace', entities: [pieces[0]], label: 'TRIM' }, ...(pieces.length > 1 ? [{ type: 'add' as const, entities: pieces.slice(1), label: 'TRIM' }] : [])] : [{ type: 'erase', ids: [target.id], label: 'TRIM' }],
+            'TRIM',
+          )
+          if (err) return reportError(err)
+          return print(fmt(L.trimmed, { n: 1, m: pieces.length }))
+        }
+        case 'hatch': {
+          if (s.stage !== 'hatchPick') return
+          const ring = hatchBoundary(doc.entities, p, hitId)
+          if (!ring) return print(L.hatchNone, 'error')
+          const area = Math.abs(polyArea(ring))
+          run({ type: 'add', label: 'HATCH', entities: [{ ...entityBase(), kind: 'polyline', pts: ring, closed: true, filled: true }] })
+          return print(fmt(L.hatched, { area: formatArea(area, useSettings.getState()) }))
+        }
         case 'offset': {
           if (s.stage === 'offsetPick') {
             if (!hitId) return
@@ -361,7 +388,7 @@ export const useCadSession = create<SessionState>()((set, get) => {
           }
           if (s.stage === 'offsetSide' && s.offsetTarget && s.offsetDist !== null) {
             const target = doc.entities.find((e) => e.id === s.offsetTarget)
-            const made = target && offsetEntity(target, s.offsetDist, p)
+            const made = target && (offsetEntity(target, s.offsetDist, p) ?? offsetMore(target, s.offsetDist, p))
             if (!made) print(L.offsetUnsupported, 'error')
             else run({ type: 'add', label: 'OFFSET', entities: [{ ...made, id: newId() }] })
             // AutoCAD keeps offsetting with the same distance until Enter/Esc
@@ -503,6 +530,8 @@ export const useCadSession = create<SessionState>()((set, get) => {
           return cadUi.openFile?.()
         case 'DXFOUT':
           return cadUi.exportDxf?.()
+        case 'PLOT':
+          return cadUi.plot?.()
         default:
           return print(fmt(t().cmd.native, { c: spec.name }), 'error')
       }

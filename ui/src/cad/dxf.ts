@@ -1,3 +1,4 @@
+import { triangulate } from './edit'
 import type { CadDocument, Entity, Layer } from './types'
 import { dimensionGeometry, formatLength, measured } from './geometry'
 
@@ -40,6 +41,11 @@ function entity(g: (c: number, v: string | number) => void, e: Entity) {
       head('POLYLINE'); g(66, 1); g(70, e.closed ? 1 : 0)
       for (const p of e.pts) { g(0, 'VERTEX'); g(8, e.layer); g(10, p.x); g(20, p.y); g(30, 0) }
       g(0, 'SEQEND'); g(8, e.layer)
+      // solid fill (HATCH) as R12 SOLIDs: one triangle each (corner order 1-2-4-3, the 4th = the 3rd)
+      if (e.filled && e.closed)
+        for (const [a, b, c] of triangulate(e.pts)) {
+          head('SOLID'); g(10, a.x); g(20, a.y); g(30, 0); g(11, b.x); g(21, b.y); g(31, 0); g(12, c.x); g(22, c.y); g(32, 0); g(13, c.x); g(23, c.y); g(33, 0)
+        }
       break
     case 'circle':
       head('CIRCLE'); g(10, e.c.x); g(20, e.c.y); g(30, 0); g(40, e.r)

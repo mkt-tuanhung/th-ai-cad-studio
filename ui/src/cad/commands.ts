@@ -35,9 +35,9 @@ export const COMMANDS: CommandSpec[] = [
   { name: 'RECTANG', aliases: ['REC', 'RECTANGLE'], tool: 'rectangle', status: 'prototype' },
   { name: 'CIRCLE', aliases: ['C'], tool: 'circle', status: 'prototype' },
   { name: 'ARC', aliases: ['A'], tool: 'arc', status: 'prototype' },
-  { name: 'TRIM', aliases: ['TR'], tool: 'trim', status: 'native' },
+  { name: 'TRIM', aliases: ['TR'], tool: 'trim', status: 'prototype' },
   { name: 'OFFSET', aliases: ['O'], tool: 'offset', status: 'prototype' },
-  { name: 'HATCH', aliases: ['H', 'BH'], tool: 'hatch', status: 'native' },
+  { name: 'HATCH', aliases: ['H', 'BH'], tool: 'hatch', status: 'prototype' },
   { name: 'DIMLINEAR', aliases: ['DIM', 'DLI', 'DIMALIGNED', 'DAL'], tool: 'dimension', status: 'prototype' },
   { name: 'TEXT', aliases: ['T', 'DT', 'MTEXT', 'MT'], tool: 'text', status: 'prototype' },
   { name: 'MOVE', aliases: ['M'], tool: 'move', status: 'prototype' },
@@ -59,7 +59,7 @@ export const COMMANDS: CommandSpec[] = [
   { name: 'NEW', aliases: ['QNEW'], status: 'prototype' },
   { name: 'OPEN', aliases: [], status: 'prototype' },
   { name: 'DXFOUT', aliases: ['EXPORT'], status: 'prototype' },
-  { name: 'PLOT', aliases: ['PRINT'], status: 'native' },
+  { name: 'PLOT', aliases: ['PRINT'], status: 'prototype' },
 ]
 
 export function resolveCommand(input: string): CommandSpec | null {

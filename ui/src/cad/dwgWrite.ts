@@ -11,6 +11,7 @@
  */
 import type { CadDocument, Entity } from './types'
 import { dimensionGeometry, formatLength, measured } from './geometry'
+import { triangulate } from './edit'
 
 const ACI: Record<string, number> = { '#111827': 7, '#1f2937': 7, '#0f766e': 4, '#2563eb': 5, '#6b7280': 8, '#9aa1ab': 9, '#3f4654': 8, '#9ca3af': 9 }
 const f = (n: number) => (Math.round(n * 1e6) / 1e6).toString()
@@ -71,6 +72,13 @@ export function toDwgAdd(doc: CadDocument, opt: DwgOptions = {}): { script: stri
         if (e.closed) o.push('lwpolyline.flag = 1')
         on('lwpolyline', e.layer)
         count('LWPOLYLINE')
+        // solid fill (HATCH) → SOLID triangles
+        if (e.filled && e.closed)
+          for (const [a, b, c] of triangulate(e.pts)) {
+            o.push(`solid ${p3(a.x, a.y)} (${f(b.x)} ${f(b.y)}) (${f(c.x)} ${f(c.y)}) (${f(c.x)} ${f(c.y)})`)
+            on('solid', e.layer)
+            count('SOLID')
+          }
         break
       case 'circle':
         o.push(`circle ${p3(e.c.x, e.c.y)} ${f(e.r)}`)
