@@ -25,7 +25,9 @@
     window.__thcad.aiStudio.getState().newChat()
     await sleep(300)
     const a = await ask('How many walls and levels does the BIM model of this project have?')
-    check('a question gets a written answer grounded in the project (24 walls, 4 levels)', !!a && /24/.test(a.text) && /4|four/i.test(a.text) && !a.proposal, a?.text?.slice(0, 300) + ' | ' + a?.stats)
+    // the count the model must report is the one of the open BIM model (other QA runs may have added walls)
+    const nWalls = window.__thcad.bim.getState().model.walls.length, nLevels = window.__thcad.bim.getState().model.levels.length
+    check(`a question gets a written answer grounded in the project (${nWalls} walls, ${nLevels} levels)`, !!a && new RegExp(`\\b${nWalls}\\b`).test(a.text) && new RegExp(`\\b${nLevels}\\b|four|five`, 'i').test(a.text) && !a.proposal, a?.text?.slice(0, 300) + ' | ' + a?.stats)
     const b = await ask('Draw a line from 0,0 to 5000,0 on layer 0')
     check('a drawing change becomes a pending proposal', !!b && !!b.proposal && b.proposal.status === 'pending', b?.text?.slice(0, 200) + ' | ' + b?.stats + ' | doc ' + !!window.__thcad.cad?.getState().activeDoc())
     const c = await ask('Tường dày 200 mm thì thể tích của bức tường dài 4 m cao 3 m là bao nhiêu?')
