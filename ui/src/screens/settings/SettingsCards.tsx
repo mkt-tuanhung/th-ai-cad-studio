@@ -150,7 +150,7 @@ export function AiModelCard(p: CardProps) {
       <div className={s.row}>
         <span className={s.label}>{A.status}</span>
         {demo ? <Chip tone="gray">{A.demo}</Chip> : sys!.ai.ready ? <Chip tone="green">{A.ready}</Chip> : <Chip tone="amber">{A.noModel}</Chip>}
-        <span className={s.muted}>{demo ? A.demoText : sys!.ai.ready ? A.running : ''}</span>
+        <span className={s.muted} data-testid="ai-device">{demo ? A.demoText : sys!.ai.ready ? (sys!.ai.device ? fmt(A.runningOn, { device: sys!.ai.device }) : A.running) : ''}</span>
       </div>
       <div className={s.row}>
         <span className={s.label}>{A.vram}</span>
@@ -183,7 +183,7 @@ export function AiModelCard(p: CardProps) {
 /** Whisper speech model: status, and a download the user starts (547 MB, checksum-verified by the host). */
 function SpeechModel() {
   const A = useT().settings.ai
-  const [st, setSt] = useState<{ available: boolean; model: string; modelBytes: number } | null | 'browser'>(null)
+  const [st, setSt] = useState<{ available: boolean; model: string; modelBytes: number; device?: string } | null | 'browser'>(null)
   const [pct, setPct] = useState<number | null>(null)
   const refresh = async () => {
     const h = await getHost()
@@ -211,6 +211,7 @@ function SpeechModel() {
       <p>
         {st === 'browser' ? A.speechBrowser : !st ? '…' : st.available ? fmt(A.speechReady, { model: st.model.replace(/^ggml-|\.bin$/g, ''), size: formatGb(st.modelBytes) }) : A.speechMissing}
       </p>
+      {st && st !== 'browser' && st.available && <p data-testid="speech-device">{st.device ? fmt(A.speechDevice, { device: st.device }) : A.speechDeviceUnknown}</p>}
       {st && st !== 'browser' && !st.available && (
         <ActionButton variant="primary" disabled={pct !== null} onClick={() => void download()}>
           {pct !== null ? fmt(A.speechProgress, { pct }) : A.speechDownload}

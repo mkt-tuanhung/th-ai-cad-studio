@@ -20,6 +20,23 @@
 
 namespace thcad::app {
 
+namespace {
+QString lastDevice;  // from the last run's log: "<GPU> (Metal | Vulkan)" or "CPU"
+/** whisper-cli's log names the device it computes on. */
+QString deviceOf(const QString& log) {
+  const auto gpu = QRegularExpression(QStringLiteral("whisper_backend_init_gpu: using (\\S+) backend")).match(log);
+  if (!gpu.hasMatch()) return QStringLiteral("CPU");
+  const QString dev = gpu.captured(1);
+  for (const char* re : {"ggml_metal_init: found device: ([^\\n]+)", "ggml_vulkan: 0 = ([^|\\n(]+)", "Device 0: ([^,\\n]+)"}) {
+    const auto m = QRegularExpression(QString::fromLatin1(re)).match(log);
+    if (m.hasMatch()) return m.captured(1).trimmed() + (dev.startsWith("MTL") ? " (Metal)" : dev.startsWith("Vulkan") ? " (Vulkan)" : dev.startsWith("CUDA") ? " (CUDA)" : "");
+  }
+  return dev;
+}
+bool warming = false;
+std::vector<std::function<void()>> queued;  // transcriptions waiting for the warm-up
+}  // namespace
+
 QString WhisperRunner::helperPath() {
   if (const QString env = qEnvironmentVariable("THCAD_WHISPER_CLI"); !env.isEmpty() && QFileInfo(env).isExecutable()) return env;
   const QString dir = QCoreApplication::applicationDirPath();
@@ -49,15 +66,12 @@ QJsonObject WhisperRunner::status() {
   const QString helper = helperPath(), model = modelPath();
   QJsonObject r{{"available", !helper.isEmpty() && !model.isEmpty()}, {"helper", helper}, {"model", QFileInfo(model).fileName()},
                 {"modelBytes", static_cast<double>(model.isEmpty() ? 0 : QFileInfo(model).size())}};
+  if (!lastDevice.isEmpty()) r["device"] = lastDevice;  // known after the first run (warm-up included)
   if (helper.isEmpty()) r["reason"] = QStringLiteral("whisper-cli helper not found");
   else if (model.isEmpty()) r["reason"] = QStringLiteral("no Whisper model in ") + QString::fromStdString((ai::modelsDir() / "whisper").string());
   return r;
 }
 
-namespace {
-bool warming = false;
-std::vector<std::function<void()>> queued;  // transcriptions waiting for the warm-up
-}  // namespace
 
 void WhisperRunner::transcribe(const QByteArray& wav, const QString& lang, std::function<void(QJsonObject)> done) {
   if (warming) return queued.push_back([wav, lang, done] { run(wav, lang, done); });
@@ -89,7 +103,8 @@ void WhisperRunner::run(const QByteArray& wav, const QString& lang, std::functio
     // drop non-speech markers ([BLANK_AUDIO], (music)…) and join the lines
     text.remove(QRegularExpression(QStringLiteral("\\[[^\\]]*\\]|\\([^)]*\\)")));
     text = text.split('\n', Qt::SkipEmptyParts).join(' ').simplified();
-    QJsonObject r{{"ok", code == 0 && st == QProcess::NormalExit}, {"text", text}, {"ms", static_cast<double>(clock->elapsed())}};
+    lastDevice = deviceOf(err);
+    QJsonObject r{{"ok", code == 0 && st == QProcess::NormalExit}, {"text", text}, {"ms", static_cast<double>(clock->elapsed())}, {"device", lastDevice}};
     if (!r["ok"].toBool()) r["error"] = err.right(300).trimmed();
     done(r);
     p->deleteLater();
@@ -97,7 +112,7 @@ void WhisperRunner::run(const QByteArray& wav, const QString& lang, std::functio
     delete clock;
   });
   p->start(helper, {QStringLiteral("-m"), model, QStringLiteral("-l"), l, QStringLiteral("-t"), QString::number(threads), QStringLiteral("-nt"),
-                    QStringLiteral("-np"), QStringLiteral("-sns"), QStringLiteral("--prompt"), prompt, QStringLiteral("-f"), wavPath});
+                    QStringLiteral("-sns"), QStringLiteral("--prompt"), prompt, QStringLiteral("-f"), wavPath});
 }
 
 void WhisperRunner::warmup() {

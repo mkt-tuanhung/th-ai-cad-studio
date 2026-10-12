@@ -18,6 +18,8 @@ export interface LocalAiStatus {
   vramTotalGb: number
   /** null = not measured yet (no generation has run). */
   responseSeconds: number | null
+  /** Desktop: where the model computes — "<GPU> (Metal | Vulkan | CUDA)" or "CPU". */
+  device?: string
 }
 
 export interface AiActivityStats {
@@ -62,6 +64,7 @@ const nativeOrDemo: LocalAiRuntime = {
       vramUsedGb: Math.round(s.vramUsedGb * 10) / 10,
       vramTotalGb: Math.round(s.vramTotalGb),
       responseSeconds: s.responseSeconds === null ? null : Math.round(s.responseSeconds * 10) / 10,
+      device: (s as { device?: string }).device,
     }
   },
   // Suggestion counters are not tracked by the native runtime yet → still demo data.

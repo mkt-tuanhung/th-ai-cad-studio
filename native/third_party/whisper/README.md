@@ -9,9 +9,11 @@ llama.cpp uses.
   `57e280cee375ab02425b806ad5146b99f6eb9357e3c2b31357c8a6af2e2e44ae`).
 - macOS: built from that source by `build_macos.sh` — static, Metal shaders embedded; only system
   frameworks are linked.
-- Windows: official build `whisper-bin-x64.zip` of release b5130 (the v1.9.4 build), sha256
-  `f9ec6c52a2e949b62ab51fa21d0d497958f9e41c3010c157c4e42932d5316f3c`, shipped in `whisper\`
-  (its own `ggml*.dll`, kept apart from llama.cpp's).
+- Windows: built from the same source in CI (`build_windows.ps1`) with the **Vulkan** backend — the GPU of
+  any vendor (NVIDIA, AMD, Intel, integrated GPUs included) through the graphics driver's Vulkan — and all CPU
+  variants, as backends loaded at run time (`GGML_BACKEND_DL`): without a Vulkan driver it runs on the CPU.
+  Shipped in `whisper\` with its own `ggml*.dll`, kept apart from llama.cpp's. Vulkan headers, loader and
+  `glslc` come from vcpkg (`ggml[vulkan]`). CI runs a real transcription (tiny model) on the GPU-less runner.
 - Model (not shipped; downloaded by the user from Settings → Manage Models, or placed by hand in
   `<models>/whisper/`): `ggml-large-v3-turbo-q5_0.bin` from huggingface.co/ggerganov/whisper.cpp, MIT,
   574 041 195 bytes, sha256 `394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2`.

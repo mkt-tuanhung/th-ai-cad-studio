@@ -89,6 +89,7 @@ QJsonObject HostBridge::localAiStatus() const {
   return {
       {"source", "native"},
       {"backend", QString::fromStdString(s.backend)},
+      {"device", QString::fromStdString(s.device)},
       {"online", s.ready},  // green "Online" only when a model is actually loaded
       {"ready", s.ready},
       {"modelName", s.modelName.empty() ? QJsonValue::Null : QJsonValue(QString::fromStdString(s.modelName))},

@@ -94,22 +94,44 @@ if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "dxf2dwg --version timed out"
 if ($P.ExitCode -ne 0) { throw "dxf2dwg --version failed (exit $($P.ExitCode))" }
 
 # 5c) Voice CAD: whisper.cpp whisper-cli (MIT) as a separate program in whisper\ with its own ggml DLLs
-#     (kept apart from llama.cpp's ggml next to the exe); see third_party/whisper/README.md
-Write-Host "== Speech recognition (whisper.cpp)"
-$WZip = Fetch "https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-x64.zip" "F9EC6C52A2E949B62AB51FA21D0D497958F9E41C3010C157C4E42932D5316F3C"
+#     (kept apart from llama.cpp's ggml next to the exe); see third_party/whisper/README.md.
+#     Built from the pinned source with the Vulkan backend (GPU of any vendor: NVIDIA, AMD, Intel incl.
+#     integrated) and every CPU variant, loaded at run time: a PC without a Vulkan driver falls back to CPU.
+#     Vulkan headers / loader / glslc come from vcpkg (ggml[vulkan] in vcpkg.json).
+Write-Host "== Speech recognition (whisper.cpp, Vulkan + CPU)"
 $WSrc = Fetch "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.4.tar.gz" "57E280CEE375AB02425B806AD5146B99F6EB9357E3C2B31357C8A6AF2E2E44AE"
 $WTmp = "$Build\whisper"
 Remove-Item -Recurse -Force $WTmp -ErrorAction SilentlyContinue
-Expand-Archive $WZip -DestinationPath $WTmp
+New-Item -ItemType Directory -Force $WTmp | Out-Null
+python -c "import sys, tarfile; tarfile.open(sys.argv[1], 'r:gz').extractall(sys.argv[2])" $WSrc $WTmp; Check "whisper source"
+$Glslc = Get-ChildItem -Recurse "$Build\vcpkg" -Filter glslc.exe | Select-Object -First 1
+if (-not $Glslc) { throw "glslc.exe (vcpkg shaderc) not found" }
+cmake -S "$WTmp\whisper.cpp-1.9.4" -B "$WTmp\build" -G Ninja -DCMAKE_BUILD_TYPE=Release `
+  -DBUILD_SHARED_LIBS=ON -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_NATIVE=OFF -DGGML_VULKAN=ON `
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF -DWHISPER_SDL2=OFF `
+  "-DCMAKE_PREFIX_PATH=$VcpkgPrefix" "-DVulkan_INCLUDE_DIR=$VcpkgPrefix\include" "-DVulkan_LIBRARY=$VcpkgPrefix\lib\vulkan-1.lib" `
+  "-DVulkan_GLSLC_EXECUTABLE=$($Glslc.FullName)"; Check "whisper configure"
+cmake --build "$WTmp\build"; Check "whisper build"
 New-Item -ItemType Directory -Force "$Stage\whisper", "$Stage\licenses\whisper" | Out-Null
-Copy-Item "$WTmp\Release\whisper-cli.exe", "$WTmp\Release\whisper.dll" "$Stage\whisper\"
-Get-ChildItem "$WTmp\Release\ggml*.dll" | Copy-Item -Destination "$Stage\whisper\"
-python -c "import sys, tarfile; t = tarfile.open(sys.argv[1], 'r:gz'); open(sys.argv[2], 'wb').write(t.extractfile('whisper.cpp-1.9.4/LICENSE').read())" $WSrc "$Stage\licenses\whisper\LICENSE"; Check "whisper LICENSE"
+Copy-Item "$WTmp\build\bin\whisper-cli.exe" "$Stage\whisper\"
+Get-ChildItem "$WTmp\build\bin\*.dll" | Copy-Item -Destination "$Stage\whisper\"
+Get-ChildItem "$Stage\whisper" | ForEach-Object { Write-Host "   $($_.Name)" }
+if (-not (Test-Path "$Stage\whisper\ggml-vulkan.dll")) { throw "ggml-vulkan.dll was not built" }
+Copy-Item "$WTmp\whisper.cpp-1.9.4\LICENSE" "$Stage\licenses\whisper\LICENSE"
 Copy-Item "$Native\third_party\whisper\README.md" "$Stage\licenses\whisper\"
 $P = Start-Process -FilePath "$Stage\whisper\whisper-cli.exe" -ArgumentList "--help" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\whisper-help.txt" -RedirectStandardError "$Build\whisper-help-err.txt"
 if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "whisper-cli --help timed out" }
 if ($P.ExitCode -ne 0) { throw "whisper-cli --help failed (exit $($P.ExitCode))" }
 Write-Host "   whisper-cli runs"
+# a real transcription with the tiny model (the runner has no GPU: this checks the CPU fallback and the
+# backend loading; the log names the device used)
+$Tiny = Fetch "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin" "BE07E048E1E599AD46341C8D2A135645097A538221678B7ACDD1B1919C6E1B21"
+$P = Start-Process -FilePath "$Stage\whisper\whisper-cli.exe" -ArgumentList "-m `"$Tiny`" -l vi -nt -f `"$Native\..\qa\fixtures\voice\vi_window_SYNTHETIC.wav`"" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\whisper-out.txt" -RedirectStandardError "$Build\whisper-log.txt"
+if (-not $P.WaitForExit(300000)) { $P.Kill(); throw "whisper-cli transcription timed out" }
+Get-Content "$Build\whisper-log.txt" | Select-String -Pattern "backend|vulkan|load_backend|CPU" | ForEach-Object { Write-Host "   $_" }
+$Said = (Get-Content "$Build\whisper-out.txt" -Raw)
+Write-Host "   transcript (tiny model): $Said"
+if ($P.ExitCode -ne 0 -or -not $Said.Trim()) { throw "whisper-cli transcription failed (exit $($P.ExitCode))" }
 
 # 6) Optional signing, then the installer
 Write-Host "== Installer (Inno Setup)"

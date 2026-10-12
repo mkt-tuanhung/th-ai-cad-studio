@@ -7,7 +7,8 @@ license; the full license texts ship with the installer under `licenses/`.
 |---|---|---|---|
 | Qt 6 (Core, Gui, Widgets, WebEngine, WebChannel, Network) | desktop host, web view | LGPL-3.0 | dynamically linked; Qt WebEngine includes Chromium (BSD-3-Clause and others) |
 | Open CASCADE Technology 7.9 | 3D solids, STEP, offscreen 3D view | LGPL-2.1 with OCCT exception | dynamically linked |
-| llama.cpp / ggml | local AI runtime | MIT | |
+| llama.cpp / ggml | local AI runtime (Metal on macOS, Vulkan on Windows) | MIT | |
+| Vulkan loader (Windows) | GPU access for ggml's Vulkan backend | Apache-2.0 | from vcpkg; the GPU driver provides the rest |
 | **LibreDWG 0.14** (`dwg2dxf`, `dwgadd`, `dxf2dwg`) | opening and saving `.dwg` files (with layouts) | **GPL-3.0-or-later** | shipped as a **separate program**, run as a child process; not linked into the app. The complete source of the shipped version is included in the installer (`licenses/libredwg/`). See `native/third_party/libredwg/README.md` |
 | **whisper.cpp 1.9.4** (`whisper-cli`) | Voice CAD speech recognition | MIT | separate program, run as a child process (its own ggml); see `native/third_party/whisper/README.md` |
 | GNU libiconv (Windows only) | character sets for LibreDWG | LGPL-2.1-or-later | DLL from the LibreDWG Windows build |

@@ -44,7 +44,7 @@ export interface HostApi {
   voiceStart(locale: string): Promise<void>
   voiceStop(): Promise<void>
   /** Local Whisper (whisper.cpp helper + model in <models>/whisper). */
-  whisperStatus(): Promise<{ available: boolean; helper: string; model: string; modelBytes: number; reason?: string }>
+  whisperStatus(): Promise<{ available: boolean; helper: string; model: string; modelBytes: number; device?: string; reason?: string }>
   voiceTranscribe(id: string, wavBase64: string, lang: string): Promise<void>
   whisperDownload(): Promise<void>
   voiceWarmup(): Promise<void>

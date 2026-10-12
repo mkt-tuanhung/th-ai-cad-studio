@@ -21,6 +21,8 @@ struct RuntimeStatus {
   uint64_t memoryTotalBytes = 0;    // physical unified memory
   double lastTokensPerSecond = 0;   // measured on the last generation, 0 if none
   double lastLatencySeconds = 0;    // time to first token on the last generation
+  /** Where the model runs: "<GPU description> (Metal | Vulkan | CUDA)" or "CPU". */
+  std::string device;
   std::string error;
 };
 

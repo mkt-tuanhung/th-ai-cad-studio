@@ -56,6 +56,16 @@ class LlamaRuntime final : public Runtime {
     if (const std::string dir = backendDir(); !dir.empty()) ggml_backend_load_all_from_path(dir.c_str());
     else ggml_backend_load_all();
     llama_backend_init();
+    // the first GPU the backends found (Metal on a Mac, Vulkan on Windows); CPU when there is none
+    for (size_t i = 0; i < ggml_backend_dev_count(); ++i) {
+      ggml_backend_dev_t d = ggml_backend_dev_get(i);
+      const auto t = ggml_backend_dev_type(d);
+      if (t == GGML_BACKEND_DEVICE_TYPE_CPU || t == GGML_BACKEND_DEVICE_TYPE_ACCEL) continue;
+      std::string api = ggml_backend_reg_name(ggml_backend_dev_backend_reg(d));
+      if (api == "MTL") api = "Metal";
+      gpu_ = std::string(ggml_backend_dev_description(d)) + " (" + api + ")";
+      break;
+    }
   }
   ~LlamaRuntime() override {
     if (ctx_) llama_free(ctx_);
@@ -67,6 +77,8 @@ class LlamaRuntime final : public Runtime {
     std::lock_guard lock(mu_);
     RuntimeStatus s;
     s.backend = "llama.cpp";
+    const char* useGpu = std::getenv("THCAD_AI_GPU");
+    s.device = gpu_.empty() || (useGpu && std::string(useGpu) == "0") ? "CPU" : gpu_;
     s.memoryTotalBytes = physicalMemoryBytes();
     s.modelPath = path_;
     s.loaded = model_ != nullptr;
@@ -217,6 +229,7 @@ class LlamaRuntime final : public Runtime {
   std::vector<llama_token> cached_;
   size_t lastReused_ = 0;
   std::string path_, error_;
+  std::string gpu_;  // set once in the constructor
   double tps_ = 0, latency_ = 0;
 };
 
