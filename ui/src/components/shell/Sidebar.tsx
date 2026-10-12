@@ -1,9 +1,10 @@
+import { BrandLogo } from '../brand/BrandLogo'
 import type { ComponentType } from 'react'
 import { Box, Database, Folder, Image, Settings, Armchair } from 'lucide-react'
 import { useT } from '../../i18n'
 import { useRouter, type Route } from '../../state/router'
 import { useSettings } from '../../state/settings'
-import { AiSparkIcon, CadToolsIcon, HomeIcon, LogoMark, PeaksIcon, PipeIcon, type IconProps } from '../icons'
+import { AiSparkIcon, CadToolsIcon, HomeIcon, PeaksIcon, PipeIcon, type IconProps } from '../icons'
 import { PromoCard } from './PromoCard'
 import s from './Sidebar.module.css'
 
@@ -37,9 +38,8 @@ export function Sidebar({ promo }: { promo: string }) {
   return (
     <aside className={`${s.sidebar} ${compact ? s.compact : ''}`}>
       <button type="button" className={s.brand} onClick={() => navigate('dashboard')} aria-label={t.app.name}>
-        <LogoMark />
         <span className={s.brandText}>
-          <span className={s.brandName}>{t.app.name}</span>
+          <BrandLogo variant="stacked" height={42} />
           <span className={s.brandTag}>{t.app.tagline}</span>
         </span>
       </button>

@@ -254,7 +254,7 @@ export function ComponentsScreen() {
             <div className={s.chips}>
               {chip('discipline', T.filters.discipline, (['Architecture', 'Interior', 'Mechanical', 'MEP', 'Civil', 'Structural'] as Discipline[]).map((d) => [d, T.disciplines[d]]))}
               {chip('fileType', T.filters.fileType, (['param', 'dwg', 'dxf', 'material'] as FileKind[]).map((k) => [k, T.fileTypes[k]]))}
-              {chip('software', T.filters.software, (['TH AI CAD Studio', 'AutoCAD'] as const).map((k) => [k, k]))}
+              {chip('software', T.filters.software, (['MD CAD AI STUDIO', 'AutoCAD'] as const).map((k) => [k, k]))}
               {chip('size', T.filters.size, (['small', 'medium', 'large'] as SizeBucket[]).map((k) => [k, T.sizes[k]]))}
               {chip('tag', T.filters.tag, tags.map((k) => [k, T.tagNames[k] ?? k]))}
               <button type="button" className={s.reset} onClick={() => { setFilters({}); setQuery(''); setOnlyIds(null) }}>{T.filters.reset}</button>

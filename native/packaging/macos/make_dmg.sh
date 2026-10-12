@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Packages native/dist/TH AI CAD Studio.app (from ../../package_macos.sh) into a .dmg.
+# Packages native/dist/MD CAD AI STUDIO.app (from ../../package_macos.sh) into a .dmg.
 #
 #   ./make_dmg.sh                         free: ad-hoc signature + hardened runtime. Users open it the
 #                                         first time via right-click → Open (or System Settings →
@@ -10,10 +10,10 @@
 #                                         xcrun notarytool store-credentials thcad --apple-id … --team-id …
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-APP="dist/TH AI CAD Studio.app"
+APP="dist/MD CAD AI STUDIO.app"
 ENT="packaging/macos/entitlements.plist"
 VERSION=$(sed -nE 's/^project\(THAICADStudio VERSION ([0-9.]+).*/\1/p' CMakeLists.txt)
-DMG="dist/TH-AI-CAD-Studio-${VERSION}-macOS-arm64.dmg"
+DMG="dist/MD-CAD-AI-STUDIO-${VERSION}-macOS-arm64.dmg"
 [[ -d "$APP" ]] || { echo "missing $APP — run ./package_macos.sh first" >&2; exit 1; }
 
 IDENTITY="${DEVELOPER_ID:--}"
@@ -34,12 +34,20 @@ sign --entitlements "$ENT" "$APP"
 codesign --verify --deep --strict "$APP"
 echo "signed: $IDENTITY"
 
-STAGE=$(mktemp -d)
-cp -R "$APP" "$STAGE/"
-ln -s /Applications "$STAGE/Applications"
+# the installer window: brand background, app + Applications icons, volume icon (dmgbuild, free; no Finder
+# scripting needed). Falls back to a plain DMG if dmgbuild cannot be installed.
 rm -f "$DMG"
-hdiutil create -volname "TH AI CAD Studio" -srcfolder "$STAGE" -fs APFS -format ULMO -ov "$DMG" >/dev/null
-rm -rf "$STAGE"
+DMGPY=build/dmgvenv/bin/python
+[[ -x $DMGPY ]] || { python3 -m venv build/dmgvenv && build/dmgvenv/bin/pip install -q dmgbuild==1.6.1; } || true
+if [[ -x $DMGPY ]] && $DMGPY -c "import dmgbuild" 2>/dev/null; then
+  $DMGPY -m dmgbuild -s packaging/macos/dmg_settings.py -D app="$APP" -D root="$PWD" "MD CAD AI STUDIO" "$DMG" >/dev/null
+else
+  STAGE=$(mktemp -d)
+  cp -R "$APP" "$STAGE/"
+  ln -s /Applications "$STAGE/Applications"
+  hdiutil create -volname "MD CAD AI STUDIO" -srcfolder "$STAGE" -fs APFS -format ULMO -ov "$DMG" >/dev/null
+  rm -rf "$STAGE"
+fi
 if [[ "$IDENTITY" != "-" ]]; then codesign --force --timestamp --sign "$IDENTITY" "$DMG"; fi
 
 if [[ "$IDENTITY" != "-" && -n "${NOTARY_PROFILE:-}" ]]; then

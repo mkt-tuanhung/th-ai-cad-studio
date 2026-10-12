@@ -69,7 +69,7 @@ export function sheetLayout(doc: CadDocument, paper: Paper = 'A3', fixedScale?: 
     texts: [
       { x: margin, y: top - 11, h: 4, value: doc.name },
       { x: W - 145, y: top - 7.5, h: 2.6, value: `Scale 1:${scale} · ${paper} · mm` },
-      { x: W - 145, y: top - 13.5, h: 2.6, value: `TH AI CAD Studio · ${new Date().toISOString().slice(0, 10)}` },
+      { x: W - 145, y: top - 13.5, h: 2.6, value: `MD CAD AI STUDIO · ${new Date().toISOString().slice(0, 10)}` },
     ],
   }
 }
@@ -132,7 +132,7 @@ export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: num
   prims.push({ t: 'line', x1: W - 150, y1: ty, x2: W - 150, y2: H - margin / 2, w: 0.25, color: k })
   prims.push({ t: 'text', x: margin, y: ty + 11, h: 4, rot: 0, value: doc.name, anchor: 'start', color: k, bold: true })
   prims.push({ t: 'text', x: W - 145, y: ty + 7.5, h: 2.6, rot: 0, value: `Scale 1:${scale} · ${paper} · mm`, anchor: 'start', color: k })
-  prims.push({ t: 'text', x: W - 145, y: ty + 13.5, h: 2.6, rot: 0, value: `TH AI CAD Studio · ${new Date().toISOString().slice(0, 10)}`, anchor: 'start', color: k })
+  prims.push({ t: 'text', x: W - 145, y: ty + 13.5, h: 2.6, rot: 0, value: `MD CAD AI STUDIO · ${new Date().toISOString().slice(0, 10)}`, anchor: 'start', color: k })
   return { name: doc.name, w: W, h: H, scale, prims }
 }
 

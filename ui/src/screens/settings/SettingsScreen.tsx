@@ -1,3 +1,4 @@
+import { brandLoading } from '../../components/brand/BrandLoader'
 import { useEffect, useMemo, useState, type ComponentType, type ReactElement } from 'react'
 import { CloudUpload, Folder, Globe, Keyboard, LayoutPanelLeft, RotateCcw, Ruler, Save, Settings as Gear, ShieldCheck, Activity, Plug } from 'lucide-react'
 import { useT } from '../../i18n'
@@ -52,7 +53,7 @@ export function SettingsScreen() {
     store.apply(draft)
     if (modelPath) {
       const host = await getHost()
-      await host?.loadModel(modelPath)
+      await brandLoading.run(T.loadingModel, async () => host?.loadModel(modelPath))
       setModelPath(null)
     }
     toast(T.saved, 'success')

@@ -11,7 +11,7 @@ const ACI: Record<string, number> = { '#111827': 7, '#1f2937': 7, '#0f766e': 4, 
 export function toDxf(doc: CadDocument): string {
   const o: (string | number)[] = []
   const g = (code: number, value: string | number) => o.push(code, typeof value === 'number' ? fmt(value) : value)
-  g(999, `TH AI CAD Studio UI prototype export — ${doc.name}${doc.underlay ? ' (raster underlay not included)' : ''}`)
+  g(999, `MD CAD AI STUDIO UI prototype export — ${doc.name}${doc.underlay ? ' (raster underlay not included)' : ''}`)
   g(0, 'SECTION'); g(2, 'HEADER'); g(9, '$ACADVER'); g(1, 'AC1009'); g(9, '$INSUNITS'); g(70, 4); g(0, 'ENDSEC')
   g(0, 'SECTION'); g(2, 'TABLES'); g(0, 'TABLE'); g(2, 'LAYER'); g(70, doc.layers.length)
   for (const l of doc.layers) layer(g, l)

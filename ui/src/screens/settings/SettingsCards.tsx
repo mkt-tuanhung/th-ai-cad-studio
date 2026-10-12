@@ -63,13 +63,13 @@ export function folderPath(key: FolderKey, value: string, sys: SystemStatus | nu
   const docs = sys?.host?.documents ?? '~/Documents'
   switch (key) {
     case 'modelsDir':
-      return sys?.host?.modelsDir ?? '~/Library/Application Support/TH AI CAD Studio/models'
+      return sys?.host?.modelsDir ?? '~/Library/Application Support/MD CAD AI STUDIO/models'
     case 'projectsDir':
-      return `${docs}/TH AI CAD Studio/Projects`
+      return `${docs}/MD CAD AI STUDIO/Projects`
     case 'autosaveDir':
-      return `${docs}/TH AI CAD Studio/Autosave`
+      return `${docs}/MD CAD AI STUDIO/Autosave`
     default:
-      return `${docs}/TH AI CAD Studio/Exchange`
+      return `${docs}/MD CAD AI STUDIO/Exchange`
   }
 }
 

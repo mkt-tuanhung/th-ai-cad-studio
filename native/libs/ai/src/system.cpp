@@ -39,14 +39,22 @@ uint64_t physicalMemoryBytes() {
 std::filesystem::path modelsDir() {
   // Settings → AI Models → Model Storage Folder (set by the host)
   if (const char* dir = std::getenv("THCAD_MODELS_DIR"); dir && *dir) return std::filesystem::path(dir);
+  // <app data>/MD CAD AI STUDIO/models; models downloaded before the rename stay in "TH AI CAD Studio" and
+  // are used from there until a new folder exists (nothing is moved behind the user's back)
 #if defined(_WIN32)
-  // %LOCALAPPDATA%\TH AI CAD Studio\models (models are large; keep them out of the roaming profile)
-  const wchar_t* base = _wgetenv(L"LOCALAPPDATA");
-  return base ? std::filesystem::path(base) / L"TH AI CAD Studio" / L"models" : std::filesystem::path();
+  // %LOCALAPPDATA% (models are large; keep them out of the roaming profile)
+  const wchar_t* b = _wgetenv(L"LOCALAPPDATA");
+  if (!b) return {};
+  const std::filesystem::path base(b);
+  const auto now = base / L"MD CAD AI STUDIO" / L"models", before = base / L"TH AI CAD Studio" / L"models";
 #else
   const char* home = std::getenv("HOME");
-  return home ? std::filesystem::path(home) / "Library/Application Support/TH AI CAD Studio/models" : std::filesystem::path();
+  if (!home) return {};
+  const auto base = std::filesystem::path(home) / "Library/Application Support";
+  const auto now = base / "MD CAD AI STUDIO/models", before = base / "TH AI CAD Studio/models";
 #endif
+  std::error_code ec;
+  return !std::filesystem::exists(now, ec) && std::filesystem::exists(before, ec) ? before : now;
 }
 
 std::vector<std::string> listModels() {

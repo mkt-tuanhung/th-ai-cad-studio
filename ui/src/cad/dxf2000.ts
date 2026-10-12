@@ -107,7 +107,7 @@ export function toDxf2000(doc: CadDocument, opts: { leftText?: boolean } = {}): 
   }
 
   // ---- write
-  g(999, `TH AI CAD Studio — ${dxfStr(doc.name)}${doc.underlay ? ' (raster underlay not included)' : ''}`)
+  g(999, `MD CAD AI STUDIO — ${dxfStr(doc.name)}${doc.underlay ? ' (raster underlay not included)' : ''}`)
   const headerAt = o.length
   g(0, 'SECTION'); g(2, 'HEADER')
   g(9, '$ACADVER'); g(1, 'AC1015'); g(9, '$DWGCODEPAGE'); g(3, 'ANSI_1252'); g(9, '$INSUNITS'); g(70, 4); g(9, '$MEASUREMENT'); g(70, 1)

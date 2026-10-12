@@ -155,7 +155,7 @@ export function camSheet(sheet: Sheet, s: CamSettings, hasShelves: (cabinet: str
 
   const head = (t: Tool, title: string) => [
     `(${title})`,
-    `(TH AI CAD Studio CAM · sheet ${sheet.material} ${sheet.l} × ${sheet.w} × ${sheet.t} mm #${sheet.index})`,
+    `(MD CAD AI STUDIO CAM · sheet ${sheet.material} ${sheet.l} × ${sheet.w} × ${sheet.t} mm #${sheet.index})`,
     `(Zero: sheet lower-left corner, Z0 = top of the board; depth ${f3(depth)} mm in ${passes} pass(es))`,
     'G21 G90 G17 G94',
     s.dialect === 'iso' ? 'G54' : '',

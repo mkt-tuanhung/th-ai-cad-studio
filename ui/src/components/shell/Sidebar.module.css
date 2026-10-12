@@ -22,8 +22,8 @@
 
 .brandText {
   display: grid;
-  gap: 1px;
-  margin-top: -2px;
+  gap: 4px;
+  margin-top: -6px;
 }
 
 .brandName {
@@ -36,6 +36,7 @@
 }
 
 .brandTag {
+  padding-left: 1px;
   font-size: 12px;
   line-height: 15px;
   color: #6b7383;

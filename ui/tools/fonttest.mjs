@@ -6,7 +6,7 @@ const samples = [
   ['Design Smarter. Build Faster.', 12, 400], ['Villa Riverside', 14.5, 600], ['Architectural • DWG', 12.5, 400],
   ['Active Projects', 12.5, 400], ['Mechanical', 15, 600], ['AI model running locally on your machine', 12, 400],
   ['New Drawing (DWG)', 13.5, 400], ['Search projects, files, components... or type a command with AI...', 14, 400],
-  ['TH AI CAD Studio', 48, 700], ['Professional CAD with Local AI', 20.5, 400], ['Hoàng Trần', 14, 500],
+  ['MD CAD AI STUDIO', 48, 700], ['Professional CAD with Local AI', 20.5, 400], ['Hoàng Trần', 14, 500],
 ]
 const browser = await chromium.launch()
 const page = await browser.newPage()

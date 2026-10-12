@@ -1,26 +1,34 @@
-; Inno Setup script — TH AI CAD Studio for Windows (x64). Built by build_windows.ps1.
+﻿; Inno Setup script — MD CAD AI STUDIO for Windows (x64). Built by build_windows.ps1.
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
 #ifndef StageDir
-  #define StageDir "..\..\dist-win\TH AI CAD Studio"
+  #define StageDir "..\..\dist-win\MD CAD AI STUDIO"
 #endif
 
 [Setup]
 AppId={{7E1B6C1E-5C2B-4C1A-9F4E-3A1D2B7C9E10}
-AppName=TH AI CAD Studio
+AppName=MD CAD AI STUDIO
 AppVersion={#AppVersion}
-AppPublisher=TH
-DefaultDirName={autopf}\TH AI CAD Studio
-DefaultGroupName=TH AI CAD Studio
+AppPublisher=Minh Dũng
+DefaultDirName={autopf}\MD CAD AI STUDIO
+DefaultGroupName=MD CAD AI STUDIO
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
-OutputBaseFilename=TH-AI-CAD-Studio-Setup-{#AppVersion}
+OutputBaseFilename=MD-CAD-AI-STUDIO-Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\TH AI CAD Studio.exe
+; brand: the welcome page with the MD CAD AI STUDIO hero (exported from the app's InstallerWelcomeScreen by
+; ui/tools/make-installer-art.mjs, one image per display scale) and the app icon
+DisableWelcomePage=no
+WizardImageFile=art\wizard-100.bmp,art\wizard-125.bmp,art\wizard-150.bmp,art\wizard-175.bmp,art\wizard-200.bmp,art\wizard-225.bmp,art\wizard-250.bmp
+WizardSmallImageFile=art\small-100.bmp,art\small-125.bmp,art\small-150.bmp,art\small-175.bmp,art\small-200.bmp,art\small-225.bmp,art\small-250.bmp
+WizardImageStretch=no
+SetupIconFile=..\..\app\resources\branding\app.ico
+AppVerName=MD CAD AI STUDIO {#AppVersion}
+UninstallDisplayIcon={app}\MD CAD AI STUDIO.exe
 PrivilegesRequiredOverridesAllowed=dialog
 
 [Languages]
@@ -29,6 +37,15 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 ; jrsoftware/issrc Files/Languages/Unofficial/Vietnamese.isl, same license as Inno Setup
 Name: "vi"; MessagesFile: "Vietnamese.isl"
 
+[Messages]
+; the credit line must read exactly "Xây dựng và phát triển bởi Minh Dũng" in every language
+en.WelcomeLabel1=Welcome to the setup of MD CAD AI STUDIO
+en.WelcomeLabel2=Design Smarter. Build Faster.%n%nThis will install [name/ver] on your computer: 2D CAD, BIM, MEP, civil, mechanical, interior and renders, with a local AI that runs entirely on this machine — no account, no cloud.%n%nXây dựng và phát triển bởi Minh Dũng
+vi.WelcomeLabel1=Chào mừng đến với trình cài đặt MD CAD AI STUDIO
+vi.WelcomeLabel2=Design Smarter. Build Faster.%n%nTrình cài đặt sẽ cài [name/ver] lên máy: CAD 2D, BIM, MEP, hạ tầng, cơ khí, nội thất và render, cùng AI chạy hoàn toàn trên máy này — không tài khoản, không cloud.%n%nXây dựng và phát triển bởi Minh Dũng
+en.FinishedHeadingLabel=MD CAD AI STUDIO is installed
+vi.FinishedHeadingLabel=Đã cài đặt xong MD CAD AI STUDIO
+
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
@@ -36,12 +53,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
-; local AI models live per user: %LOCALAPPDATA%\TH AI CAD Studio\models (never in Program Files)
-Name: "{localappdata}\TH AI CAD Studio\models"
+; local AI models live per user: %LOCALAPPDATA%\MD CAD AI STUDIO\models (never in Program Files)
+Name: "{localappdata}\MD CAD AI STUDIO\models"
 
 [Icons]
-Name: "{group}\TH AI CAD Studio"; Filename: "{app}\TH AI CAD Studio.exe"
-Name: "{autodesktop}\TH AI CAD Studio"; Filename: "{app}\TH AI CAD Studio.exe"; Tasks: desktopicon
+Name: "{group}\MD CAD AI STUDIO"; Filename: "{app}\MD CAD AI STUDIO.exe"
+Name: "{autodesktop}\MD CAD AI STUDIO"; Filename: "{app}\MD CAD AI STUDIO.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\TH AI CAD Studio.exe"; Description: "{cm:LaunchProgram,TH AI CAD Studio}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\MD CAD AI STUDIO.exe"; Description: "{cm:LaunchProgram,MD CAD AI STUDIO}"; Flags: nowait postinstall skipifsilent

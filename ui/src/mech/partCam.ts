@@ -161,7 +161,7 @@ export function partCam(p: Part, s: PartCamSettings = DEFAULT_PART_CAM): PartCam
     paths.push({ tool, pts: [...pts, pts[0]].map((q) => [X(q[0]), Y(q[1])]), z })
   }
 
-  out.push('%', `(TH AI CAD Studio — ${p.name} — ${p.material})`, `(stock ${f3(sx1 - sx0)} x ${f3(sy1 - sy0)} x ${f3(sz1 - sz0)} mm, zero = stock lower-left, Z0 = stock top)`, 'G21 G90 G17 G94')
+  out.push('%', `(MD CAD AI STUDIO — ${p.name} — ${p.material})`, `(stock ${f3(sx1 - sx0)} x ${f3(sy1 - sy0)} x ${f3(sz1 - sz0)} mm, zero = stock lower-left, Z0 = stock top)`, 'G21 G90 G17 G94')
   toolChange(1, tools[0].name, rpmMill)
 
   // ---- 1. face the stock top down to the highest part surface

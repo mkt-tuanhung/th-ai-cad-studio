@@ -1,4 +1,4 @@
-// TH AI CAD Studio — desktop host for macOS and Windows (Qt 6 + WebEngine UI + native engine).
+// MD CAD AI STUDIO — desktop host for macOS and Windows (Qt 6 + WebEngine UI + native engine).
 #include <QApplication>
 #include <QProcess>
 #include <QTimer>
@@ -10,7 +10,10 @@
 
 int main(int argc, char** argv) {
   thcad::app::UiSchemeHandler::registerScheme();  // must precede QApplication
+  // the internal name keeps the data folders of earlier versions (web storage: projects, drawings, settings);
+  // what people see is the display name
   QApplication::setApplicationName(QStringLiteral("TH AI CAD Studio"));
+  QApplication::setApplicationDisplayName(QStringLiteral("MD CAD AI STUDIO"));
   QApplication::setOrganizationName(QStringLiteral("TH"));
   QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
   QApplication app(argc, argv);

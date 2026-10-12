@@ -38,7 +38,7 @@ export interface DwgOptions {
 }
 
 export function toDwgAdd(doc: CadDocument, opt: DwgOptions = {}): { script: string; counts: Record<string, number> } {
-  const o: string[] = [`# TH AI CAD Studio → DWG (${doc.name})`, 'version 2000', 'HEADER.INSUNITS = 4']
+  const o: string[] = [`# MD CAD AI STUDIO → DWG (${doc.name})`, 'version 2000', 'HEADER.INSUNITS = 4']
   const counts: Record<string, number> = {}
   const count = (k: string, n = 1) => (counts[k] = (counts[k] ?? 0) + n)
   for (const l of doc.layers) {

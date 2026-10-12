@@ -1,0 +1,269 @@
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: hidden;
+  background: #05080b; /* solid from the first frame: the app underneath never shows through */
+  font-family: var(--font-sans);
+}
+
+.bg {
+  animation: fadeIn 0.7s ease-out both;
+}
+
+.leaving {
+  animation: fadeOut 0.55s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.bg,
+.grid,
+.streak,
+.particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* phase 1 — graphite / blue-black with a soft teal light in the middle */
+.bg {
+  background:
+    radial-gradient(60% 55% at 50% 46%, rgba(31, 122, 128, 0.22) 0%, rgba(13, 34, 40, 0.18) 38%, rgba(5, 8, 11, 0) 70%),
+    radial-gradient(120% 100% at 50% 0%, #0f1a20 0%, #080d11 55%, #04070a 100%);
+}
+
+/* blueprint grid, fading out towards the edges, drifting very slowly */
+.grid {
+  background-image:
+    linear-gradient(rgba(74, 178, 186, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 178, 186, 0.075) 1px, transparent 1px),
+    linear-gradient(rgba(74, 178, 186, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 178, 186, 0.035) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+  mask-image: radial-gradient(58% 52% at 50% 48%, #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 100%);
+  animation: gridIn 1.2s ease-out 0.1s both, drift 24s linear infinite;
+}
+
+.streak {
+  background: linear-gradient(104deg, transparent 38%, rgba(140, 230, 230, 0.09) 47%, rgba(200, 245, 245, 0.14) 50%, rgba(140, 230, 230, 0.09) 53%, transparent 62%);
+  transform: translateX(-70%);
+  animation: streak 2.4s cubic-bezier(0.3, 0, 0.2, 1) 0.25s both;
+}
+
+.particles {
+  width: 100%;
+  height: 100%;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0;
+}
+
+/* phase 2 — the monogram */
+.mono {
+  position: relative;
+  width: min(46vw, 560px);
+}
+
+.construct {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: #3fc4c4;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  animation: handOver 0.7s ease-in 2.05s forwards;
+}
+
+.construct line,
+.construct .dash {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0.9;
+  animation: draw 0.95s cubic-bezier(0.55, 0.05, 0.25, 1) both;
+}
+
+.construct .dash {
+  stroke-width: 1.6;
+  opacity: 0.75;
+}
+
+.node {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: node 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.node circle {
+  stroke: #3fc4c4;
+  stroke-width: 2.4;
+  fill: #08161a;
+}
+
+.node .nodeDot {
+  fill: #6fe3df;
+  stroke: none;
+}
+
+.half {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  filter: blur(7px);
+}
+
+.left {
+  clip-path: inset(0 47% 0 0);
+  transform: translateX(-34px);
+  animation: assemble 1.05s cubic-bezier(0.16, 1, 0.3, 1) 1.15s both;
+}
+
+.right {
+  clip-path: inset(0 0 0 53%);
+  transform: translateX(34px);
+  animation: assemble 1.05s cubic-bezier(0.16, 1, 0.3, 1) 1.28s both;
+}
+
+/* the two halves overlap a little so no seam shows once assembled */
+.left,
+.right {
+  will-change: transform, opacity, filter;
+}
+
+.sweep {
+  position: absolute;
+  inset: 0;
+  mask-size: 100% 100%;
+  -webkit-mask-size: 100% 100%;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0) 40%, rgba(235, 252, 252, 0.55) 50%, rgba(255, 255, 255, 0) 60%, transparent 70%);
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: sweep 1.25s cubic-bezier(0.45, 0, 0.2, 1) 2.05s both;
+}
+
+/* phase 3 — wordmark */
+.word {
+  position: relative;
+  width: min(43vw, 520px);
+  margin-top: clamp(14px, 2.4vh, 26px);
+}
+
+.word img {
+  display: block;
+  width: 100%;
+  clip-path: inset(0 100% 0 0);
+  animation: reveal 0.85s cubic-bezier(0.65, 0, 0.35, 1) 2.2s both;
+}
+
+.scan {
+  position: absolute;
+  top: -6%;
+  bottom: -6%;
+  left: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, #6fe3df 30%, #6fe3df 70%, transparent);
+  box-shadow: 0 0 12px 2px rgba(63, 196, 196, 0.6);
+  opacity: 0;
+  animation: scan 0.85s cubic-bezier(0.65, 0, 0.35, 1) 2.2s both;
+}
+
+/* phase 4 — credit */
+.credit {
+  margin: clamp(16px, 2.6vh, 28px) 0 0;
+  font-size: clamp(12px, 1.25vw, 15px);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: #a9bec7;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: rise 0.7s ease-out 2.9s both;
+}
+
+/* phase 5 — progress */
+.progress {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin-top: clamp(26px, 4.4vh, 44px);
+  opacity: 0;
+  animation: rise 0.5s ease-out 3.3s both;
+}
+
+.track {
+  position: relative;
+  width: 240px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(63, 196, 196, 0.15);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(43, 195, 192, 0.15), #4fd6d2);
+  box-shadow: 0 0 10px rgba(79, 214, 210, 0.75);
+  transition: width 0.45s ease-out;
+}
+
+.status {
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: #6f8791;
+}
+
+/* no-motion: everything in place at once */
+.still,
+.still * {
+  animation: none !important;
+}
+
+.still .half,
+.still .word img,
+.still .credit,
+.still .progress {
+  opacity: 1;
+  filter: none;
+  transform: none;
+  clip-path: none;
+}
+
+.still .left,
+.still .right {
+  clip-path: none;
+}
+
+.still .right,
+.still .construct,
+.still .sweep,
+.still .scan,
+.still .streak {
+  display: none;
+}
+
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; transform: scale(1.015); } }
+@keyframes gridIn { from { opacity: 0; transform: scale(1.04); } }
+@keyframes drift { to { background-position: 120px 60px, 120px 60px, 24px 12px, 24px 12px; } }
+@keyframes streak { 0% { opacity: 0; transform: translateX(-70%); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateX(70%); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes handOver { to { opacity: 0; } }
+@keyframes node { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+@keyframes assemble { to { opacity: 1; filter: blur(0); transform: translateX(0); } }
+@keyframes sweep { 0% { opacity: 0; background-position: 130% 0; } 15% { opacity: 1; } 100% { opacity: 0; background-position: -30% 0; } }
+@keyframes reveal { to { clip-path: inset(0 0 0 0); } }
+@keyframes scan { 0% { opacity: 0; left: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; left: 100%; } }
+@keyframes rise { to { opacity: 1; transform: translateY(0); } }

@@ -44,7 +44,7 @@ std::string readFile(const std::string& p) {
 int cmdInfo() {
   auto rt = ai::createRuntime();
   auto st = rt->status();
-  std::printf("TH AI CAD Studio native engine 0.1.0\n");
+  std::printf("MD CAD AI STUDIO native engine 0.1.0\n");
   std::printf("  commands in spec: %zu\n", commandTable().size());
 #ifdef THCAD_HAS_OCCT
   std::printf("  Open CASCADE: %s\n", occt::version().c_str());
@@ -177,7 +177,7 @@ int cmdAi(const std::string& request, bool approve) {
   auto rt = ai::createRuntime();
   const std::string model = ai::discoverModel();
   if (model.empty()) {
-    std::fprintf(stderr, "no local model: put a .gguf file in ~/Library/Application Support/TH AI CAD Studio/models or set THCAD_MODEL\n");
+    std::fprintf(stderr, "no local model: put a .gguf file in ~/Library/Application Support/MD CAD AI STUDIO/models or set THCAD_MODEL\n");
     return 3;
   }
   if (!rt->load(model)) { std::fprintf(stderr, "load failed: %s\n", rt->status().error.c_str()); return 3; }

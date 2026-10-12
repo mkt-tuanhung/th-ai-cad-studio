@@ -21,7 +21,7 @@ const step = async (name, fn) => {
 await page.goto(URL + '#/dashboard', { waitUntil: 'networkidle' })
 
 await step('default language is EN (as in mockup)', async () => {
-  assert.equal(await page.locator('h1').first().textContent(), 'TH AI CAD Studio')
+  assert.equal(await page.locator('h1').first().textContent(), 'MD CAD AI STUDIO')
   assert.ok(await page.getByText('WELCOME TO').isVisible())
 })
 
@@ -145,7 +145,7 @@ await step('See all: every quick action; Learning opens the getting-started guid
   assert.match(page.url(), /#\/components$/)
   await goHome()
   await page.getByRole('button', { name: /Get started with/ }).click()
-  const guide = page.getByRole('dialog', { name: 'Get started with TH AI CAD Studio' })
+  const guide = page.getByRole('dialog', { name: 'Get started with MD CAD AI STUDIO' })
   assert.equal(await guide.getByRole('listitem').count(), 6)
   await guide.getByRole('listitem').filter({ hasText: 'Design parts' }).getByRole('button', { name: 'Open' }).click()
   assert.match(page.url(), /#\/mechanical$/)

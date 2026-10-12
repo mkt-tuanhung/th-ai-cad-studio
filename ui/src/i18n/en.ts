@@ -6,7 +6,7 @@ import { rendersEn } from './ws/renders'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
   app: {
-    name: 'TH AI CAD Studio',
+    name: 'MD CAD AI STUDIO',
     tagline: 'Design Smarter. Build Faster.',
   },
   nav: {
@@ -121,7 +121,7 @@ export const en = {
       open: 'Open',
       collapse: 'Collapse',
       cardTitle1: 'Get started with',
-      cardTitle2: 'TH AI CAD Studio',
+      cardTitle2: 'MD CAD AI STUDIO',
       cardDesc: 'Tutorials, templates and best practices',
     },
     batch: {
@@ -158,7 +158,7 @@ export const en = {
       settings: 'Settings & local AI',
     },
     guide: {
-      title: 'Get started with TH AI CAD Studio',
+      title: 'Get started with MD CAD AI STUDIO',
       intro: 'Everything runs on this computer — drawings, 3D engine and the AI model. A short path through the app:',
       go: 'Open',
       steps: [
@@ -386,6 +386,7 @@ export const en = {
       imported: 'Imported {n} entities from {file}{skipped}',
       approximated: 'Approximated as polylines: {list}',
       dwgNative: 'Opening DWG needs the desktop app (it includes the DWG reader). The browser preview opens DXF.',
+      opening: 'Opening {file}...',
       dwgConverting: 'Reading {file} with {reader}…',
       dwgConverted: 'Converted {file} from DWG in {ms} ms{warnings}',
       dwgWarnings: ' ({n} reader warnings)',
@@ -806,6 +807,7 @@ export const en = {
     },
   },
   settings: {
+    loadingModel: 'Loading local AI models...',
     title: 'Settings',
     subtitle: 'Configure your workspace, AI models, files, and preferences for the best experience.',
     reset: 'Reset to Default',
@@ -957,7 +959,7 @@ export const en = {
     },
     updates: {
       title: 'Updates',
-      text: 'TH AI CAD Studio is an offline application and never checks for updates online. New versions are installed from a new .dmg (macOS) or .exe (Windows).',
+      text: 'MD CAD AI STUDIO is an offline application and never checks for updates online. New versions are installed from a new .dmg (macOS) or .exe (Windows).',
       app: 'Application',
       engine: 'CAD engine',
       occt: 'Open CASCADE',
@@ -1030,7 +1032,7 @@ export const en = {
       guideText: 'Changes are drafts until you press Save Changes. Reset to Default restores the factory settings (press Save Changes to keep them). Folder paths are used by the desktop app; the browser preview cannot access your disk.',
       perfText: 'Keep Hardware Acceleration on: drawings with 2,000+ objects are drawn on the GPU (60 fps at 200,000 objects). Lower Max Undo Steps to save memory on very large drawings. Close other GPU-heavy apps while the local AI model is generating.',
       modelsText: 'Put GGUF model files (e.g. Qwen2.5-7B-Instruct Q4_K_M) into the Model Storage Folder. The app loads the largest model that fits in 35 % of your memory, or the one named in default.txt. Models never leave your computer.',
-      privacyText: 'TH AI CAD Studio runs fully offline: no account, no cloud, no telemetry. The AI runs on this computer and only proposes edits that you approve. DWG files are converted locally by the bundled LibreDWG program.',
+      privacyText: 'MD CAD AI STUDIO runs fully offline: no account, no cloud, no telemetry. The AI runs on this computer and only proposes edits that you approve. DWG files are converted locally by the bundled LibreDWG program.',
     },
   },
   interior: interiorEn,

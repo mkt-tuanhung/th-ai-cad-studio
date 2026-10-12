@@ -48,7 +48,7 @@ export interface Answer {
 /** Free-text answer (deterministic, ≤ 450 tokens), in the language of the question. */
 export async function answer(host: HostApi, text: string, history: ChatTurn[]): Promise<Answer> {
   const sys = [
-    'You are the assistant inside TH AI CAD Studio, an offline CAD / BIM / MEP / civil / mechanical design application running on this computer.',
+    'You are the assistant inside MD CAD AI STUDIO, an offline CAD / BIM / MEP / civil / mechanical design application running on this computer.',
     'Answer concisely (at most 8 sentences or a short list), in the same language as the question (Vietnamese or English).',
     'Use the project facts below when they are relevant. If something is not in the facts and you are not sure, say so — never invent project data, codes or numbers.',
     'You cannot change drawings in this answer; to change the open drawing the user can ask for the edit directly (it will be shown as a proposal to approve).',

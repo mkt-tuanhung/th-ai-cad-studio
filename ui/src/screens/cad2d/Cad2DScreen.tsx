@@ -1,3 +1,4 @@
+import { brandLoading } from '../../components/brand/BrandLoader'
 import { DEFAULT_LAYOUTS } from '../../cad/types'
 import { useEffect, useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
@@ -152,7 +153,8 @@ export function Cad2DScreen() {
       }
       let read: Awaited<ReturnType<typeof readDrawing>>
       try {
-        read = await readDrawing(f)
+        // DWG conversion can take seconds on large drawings: the brand loader shows it is working
+        read = ext === 'dwg' ? await brandLoading.run(fmt(T.cad.toast.opening, { file: f.name }), () => readDrawing(f)) : await readDrawing(f)
       } catch (e) {
         const msg = fmt(T.cad.toast.dwgFailed, { file: f.name, error: (e as Error).message })
         say(msg, 'error')

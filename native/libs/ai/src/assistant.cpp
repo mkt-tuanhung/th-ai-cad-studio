@@ -15,7 +15,7 @@ std::string cadSystemPrompt(const Document& doc) {
     if (++n > 60) { ents += "  ...\n"; break; }
     ents += "  " + e.id() + ": " + kindName(e.shape) + " on " + e.props.layer + "\n";
   }
-  return "You are the CAD assistant of TH AI CAD Studio (2D drafting, AutoCAD conventions).\n"
+  return "You are the CAD assistant of MD CAD AI STUDIO (2D drafting, AutoCAD conventions).\n"
          "Units are millimetres. X to the right, Y up. Points are [x, y].\n"
          "Reply with ONLY one JSON object: {\"title\": string, \"ops\": [op, ...]} and nothing else.\n"
          "op is one of:\n"

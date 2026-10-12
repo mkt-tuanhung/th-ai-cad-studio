@@ -1,4 +1,4 @@
-# Builds the Windows installer "TH-AI-CAD-Studio-Setup-<ver>.exe" (x64, MSVC).
+# Builds the Windows installer "MD-CAD-AI-STUDIO-Setup-<ver>.exe" (x64, MSVC).
 # Run in "x64 Native Tools Command Prompt for VS 2022" → powershell, from native\packaging\windows:
 #   .\build_windows.ps1                 # unsigned (SmartScreen shows a warning on first run)
 #   .\build_windows.ps1 -SignCmd "..."  # optional: a signtool command line for a code-signing cert
@@ -17,7 +17,7 @@ function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what failed (exit $LA
 $Native = Resolve-Path "$PSScriptRoot\..\.."
 $Ui = Resolve-Path "$Native\..\ui"
 $Build = "$Native\build-win"
-$Stage = "$Native\dist-win\TH AI CAD Studio"
+$Stage = "$Native\dist-win\MD CAD AI STUDIO"
 
 # 1) Qt 6 + WebEngine (MSVC 2022 x64) via aqtinstall
 $QtDir = "$QtRoot\$QtVersion\msvc2022_64"
@@ -44,10 +44,10 @@ ctest --test-dir $Build --output-on-failure; Check "ctest"
 # 5) Stage: exe + Qt runtime (windeployqt) + OCCT/llama DLLs + ggml backends + UI
 Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Stage | Out-Null
-Copy-Item "$Build\app\TH AI CAD Studio.exe" $Stage
+Copy-Item "$Build\app\MD CAD AI STUDIO.exe" $Stage
 Copy-Item -Recurse "$Build\app\ui" "$Stage\ui"
 Write-Host "== Stage (windeployqt)"
-& "$QtDir\bin\windeployqt.exe" --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$Stage\TH AI CAD Studio.exe"; Check "windeployqt"
+& "$QtDir\bin\windeployqt.exe" --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$Stage\MD CAD AI STUDIO.exe"; Check "windeployqt"
 Copy-Item "$VcpkgPrefix\bin\*.dll" $Stage
 New-Item -ItemType Directory -Force "$Stage\ggml" | Out-Null
 Get-ChildItem "$VcpkgPrefix\bin\ggml-*.dll" -ErrorAction SilentlyContinue | Copy-Item -Destination "$Stage\ggml"
@@ -135,9 +135,9 @@ if ($P.ExitCode -ne 0 -or -not $Said.Trim()) { throw "whisper-cli transcription 
 
 # 6) Optional signing, then the installer
 Write-Host "== Installer (Inno Setup)"
-if ($SignCmd) { Invoke-Expression "$SignCmd `"$Stage\TH AI CAD Studio.exe`"" }
+if ($SignCmd) { Invoke-Expression "$SignCmd `"$Stage\MD CAD AI STUDIO.exe`"" }
 $Version = (Select-String -Path "$Native\CMakeLists.txt" -Pattern 'VERSION (\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
 iscc "/DAppVersion=$Version" "/DStageDir=$Stage" "/O$Native\dist-win" "$PSScriptRoot\installer.iss"; Check "iscc"
-$Setup = "$Native\dist-win\TH-AI-CAD-Studio-Setup-$Version.exe"
+$Setup = "$Native\dist-win\MD-CAD-AI-STUDIO-Setup-$Version.exe"
 if ($SignCmd) { Invoke-Expression "$SignCmd `"$Setup`"" }
 Write-Host "Installer: $Setup"

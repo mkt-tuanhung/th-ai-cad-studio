@@ -50,7 +50,7 @@ export interface LibComponent {
   shared?: boolean
   source: 'builtin' | 'upload'
   /** Software the component came from (filter). */
-  software: 'TH AI CAD Studio' | 'AutoCAD'
+  software: 'MD CAD AI STUDIO' | 'AutoCAD'
   plan?: () => Shape[]
   front?: () => Shape[]
   side?: () => Shape[]
@@ -246,7 +246,7 @@ function c(p: Omit<LibComponent, 'id' | 'versions' | 'addedAt' | 'popularity' | 
   const version = p.version ?? 'v1.0'
   const days = p.days ?? 30 + ((i * 37) % 300)
   return {
-    manufacturer: 'Generic', source: 'builtin', software: 'TH AI CAD Studio', ...p,
+    manufacturer: 'Generic', source: 'builtin', software: 'MD CAD AI STUDIO', ...p,
     plan: flat(p.plan), front: flat(p.front), side: flat(p.side),
     id: `lib-${i}`, version, versions: versions(version, days), addedAt: T0 - days * DAY, popularity: p.popularity ?? 100 - (i % 60),
   }

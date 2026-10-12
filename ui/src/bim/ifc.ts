@@ -251,7 +251,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     'ISO-10303-21;',
     'HEADER;',
     "FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]'),'2;1');",
-    `FILE_NAME(${stepString(name + '.ifc')},'${now}',(${stepString(author)}),(''),'TH AI CAD Studio','TH AI CAD Studio','');`,
+    `FILE_NAME(${stepString(name + '.ifc')},'${now}',(${stepString(author)}),(''),'MD CAD AI STUDIO','MD CAD AI STUDIO','');`,
     "FILE_SCHEMA(('IFC4'));",
     'ENDSEC;',
     'DATA;',

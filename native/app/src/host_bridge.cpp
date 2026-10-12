@@ -689,7 +689,7 @@ bool saveEquirect(const QImage& img, const QString& path) {
 
 QString renderDir() {
   QString dir = qEnvironmentVariable("THCAD_RENDER_OUT");  // QA
-  if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/TH AI CAD Studio/Renders");
+  if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/MD CAD AI STUDIO/Renders");
   QDir().mkpath(dir);
   return dir;
 }
@@ -872,7 +872,7 @@ void HostBridge::renderFinish(bool ok, const QString& error) {
       img.setDotsPerMeterX(static_cast<int>(std::lround(dpm)));
       img.setDotsPerMeterY(static_cast<int>(std::lround(dpm)));
       QString dir = qEnvironmentVariable("THCAD_RENDER_OUT");  // QA
-      if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/TH AI CAD Studio/Renders");
+      if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/MD CAD AI STUDIO/Renders");
       QDir().mkpath(dir);
       QString base = job.value("name").toString(QStringLiteral("Render"));
       base.replace(QRegularExpression(QStringLiteral("[\\\\/:*?\"<>|]")), QStringLiteral("-"));
@@ -1057,7 +1057,7 @@ QJsonObject HostBridge::writePdf(const QJsonObject& doc, const QString& path) {
   pdf.setPageMargins(QMarginsF(0, 0, 0, 0));
   pdf.setResolution(1200);
   pdf.setTitle(doc.value("name").toString(first.value("name").toString()));
-  pdf.setCreator(QStringLiteral("TH AI CAD Studio"));
+  pdf.setCreator(QStringLiteral("MD CAD AI STUDIO"));
   QPainter g(&pdf);
   if (!g.isActive()) return {{"ok", false}, {"error", "cannot write " + path}};
   g.setRenderHint(QPainter::Antialiasing);

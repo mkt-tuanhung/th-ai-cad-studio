@@ -1,4 +1,4 @@
-# Builds the Windows installer (TH-AI-CAD-Studio-Setup-<ver>.exe) on a GitHub-hosted Windows runner.
+# Builds the Windows installer (MD-CAD-AI-STUDIO-Setup-<ver>.exe) on a GitHub-hosted Windows runner.
 # Free for public repositories; private repositories use the account's included Actions minutes.
 # Run it from the Actions tab ("Run workflow") or by pushing a tag v*.
 name: windows-installer
@@ -103,7 +103,7 @@ jobs:
       - name: In-app self-test (bridge, engine, BIM, OCCT; no AI model on the runner)
         shell: pwsh
         run: |
-          $exe = "native/dist-win/TH AI CAD Studio/TH AI CAD Studio.exe"
+          $exe = "native/dist-win/MD CAD AI STUDIO/MD CAD AI STUDIO.exe"
           $env:THCAD_SELFTEST = "1"; $env:THCAD_QUIT_AFTER_MS = "60000"; $env:QT_QUICK_BACKEND = "software"
           # a GUI-subsystem exe logs to OutputDebugString unless told otherwise
           $env:QT_FORCE_STDERR_LOGGING = "1"
@@ -113,6 +113,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: TH-AI-CAD-Studio-Windows
-          path: native/dist-win/TH-AI-CAD-Studio-Setup-*.exe
+          name: MD-CAD-AI-STUDIO-Windows
+          path: native/dist-win/MD-CAD-AI-STUDIO-Setup-*.exe
           if-no-files-found: error

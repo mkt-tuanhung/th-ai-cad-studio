@@ -15,10 +15,12 @@ export type Route =
   | 'components'
   | 'renders'
   | 'settings'
+  /** Brand preview: intro, installer welcome, loaders, icon (and the installer art export). */
+  | 'brand'
 
 const ROUTES: Route[] = [
   'dashboard', 'cad2d', 'ai-studio', 'bim', 'projects', 'mechanical',
-  'interior', 'mep', 'civil', 'components', 'renders', 'settings',
+  'interior', 'mep', 'civil', 'components', 'renders', 'settings', 'brand',
 ]
 
 function parseHash(): Route {

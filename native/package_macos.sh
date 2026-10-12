@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds a self-contained, ad-hoc signed "TH AI CAD Studio.app" in native/dist (no Homebrew needed
+# Builds a self-contained, ad-hoc signed "MD CAD AI STUDIO.app" in native/dist (no Homebrew needed
 # on the target Mac). Usage: ./package_macos.sh
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -7,8 +7,8 @@ cd "$(dirname "$0")"
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build build
 rm -rf dist && mkdir -p dist
-cp -R "build/app/TH AI CAD Studio.app" dist/
-APP="dist/TH AI CAD Studio.app"
+cp -R "build/app/MD CAD AI STUDIO.app" dist/
+APP="dist/MD CAD AI STUDIO.app"
 macdeployqt "$APP" -always-overwrite 2>&1 | grep -E "ERROR" | grep -vE "codesign|QtSvg|using QList|invalid signature" || true
 # The UI is web-based; Qt's SVG icon engine (needs QtSvg) is not used — drop it.
 rm -rf "$APP/Contents/PlugIns/iconengines"

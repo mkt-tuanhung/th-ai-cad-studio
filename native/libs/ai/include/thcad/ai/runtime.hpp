@@ -49,7 +49,7 @@ class Runtime {
 
 /** llama.cpp runtime if compiled in, otherwise a runtime that reports "no backend". */
 std::unique_ptr<Runtime> createRuntime();
-/** First *.gguf in $THCAD_MODEL or ~/Library/Application Support/TH AI CAD Studio/models. */
+/** First *.gguf in $THCAD_MODEL or ~/Library/Application Support/MD CAD AI STUDIO/models (or the pre-rename TH AI CAD Studio folder). */
 std::string discoverModel();
 /** The models folder: $THCAD_MODELS_DIR, else the per-user default. */
 std::filesystem::path modelsDir();

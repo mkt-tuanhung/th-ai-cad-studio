@@ -4,7 +4,7 @@ if(APPLE)
   enable_language(OBJCXX)  # AppKit glue (unified title bar, offscreen GL context)
 endif()
 
-# TH AI CAD Studio — native host (architecture option A, see ../docs/ARCHITECTURE.md):
+# MD CAD AI STUDIO — native host (architecture option A, see ../docs/ARCHITECTURE.md):
 #   Qt 6 host + Qt WebEngine UI shell + native CAD core / OCCT geometry / local AI runtime.
 
 set(CMAKE_CXX_STANDARD 20)

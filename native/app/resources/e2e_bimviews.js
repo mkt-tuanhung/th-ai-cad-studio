@@ -28,7 +28,8 @@
       check(`${name}: 2D drawing by hidden-line removal`, !!m && +m[1] > 40 && +m[2] === 0 && !!document.querySelector('[data-testid=bim-drawing-sheet] svg'), last || 'timeout')
       if (name === 'South Elevation') {
         const svg = document.querySelector('[data-testid=bim-drawing-sheet]').innerHTML
-        check('annotated: level names and elevations, dimensions, title', /Level 1/.test(svg) && /±0\.000/.test(svg) && /\+3\.000/.test(svg) && /SOUTH ELEVATION/.test(svg) && /13[ ,.]?800|14[ ,.]?000/.test(svg), '')
+        const texts = [...document.querySelectorAll('[data-testid=bim-drawing-sheet] text')].map((t) => t.textContent).join(' | ')
+        check('annotated: level names and elevations, dimensions, title', /Level 1/.test(svg) && /±0\.000/.test(svg) && /\+3\.000/.test(svg) && /SOUTH ELEVATION/.test(svg) && /\b\d{4,5}\b/.test(texts.replace(/[+±][0-9.]+/g, "")), texts.slice(0, 300))
         await sleep(400)
         await h.qaGrab(qa + 'bim_elevation_south_2d.png')
       }

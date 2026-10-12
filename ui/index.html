@@ -2,11 +2,15 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/assets/branding/md-favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TH AI CAD Studio</title>
+    <title>MD CAD AI STUDIO</title>
   </head>
   <body>
+    <!-- first frame while the app script loads: the intro's background and monogram (removed by the app) -->
+    <div id="boot" style="position:fixed;inset:0;z-index:999;display:grid;place-items:center;background:radial-gradient(120% 100% at 50% 0%,#0f1a20 0%,#080d11 55%,#04070a 100%)">
+      <img src="/assets/branding/md-monogram-dark.png" alt="" style="width:min(46vw,560px);opacity:0.06" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

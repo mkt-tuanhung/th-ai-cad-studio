@@ -1,0 +1,163 @@
+.page {
+  height: 100%;
+  padding: 24px 28px 40px;
+  background: #f3f6f8;
+  font-family: var(--font-sans);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headActions {
+  display: flex;
+  gap: 10px;
+}
+
+.headActions button {
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--teal-800);
+  background: #fff;
+  color: var(--teal-800);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.dark,
+.light {
+  display: grid;
+  place-items: center;
+  padding: 26px;
+  border-radius: 14px;
+}
+
+.dark {
+  background: radial-gradient(120% 100% at 50% 0%, #0f1a20 0%, #05080b 100%);
+}
+
+.light {
+  background: #fff;
+  border: 1px solid #dfe6ea;
+}
+
+.h2 {
+  margin: 30px 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.center {
+  display: grid;
+  place-items: center;
+  padding: 30px;
+  border-radius: 14px;
+  background: radial-gradient(120% 100% at 50% 0%, #1b2a31 0%, #0b1114 100%);
+}
+
+.loaders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 26px;
+  border-radius: 14px;
+  background: #142026;
+}
+
+.credit {
+  margin: 26px 0 0;
+  font-size: 13px;
+  color: var(--teal-800);
+}
+
+/* DMG background, 660 × 420 */
+.dmg {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 660px;
+  height: 420px;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 60% at 50% 55%, rgba(31, 122, 128, 0.24) 0%, rgba(5, 8, 11, 0) 70%),
+    linear-gradient(180deg, #0f1b21 0%, #060a0d 100%);
+  font-family: var(--font-sans);
+}
+
+.dmgGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(74, 178, 186, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 178, 186, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(70% 70% at 50% 55%, #000 0%, transparent 100%);
+}
+
+.dmgBrand {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+}
+
+.dmgTag {
+  position: absolute;
+  top: 96px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: #6fbdbd;
+}
+
+.dmgArrow {
+  position: absolute;
+  left: 230px;
+  top: 222px;
+  width: 200px;
+  height: 40px;
+  fill: none;
+  stroke: rgba(111, 227, 223, 0.75);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dmgHint {
+  position: absolute;
+  bottom: 52px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: #a9bec7;
+}
+
+.dmgCredit {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: #d4e3e8;
+}

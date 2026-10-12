@@ -48,7 +48,7 @@ struct Writer {
 
 std::string toDxf(const Document& doc) {
   Writer w;
-  w.g(999, "TH AI CAD Studio native export — " + doc.name);
+  w.g(999, "MD CAD AI STUDIO native export — " + doc.name);
   w.g(0, "SECTION"); w.g(2, "HEADER"); w.g(9, "$ACADVER"); w.g(1, "AC1009"); w.g(9, "$INSUNITS"); w.g(70, 4.0); w.g(0, "ENDSEC");
   w.g(0, "SECTION"); w.g(2, "TABLES"); w.g(0, "TABLE"); w.g(2, "LAYER"); w.g(70, static_cast<double>(doc.layers.size()));
   for (const auto& l : doc.layers) {

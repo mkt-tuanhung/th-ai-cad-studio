@@ -13,6 +13,14 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/whisper_runner.cpp src/whisper_runner.hpp
   src/mac_window.hpp
 )
+# brand icon: macOS AppIcon.icns in Contents/Resources, Windows app.ico through a resource script
+if(APPLE)
+  set(THCAD_ICNS ${CMAKE_CURRENT_SOURCE_DIR}/resources/branding/AppIcon.icns)
+  set_source_files_properties(${THCAD_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+  target_sources(THAICADStudio PRIVATE ${THCAD_ICNS})
+elseif(WIN32)
+  target_sources(THAICADStudio PRIVATE resources/branding/app.rc)
+endif()
 if(APPLE)
   target_sources(THAICADStudio PRIVATE src/mac_window.mm src/video_writer_mac.mm src/speech_input_mac.mm)
   # ARC keeps the AVFoundation writer objects alive as C++ members
@@ -28,9 +36,9 @@ if(WIN32)
   target_link_libraries(THAICADStudio PRIVATE mfplat mfreadwrite mfuuid sapi ole32)
 endif()
 set_target_properties(THAICADStudio PROPERTIES
-  OUTPUT_NAME "TH AI CAD Studio"
+  OUTPUT_NAME "MD CAD AI STUDIO"
   MACOSX_BUNDLE_GUI_IDENTIFIER vn.th.aicadstudio
-  MACOSX_BUNDLE_BUNDLE_NAME "TH AI CAD Studio"
+  MACOSX_BUNDLE_BUNDLE_NAME "MD CAD AI STUDIO"
   MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION}
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist.in
 )

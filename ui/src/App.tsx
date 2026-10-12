@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useT } from './i18n'
 import { useRouter, type Route } from './state/router'
 import { useSettings } from './state/settings'
@@ -19,12 +19,15 @@ import { MepScreen } from './screens/mep/MepScreen'
 import { CivilScreen } from './screens/civil/CivilScreen'
 import { MechanicalScreen } from './screens/mechanical/MechanicalScreen'
 import { RendersScreen } from './screens/renders/RendersScreen'
+import { BrandScreen, BrandShot } from './screens/brand/BrandScreen'
+import { SplashScreen, splashWanted } from './components/brand/SplashScreen'
+import { BrandLoadingOverlay } from './components/brand/BrandLoader'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
   new URLSearchParams(window.location.search).get('shell') === 'native' ? 'native' : 'framed'
 
-const TITLE_KEY: Record<Exclude<Route, 'dashboard'>, keyof ReturnType<typeof useT>['nav']> = {
+const TITLE_KEY: Record<Exclude<Route, 'dashboard' | 'brand'>, keyof ReturnType<typeof useT>['nav']> = {
   cad2d: 'cadTools',
   'ai-studio': 'aiAssistant',
   bim: 'bim',
@@ -46,8 +49,20 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = lang
   }, [lang])
+  // the intro plays once per launch, over the app while it starts
+  const [splash, setSplash] = useState(splashWanted)
+  useEffect(() => {
+    if (!splash) document.getElementById('boot')?.remove()
+  }, [splash])
+
+  // installer art export (tools/make-installer-art.mjs): a bare render, no shell
+  const shot = route === 'brand' ? new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('shot') : null
+  if (shot) return <BrandShot shot={shot} />
 
   return (
+    <>
+    {splash && <SplashScreen onDone={() => setSplash(false)} />}
+    <BrandLoadingOverlay />
     <AppWindow mode={shellMode}>
       <div className={s.shell}>
         <Sidebar promo={route === 'dashboard' ? '/assets/dashboard_sidebar_promo.png' : '/assets/common_sidebar_promo.png'} />
@@ -78,6 +93,8 @@ export default function App() {
               <MechanicalScreen />
             ) : route === 'renders' ? (
               <RendersScreen />
+            ) : route === 'brand' ? (
+              <BrandScreen />
             ) : (
               <PlaceholderScreen route={route} title={t.nav[TITLE_KEY[route]]} />
             )}
@@ -86,5 +103,6 @@ export default function App() {
         <ToastHost />
       </div>
     </AppWindow>
+    </>
   )
 }

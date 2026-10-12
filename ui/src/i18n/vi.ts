@@ -7,7 +7,7 @@ import { rendersVi } from './ws/renders'
 
 export const vi: Messages = {
   app: {
-    name: 'TH AI CAD Studio',
+    name: 'MD CAD AI STUDIO',
     // Brand lock-up slogan stays in English in both locales (same as the baked promo artwork).
     tagline: 'Design Smarter. Build Faster.',
   },
@@ -123,7 +123,7 @@ export const vi: Messages = {
       open: 'Mở',
       collapse: 'Thu gọn',
       cardTitle1: 'Bắt đầu với',
-      cardTitle2: 'TH AI CAD Studio',
+      cardTitle2: 'MD CAD AI STUDIO',
       cardDesc: 'Hướng dẫn, mẫu và kinh nghiệm thực hành',
     },
     batch: {
@@ -160,7 +160,7 @@ export const vi: Messages = {
       settings: 'Cài đặt & AI cục bộ',
     },
     guide: {
-      title: 'Bắt đầu với TH AI CAD Studio',
+      title: 'Bắt đầu với MD CAD AI STUDIO',
       intro: 'Mọi thứ chạy trên máy này — bản vẽ, engine 3D và mô hình AI. Lộ trình ngắn qua ứng dụng:',
       go: 'Mở',
       steps: [
@@ -388,6 +388,7 @@ export const vi: Messages = {
       imported: 'Đã nhập {n} đối tượng từ {file}{skipped}',
       approximated: 'Xấp xỉ bằng polyline: {list}',
       dwgNative: 'Mở DWG cần dùng app desktop (đã kèm bộ đọc DWG). Bản xem trên trình duyệt chỉ mở được DXF.',
+      opening: 'Đang mở {file}...',
       dwgConverting: 'Đang đọc {file} bằng {reader}…',
       dwgConverted: 'Đã chuyển {file} từ DWG trong {ms} ms{warnings}',
       dwgWarnings: ' ({n} cảnh báo của bộ đọc)',
@@ -808,6 +809,7 @@ export const vi: Messages = {
     },
   },
   settings: {
+    loadingModel: 'Đang nạp mô hình AI cục bộ...',
     title: 'Cài đặt',
     subtitle: 'Cấu hình không gian làm việc, mô hình AI, tệp và tuỳ chọn để làm việc hiệu quả nhất.',
     reset: 'Khôi phục mặc định',
@@ -959,7 +961,7 @@ export const vi: Messages = {
     },
     updates: {
       title: 'Cập nhật',
-      text: 'TH AI CAD Studio là ứng dụng ngoại tuyến, không tự kiểm tra cập nhật qua mạng. Phiên bản mới được cài từ tệp .dmg (macOS) hoặc .exe (Windows).',
+      text: 'MD CAD AI STUDIO là ứng dụng ngoại tuyến, không tự kiểm tra cập nhật qua mạng. Phiên bản mới được cài từ tệp .dmg (macOS) hoặc .exe (Windows).',
       app: 'Ứng dụng',
       engine: 'CAD engine',
       occt: 'Open CASCADE',
@@ -1032,7 +1034,7 @@ export const vi: Messages = {
       guideText: 'Mọi thay đổi chỉ là bản nháp cho đến khi bấm Lưu thay đổi. Khôi phục mặc định đưa về cài đặt gốc (bấm Lưu thay đổi để giữ). Đường dẫn thư mục do app desktop sử dụng; bản xem trên trình duyệt không truy cập được ổ đĩa.',
       perfText: 'Giữ bật Tăng tốc phần cứng: bản vẽ từ 2.000 đối tượng được vẽ bằng GPU (60 fps ở 200.000 đối tượng). Giảm số bước Undo để tiết kiệm bộ nhớ với bản vẽ rất lớn. Đóng các app nặng GPU khác khi AI đang tạo phương án.',
       modelsText: 'Đặt tệp mô hình GGUF (ví dụ Qwen2.5-7B-Instruct Q4_K_M) vào Thư mục mô hình. App nạp mô hình lớn nhất vừa 35 % bộ nhớ, hoặc mô hình ghi trong default.txt. Mô hình không bao giờ rời khỏi máy bạn.',
-      privacyText: 'TH AI CAD Studio chạy hoàn toàn ngoại tuyến: không tài khoản, không cloud, không thu thập dữ liệu. AI chạy trên máy này và chỉ đề xuất chỉnh sửa để bạn duyệt. Tệp DWG được chuyển đổi cục bộ bằng chương trình LibreDWG đi kèm.',
+      privacyText: 'MD CAD AI STUDIO chạy hoàn toàn ngoại tuyến: không tài khoản, không cloud, không thu thập dữ liệu. AI chạy trên máy này và chỉ đề xuất chỉnh sửa để bạn duyệt. Tệp DWG được chuyển đổi cục bộ bằng chương trình LibreDWG đi kèm.',
     },
   },
   interior: interiorVi,

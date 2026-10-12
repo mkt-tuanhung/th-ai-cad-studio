@@ -92,7 +92,7 @@ await step('CAM Prep: stock 124 × 84 × 31, face / profiles / pocket / bores / 
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download G-code' }).click()])
   assert.equal(dl.suggestedFilename(), 'Bearing_Bracket.nc')
   const text = await (await dl.createReadStream()).toArray().then((c) => Buffer.concat(c).toString())
-  assert.match(text, /^%\n\(TH AI CAD Studio — Bearing Bracket — AISI 1045\)/)
+  assert.match(text, /^%\n\(MD CAD AI STUDIO — Bearing Bracket — AISI 1045\)/)
   assert.match(text, /T2 M6/); assert.match(text, /M30/)
   await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
 })

@@ -70,7 +70,7 @@ QString bootstrapScript() {
 }  // namespace
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-  setWindowTitle(QStringLiteral("TH AI CAD Studio"));
+  setWindowTitle(QStringLiteral("MD CAD AI STUDIO"));
   resize(1528, 957);  // the approved mockup window size
   // Web UI draws under the (transparent) title bar; traffic lights float over the sidebar.
 #ifdef Q_OS_MACOS
@@ -105,7 +105,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     d->accept();
   });
   page->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
-  page->setBackgroundColor(QColor(0xf1, 0xf4, 0xf7));
+  page->setBackgroundColor(QColor(0x05, 0x08, 0x0b));  // the intro's background: no light flash at launch
 
   QWebEngineScript boot;
   boot.setName(QStringLiteral("thcad-bootstrap"));
@@ -154,7 +154,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
                             [](const QVariant& v) { qWarning("UI state: %s", qPrintable(v.toString())); });
       });
   });
-  web_->load(QUrl(url + QStringLiteral("?shell=native#/") + route));
+  // the brand intro plays at launch, except for automated QA runs (THCAD_SCRIPT / SELFTEST) or THCAD_SPLASH=0
+  const bool qa = qEnvironmentVariableIntValue("THCAD_SELFTEST") == 1 || qEnvironmentVariableIsSet("THCAD_SCRIPT");
+  const bool splash = !qa && qEnvironmentVariable("THCAD_SPLASH") != QStringLiteral("0");
+  web_->load(QUrl(url + QStringLiteral("?shell=native") + (splash ? QString() : QStringLiteral("&splash=0")) + QStringLiteral("#/") + route));
 }
 
 void MainWindow::showEvent(QShowEvent* e) {

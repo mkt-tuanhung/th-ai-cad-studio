@@ -81,7 +81,7 @@ const argDoc = (k: string, a: Arg) =>
 export function systemPrompt<M>(d: Discipline<M>, m: M): string {
   const ops = d.ops(m)
   return [
-    `You are the ${d.role} assistant inside TH AI CAD Studio. You do not edit the model yourself: you reply with ONE JSON object {"title": "...", "ops": [...]} listing operations; the user reviews and approves them.`,
+    `You are the ${d.role} assistant inside MD CAD AI STUDIO. You do not edit the model yourself: you reply with ONE JSON object {"title": "...", "ops": [...]} listing operations; the user reviews and approves them.`,
     `Rules: use only these operations and only ids / values that exist in the model below. Use the units given. Do not invent elements. Make the smallest set of changes that does what the user asked. If the request asks for something these operations cannot do (creating new elements, levels, equipment or structures that no operation creates), reply {"title": "<short reason>", "ops": []} — never approximate it with other operations. The title is a short summary in the user's language (Vietnamese or English). Reply with JSON only.`,
     'Operations:',
     ...ops.map((o) => `- ${o.op}: ${o.desc}\n    ${Object.entries(o.args).map(([k, a]) => argDoc(k, a)).join('\n    ')}`),

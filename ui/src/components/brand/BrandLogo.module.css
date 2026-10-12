@@ -1,0 +1,29 @@
+.img {
+  display: block;
+  width: auto;
+  user-select: none;
+}
+
+.horizontal {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  user-select: none;
+}
+
+.horizontal img {
+  display: block;
+  width: auto;
+}
+
+.stacked {
+  display: inline-grid;
+  justify-items: center;
+  gap: 7px;
+  user-select: none;
+}
+
+.stacked img {
+  display: block;
+  width: auto;
+}

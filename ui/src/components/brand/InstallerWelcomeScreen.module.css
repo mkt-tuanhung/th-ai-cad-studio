@@ -1,0 +1,229 @@
+.window {
+  display: grid;
+  grid-template-columns: 44% 56%;
+  width: 820px;
+  height: 520px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0a1013;
+  border: 1px solid rgba(74, 178, 186, 0.18);
+  box-shadow: 0 30px 80px rgba(2, 8, 12, 0.5);
+  font-family: var(--font-sans);
+  animation: winIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.heroOnly {
+  width: 100%;
+  height: 100%;
+}
+
+.heroOnly .hero {
+  height: 100%;
+}
+
+/* installer image export: the viewport is the image, so the credit scales with it */
+.heroOnly .heroCredit {
+  bottom: 4.5%;
+  font-size: min(11px, 4.2vw);
+  letter-spacing: 0.06em;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  background:
+    radial-gradient(70% 55% at 50% 44%, rgba(31, 122, 128, 0.3) 0%, rgba(10, 26, 31, 0.2) 45%, rgba(5, 8, 11, 0) 75%),
+    linear-gradient(180deg, #0f1b21 0%, #070c0f 100%);
+}
+
+.heroGrid {
+  position: absolute;
+  inset: -20px;
+  background-image:
+    linear-gradient(rgba(74, 178, 186, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 178, 186, 0.09) 1px, transparent 1px),
+    linear-gradient(rgba(74, 178, 186, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 178, 186, 0.04) 1px, transparent 1px);
+  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
+  mask-image: radial-gradient(70% 60% at 50% 45%, #000 10%, transparent 100%);
+  transition: transform 0.4s ease-out;
+}
+
+.glow {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 70%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(63, 196, 196, 0.22) 0%, rgba(63, 196, 196, 0) 65%);
+  animation: pulse 4.5s ease-in-out infinite;
+}
+
+.trace {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: rgba(79, 214, 210, 0.55);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.trace path {
+  stroke-dasharray: 0.18 0.82;
+  stroke-dashoffset: 1;
+  animation: trace 5s linear infinite;
+}
+
+.trace .trace2 {
+  animation-delay: 1.6s;
+  animation-duration: 6s;
+}
+
+.parallax {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  transition: transform 0.4s ease-out;
+}
+
+.heroLogo {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: 78%;
+  animation: heroIn 1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both;
+}
+
+.mono {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.5));
+}
+
+.word {
+  width: 92%;
+  height: auto;
+}
+
+.heroCredit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #8ea6b0;
+  animation: heroIn 0.8s ease-out 0.6s both;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  padding: 40px 40px 28px 36px;
+  background: linear-gradient(180deg, #f7f9fa 0%, #eef2f4 100%);
+  color: #23313a;
+  animation: infoIn 0.6s ease-out 0.25s both;
+}
+
+.welcome {
+  margin: 0;
+  font-size: 13px;
+  color: #5b6b75;
+}
+
+.name {
+  margin: 4px 0 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #0f2a30;
+}
+
+.tagline {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a7f86;
+}
+
+.intro {
+  margin: 18px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #3c4b55;
+}
+
+.facts {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0 0;
+  font-size: 12.5px;
+}
+
+.facts div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+}
+
+.facts dt {
+  color: #6b7a84;
+}
+
+.facts dd {
+  margin: 0;
+  color: #23313a;
+}
+
+.credit {
+  margin: auto 0 0;
+  padding-top: 18px;
+  border-top: 1px solid #d9e2e6;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: #155058;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.actions button {
+  height: 34px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cancel {
+  border: 1px solid #c9d5da;
+  background: #fff;
+  color: #3c4b55;
+}
+
+.install {
+  border: 0;
+  background: linear-gradient(180deg, #1c6870, #155058);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(21, 80, 88, 0.28);
+}
+
+@keyframes winIn { from { opacity: 0; transform: translateY(10px) scale(0.99); } }
+@keyframes heroIn { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } }
+@keyframes infoIn { from { opacity: 0; transform: translateX(10px); } }
+@keyframes pulse { 0%, 100% { opacity: 0.75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes trace { to { stroke-dashoffset: 0; } }
