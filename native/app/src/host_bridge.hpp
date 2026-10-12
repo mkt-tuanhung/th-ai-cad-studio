@@ -68,8 +68,9 @@ class HostBridge : public QObject {
    *  {cmd:'camera', eye, at, fov} | {cmd:'walk', forward, right, yaw, pitch} | {cmd:'bounds', ids} |
    *  {cmd:'snapshot', w, h, mode} → {ok, url: data:image/png…}. */
   Q_INVOKABLE QJsonObject scene3dCommand(const QString& key, const QString& json);
-  /** Scene `key` = the BIM building (walls with openings and glazing, floor slabs): {ok, items, ms}. */
-  Q_INVOKABLE QJsonObject scene3dLoadBim(const QString& key, const QString& modelJson);
+  /** Scene `key` = the BIM building (walls with openings and glazing, floor slabs) plus `extrasJson`
+   *  ({items:[…]} as scene3dLoad: columns, stairs, roofs… built from primitives): {ok, items, failures, ms}. */
+  Q_INVOKABLE QJsonObject scene3dLoadBim(const QString& key, const QString& modelJson, const QString& extrasJson);
   /** Item id under device pixel (x, y) of the last frame ("" if none). */
   Q_INVOKABLE QString scene3dPick(const QString& key, int x, int y);
   /** Boolean common volume of two items in m³ (0 = no overlap, −1 = unknown). */

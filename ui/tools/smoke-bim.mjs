@@ -113,14 +113,32 @@ await step('Project Browser: Level 2 opens plan view at Level 2; search filters;
   await page.getByRole('tab', { name: '3D' }).click()
 })
 
-await step('native-only tools report honestly (Wall tool, orbit)', async () => {
+await step('Wall tool opens the model plan with the tool armed; Esc returns to Select', async () => {
   await page.getByRole('button', { name: 'Wall', exact: true }).click()
-  assert.ok(await page.getByText(/Wall needs the native BIM engine/).isVisible())
+  assert.equal(await page.getByTestId('bim-plan').getAttribute('data-tool'), 'wall')
+  assert.ok(await page.getByText(/Click the start, then each corner/).isVisible())
+  await page.keyboard.press('Escape')
+  assert.equal(await page.getByTestId('bim-plan').getAttribute('data-tool'), 'select')
+  await page.getByRole('tab', { name: '3D' }).click()
+})
+
+await step('Export → IFC 4: a STEP file with storeys, walls with openings, doors, windows, spaces', async () => {
+  const [dl] = await Promise.all([page.waitForEvent('download'), (async () => {
+    await page.getByRole('button', { name: 'Export', exact: true }).first().click()
+    await page.getByRole('menuitem', { name: 'IFC 4 (.ifc)' }).click()
+  })()])
+  assert.equal(dl.suggestedFilename(), 'Villa Riverside.ifc')
+  const ifc = fs.readFileSync(await dl.path(), 'utf8')
+  assert.match(ifc, /^ISO-10303-21;/)
+  assert.match(ifc, /FILE_SCHEMA\(\('IFC4'\)\)/)
+  const n = (e) => (ifc.match(new RegExp(`=${e}\\(`, 'g')) ?? []).length
+  assert.deepEqual([n('IFCBUILDINGSTOREY'), n('IFCWALL'), n('IFCDOOR'), n('IFCWINDOW'), n('IFCOPENINGELEMENT'), n('IFCRELVOIDSELEMENT'), n('IFCSPACE')], [4, 24, 12, 18, 30, 30, 8])
+  assert.ok(await page.getByText(/Exported Villa Riverside.ifc — IFC 4/).isVisible())
 })
 
 await step('Export → wall schedule CSV with computed quantities', async () => {
   const [dl] = await Promise.all([page.waitForEvent('download'), (async () => {
-    await page.getByRole('button', { name: 'Export' }).click()
+    await page.getByRole('button', { name: 'Export', exact: true }).first().click()
     await page.getByRole('menuitem', { name: 'Wall schedule (CSV)' }).click()
   })()])
   const csv = fs.readFileSync(await dl.path(), 'utf8')

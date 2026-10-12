@@ -29,7 +29,16 @@ std::optional<Model> modelFromJson(const json::Value& v, const Model& placements
     m.wallTypes.push_back({s(t, "id"), s(t, "family"), s(t, "name"), n(t, "thickness"), s(t, "structure"), s(t, "finishExt"), s(t, "finishInt"), s(t, "description")});
   for (const auto& w : *walls) {
     Wall x{s(w, "id"), s(w, "mark"), s(w, "typeId"), s(w, "baseLevel"), n(w, "baseOffset"), s(w, "topLevel"), n(w, "topOffset"), n(w, "length")};
-    if (const Wall* p = placements.wall(x.id)) { x.x = p->x; x.y = p->y; x.angleDeg = p->angleDeg; }
+    if (w.get("x") && w.get("x")->num()) {
+      // placed in the UI (drawn walls, and the seed walls once upgraded)
+      x.x = n(w, "x");
+      x.y = n(w, "y");
+      x.angleDeg = n(w, "angle");
+    } else if (const Wall* p = placements.wall(x.id)) {
+      x.x = p->x;
+      x.y = p->y;
+      x.angleDeg = p->angleDeg;
+    }
     m.walls.push_back(x);
   }
   auto openings = [&](std::string_view key, Opening::Cat cat, std::vector<Opening>& out) {

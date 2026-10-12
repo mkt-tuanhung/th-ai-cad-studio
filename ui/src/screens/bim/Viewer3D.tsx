@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { bimExtras, nativeBuildingModel, nonStructuralIds } from '../../bim/scene'
 import { getHost, type HostApi } from '../../services/host'
 import { NativeScene, type SceneCamera } from '../../components/workspace/NativeScene'
 import { useSceneTools } from '../../components/workspace/sceneTools'
@@ -22,7 +23,7 @@ export const SCALES = ['1 : 50', '1 : 100', '1 : 200']
 export function Viewer3D() {
   const T = useT()
   const t = T.bim.viewer
-  const { display, set, level, scale, model, maximized, selection } = useBim()
+  const { display, set, level, scale, model, maximized, selection, discipline } = useBim()
   const native = (what: string) => toast(fmt(T.bim.toast.native, { what }))
   const lvl = model.levels.find((l) => l.id === level)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -45,9 +46,10 @@ export function Viewer3D() {
     if (!boxOn) viewSection(view3d)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view3d, cutAt])
-  const selId = selection?.category === 'wall' ? selection.id : selection && (selection.category === 'door' || selection.category === 'window') ? `glass:${selection.id}` : ''
+  const selId = !selection || selection.category === 'level' || selection.category === 'room' ? '' : selection.category === 'door' || selection.category === 'window' ? `glass:${selection.id}` : selection.id
   const liveOr = (fn: () => void, label: string) => () => (live ? fn() : native(label))
-  const modelJson = JSON.stringify(model)
+  const modelJson = useMemo(() => JSON.stringify(nativeBuildingModel(model)), [model])
+  const extrasJson = useMemo(() => JSON.stringify(bimExtras(model)), [model])
   const tool = (label: string, icon: ReactNode, onClick?: () => void, on?: boolean) => (
     <button type="button" className={`${s.tbtn} ${on ? s.tbtnOn : ''}`} aria-label={label} title={label} aria-pressed={on} onClick={onClick ?? (() => native(label))}>
       {icon}
@@ -79,14 +81,18 @@ export function Viewer3D() {
         <NativeScene
           host={host!}
           sceneKey="bim"
-          loader={{ loadKey: modelJson, run: () => host!.scene3dLoadBim('bim', modelJson) }}
+          loader={{ loadKey: modelJson + extrasJson, run: () => host!.scene3dLoadBim('bim', modelJson, extrasJson) }}
           mode={display as 'shaded' | 'wireframe' | 'hidden'}
-          selected={selection?.category === 'wall' ? selection.id : ''}
+          selected={selId}
           cameraRef={camRef}
           {...tools.props}
+          hidden={discipline === 'structure' ? [...tools.hidden, ...nonStructuralIds(model)] : tools.hidden}
           label="Villa Riverside — live OCCT model"
-          onPick={(id) => {
+          onPick={(raw) => {
+            const id = raw.replace(/:frame$/, '')
             if (model.walls.some((w) => w.id === id)) return set({ selection: { category: 'wall', id } })
+            for (const [cat, list] of [['column', model.columns], ['slab', model.slabs], ['stair', model.stairs], ['railing', model.railings], ['component', model.components]] as const)
+              if ((list as { id: string }[]).some((x) => x.id === id)) return set({ selection: { category: cat, id } })
             const o = id.startsWith('glass:') ? [...model.doors, ...model.windows].find((x) => x.id === id.slice(6)) : undefined
             if (o) set({ selection: { category: o.category, id: o.id } })
           }}

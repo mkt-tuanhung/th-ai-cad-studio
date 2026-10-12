@@ -352,7 +352,7 @@ void HostBridge::scene3dCamera(const QString& key, const QString& action, double
   else v->preset(action.toStdString());
 }
 
-QJsonObject HostBridge::scene3dLoadBim(const QString& key, const QString& modelJson) {
+QJsonObject HostBridge::scene3dLoadBim(const QString& key, const QString& modelJson, const QString& extrasJson) {
   auto* v = scene(key);
   if (!v) return {{"ok", false}, {"error", "OpenGL unavailable"}};
   auto parsed = json::parse(modelJson.toStdString());
@@ -360,11 +360,17 @@ QJsonObject HostBridge::scene3dLoadBim(const QString& key, const QString& modelJ
   std::string err;
   auto m = bim::modelFromJson(std::get<json::Value>(parsed), bim::villaRiverside(), &err);
   if (!m) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+  std::vector<occt::SceneItem> extras;
+  if (!extrasJson.isEmpty()) {
+    auto px = json::parse(extrasJson.toStdString());
+    if (auto* e = std::get_if<json::ParseError>(&px)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+    extras = occt::sceneFromJson(std::get<json::Value>(px));
+  }
   const auto t0 = std::chrono::steady_clock::now();
-  v->setItems({});
+  const int failures = v->setItems(extras);
   const int n = v->addBuilding(*m, false);
   const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-  return {{"ok", true}, {"items", n}, {"failures", 0}, {"ms", ms}};
+  return {{"ok", true}, {"items", n + static_cast<int>(extras.size())}, {"failures", failures}, {"ms", ms}};
 }
 
 QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) {
@@ -646,7 +652,7 @@ QJsonObject HostBridge::scene3dLoad(const QString&, const QString&) { return {{"
 QJsonObject HostBridge::scene3dFrame(const QString&, int, int, const QString&, const QString&, const QString&) { return {{"ok", false}}; }
 void HostBridge::scene3dCamera(const QString&, const QString&, double, double, double) {}
 QJsonObject HostBridge::scene3dCommand(const QString&, const QString&) { return {{"ok", false}}; }
-QJsonObject HostBridge::scene3dLoadBim(const QString&, const QString&) { return {{"ok", false}}; }
+QJsonObject HostBridge::scene3dLoadBim(const QString&, const QString&, const QString&) { return {{"ok", false}}; }
 QString HostBridge::scene3dPick(const QString&, int, int) { return {}; }
 double HostBridge::scene3dCommon(const QString&, const QString&, const QString&) { return -1; }
 QJsonArray HostBridge::scene3dOverlaps(const QString&) { return {}; }

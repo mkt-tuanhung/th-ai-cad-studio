@@ -5,6 +5,8 @@ import { useBim, type BimRightTab } from '../../state/bim'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { levelOf, typeOf, wallArea, wallHeight, wallVolume, type BimModel, type ElementRef, type Wall } from '../../bim/model'
+import { dist, markOf, polyArea } from '../../bim/geometry'
+import { stairRisers } from '../../bim/scene'
 import { CroppedImage } from '../../components/ui/CroppedImage'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
 import { Modal } from '../../components/ui/Modal'
@@ -40,8 +42,90 @@ export function PropertiesPanel() {
 
 type RowDef = { label: string; value: string; edit?: { kind: 'text' | 'level'; apply: (v: string) => string | null }; muted?: boolean }
 
-function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']['props'], updateWall: (id: string, p: Partial<Wall>, label: string) => string | null) {
+type ListKey = 'columns' | 'slabs' | 'stairs' | 'railings' | 'components' | 'grids' | 'annotations'
+
+function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']['props'], updateWall: (id: string, p: Partial<Wall>, label: string) => string | null, edit: (label: string, fn: (m: BimModel) => BimModel) => string | null) {
   const lvl = (id: string) => levelOf(m, id)?.name ?? '—'
+  /** Undoable patch of one element of a list. */
+  const patch = (key: ListKey, id: string, p: object, label: string) => edit(label, (x) => ({ ...x, [key]: (x[key] as { id: string }[]).map((e) => (e.id === id ? { ...e, ...p } : e)) }))
+  /** Editable positive number (mm unless stated). */
+  const num = (label: string, value: number, key: ListKey, id: string, field: string, unit = 'mm'): RowDef => ({
+    label,
+    value: unit === 'mm' ? mm(value) : `${value} ${unit}`,
+    edit: {
+      kind: 'text',
+      apply: (v: string) => {
+        const n = Number(v.replace(/[^\d.-]/g, ''))
+        if (!Number.isFinite(n) || (unit !== '°' && n <= 0)) return t.badNumber
+        return patch(key, id, { [field]: n }, label)
+      },
+    },
+  })
+  const levelRow = (label: string, value: string, key: ListKey, id: string, field: string): RowDef => ({ label, value: lvl(value), edit: { kind: 'level' as const, apply: (v: string) => patch(key, id, { [field]: v }, label) } })
+  const markRow = (value: string, key: ListKey, id: string): RowDef => ({ label: t.mark, value, edit: { kind: 'text' as const, apply: (v: string) => patch(key, id, { mark: v.trim() || value }, t.mark) } })
+  if (sel.category === 'column') {
+    const c = m.columns.find((x) => x.id === sel.id)
+    if (!c) return null
+    return { kind: t.kinds.column, title: t.kinds.column, subtitle: `${c.w} × ${c.d} mm`, icon: 'room' as const, sections: [
+      { title: t.identity, rows: [markRow(c.mark, 'columns', c.id)] },
+      { title: t.constraints, rows: [levelRow(t.baseLevel, c.level, 'columns', c.id, 'level'), levelRow(t.topLevel, c.topLevel, 'columns', c.id, 'topLevel')] },
+      { title: t.dimensions, rows: [num(t.width, c.w, 'columns', c.id, 'w'), num(t.depth, c.d, 'columns', c.id, 'd'), { label: t.height, value: mm((levelOf(m, c.topLevel)?.elevation ?? 0) - (levelOf(m, c.level)?.elevation ?? 0)), muted: true }] },
+    ] }
+  }
+  if (sel.category === 'slab') {
+    const x = m.slabs.find((q) => q.id === sel.id)
+    if (!x) return null
+    const area = polyArea(x.outline) / 1e6
+    return { kind: t.kinds.slab[x.kind], title: t.kinds.slab[x.kind], subtitle: `${x.thickness} mm`, icon: 'room' as const, sections: [
+      { title: t.identity, rows: [markRow(x.mark, 'slabs', x.id)] },
+      { title: t.constraints, rows: [levelRow(t.level, x.level, 'slabs', x.id, 'level'), num(t.offset, x.offset, 'slabs', x.id, 'offset')] },
+      { title: t.dimensions, rows: [num(t.thickness, x.thickness, 'slabs', x.id, 'thickness'), { label: t.area, value: `${area.toFixed(2)} m²`, muted: true }, { label: t.volume, value: `${((area * x.thickness) / 1000).toFixed(2)} m³`, muted: true }] },
+    ] }
+  }
+  if (sel.category === 'stair') {
+    const x = m.stairs.find((q) => q.id === sel.id)
+    if (!x) return null
+    const r = stairRisers(m, x.baseLevel, x.topLevel)
+    return { kind: t.kinds.stair, title: t.kinds.stair, subtitle: `${r.n} × ${r.riser.toFixed(0)} mm`, icon: 'room' as const, sections: [
+      { title: t.identity, rows: [markRow(x.mark, 'stairs', x.id)] },
+      { title: t.constraints, rows: [levelRow(t.baseLevel, x.baseLevel, 'stairs', x.id, 'baseLevel'), levelRow(t.topLevel, x.topLevel, 'stairs', x.id, 'topLevel')] },
+      { title: t.dimensions, rows: [num(t.width, x.width, 'stairs', x.id, 'width'), num(t.length, x.length, 'stairs', x.id, 'length'), { label: t.risers, value: String(r.n), muted: true }, { label: t.riserHeight, value: mm(r.riser), muted: true }, { label: t.going, value: mm(x.length / r.n), muted: true }] },
+    ] }
+  }
+  if (sel.category === 'railing') {
+    const x = m.railings.find((q) => q.id === sel.id)
+    if (!x) return null
+    const L = x.pts.slice(1).reduce((a, p, i) => a + dist(x.pts[i], p), 0)
+    return { kind: t.kinds.railing, title: t.kinds.railing, subtitle: `${x.height} mm`, icon: 'room' as const, sections: [
+      { title: t.identity, rows: [markRow(x.mark, 'railings', x.id)] },
+      { title: t.constraints, rows: [levelRow(t.level, x.level, 'railings', x.id, 'level')] },
+      { title: t.dimensions, rows: [num(t.height, x.height, 'railings', x.id, 'height'), { label: t.length, value: mm(L), muted: true }, { label: t.points, value: String(x.pts.length), muted: true }] },
+    ] }
+  }
+  if (sel.category === 'component') {
+    const x = m.components.find((q) => q.id === sel.id)
+    if (!x) return null
+    return { kind: t.kinds.component, title: x.name, subtitle: `${x.w} × ${x.d} × ${x.h} mm`, icon: 'room' as const, sections: [
+      { title: t.identity, rows: [markRow(x.mark, 'components', x.id), { label: t.name, value: x.name, edit: { kind: 'text' as const, apply: (v: string) => patch('components', x.id, { name: v.trim() || x.name }, t.name) } }] },
+      { title: t.constraints, rows: [levelRow(t.level, x.level, 'components', x.id, 'level'), num(t.rotation, x.rot, 'components', x.id, 'rot', '°')] },
+      { title: t.dimensions, rows: [num(t.width, x.w, 'components', x.id, 'w'), num(t.depth, x.d, 'components', x.id, 'd'), num(t.height, x.h, 'components', x.id, 'h')] },
+    ] }
+  }
+  if (sel.category === 'grid') {
+    const x = m.grids.find((q) => q.id === sel.id)
+    if (!x) return null
+    return { kind: t.kinds.grid, title: `${t.kinds.grid} ${x.label}`, subtitle: mm(dist(x.a, x.b)), icon: 'room' as const, sections: [
+      { title: t.identity, rows: [{ label: t.label, value: x.label, edit: { kind: 'text' as const, apply: (v: string) => patch('grids', x.id, { label: v.trim() || x.label }, t.label) } }] },
+    ] }
+  }
+  if (sel.category === 'annotation') {
+    const x = m.annotations.find((q) => q.id === sel.id)
+    if (!x) return null
+    const rows: RowDef[] = x.kind === 'text' ? [{ label: t.text, value: x.text ?? '', edit: { kind: 'text' as const, apply: (v: string) => patch('annotations', x.id, { text: v.trim() || x.text }, t.text) } }]
+      : x.kind === 'dimension' ? [{ label: t.length, value: mm(dist(x.a, x.b ?? x.a)), muted: true }]
+      : [{ label: t.mark, value: x.target ? markOf(m, { category: 'wall', id: x.target }) : '—', muted: true }]
+    return { kind: t.kinds.annotation[x.kind], title: t.kinds.annotation[x.kind], subtitle: lvl(x.level), icon: 'room' as const, sections: [{ title: t.identity, rows }] }
+  }
   if (sel.category === 'wall') {
     const w = m.walls.find((x) => x.id === sel.id)
     if (!w) return null
@@ -57,7 +141,7 @@ function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']
           rows: [
             { label: t.family, value: ty.family },
             { label: t.type, value: ty.name },
-            { label: t.typeMark, value: w.mark, edit: { kind: 'text', apply: (v: string) => updateWall(w.id, { mark: v.trim() || w.mark }, 'Type Mark') } },
+            { label: t.typeMark, value: w.mark, edit: { kind: 'text' as const, apply: (v: string) => updateWall(w.id, { mark: v.trim() || w.mark }, 'Type Mark') } },
             { label: t.description, value: w.description ?? ty.description },
           ] as RowDef[],
         },
@@ -131,10 +215,10 @@ function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']
 function PropertiesTab() {
   const T = useT()
   const t = T.bim.props
-  const { model, selection, updateWall, set } = useBim()
+  const { model, selection, updateWall, set, edit, deleteSelection } = useBim()
   const [menuOpen, setMenuOpen, menuRef] = useDismissable<HTMLDivElement>()
   if (!selection) return <p className={s.empty}>{t.noSelection}</p>
-  const data = rowsFor(model, selection, t, updateWall)
+  const data = rowsFor(model, selection, t, updateWall, edit)
   if (!data) return <p className={s.empty}>{t.noSelection}</p>
   return (
     <>
@@ -158,7 +242,8 @@ function PropertiesTab() {
                 onClose={() => setMenuOpen(false)}
                 items={[
                   { label: t.showInSchedule, onSelect: () => set({ view: 'schedule', scheduleCat: selection.category === 'wall' ? 'walls' : selection.category === 'door' ? 'doors' : selection.category === 'window' ? 'windows' : 'rooms' }) },
-                  { label: t.copyMark, onSelect: () => navigator.clipboard?.writeText(data.sections[0].rows.find((r) => r.label === t.typeMark)?.value ?? '') },
+                  { label: t.copyMark, onSelect: () => navigator.clipboard?.writeText(data.sections[0].rows.find((r) => r.label === t.typeMark || r.label === t.mark)?.value ?? '') },
+                  ...(selection.category === 'level' ? [] : [{ label: t.delete, onSelect: () => { const l = deleteSelection(); if (l) toast(fmt(t.deleted, { what: l.replace(/^Delete /, '') })) } }]),
                 ]}
               />
             </PopoverPanel>
@@ -196,7 +281,7 @@ function PropRow({ row, levels }: { row: RowDef; levels: BimModel['levels'] }) {
   const [val, setVal] = useState(row.value)
   const commit = (v: string) => {
     const err = row.edit!.apply(v)
-    if (err) toast(fmt(T.bim.props.invalid, { mark: err }), 'warning')
+    if (err) toast(err === T.bim.props.badNumber ? err : fmt(T.bim.props.invalid, { mark: err }), 'warning')
     setEditing(false)
   }
   return (

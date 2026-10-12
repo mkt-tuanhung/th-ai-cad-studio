@@ -1,10 +1,13 @@
 /**
  * Prototype BIM data model for "Villa Riverside" (Architecture discipline).
  *
- * Like src/cad, this is NOT the BIM engine: it is a typed element store that lets the UI, the
- * schedules and the model checks be built and tested. Quantities (area, volume) are COMPUTED from
- * parameters, never typed in. The 3D view is the approved raster render (bim_main_3d_model.png).
+ * A typed element store for the UI, the schedules and the model checks; the desktop app builds the
+ * exact solids from it with OCCT (walls with openings natively, the other elements as primitives —
+ * src/bim/scene.ts). Quantities (area, volume) are COMPUTED from parameters, never typed in.
+ * Plan coordinates: mm, X east, Y north; a wall starts at (x, y) and runs `length` along `angle` (degrees).
  */
+export type P2 = [number, number]
+
 export interface Level {
   id: string
   name: string
@@ -13,7 +16,7 @@ export interface Level {
 
 export interface WallType {
   id: string
-  family: 'Basic Wall'
+  family: 'Basic Wall' | 'Curtain Wall'
   name: string
   thickness: number // mm
   structure: string
@@ -33,6 +36,10 @@ export interface Wall {
   topOffset: number
   length: number // mm
   description?: string
+  /** Start point (mm) and direction (degrees CCW from +X); the wall is centred on this line. */
+  x?: number
+  y?: number
+  angle?: number
 }
 
 export interface Opening {
@@ -56,6 +63,91 @@ export interface Room {
   name: string
   level: string
   area: number // m²
+  /** Boundary placed in plan (rooms of the original survey carry only their area). */
+  outline?: P2[]
+}
+
+export interface Column {
+  id: string
+  category: 'column'
+  mark: string
+  level: string
+  topLevel: string
+  x: number
+  y: number
+  w: number
+  d: number
+  round?: boolean
+}
+
+/** Floor slab (top at level + offset), roof (bottom at level + offset) or ceiling (at level + offset). */
+export interface Slab {
+  id: string
+  category: 'slab'
+  mark: string
+  kind: 'floor' | 'roof' | 'ceiling'
+  level: string
+  offset: number
+  thickness: number
+  outline: P2[]
+}
+
+/** Straight-run stair from its base level to its top level; risers follow the storey height. */
+export interface Stair {
+  id: string
+  category: 'stair'
+  mark: string
+  baseLevel: string
+  topLevel: string
+  x: number
+  y: number
+  angle: number
+  length: number
+  width: number
+}
+
+export interface Railing {
+  id: string
+  category: 'railing'
+  mark: string
+  level: string
+  pts: P2[]
+  height: number
+}
+
+/** Loadable component placed as its bounding box (furniture, equipment). */
+export interface Component {
+  id: string
+  category: 'component'
+  mark: string
+  name: string
+  level: string
+  x: number
+  y: number
+  w: number
+  d: number
+  h: number
+  rot: number
+}
+
+export interface GridLine {
+  id: string
+  category: 'grid'
+  label: string
+  a: P2
+  b: P2
+}
+
+/** Plan annotations: model text, aligned dimension (a → b), tag (shows the target's mark). */
+export interface Annotation {
+  id: string
+  category: 'annotation'
+  kind: 'text' | 'dimension' | 'tag'
+  level: string
+  a: P2
+  b?: P2
+  text?: string
+  target?: string
 }
 
 export interface Comment {
@@ -72,9 +164,17 @@ export interface BimModel {
   doors: Opening[]
   windows: Opening[]
   rooms: Room[]
+  columns: Column[]
+  slabs: Slab[]
+  stairs: Stair[]
+  railings: Railing[]
+  components: Component[]
+  grids: GridLine[]
+  annotations: Annotation[]
 }
 
-export type ElementRef = { category: 'wall' | 'door' | 'window' | 'room' | 'level'; id: string }
+export type ElementCategory = 'wall' | 'door' | 'window' | 'room' | 'level' | 'column' | 'slab' | 'stair' | 'railing' | 'component' | 'grid' | 'annotation'
+export type ElementRef = { category: ElementCategory; id: string }
 
 export const LEVELS: Level[] = [
   { id: 'L1', name: 'Level 1', elevation: 0 },
@@ -87,7 +187,35 @@ export const WALL_TYPES: WallType[] = [
   { id: 'C200', family: 'Basic Wall', name: 'Generic - 200mm Concrete', thickness: 200, structure: 'Concrete - C30', finishExt: 'Paint - Light Gray', finishInt: 'Paint - White', description: 'Exterior wall with insulation' },
   { id: 'P150', family: 'Basic Wall', name: 'Generic - 150mm Partition', thickness: 150, structure: 'Masonry - AAC Block', finishExt: 'Paint - White', finishInt: 'Paint - White', description: 'Interior partition' },
   { id: 'I250', family: 'Basic Wall', name: 'Generic - 250mm Insulated Concrete', thickness: 250, structure: 'Concrete - C30 + 50mm PIR', finishExt: 'Paint - Light Gray', finishInt: 'Paint - White', description: 'Exterior wall, improved insulation' },
+  { id: 'CW100', family: 'Curtain Wall', name: 'Curtain Wall - 1500mm Grid', thickness: 100, structure: 'Aluminium mullions + double glazing', finishExt: 'Anodised aluminium', finishInt: 'Anodised aluminium', description: 'Glazed curtain wall, mullions every 1500 mm' },
 ]
+
+/** Plan placement of the 24 villa walls: start (x, y) and direction, as the native seed (libs/bim/model.cpp). */
+export const WALL_PLACEMENTS: Record<string, [number, number, number]> = {
+  W6: [0, 0, 0], W7: [13800, 0, 90], W8: [13800, 9800, 180], W9: [0, 9800, 270],
+  W1: [4200, 0, 90], W2: [7200, 9800, 270], W3: [4200, 6200, 0], W10: [0, 3600, 0],
+  W11: [9600, 0, 90], W12: [9600, 4200, 0], W13: [4200, 9800, 270],
+  W14: [0, 0, 0], W15: [13800, 0, 90], W16: [13800, 9800, 180], W17: [0, 9800, 270],
+  W4: [4200, 0, 90], W5: [9600, 9800, 270], W18: [9600, 0, 90], W19: [0, 4200, 0], W20: [4200, 9800, 270],
+  W21: [1200, 1200, 0], W22: [12600, 1200, 90], W23: [12600, 8600, 180], W24: [1200, 8600, 270],
+}
+
+/** Fills in what older saved models lack (placements, the element lists added later). */
+export function upgradeModel(m: BimModel): BimModel {
+  const types = m.wallTypes.some((t) => t.id === 'CW100') ? m.wallTypes : [...m.wallTypes, WALL_TYPES.find((t) => t.id === 'CW100')!]
+  return {
+    ...m,
+    wallTypes: types,
+    walls: m.walls.map((w) => (w.x === undefined && WALL_PLACEMENTS[w.id] ? { ...w, x: WALL_PLACEMENTS[w.id][0], y: WALL_PLACEMENTS[w.id][1], angle: WALL_PLACEMENTS[w.id][2] } : w)),
+    columns: m.columns ?? [],
+    slabs: m.slabs ?? [],
+    stairs: m.stairs ?? [],
+    railings: m.railings ?? [],
+    components: m.components ?? [],
+    grids: m.grids ?? [],
+    annotations: m.annotations ?? [],
+  }
+}
 
 // Walls W1–W5 are exactly the rows visible in mockup 04; W6–W24 complete the 24-wall model.
 const WALL_ROWS: [string, string, string, string, number][] = [
@@ -139,7 +267,7 @@ const ROOM_ROWS: [string, string, string, number][] = [
 ]
 
 export function createVillaBim(): BimModel {
-  return {
+  return upgradeModel({
     levels: LEVELS,
     wallTypes: WALL_TYPES,
     walls: WALL_ROWS.map(([mark, typeId, baseLevel, topLevel, length]) => ({
@@ -178,7 +306,7 @@ export function createVillaBim(): BimModel {
       sill: 900,
     })),
     rooms: ROOM_ROWS.map(([number, name, level, area]) => ({ id: `room-${number}`, category: 'room', number, name, level, area })),
-  }
+  } as BimModel)
 }
 
 /* ---------- derived quantities ---------- */

@@ -67,3 +67,35 @@
 .caret {
   margin-top: 1px;
 }
+
+.levelForm {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.levelForm label {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+}
+
+.levelForm input {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d5dbe2;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.levelForm button {
+  justify-self: end;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  color: #fff;
+  background: #0f766e;
+  cursor: pointer;
+}

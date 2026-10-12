@@ -7,7 +7,7 @@ import { BimHeader } from './BimHeader'
 import { BimRibbon } from './BimRibbon'
 import { ProjectBrowser } from './ProjectBrowser'
 import { Viewer3D } from './Viewer3D'
-import { PlanView } from './PlanView'
+import { BimPlan } from './BimPlan'
 import { ScheduleCard, CategoryPills } from './ScheduleCard'
 import { ScheduleTable } from './ScheduleTable'
 import { CoordinationCard } from './CoordinationCard'
@@ -54,7 +54,7 @@ export function BimScreen() {
       </div>
       <div className={s.viewer}>
         {view === '3d' && <Viewer3D />}
-        {view === 'plan' && <PlanView />}
+        {view === 'plan' && <BimPlan />}
         {view === 'schedule' && (
           <section className={s.fullSchedule}>
             <CategoryPills />

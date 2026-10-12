@@ -5,13 +5,21 @@ import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { AiSparkIcon, CubeSolidIcon, ExportToolIcon, PlanViewIcon } from '../../components/icons'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
+import { downloadFile } from '../../components/workspace/Workspace'
+import { toIfc } from '../../bim/ifc'
 import s from './BimHeader.module.css'
 
 export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
   const T = useT()
   const t = T.bim
   const navigate = useRouter((st) => st.navigate)
-  const { view, set } = useBim()
+  const { view, set, discipline } = useBim()
+  const exportIfc = () => {
+    const file = 'Villa Riverside.ifc'
+    const r = toIfc(useBim.getState().model, 'Villa Riverside')
+    downloadFile(file, r.text, 'application/x-step')
+    toast(fmt(t.toast.ifcSaved, { file, summary: Object.entries(r.counts).map(([k, n]) => `${n} ${k}`).join(', ') }), 'success')
+  }
   const [discOpen, setDiscOpen, discRef] = useDismissable<HTMLDivElement>()
   const [expOpen, setExpOpen, expRef] = useDismissable<HTMLDivElement>()
   const views: { k: BimView; icon: React.ReactNode }[] = [
@@ -36,7 +44,7 @@ export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
         <ChevronRight size={14} strokeWidth={1.8} className={s.sep} />
         <div className={s.anchor} ref={discRef}>
           <button type="button" className={s.current} aria-expanded={discOpen} onClick={() => setDiscOpen(!discOpen)}>
-            {t.crumbs.discipline}
+            {discipline === 'structure' ? t.disciplines.structure : t.crumbs.discipline}
             <ChevronDown size={14} strokeWidth={1.8} />
           </button>
           {discOpen && (
@@ -44,8 +52,8 @@ export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
               <MenuList
                 onClose={() => setDiscOpen(false)}
                 items={[
-                  { label: t.disciplines.architecture, onSelect: () => undefined },
-                  { label: t.disciplines.structure, onSelect: () => toast(fmt(t.toast.native, { what: t.disciplines.structure })) },
+                  { label: t.disciplines.architecture, onSelect: () => (set({ discipline: 'architecture' }), toast(t.toast.architecture)) },
+                  { label: t.disciplines.structure, onSelect: () => (set({ discipline: 'structure' }), toast(t.toast.structure)) },
                   { label: t.disciplines.mep, onSelect: () => navigate('mep') },
                 ]}
               />
@@ -80,7 +88,7 @@ export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
                 onClose={() => setExpOpen(false)}
                 items={[
                   { label: t.exportCsv, onSelect: onExportCsv },
-                  { label: t.exportIfc, onSelect: () => toast(fmt(t.toast.native, { what: 'IFC export' })) },
+                  { label: t.exportIfc, onSelect: exportIfc },
                 ]}
               />
             </PopoverPanel>

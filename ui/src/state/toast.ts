@@ -18,7 +18,7 @@ export const useToasts = create<ToastState>()((set, get) => ({
   toasts: [],
   push: (message, tone = 'info') => {
     const id = ++seq
-    set({ toasts: [...get().toasts, { id, message, tone }] })
+    set({ toasts: [...get().toasts, { id, message, tone }].slice(-3) }) // at most three stacked over the work area
     window.setTimeout(() => get().dismiss(id), 4200)
   },
   dismiss: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
