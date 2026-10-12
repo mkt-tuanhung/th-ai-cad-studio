@@ -7,7 +7,7 @@
 import type { CadDocument } from './types'
 import { decodeDxf, importDxf } from './dxfImport'
 import { createBlankDocument } from './seed'
-import { toDxf } from './dxf'
+import { toDxf2000 } from './dxf2000'
 import { toDwgAdd } from './dwgWrite'
 import { pagePng, plotPage, type Paper } from './plot'
 import { convertDwg, dwgReader, toBase64 } from '../services/dwg'
@@ -35,12 +35,13 @@ export async function readDrawing(f: File): Promise<ReadDrawing> {
   } else if (ext === 'dxf') {
     bytes = new Uint8Array(await f.arrayBuffer())
   } else throw new Error(`unsupported .${ext}`)
-  const { entities, layers, skipped, approximated } = importDxf(decodeDxf(bytes).text)
+  const { entities, layers, skipped, approximated, layouts } = importDxf(decodeDxf(bytes).text)
   const doc = createBlankDocument(f.name)
   const known = new Set(doc.layers.map((l) => l.name))
   doc.layers = [...doc.layers, ...layers.filter((l) => !known.has(l.name)).map(({ name, visible }) => ({ name, color: '#1f2937', visible, locked: false, linetype: 'Continuous' as const, lineweight: 0.25 }))]
   doc.entities = entities
   doc.source = 'dxf-import'
+  if (layouts) doc.layouts = layouts
   return { doc, skipped, approximated, dwg }
 }
 
@@ -92,7 +93,7 @@ export async function runBatch(
       const { doc } = await readDrawing(f)
       const outs: BatchResult['outputs'] = []
       for (const o of outputs) {
-        if (o === 'dxf') outs.push(await write(`${base}.dxf`, new TextEncoder().encode(toDxf(doc)), 'application/dxf'))
+        if (o === 'dxf') outs.push(await write(`${base}.dxf`, new TextEncoder().encode(toDxf2000(doc)), 'application/dxf'))
         else if (o === 'png') outs.push(await write(`${base}.png`, new Uint8Array(await (await pagePng(plotPage(doc, paper), 200)).arrayBuffer()), 'image/png'))
         else if (o === 'pdf') {
           const page = { ...plotPage(doc, paper), name: base }
@@ -101,7 +102,9 @@ export async function runBatch(
           } else outs.push({ name: `${base}.pdf`, error: 'desktop-only' })
         } else if (o === 'dwg') {
           if (host && dir) {
-            outs.push(written(`${base}.dwg`, await host.dwgWriteTo(toDwgAdd(doc).script, dir, `${base}.dwg`)))
+            let d = await host.dwgWriteDxfTo(toDxf2000(doc), dir, `${base}.dwg`)
+            if (d.error === 'no-writer') d = await host.dwgWriteTo(toDwgAdd(doc).script, dir, `${base}.dwg`)
+            outs.push(written(`${base}.dwg`, d))
           } else outs.push({ name: `${base}.dwg`, error: 'desktop-only' })
         }
       }

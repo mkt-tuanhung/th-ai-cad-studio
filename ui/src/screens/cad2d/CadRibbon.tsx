@@ -18,7 +18,7 @@ export interface RibbonActions {
   onOpen: () => void
   onSave: () => void
   onSaveAs: () => void
-  onExport: (format: 'dxf' | 'dwg' | 'pdf' | 'png') => void
+  onExport: (format: 'dxf' | 'dxf12' | 'dwg' | 'pdf' | 'png') => void
   onUndo: () => void
   onRedo: () => void
   canUndo: boolean
@@ -78,6 +78,7 @@ export function CadRibbon(a: RibbonActions) {
               onClose={() => setExportOpen(false)}
               items={[
                 { label: t.exportDxf, onSelect: () => a.onExport('dxf') },
+                { label: t.exportDxf12, onSelect: () => a.onExport('dxf12') },
                 { label: t.exportDwg, onSelect: () => a.onExport('dwg') },
                 { label: t.exportPdf, onSelect: () => a.onExport('pdf') },
                 { label: t.exportPng, onSelect: () => a.onExport('png') },

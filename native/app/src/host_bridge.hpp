@@ -105,6 +105,9 @@ class HostBridge : public QObject {
   /** Writes a DWG (AutoCAD 2000) from a LibreDWG dwgadd script (built by ui/src/cad/dwgWrite.ts) and
    *  verifies it by reading it back: {ok, path, bytes, entities, layers, warnings?, error?}. */
   Q_INVOKABLE QJsonObject dwgWrite(const QString& script, const QString& suggestedName);
+  /** DWG with paper-space layouts: from a DXF R2000 (ui/src/cad/dxf2000.ts) through LibreDWG dxf2dwg,
+   *  verified by reading it back: {ok, path, bytes, entities, layers, layouts, error?, cancelled?}. */
+  Q_INVOKABLE QJsonObject dwgWriteDxf(const QString& dxf, const QString& suggestedName);
   /** Vector PDF of a plotted page (ui/src/cad/plot.ts: {name, w, h, scale, prims}) via QPdfWriter. */
   Q_INVOKABLE QJsonObject cadExportPdf(const QString& pageJson, const QString& suggestedName);
   /** Settings: models folder, installed models (size, active), disk of the models volume, versions. */
@@ -122,6 +125,7 @@ class HostBridge : public QObject {
   Q_INVOKABLE QJsonObject writeFileTo(const QString& dir, const QString& name, const QString& base64);
   Q_INVOKABLE QJsonObject cadExportPdfTo(const QString& pageJson, const QString& dir, const QString& name);
   Q_INVOKABLE QJsonObject dwgWriteTo(const QString& script, const QString& dir, const QString& name);
+  Q_INVOKABLE QJsonObject dwgWriteDxfTo(const QString& dxf, const QString& dir, const QString& name);
   /** QA only (THCAD_QA=1): bytes of $THCAD_DWG_SAMPLE as base64 (the page cannot read files). */
   Q_INVOKABLE QString qaSampleDwg() const;
   /** QA only (THCAD_QA=1): saves a Qt grab of the window. */

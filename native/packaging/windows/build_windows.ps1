@@ -75,6 +75,8 @@ New-Item -ItemType Directory -Force "$Stage\libredwg", "$Stage\licenses\libredwg
 foreach ($f in "dwg2dxf.exe", "libredwg-0.dll", "libiconv-2.dll") { Copy-Item "$Tmp\$f" "$Stage\libredwg\" }
 # DWG writer (dwgadd ships in the release's examples folder)
 Copy-Item "$Tmp\examples\dwgadd.exe" "$Stage\libredwg\"
+# DWG with paper-space layouts: dxf2dwg turns the app's DXF R2000 into a DWG
+Copy-Item "$Tmp\dxf2dwg.exe" "$Stage\libredwg\"
 Copy-Item $Src "$Stage\licenses\libredwg\"
 # COPYING from the source tarball via Python's tarfile: Git's GNU tar reads "D:\..." as a remote host and
 # Windows bsdtar has no built-in xz (it pipes through an external xz) — both hung the CI job
@@ -87,6 +89,9 @@ $P = Start-Process -FilePath "$Stage\libredwg\dwg2dxf.exe" -ArgumentList "--vers
 if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "dwg2dxf --version timed out" }
 if ($P.ExitCode -ne 0) { throw "dwg2dxf --version failed (exit $($P.ExitCode))" }
 Get-Content "$Build\dwg2dxf-version.txt" | Write-Host
+$P = Start-Process -FilePath "$Stage\libredwg\dxf2dwg.exe" -ArgumentList "--version" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\dxf2dwg-version.txt"
+if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "dxf2dwg --version timed out" }
+if ($P.ExitCode -ne 0) { throw "dxf2dwg --version failed (exit $($P.ExitCode))" }
 
 # 5c) Voice CAD: whisper.cpp whisper-cli (MIT) as a separate program in whisper\ with its own ggml DLLs
 #     (kept apart from llama.cpp's ggml next to the exe); see third_party/whisper/README.md

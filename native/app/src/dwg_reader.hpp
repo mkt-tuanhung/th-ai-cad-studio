@@ -23,12 +23,19 @@ class DwgReader : public QObject {
   /** Builds `path` from a dwgadd script, then reads it back with dwg2dxf to verify:
    *  {ok, path, bytes, entities (read back), layers, error?}. */
   static QJsonObject write(const QString& script, const QString& path);
+  /** LibreDWG `dxf2dwg`, or empty. */
+  static QString dxfWriterPath();
+  /** DWG (R2000) from a DXF R2000 text — keeps paper-space layouts and viewports — then read back:
+   *  {ok, path, bytes, entities, layers, layouts, error?}. */
+  static QJsonObject writeDxf(const QString& dxf, const QString& path);
 
  signals:
   void finished(const QJsonObject& result);
 
  private:
   int seq_ = 0;
+  /** Reads `dwg` back with dwg2dxf and counts model entities, layers and paper-space layouts into `r`. */
+  static void verify(const QString& dwg, const QString& tmpDir, QJsonObject& r);
 };
 
 }  // namespace thcad::app

@@ -8,6 +8,7 @@ import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { useWorkspace } from '../../state/workspace'
 import { toDxf } from '../../cad/dxf'
+import { toDxf2000 } from '../../cad/dxf2000'
 import { readDrawing } from '../../cad/batch'
 import { dwgReader } from '../../services/dwg'
 import { getHost } from '../../services/host'
@@ -50,10 +51,11 @@ export function Cad2DScreen() {
     toast(fmt(T.cad.toast.saved, { name: doc.name }), 'success')
   }
 
-  const exportDxf = () => {
+  /** DXF 2000 with the paper-space layouts (default), or R12 with model space only (old programs). */
+  const exportDxf = (r12 = false) => {
     if (!doc) return
     const file = doc.name.replace(/\.(dwg|dxf)$/i, '') + '.dxf'
-    const url = URL.createObjectURL(new Blob([toDxf(doc)], { type: 'application/dxf' }))
+    const url = URL.createObjectURL(new Blob([r12 ? toDxf(doc) : toDxf2000(doc)], { type: 'application/dxf' }))
     const a = document.createElement('a')
     a.href = url
     a.download = file
@@ -68,12 +70,13 @@ export function Cad2DScreen() {
     if (!doc) return
     const host = await getHost()
     if (!host) return toast(T.cad.toast.dwgDesktop, 'info')
-    const { script } = toDwgAdd(doc)
-    const r = await host.dwgWrite(script, `${baseName()}.dwg`)
+    // with layouts: DXF 2000 → LibreDWG dxf2dwg; an older helper set without dxf2dwg: model only via dwgadd
+    let r = await host.dwgWriteDxf(toDxf2000(doc), `${baseName()}.dwg`)
+    if (r.error === 'no-writer') r = await host.dwgWrite(toDwgAdd(doc).script, `${baseName()}.dwg`)
     if (r.cancelled) return
-    if (!r.ok) return toast(fmt(T.cad.toast.dwgSaveFailed, { why: r.error === 'no-writer' ? 'LibreDWG dwgadd not found' : r.error ?? '' }), 'warning')
+    if (!r.ok) return toast(fmt(T.cad.toast.dwgSaveFailed, { why: r.error === 'no-writer' ? 'LibreDWG dxf2dwg / dwgadd not found' : r.error ?? '' }), 'warning')
     const file = r.path!.split(/[\\/]/).pop()!
-    const msg = fmt(T.cad.toast.dwgSaved, { file, n: r.entities ?? '?', layers: r.layers ?? '?' })
+    const msg = fmt(T.cad.toast.dwgSaved, { file, n: r.entities ?? '?', layers: r.layers ?? '?', layouts: r.layouts ?? 0 })
     say(msg, 'info')
     toast(msg, 'success')
   }
@@ -182,7 +185,7 @@ export function Cad2DScreen() {
 
   useEffect(() => {
     cadUi.openFile = () => fileInput.current?.click()
-    cadUi.exportDxf = exportDxf
+    cadUi.exportDxf = () => exportDxf()
     cadUi.plot = () => void exportPlot('pdf')
   })
 
@@ -261,7 +264,7 @@ export function Cad2DScreen() {
           onOpen={() => fileInput.current?.click()}
           onSave={save}
           onSaveAs={() => setSaveAsOpen(true)}
-          onExport={(f) => (f === 'dxf' ? exportDxf() : f === 'dwg' ? void exportDwg() : void exportPlot(f))}
+          onExport={(f) => (f === 'dxf' || f === 'dxf12' ? exportDxf(f === 'dxf12') : f === 'dwg' ? void exportDwg() : void exportPlot(f))}
           onUndo={() => session.input('U')}
           onRedo={() => session.input('REDO')}
           canUndo={!!history?.undo.length}

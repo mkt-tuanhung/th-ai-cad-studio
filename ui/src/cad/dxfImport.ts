@@ -1,4 +1,5 @@
-import type { Entity, Vec2 } from './types'
+import type { Entity, Layout, Vec2 } from './types'
+import { PAPERS, type Paper } from './plot'
 
 /**
  * ASCII DXF import (R12 … 2018) for the prototype model.
@@ -16,6 +17,8 @@ export interface DxfImport {
   approximated: Record<string, number>
   /** Model-space records read (before block explosion). */
   records: number
+  /** Paper-space layouts (DXF R2000+ LAYOUT objects): name, paper, scale of their model viewport. */
+  layouts?: Layout[]
 }
 
 type Pair = [number, string]
@@ -529,5 +532,49 @@ export function importDxf(text: string): DxfImport {
   const recs = records(section(pairs, 'ENTITIES'))
   for (const r of recs) emit(r, I, null, 0)
   const layers = [...used].map((name) => ({ name, visible: layerVis.get(name) ?? true }))
-  return { entities, layers, skipped, approximated, records: recs.length }
+  const layouts = readLayouts(pairs, recs)
+  if (layouts.length) delete skipped['paper space'] // read as layouts, not lost
+  return { entities, layers, skipped, approximated, records: recs.length, ...(layouts.length ? { layouts } : {}) }
+}
+
+/** Props of a record after its subclass marker (100 = marker): LAYOUT has a "1" in both of its parts. */
+function after(r: Rec, marker: string): Rec {
+  const i = r.props.findIndex(([c, v]) => c === 100 && v === marker)
+  return { ...r, props: i < 0 ? r.props : r.props.slice(i + 1) }
+}
+
+/**
+ * Paper-space layouts: each LAYOUT object (except Model) with its paper (matched to A4–A1 in either
+ * orientation) and the scale of its model viewport (VIEWPORT id > 1 owned by the layout's block record:
+ * view height ÷ viewport height). Ordered by tab.
+ */
+function readLayouts(pairs: Pair[], entityRecs: Rec[]): Layout[] {
+  const objects = records(section(pairs, 'OBJECTS')).filter((r) => r.type === 'LAYOUT')
+  if (!objects.length) return []
+  // viewports with their layout's block record: own 330, or (some writers put 0 there) the BLOCK they sit in
+  const brOf = new Map(records(section(pairs, 'TABLES')).filter((r) => r.type === 'BLOCK_RECORD').map((r) => [str(r, 2), str(r, 5)]))
+  const vps: { r: Rec; owner: string }[] = []
+  let block = ''
+  for (const r of records(section(pairs, 'BLOCKS'))) {
+    if (r.type === 'BLOCK') block = brOf.get(str(r, 2)) ?? str(r, 330)
+    else if (r.type === 'VIEWPORT') vps.push({ r, owner: str(r, 330) !== '0' && str(r, 330) ? str(r, 330) : block })
+  }
+  for (const r of entityRecs) if (r.type === 'VIEWPORT') vps.push({ r, owner: str(r, 330) })
+  const out: (Layout & { tab: number })[] = []
+  for (const o of objects) {
+    const lay = after(o, 'AcDbLayout')
+    const name = dxfText(str(lay, 1))
+    if (!name || name.toLowerCase() === 'model') continue
+    const br = str(lay, 330)
+    let w = num(o, 44), h = num(o, 45)
+    if ([1, 3].includes(num(o, 73))) [w, h] = [h, w]
+    const [W, H] = w >= h ? [w, h] : [h, w]
+    const paper = (Object.keys(PAPERS) as Paper[]).find((p) => Math.abs(PAPERS[p][0] - W) < 3 && Math.abs(PAPERS[p][1] - H) < 3) ?? 'A3'
+    // the first viewport of a layout is the paper itself; the model view is the largest of the others
+    const vp = vps.filter((v) => v.owner === br).slice(1).map((v) => v.r).sort((a, b) => num(b, 40) * num(b, 41) - num(a, 40) * num(a, 41))[0]
+    const raw = vp && num(vp, 41) > 0 ? num(vp, 45) / num(vp, 41) : 0
+    const scale = raw > 0 ? (Math.abs(raw - Math.round(raw)) < 0.01 * raw ? Math.round(raw) : Number(raw.toFixed(3))) : null
+    out.push({ id: `layout-${out.length + 1}-${Date.now().toString(36)}`, name, paper, scale, tab: num(lay, 71) })
+  }
+  return out.sort((a, b) => a.tab - b.tab).map(({ tab: _tab, ...l }) => l)
 }

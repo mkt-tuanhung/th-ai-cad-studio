@@ -961,6 +961,25 @@ QJsonObject HostBridge::dwgWrite(const QString& script, const QString& suggested
   return DwgReader::write(script, path);
 }
 
+QJsonObject HostBridge::dwgWriteDxf(const QString& dxf, const QString& suggestedName) {
+  if (DwgReader::dxfWriterPath().isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
+  QString path = qEnvironmentVariable("THCAD_DWG_OUT");  // QA: skip the dialog
+  if (path.isEmpty()) {
+    const QString start = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + suggestedName;
+    path = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Save as DWG"), start, "AutoCAD DWG (*.dwg)");
+  }
+  if (path.isEmpty()) return {{"ok", false}, {"cancelled", true}};
+  if (!path.endsWith(".dwg", Qt::CaseInsensitive)) path += ".dwg";
+  return DwgReader::writeDxf(dxf, path);
+}
+
+QJsonObject HostBridge::dwgWriteDxfTo(const QString& dxf, const QString& dir, const QString& name) {
+  if (DwgReader::dxfWriterPath().isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
+  const QString path = pickedPath(dir, name);
+  if (path.isEmpty()) return {{"ok", false}, {"error", "folder not chosen in this session"}};
+  return DwgReader::writeDxf(dxf, path);
+}
+
 QJsonObject HostBridge::cadExportPdf(const QString& pageJson, const QString& suggestedName) {
   // one page {w, h, prims} or a sheet set {name, pages: [page, …]} written as one multi-page PDF
   const QJsonObject doc = QJsonDocument::fromJson(pageJson.toUtf8()).object();

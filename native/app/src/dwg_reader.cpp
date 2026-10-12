@@ -40,7 +40,7 @@ QString DwgReader::writerPath() {
 }
 
 QJsonObject DwgReader::write(const QString& script, const QString& path) {
-  const QString add = writerPath(), reader = helperPath();
+  const QString add = writerPath();
   if (add.isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
   QTemporaryDir tmp;
   if (!tmp.isValid()) return {{"ok", false}, {"error", "temp directory unavailable"}};
@@ -62,29 +62,79 @@ QJsonObject DwgReader::write(const QString& script, const QString& path) {
   QJsonObject r{{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
   const QStringList warnings = log.split('\n', Qt::SkipEmptyParts).filter(QRegularExpression("^(Warning|ERROR)", QRegularExpression::CaseInsensitiveOption));
   if (!warnings.isEmpty()) r["warnings"] = warnings.mid(0, 20).join('\n');
-  // verify: read the new DWG back and count what it contains
-  if (!reader.isEmpty()) {
-    const QString back = tmp.filePath("back.dxf");
-    QProcess v;
-    v.start(reader, {"-y", "-o", back, path});
-    if (v.waitForFinished(60000) && QFileInfo::exists(back)) {
-      QFile f(back);
-      f.open(QIODevice::ReadOnly);
-      const QList<QByteArray> lines = f.readAll().split('\n');
-      int entities = 0, layers = 0;
-      QString section;
-      for (int k = 0; k + 1 < lines.size(); k += 2) {
-        const QByteArray code = lines[k].trimmed(), val = lines[k + 1].trimmed();
-        if (code != "0") continue;
-        if (val == "SECTION" && k + 3 < lines.size()) section = QString::fromLatin1(lines[k + 3].trimmed());
-        else if (val == "ENDSEC") section.clear();
-        else if (section == "ENTITIES") ++entities;
-        else if (section == "TABLES" && val == "LAYER") ++layers;
-      }
-      r["entities"] = entities;
-      r["layers"] = layers - 1;  // the LAYER table record itself
-    }
+  verify(path, tmp.path(), r);
+  return r;
+}
+
+void DwgReader::verify(const QString& dwg, const QString& tmpDir, QJsonObject& r) {
+  const QString reader = helperPath();
+  if (reader.isEmpty()) return;
+  const QString back = tmpDir + "/back.dxf";
+  QProcess v;
+  v.start(reader, {"-y", "-o", back, dwg});
+  if (!v.waitForFinished(60000) || !QFileInfo::exists(back)) return;
+  QFile f(back);
+  f.open(QIODevice::ReadOnly);
+  const QList<QByteArray> lines = f.readAll().split('\n');
+  int entities = 0, layers = 0, layouts = 0;
+  QString section;
+  for (int k = 0; k + 1 < lines.size(); k += 2) {
+    const QByteArray code = lines[k].trimmed(), val = lines[k + 1].trimmed();
+    if (code != "0") continue;
+    if (val == "SECTION" && k + 3 < lines.size()) section = QString::fromLatin1(lines[k + 3].trimmed());
+    else if (val == "ENDSEC") section.clear();
+    else if (section == "ENTITIES") {
+      // model space only: paper-space entities carry 67 = 1 right after their header
+      bool paper = false;
+      for (int j = k + 2; j + 1 < lines.size() && lines[j].trimmed() != "0"; j += 2)
+        if (lines[j].trimmed() == "67" && lines[j + 1].trimmed() == "1") paper = true;
+      if (!paper) ++entities;
+    } else if (section == "TABLES" && val == "LAYER") ++layers;
+    else if (section == "OBJECTS" && val == "LAYOUT") ++layouts;
   }
+  r["entities"] = entities;
+  r["layers"] = layers - 1;  // the LAYER table record itself
+  if (layouts) r["layouts"] = layouts - 1;  // without Model
+}
+
+QString DwgReader::dxfWriterPath() {
+  if (const QString env = qEnvironmentVariable("THCAD_DXF2DWG"); !env.isEmpty() && QFileInfo(env).isExecutable()) return env;
+  const QString dir = QCoreApplication::applicationDirPath();
+#ifdef Q_OS_WIN
+  const QStringList candidates{dir + "/libredwg/dxf2dwg.exe"};
+#else
+  const QStringList candidates{dir + "/../Helpers/dxf2dwg", "/opt/homebrew/bin/dxf2dwg"};
+#endif
+  for (const QString& c : candidates)
+    if (QFileInfo(c).isExecutable()) return QFileInfo(c).canonicalFilePath();
+  return {};
+}
+
+QJsonObject DwgReader::writeDxf(const QString& dxf, const QString& path) {
+  const QString exe = dxfWriterPath();
+  if (exe.isEmpty()) return {{"ok", false}, {"error", "no-writer"}};
+  QTemporaryDir tmp;
+  if (!tmp.isValid()) return {{"ok", false}, {"error", "temp directory unavailable"}};
+  {
+    QFile f(tmp.filePath("drawing.dxf"));
+    if (!f.open(QIODevice::WriteOnly)) return {{"ok", false}, {"error", "cannot write the DXF"}};
+    f.write(dxf.toUtf8());
+  }
+  // short relative names in the temp folder (LibreDWG truncates long paths), then copied to `path`
+  QProcess p;
+  p.setWorkingDirectory(tmp.path());
+  p.start(exe, {"-y", "-o", "out.dwg", "drawing.dxf"});
+  if (!p.waitForFinished(120000)) {
+    p.kill();
+    return {{"ok", false}, {"error", "dxf2dwg timed out"}};
+  }
+  const QString log = QString::fromUtf8(p.readAllStandardError() + p.readAllStandardOutput()).trimmed();
+  const QString out = tmp.filePath("out.dwg");
+  if (p.exitCode() != 0 || !QFileInfo::exists(out)) return {{"ok", false}, {"error", "dxf2dwg failed: " + log.right(400)}};
+  QFile::remove(path);
+  if (!QFile::copy(out, path)) return {{"ok", false}, {"error", "cannot write " + path}};
+  QJsonObject r{{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
+  verify(path, tmp.path(), r);
   return r;
 }
 

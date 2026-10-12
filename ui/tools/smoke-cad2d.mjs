@@ -124,18 +124,28 @@ await step('TRIM / HATCH prompt for their picks; PLOT runs the plot (no "native 
   assert.doesNotMatch(await log(), /needs the native CAD engine/)
 })
 
-await step('Export DXF downloads a valid R12 file; importing it opens a new tab with the same vector count', async () => {
+const exportDxf = async (name) => {
   const [dl] = await Promise.all([page.waitForEvent('download'), (async () => {
-    await page.getByRole('button', { name: 'Export' }).click()
-    await page.getByRole('menuitem', { name: /DXF/ }).click()
+    await page.getByRole('button', { name: 'Export', exact: true }).click()
+    await page.getByRole('menuitem', { name }).click()
   })()])
-  const p = await dl.path()
-  const text = fs.readFileSync(p, 'utf8')
-  assert.match(text, /AC1009/); assert.match(text, /\bCIRCLE\b/); assert.match(text, /\bLINE\b/)
+  return fs.readFileSync(await dl.path(), 'utf8')
+}
+await step('Export DXF (2000) keeps the layouts; importing it opens a tab with the same vectors and the layouts back', async () => {
+  const text = await exportDxf('DXF (2000, with layouts)')
+  assert.match(text, /AC1015/); assert.match(text, /\bLAYOUT\b/); assert.match(text, /\bVIEWPORT\b/); assert.match(text, /\bCIRCLE\b/)
   const vectors = await count()
+  const layouts = await page.evaluate(() => { const s = window.__thcad.cad.getState(); return (s.docs[s.activeId].layouts ?? [{ name: 'Layout1' }, { name: 'Layout2' }]).map((l) => l.name) })
   await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: 'roundtrip.dxf', mimeType: 'application/dxf', buffer: Buffer.from(text) })
   assert.ok(await page.getByRole('tab', { name: /roundtrip\.dxf/ }).isVisible())
-  assert.ok((await count()) >= vectors) // dimensions are exploded to lines + text
+  assert.ok((await count()) >= vectors) // dimensions are exploded to lines + text; the title blocks stay in paper space
+  const back = await page.evaluate(() => { const s = window.__thcad.cad.getState(); return s.docs[s.activeId].layouts.map((l) => l.name) })
+  assert.deepEqual(back, layouts)
+})
+
+await step('Export DXF R12 (model only) for old programs', async () => {
+  const text = await exportDxf('DXF R12 (model only)')
+  assert.match(text, /AC1009/); assert.doesNotMatch(text, /\bLAYOUT\b/)
 })
 
 await step('large DXF (blocks, 2 500+ entities) is exploded and drawn by the GPU layer, or by SVG if WebGL2 is unavailable', async () => {

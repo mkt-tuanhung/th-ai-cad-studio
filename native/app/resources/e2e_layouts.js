@@ -38,6 +38,12 @@
     ;[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Sheet Set').click()
     await until(() => /Sheet set: \d+ layout/.test(toasts()), 20000)
     check(`sheet set → one PDF with ${n} pages`, new RegExp(`Sheet set: ${n} layout`).test(toasts()), toasts())
+    // DWG with the layouts (DXF 2000 → LibreDWG dxf2dwg), read back by the app
+    ;[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Export').click()
+    await sleep(200)
+    ;[...document.querySelectorAll('[role=menuitem]')].find((b) => /^DWG/.test(b.textContent.trim())).click()
+    const dwgMsg = await until(() => toasts().match(/saved \(AutoCAD 2000\) — read back: \d+ entities, \d+ layers, \d+ layouts/)?.[0], 60000)
+    check(`DWG keeps all ${n} layouts (read back)`, !!dwgMsg && new RegExp(`, ${n} layouts`).test(dwgMsg), dwgMsg || toasts())
   } catch (e) {
     fails++
     log('FAIL exception ' + e)

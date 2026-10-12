@@ -45,6 +45,35 @@ function extents(doc: CadDocument) {
 
 const DASH: Record<string, number[] | undefined> = { Dashed: [3, 1.5], DashDot: [5, 1, 0.6, 1] }
 
+/**
+ * Sheet geometry shared by the plot and the DXF / DWG paper space (paper mm, origin bottom-left, y up):
+ * the viewport onto model space (centre, size, the model point at its centre and the model height it
+ * shows = scale) plus the frame and title block, so a layout written to a DXF matches the PDF.
+ */
+export function sheetLayout(doc: CadDocument, paper: Paper = 'A3', fixedScale?: number) {
+  const [W, H] = PAPERS[paper]
+  const margin = 10, titleH = 18
+  const ext = extents(doc)
+  const dw = ext.x1 - ext.x0, dh = ext.y1 - ext.y0
+  const aw = W - 2 * margin, ah = H - 2 * margin - titleH
+  const scale = fixedScale ?? SCALES.find((s) => dw / s <= aw && dh / s <= ah) ?? Math.ceil(Math.max(dw / aw, dh / ah))
+  const m = margin / 2, top = m + titleH
+  return {
+    W, H, scale,
+    viewport: { cx: margin + aw / 2, cy: H - (margin + ah / 2), w: aw, h: ah },
+    view: { cx: (ext.x0 + ext.x1) / 2, cy: (ext.y0 + ext.y1) / 2, height: ah * scale },
+    lines: [
+      [m, m, W - m, m], [W - m, m, W - m, H - m], [W - m, H - m, m, H - m], [m, H - m, m, m],
+      [m, top, W - m, top], [W - 150, m, W - 150, top],
+    ] as [number, number, number, number][],
+    texts: [
+      { x: margin, y: top - 11, h: 4, value: doc.name },
+      { x: W - 145, y: top - 7.5, h: 2.6, value: `Scale 1:${scale} · ${paper} · mm` },
+      { x: W - 145, y: top - 13.5, h: 2.6, value: `TH AI CAD Studio · ${new Date().toISOString().slice(0, 10)}` },
+    ],
+  }
+}
+
 export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: number): Page {
   const [W, H] = PAPERS[paper]
   const margin = 10, titleH = 18
