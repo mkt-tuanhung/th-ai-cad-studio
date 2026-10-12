@@ -56,6 +56,19 @@ export interface CivilModel {
   ground?: Profile
   /** TIN long-edge trimming limit (m); null/undefined = automatic. */
   tinMaxEdge?: number | null
+  /** Notes and measured dimensions placed on the profile (x = station, z = elevation) or a cross section
+   *  (x = offset from the centre line, z = elevation; `station` = which section). */
+  notes?: CivilNote[]
+}
+
+export interface CivilNote {
+  id: string
+  kind: 'text' | 'dimension'
+  view: 'profile' | 'section'
+  station?: number
+  a: [number, number]
+  b?: [number, number]
+  text?: string
 }
 
 /** Existing ground along CANAL-01 every 20 m (sample project; replaced by the imported survey surface). */

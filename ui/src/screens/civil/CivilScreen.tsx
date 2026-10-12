@@ -14,7 +14,9 @@ import { areasAt, earthwork, groundOf, hydraulics, interp, sta } from '../../civ
 import { CivilBrowser } from './CivilBrowser'
 import { CivilBottom } from './CivilBottom'
 import { CivilRight } from './CivilRight'
-import { ProfileChart, SectionChart } from './CivilCharts'
+import { ProfileChart, SectionChart, type ChartTool } from './CivilCharts'
+import { Civil3D, CrossingDialog } from './Civil3D'
+import { Modal } from '../../components/ui/Modal'
 import { ImportSurveyDialog, readSurveyFiles, type SurveyInput } from './ImportSurveyDialog'
 import { SurveyPlan, type PlanControl } from './SurveyPlan'
 import { removeSurvey } from './surveyActions'
@@ -70,6 +72,34 @@ export function CivilScreen() {
     setDropped(f)
     st.set({ importOpen: true })
   }
+  // ---- notes and dimensions on the profile / section charts
+  const [pending, setPending] = useState<{ view: 'profile' | 'section'; a: [number, number] } | null>(null)
+  const [noteAt, setNoteAt] = useState<{ view: 'profile' | 'section'; a: [number, number] } | null>(null)
+  const [noteText, setNoteText] = useState('')
+  const nt = t.notes
+  const addNote = (n: { kind: 'text' | 'dimension'; view: 'profile' | 'section'; a: [number, number]; b?: [number, number]; text?: string }, label: string) => {
+    const note = { id: `n${Date.now().toString(36)}`, station: n.view === 'section' ? st.station : undefined, ...n }
+    const err = st.edit(label, (d) => ({ ...d, notes: [...(d.notes ?? []), note] }))
+    if (err) toast(fmt(t.toast.invalid, { why: err }), 'warning')
+    else toast(fmt(nt.added, { what: label }))
+  }
+  const chartTool = (view: 'profile' | 'section'): ChartTool => ({
+    active: !!st.tool,
+    pending: pending?.view === view ? pending.a : null,
+    onPoint: (x, z) => {
+      if (st.tool === 'annotation') return (setNoteText(''), setNoteAt({ view, a: [x, z] }))
+      if (!pending || pending.view !== view) return setPending({ view, a: [x, z] })
+      addNote({ kind: 'dimension', view, a: pending.a, b: [x, z] }, `${t.tools.dimension} ${view === 'profile' ? sta(pending.a[0]) + '–' + sta(x) : sta(st.station)}`)
+      setPending(null)
+    },
+  })
+  const toggleTool = (k: 'annotation' | 'dimension') => {
+    setPending(null)
+    const on = st.tool === k ? null : k
+    st.set({ tool: on, ...(on && st.view !== 'plan' && st.view !== 'profile' && st.view !== 'section' ? { view: 'plan' } : {}) })
+    if (on) toast(nt[on])
+  }
+
   const stations = useMemo(() => Array.from({ length: Math.floor((st.doc.alignment.end - st.doc.alignment.start) / 20) + 1 }, (_, i) => st.doc.alignment.start + i * 20), [st.doc.alignment])
 
   useEffect(() => {
@@ -100,13 +130,56 @@ export function CivilScreen() {
   const stationSel = (
     <Select label={T.civil.section.at} value={String(st.station)} onChange={(v) => st.set({ station: Number(v) })} options={stations.map((x) => ({ value: String(x), label: fmt(t.section.title, { sta: sta(x) }) }))} className={s.cardSel} />
   )
+  // profile window: orbit = whole alignment, pan = centre on the current station (half the alignment when showing all), zoom = widen ×2
+  const A = st.doc.alignment
+  const win = st.profileRange ?? [A.start, A.end]
+  const setWin = (c: number, half: number) => {
+    const hh = Math.min(half, (A.end - A.start) / 2)
+    const a = Math.max(A.start, Math.min(A.end - 2 * hh, c - hh))
+    st.set({ profileRange: hh * 2 >= A.end - A.start - 1e-6 ? null : [a, a + 2 * hh] })
+  }
+  /** PNG of a chart card (SVG → canvas at 2×) or of the survey plan canvas. */
+  const snapshot = async (sel: string, name: string) => {
+    const el = document.querySelector(sel)
+    if (!el) return
+    let url: string
+    if (el instanceof HTMLCanvasElement) url = el.toDataURL('image/png')
+    else {
+      const svg = el as SVGSVGElement
+      const r = svg.getBoundingClientRect()
+      const css = [...document.styleSheets].flatMap((ss) => { try { return [...ss.cssRules].map((c) => c.cssText) } catch { return [] } }).join('\n')
+      const clone = svg.cloneNode(true) as SVGSVGElement
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+      clone.insertAdjacentHTML('afterbegin', `<style>${css}</style><rect width="100%" height="100%" fill="#fff"/>`)
+      const img = new Image()
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone))
+      await img.decode()
+      const c = document.createElement('canvas')
+      c.width = r.width * 2
+      c.height = r.height * 2
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+      url = c.toDataURL('image/png')
+    }
+    const file = `North Canal - ${name}.png`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file
+    a.click()
+    toast(fmt(t.toast.exported, { file }), 'success')
+  }
+  const removeNotes = (view: 'profile' | 'section') => {
+    const left = (st.doc.notes ?? []).filter((n) => n.view !== view || (view === 'section' && n.station !== st.station))
+    if (left.length === (st.doc.notes ?? []).length) return toast(t.toast.nothing)
+    st.edit(nt.clear, (d) => ({ ...d, notes: left }))
+    toast(nt.cleared)
+  }
   const chartTools = (label: string) => [
-    { label: t.plan.orbit, icon: <RefreshCcw size={15} strokeWidth={1.7} />, onClick: () => native(t.plan.orbit) },
-    { label: t.plan.pan, icon: <Hand size={15} strokeWidth={1.7} />, onClick: () => native(t.plan.pan) },
-    { label: t.plan.zoom, icon: <ZoomOut size={15} strokeWidth={1.7} />, onClick: () => native(t.plan.zoom) },
-    { label: t.plan.fit, icon: <Expand size={14} strokeWidth={1.7} />, onClick: () => st.set({ view: label as CivilView }) },
-    { label: t.plan.remove, icon: <Trash2 size={14} strokeWidth={1.7} />, onClick: () => native(t.plan.remove) },
-    { label: t.plan.snapshot, icon: <Camera size={14} strokeWidth={1.7} />, onClick: () => native(t.plan.snapshot) },
+    { label: t.plan.orbit, icon: <RefreshCcw size={15} strokeWidth={1.7} />, onClick: () => st.set({ profileRange: null }) },
+    { label: t.plan.pan, icon: <Hand size={15} strokeWidth={1.7} />, onClick: () => setWin(st.station, (win[1] - win[0]) / (st.profileRange ? 2 : 4)) },
+    { label: t.plan.zoom, icon: <ZoomOut size={15} strokeWidth={1.7} />, onClick: () => setWin((win[0] + win[1]) / 2, win[1] - win[0]) },
+    { label: t.plan.fit, icon: <Expand size={14} strokeWidth={1.7} />, onClick: () => st.set({ view: label as CivilView, profileRange: null }) },
+    { label: t.plan.remove, icon: <Trash2 size={14} strokeWidth={1.7} />, onClick: () => removeNotes(label === 'section' ? 'section' : 'profile') },
+    { label: t.plan.snapshot, icon: <Camera size={14} strokeWidth={1.7} />, onClick: () => void snapshot(label === 'section' ? '[data-testid=section-chart]' : '[data-testid=profile-chart]', label === 'section' ? `Cross section ${sta(st.station)}` : 'Longitudinal profile') },
   ]
 
   return (
@@ -121,7 +194,7 @@ export function CivilScreen() {
           tabs={views}
           active={st.view}
           tabsStyle={{ left: 386 }}
-          onTab={(k) => (k === '3d' ? native(t.views['3d']) : st.set({ view: k as CivilView }))}
+          onTab={(k) => st.set({ view: k as CivilView })}
           actions={
             <>
               <WsButton icon={<Share size={15} strokeWidth={1.7} />} label={t.share} width={79} onClick={() => toast(t.toast.shareOffline)} />
@@ -144,15 +217,16 @@ export function CivilScreen() {
             { key: 'culvert', label: t.tools.culvert, Icon: Columns2, c: 456, onClick: () => st.set({ bottom: 'structures' }) },
             { key: 'earthwork', label: t.tools.earthwork, Icon: Mountain, c: 536, w: 76, onClick: () => st.set({ bottom: 'earthwork' }) },
             { key: 'surface', label: t.tools.surface, Icon: Layers, c: 621, onClick: () => st.set({ right: 'layers' }) },
-            { key: 'intersection', label: t.tools.intersection, Icon: Move, c: 710, w: 84, onClick: () => native(t.tools.intersection) },
-            { key: 'annotation', label: t.tools.annotation, Icon: Type, c: 809, w: 80, onClick: () => native(t.tools.annotation) },
-            { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 913, w: 80, onClick: () => native(t.tools.dimension) },
+            { key: 'intersection', label: t.tools.intersection, Icon: Move, c: 710, w: 84, onClick: () => st.set({ crossingOpen: true }) },
+            { key: 'annotation', label: t.tools.annotation, Icon: Type, c: 809, w: 80, active: st.tool === 'annotation', onClick: () => toggleTool('annotation') },
+            { key: 'dimension', label: t.tools.dimension, Icon: DimensionToolIcon, c: 913, w: 80, active: st.tool === 'dimension', onClick: () => toggleTool('dimension') },
             { key: 'quantity', label: t.tools.quantity, Icon: Calculator, c: 1010, onClick: () => st.set({ view: 'schedule' }) },
           ]}
           more={{ c: 1112, label: t.tools.more, items: [
             { label: t.moreItems.importSurvey, onSelect: () => { setDropped(null); st.set({ importOpen: true }) } },
             { label: t.moreItems.drawAlignment, onSelect: () => (hasSurvey ? st.set({ drawing: true, view: 'plan' }) : toast(sv.noSurvey)) },
             ...(hasSurvey ? [{ label: t.moreItems.removeSurvey, onSelect: () => removeSurvey(sv) }] : []),
+            ...((st.doc.notes ?? []).length ? [{ label: nt.clear, onSelect: () => { st.edit(nt.clear, (d) => ({ ...d, notes: [] })); toast(nt.cleared) } }] : []),
             { label: t.moreItems.undo, onSelect: () => toast(st.undo() ? fmt(t.toast.undone, { label: '' }) : t.toast.nothing) },
             { label: t.moreItems.redo, onSelect: () => toast(st.redo() ? fmt(t.toast.redone, { label: '' }) : t.toast.nothing) },
             { label: t.moreItems.reset, onSelect: () => { st.reset(); toast(t.toast.reset) } },
@@ -169,7 +243,15 @@ export function CivilScreen() {
           <section className={`${w.card} ${s.plan}`} aria-label={t.plan.label}>
             <header className={s.cardHead}>
               <Select label={t.plan.title} value="plan" onChange={() => undefined} options={[{ value: 'plan', label: t.plan.title }]} className={s.cardSel} />
-              <ToolStrip style={{ position: 'static', boxShadow: 'none', background: 'transparent' }} items={[...chartTools('plan').slice(0, 4), { label: t.plan.snapshot, icon: <ScanSearch size={15} strokeWidth={1.7} />, onClick: () => native(t.plan.snapshot) }, { label: t.plan.remove, icon: <Trash2 size={15} strokeWidth={1.7} />, onClick: () => native(t.plan.remove) }, { label: t.plan.isolate, icon: <Focus size={15} strokeWidth={1.7} />, onClick: () => native(t.plan.isolate) }]} />
+              <ToolStrip style={{ position: 'static', boxShadow: 'none', background: 'transparent' }} items={[
+                { label: t.plan.orbit, icon: <RefreshCcw size={15} strokeWidth={1.7} />, onClick: () => (planCtl.current ? planCtl.current.home() : native(t.plan.orbit)) },
+                { label: t.plan.pan, icon: <Hand size={15} strokeWidth={1.7} />, onClick: () => (planCtl.current ? toast(T.view3d.pan) : native(t.plan.pan)) },
+                { label: t.plan.zoom, icon: <ZoomOut size={15} strokeWidth={1.7} />, onClick: () => (planCtl.current ? planCtl.current.zoom(1 / 1.4) : native(t.plan.zoom)) },
+                { label: t.plan.fit, icon: <Expand size={14} strokeWidth={1.7} />, onClick: () => (planCtl.current ? planCtl.current.home() : native(t.plan.fit)) },
+                { label: t.plan.snapshot, icon: <ScanSearch size={15} strokeWidth={1.7} />, onClick: () => (hasSurvey ? void snapshot('[aria-label="' + t.plan.label + '"] canvas', 'Plan') : native(t.plan.snapshot)) },
+                { label: t.plan.remove, icon: <Trash2 size={15} strokeWidth={1.7} />, onClick: () => (hasSurvey ? removeSurvey(sv) : native(t.plan.remove)) },
+                { label: t.plan.isolate, icon: <Focus size={15} strokeWidth={1.7} />, on: !st.layers.surfaces, onClick: () => st.set({ layers: { ...st.layers, surfaces: !st.layers.surfaces, ground: !st.layers.ground } }) },
+              ]} />
             </header>
             <div className={s.planImg} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
               {hasSurvey ? <SurveyPlan ctl={planCtl} /> : <img src="/assets/v2/civil/plan.png" alt="CANAL-01 plan (DEMO imagery)" draggable={false} style={{ opacity: st.layers.surfaces ? 1 : 0.35 }} />}
@@ -177,8 +259,8 @@ export function CivilScreen() {
                 { label: t.plan.home, icon: <Home size={16} strokeWidth={1.6} />, onClick: () => (planCtl.current ? planCtl.current.home() : native(t.plan.home)) },
                 { label: t.plan.zoomIn, icon: <ZoomIn size={16} strokeWidth={1.6} />, onClick: () => (planCtl.current ? planCtl.current.zoom(1.4) : native(t.plan.zoomIn)) },
                 { label: t.plan.zoomOut, icon: <ZoomOut size={16} strokeWidth={1.6} />, onClick: () => (planCtl.current ? planCtl.current.zoom(1 / 1.4) : native(t.plan.zoomOut)) },
-                { label: t.plan.zoomRegion, icon: <ScanSearch size={16} strokeWidth={1.6} />, onClick: () => native(t.plan.zoomRegion) },
-                { label: t.plan.full, icon: <Maximize size={15} strokeWidth={1.6} />, onClick: () => native(t.plan.full) },
+                { label: t.plan.zoomRegion, icon: <ScanSearch size={16} strokeWidth={1.6} />, onClick: () => (planCtl.current ? planCtl.current.zoom(2) : native(t.plan.zoomRegion)) },
+                { label: t.plan.full, icon: <Maximize size={15} strokeWidth={1.6} />, onClick: () => (planCtl.current ? planCtl.current.home() : st.set({ view: 'profile' })) },
               ]} />
               {!hasSurvey && <span className={w.demoBadge} style={{ left: 160, bottom: 8 }}>{t.plan.demo}</span>}
             </div>
@@ -189,7 +271,7 @@ export function CivilScreen() {
               <ToolStrip style={{ position: 'static', boxShadow: 'none', background: 'transparent' }} items={chartTools('profile')} />
             </header>
             <div ref={profRef} className={s.chartBox}>
-              {prof.w > 0 && <ProfileChart m={st.doc} w={prof.w} h={prof.h} station={st.station} onStation={(x) => st.set({ station: x })} />}
+              {prof.w > 0 && <ProfileChart m={st.doc} w={prof.w} h={prof.h} station={st.station} onStation={(x) => st.set({ station: x })} tool={chartTool('profile')} range={st.profileRange} />}
             </div>
           </section>
           <section className={`${w.card} ${s.section}`} aria-label={fmt(t.section.title, { sta: sta(st.station) })}>
@@ -198,7 +280,7 @@ export function CivilScreen() {
               <ToolStrip style={{ position: 'static', boxShadow: 'none', background: 'transparent' }} items={chartTools('section').slice(3)} />
             </header>
             <div ref={secRef} className={s.chartBox}>
-              {sec.w > 0 && <SectionChart m={st.doc} w={sec.w} h={sec.h} station={st.station} />}
+              {sec.w > 0 && <SectionChart m={st.doc} w={sec.w} h={sec.h} station={st.station} tool={chartTool('section')} />}
             </div>
           </section>
           <div className={s.bottom}>
@@ -209,13 +291,15 @@ export function CivilScreen() {
         <section className={`${w.card} ${s.big}`} aria-label={t.views[st.view]}>
           {st.view === 'schedule' ? (
             <CivilBottom full />
+          ) : st.view === '3d' ? (
+            <Civil3D />
           ) : (
             <>
               <header className={s.cardHead}>
                 {st.view === 'section' ? stationSel : <Select label={t.profile.title} value="p" onChange={() => undefined} options={[{ value: 'p', label: t.profile.title }]} className={s.cardSel} />}
               </header>
               <div ref={bigRef} className={s.chartBox}>
-                {big.w > 0 && (st.view === 'profile' ? <ProfileChart m={st.doc} w={big.w} h={big.h} station={st.station} onStation={(x) => st.set({ station: x })} /> : <SectionChart m={st.doc} w={big.w} h={big.h} station={st.station} />)}
+                {big.w > 0 && (st.view === 'profile' ? <ProfileChart m={st.doc} w={big.w} h={big.h} station={st.station} onStation={(x) => st.set({ station: x })} tool={chartTool('profile')} range={st.profileRange} /> : <SectionChart m={st.doc} w={big.w} h={big.h} station={st.station} tool={chartTool('section')} />)}
               </div>
             </>
           )}
@@ -225,6 +309,22 @@ export function CivilScreen() {
       <div className={s.right}>
         <CivilRight />
       </div>
+      {st.crossingOpen && <CrossingDialog onClose={() => st.set({ crossingOpen: false })} />}
+      {noteAt && (
+        <Modal title={nt.prompt} onClose={() => setNoteAt(null)} width={380}>
+          <form
+            className={s.form}
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (noteText.trim()) addNote({ kind: 'text', view: noteAt.view, a: noteAt.a, text: noteText.trim() }, `${t.tools.annotation} “${noteText.trim()}”`)
+              setNoteAt(null)
+            }}
+          >
+            <input aria-label={nt.prompt} autoFocus value={noteText} onChange={(e) => setNoteText(e.target.value)} />
+            <button type="submit" className={s.formBtn}>{nt.place}</button>
+          </form>
+        </Modal>
+      )}
       {st.importOpen && <ImportSurveyDialog initial={dropped} onClose={() => { setDropped(null); st.set({ importOpen: false }) }} />}
     </div>
   )

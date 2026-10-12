@@ -6,7 +6,7 @@
 export type V3 = [number, number, number]
 
 export interface Prim {
-  k: 'box' | 'cyl' | 'cone' | 'sphere' | 'torus' | 'prism' | 'revolve'
+  k: 'box' | 'cyl' | 'cone' | 'sphere' | 'torus' | 'prism' | 'revolve' | 'mesh'
   /** Frame: origin, local Z, local X. */
   o: V3
   z?: V3
@@ -14,6 +14,8 @@ export interface Prim {
   /** box: dx dy dz · cyl: r h · cone: r1 r2 h · sphere: r · torus: R r angle · prism: h · revolve: angle */
   s: V3
   pts?: [number, number][]
+  /** mesh: triangles, x y z × 3 per triangle (surfaces without volume). */
+  tri?: number[]
 }
 
 export interface SceneItem {

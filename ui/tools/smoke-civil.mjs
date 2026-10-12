@@ -22,7 +22,7 @@ await page.addInitScript(() => {
 await page.goto('http://127.0.0.1:5173/#/civil', { waitUntil: 'networkidle' })
 const firstRow = () => page.getByRole('table', { name: 'Earthwork Quantities' }).getByRole('row').nth(1).innerText()
 const section = () => page.getByRole('img', { name: /^Cross section/ }).first()
-const blank = () => page.locator('body').click({ position: { x: 1000, y: 140 } })
+const blank = () => page.locator('body').click({ position: { x: 1180, y: 128 } }) // empty header strip (the 3D tab is live now)
 
 await step('opens like the mockup: Plan view, CANAL-01, Earthwork Quantities, STA 0+300 section 12.00 / 8.00 / 2.00 m', async () => {
   assert.equal(await page.getByRole('tab', { name: 'Plan' }).getAttribute('aria-selected'), 'true')

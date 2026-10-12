@@ -128,6 +128,24 @@ TopoDS_Shape build(const Prim& p) {
       const double ang = (p.s[0] > 0 && p.s[0] < 360 ? p.s[0] : 360) * M_PI / 180;
       return BRepPrimAPI_MakeRevol(face.Face(), gp_Ax1(ax.Location(), ax.Direction()), ang).Shape();
     }
+    case Prim::Kind::Mesh: {
+      if (p.tri.size() < 9) return {};
+      BRep_Builder b;
+      TopoDS_Compound c;
+      b.MakeCompound(c);
+      int n = 0;
+      for (size_t i = 0; i + 8 < p.tri.size(); i += 9) {
+        const gp_Pnt a = local(ax, p.tri[i], p.tri[i + 1], p.tri[i + 2]), q = local(ax, p.tri[i + 3], p.tri[i + 4], p.tri[i + 5]), r = local(ax, p.tri[i + 6], p.tri[i + 7], p.tri[i + 8]);
+        if (a.Distance(q) < 1e-6 || q.Distance(r) < 1e-6 || r.Distance(a) < 1e-6) continue;
+        BRepBuilderAPI_MakePolygon poly(a, q, r, true);
+        if (!poly.IsDone()) continue;
+        BRepBuilderAPI_MakeFace face(poly.Wire(), true);
+        if (!face.IsDone()) continue;
+        b.Add(c, face.Face());
+        ++n;
+      }
+      return n ? TopoDS_Shape(c) : TopoDS_Shape();
+    }
   }
   return {};
 }
@@ -206,7 +224,7 @@ std::array<double, 3> v3(const json::Value* v, std::array<double, 3> def) {
   return out;
 }
 Prim primFromJson(const json::Value& o) {
-  static const std::map<std::string, Prim::Kind> kinds{{"box", Prim::Kind::Box}, {"cyl", Prim::Kind::Cylinder}, {"cone", Prim::Kind::Cone}, {"sphere", Prim::Kind::Sphere}, {"torus", Prim::Kind::Torus}, {"prism", Prim::Kind::Prism}, {"revolve", Prim::Kind::Revolve}};
+  static const std::map<std::string, Prim::Kind> kinds{{"box", Prim::Kind::Box}, {"cyl", Prim::Kind::Cylinder}, {"cone", Prim::Kind::Cone}, {"sphere", Prim::Kind::Sphere}, {"torus", Prim::Kind::Torus}, {"prism", Prim::Kind::Prism}, {"revolve", Prim::Kind::Revolve}, {"mesh", Prim::Kind::Mesh}};
   Prim p;
   const json::Value* k = o.get("k");
   if (k && k->str() && kinds.count(*k->str())) p.kind = kinds.at(*k->str());
@@ -217,6 +235,10 @@ Prim primFromJson(const json::Value& o) {
   if (const json::Value* pts = o.get("pts"); pts && pts->arr())
     for (const auto& q : *pts->arr())
       if (const json::Array* a = q.arr(); a && a->size() >= 2 && (*a)[0].num() && (*a)[1].num()) p.pts.push_back({*(*a)[0].num(), *(*a)[1].num()});
+  if (const json::Value* tri = o.get("tri"); tri && tri->arr()) {
+    p.tri.reserve(tri->arr()->size());
+    for (const auto& v : *tri->arr()) p.tri.push_back(v.num() ? *v.num() : 0);
+  }
   return p;
 }
 }  // namespace
@@ -363,6 +385,10 @@ int SceneView::setItems(const std::vector<SceneItem>& items) {
     e.item = it;
     e.shape = s;
     e.ais = new AIS_Shape(s);
+    // triangle meshes (terrain, corridor surfaces): no face-boundary lines, they would hatch the surface
+    if (!it.parts.empty() && it.parts.front().kind == Prim::Kind::Mesh) {
+      e.ais->Attributes()->SetFaceBoundaryDraw(false);
+    }
     d->ctx->Display(e.ais, AIS_Shaded, -1, false);
     d->items[it.id] = std::move(e);
   }

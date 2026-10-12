@@ -26,6 +26,13 @@ interface CivilState extends Undoable<CivilModel> {
   /** Plan view: drawing a new alignment. */
   drawing: boolean
   importOpen: boolean
+  /** Profile / section tools: place a note, measure between two points. */
+  tool: 'annotation' | 'dimension' | null
+  /** 3D view: vertical exaggeration. */
+  ve: number
+  crossingOpen: boolean
+  /** Profile chart window (stations), null = whole alignment. */
+  profileRange: [number, number] | null
   edit: (label: string, fn: (d: CivilModel) => CivilModel) => string | null
   undo: () => string | null
   redo: () => string | null
@@ -91,6 +98,10 @@ export const useCivil = create<CivilState>()(
       contour: 0.25,
       drawing: false,
       importOpen: false,
+      tool: null,
+      ve: 3,
+      crossingOpen: false,
+      profileRange: null,
       ...undoableActions<CivilModel, CivilState>(get, set, validateCivil),
       set: (p) => set(p),
       reset: () => set({ doc: createNorthCanal(), undoStack: [], redoStack: [] }),

@@ -588,3 +588,85 @@
   font-size: 12.5px;
   color: #3a4352;
 }
+
+.chartTool {
+  cursor: crosshair;
+}
+.noteDot {
+  fill: #b91c1c;
+}
+.notePending {
+  fill: none;
+  stroke: #d97706;
+  stroke-width: 2;
+}
+.noteText {
+  font-size: 11px;
+  fill: #7f1d1d;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 3px;
+}
+.noteDim {
+  stroke: #b91c1c;
+  stroke-width: 1.2;
+  stroke-dasharray: 4 2;
+}
+.wire {
+  fill: none;
+  stroke: #475569;
+  stroke-width: 0.8;
+}
+.wireWater {
+  fill: rgba(63, 134, 198, 0.25);
+  stroke: #3f86c6;
+  stroke-width: 0.6;
+}
+.wireGround {
+  fill: none;
+  stroke: #84a06a;
+  stroke-width: 0.6;
+}
+.view3dBar {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  background: rgba(255, 255, 255, 0.92);
+  z-index: 3;
+}
+.form {
+  display: grid;
+  gap: 6px;
+}
+.form input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d5dbe2;
+  border-radius: 6px;
+  font: inherit;
+}
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.formBtn {
+  justify-self: end;
+  height: 32px;
+  margin-top: 6px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  color: #fff;
+  background: #0f766e;
+  cursor: pointer;
+}

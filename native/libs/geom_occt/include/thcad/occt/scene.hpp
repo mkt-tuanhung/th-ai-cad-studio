@@ -24,7 +24,7 @@ struct Frame {
 };
 
 struct Prim {
-  enum class Kind { Box, Cylinder, Cone, Sphere, Torus, Prism, Revolve };
+  enum class Kind { Box, Cylinder, Cone, Sphere, Torus, Prism, Revolve, Mesh };
   Kind kind = Kind::Box;
   Frame f;
   /** Box: dx dy dz (from the frame origin). Cylinder: r, h. Cone: r1, r2, h. Sphere: r.
@@ -32,6 +32,8 @@ struct Prim {
   std::array<double, 3> s{0, 0, 0};
   /** Prism: polygon in local XY. Revolve: profile in local XZ (x = radius, y = height). */
   std::vector<std::array<double, 2>> pts;
+  /** Mesh: triangles as x y z × 3 per triangle, in the frame (terrain, corridor surfaces; no volume). */
+  std::vector<double> tri;
 };
 
 struct SceneItem {

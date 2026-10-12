@@ -106,7 +106,7 @@ await step('click on the alignment picks the nearest 20 m station; ⌘Z undoes t
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
   const after = await page.getByRole('img', { name: /^Cross section/ }).first().getAttribute('aria-label')
   assert.ok(before && after)
-  await page.locator('body').click({ position: { x: 1000, y: 140 } })
+  await page.locator('body').click({ position: { x: 1180, y: 128 } })
   await page.keyboard.press('Meta+z')
   await page.getByText(/Survey · canal_survey_SYNTHETIC\.csv/).waitFor()
 })

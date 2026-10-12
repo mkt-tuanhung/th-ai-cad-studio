@@ -63,6 +63,18 @@ export const civilEn = {
     optTitle: 'Optimization Suggestion', optText: 'Bottom width {b} m would cut earthwork by ~{p} % (depth {y} m, velocity {v} m/s).',
     apply: 'Apply', note: 'Rule-based engineering checks. Requests: “Ask the local AI…” (desktop app, proposals you approve).',
   },
+  view3d: {
+    title: '3D Corridor - CANAL-01', ve: 'Vertical exaggeration', stats: '{n} stations · {t} triangles · ground: {g}', survey: 'survey TIN', sample: 'sample profile strip',
+    browser: 'Wireframe preview (sections every 20 m) — the 3D corridor, terrain and structures are built by OCCT in the desktop app',
+  },
+  notes: {
+    annotation: 'Click on the profile or a cross section to place a note', dimension: 'Click two points on the profile or a cross section to measure', prompt: 'Note text', place: 'Place',
+    added: 'Added {what}', grade: '{l} m · Δz {dz} m · {g} %', dist: '{l} m · Δz {dz} m', cleared: 'Notes removed', clear: 'Remove notes and dimensions',
+  },
+  crossing: {
+    title: 'Intersection — road crossing', station: 'Station', road: 'Road width = culvert length (m)', cells: 'Cells', span: 'Cell span (m)', rise: 'Cell rise (m)', name: 'Name', add: 'Add crossing',
+    added: 'Crossing {name} at {sta}: box culvert {size}, invert {z} m', exists: 'A structure already sits within 10 m of {sta}', outside: 'The station is outside the alignment',
+  },
   toast: {
     native: '{what}: needs the civil engine (not connected in this build)',
     shareOffline: 'Sharing needs the project server (PWA module, later). The project stays on this computer.',
@@ -134,6 +146,18 @@ export const civilVi: typeof civilEn = {
     complianceTitle: 'Đáp ứng thiết kế', complianceOk: 'Vận tốc {v} m/s, Froude {fr}, độ cao an toàn {fb} m — trong giới hạn', complianceBad: 'Cần kiểm tra: {what}',
     optTitle: 'Gợi ý tối ưu', optText: 'Bề rộng đáy {b} m giảm đào đắp ~{p} % (sâu {y} m, vận tốc {v} m/s).',
     apply: 'Áp dụng', note: 'Kiểm tra kỹ thuật theo quy tắc. Yêu cầu: “Hỏi AI cục bộ…” (app desktop, đề xuất để bạn duyệt).',
+  },
+  view3d: {
+    title: 'Hành lang 3D - CANAL-01', ve: 'Phóng đại đứng', stats: '{n} mặt cắt · {t} tam giác · địa hình: {g}', survey: 'TIN khảo sát', sample: 'dải theo trắc dọc mẫu',
+    browser: 'Xem trước khung dây (mặt cắt mỗi 20 m) — hành lang 3D, địa hình và công trình do OCCT dựng trong app desktop',
+  },
+  notes: {
+    annotation: 'Bấm lên trắc dọc hoặc trắc ngang để đặt ghi chú', dimension: 'Bấm hai điểm trên trắc dọc hoặc trắc ngang để đo', prompt: 'Nội dung ghi chú', place: 'Đặt',
+    added: 'Đã thêm {what}', grade: '{l} m · Δz {dz} m · {g} %', dist: '{l} m · Δz {dz} m', cleared: 'Đã xoá ghi chú', clear: 'Xoá ghi chú và kích thước',
+  },
+  crossing: {
+    title: 'Giao cắt — đường qua kênh', station: 'Lý trình', road: 'Bề rộng đường = chiều dài cống (m)', cells: 'Số khoang', span: 'Khẩu độ khoang (m)', rise: 'Chiều cao khoang (m)', name: 'Tên', add: 'Thêm giao cắt',
+    added: 'Giao cắt {name} tại {sta}: cống hộp {size}, cao độ đáy {z} m', exists: 'Đã có công trình trong phạm vi 10 m quanh {sta}', outside: 'Lý trình nằm ngoài tuyến',
   },
   toast: {
     native: '{what}: cần engine hạ tầng (chưa kết nối trong bản này)',
