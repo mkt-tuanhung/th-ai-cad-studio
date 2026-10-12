@@ -177,7 +177,8 @@ let seq = 0
 const waiting = new Map<string, (r: { ok: boolean; text: string; seconds: number; model?: string; tokensPerSecond?: number; error?: string }) => void>()
 let attached: HostApi | null = null
 
-function task(host: HostApi, system: string, prompt: string, grammarText: string | undefined, maxTokens: number) {
+/** One generation on the desktop host (free text, or constrained by a GBNF grammar). */
+export function task(host: HostApi, system: string, prompt: string, grammarText: string | undefined, maxTokens: number) {
   if (attached !== host) {
     attached = host
     host.on('aiTaskResult', (p) => {

@@ -5,6 +5,9 @@ import { useCad } from '../../state/cad'
 import { useRouter } from '../../state/router'
 import { getHost } from '../../services/host'
 import { nativeAiReady, requestNativeEdit } from '../../services/liveAi'
+import { answer as aiAnswer, route as aiRoute } from '../../ai/chat'
+import { useVoice } from '../../ai/voice'
+import { useLang } from '../../i18n'
 import { fromNativeOps } from '../../services/nativeCad'
 import { cadMirror } from '../../state/cad'
 import { useAiStudio } from '../../state/aiStudio'
@@ -25,6 +28,27 @@ export function ChatPanel() {
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  // Voice CAD: on-device speech → the composer (the user reads it, then sends)
+  const lang = useLang()
+  const base = useRef('')
+  const voice = useVoice(
+    lang === 'vi' ? 'vi-VN' : 'en-US',
+    (text) => set({ draft: (base.current ? base.current + ' ' : '') + text }),
+    (why) => toast(why === 'browser' ? t.voiceNative : fmt(t.voiceUnavailable, { why }), 'warning'),
+    (used, why) => toast(fmt(t.voiceFallback, { why, used })),
+  )
+  const toggleVoice = () => {
+    if (!voice.listening) {
+      base.current = useAiStudio.getState().draft.trim()
+      toast(t.voiceListening)
+    }
+    void voice.toggle()
+  }
+  useEffect(() => {
+    const onVoice = () => toggleVoice()
+    window.addEventListener('thcad-voice', onVoice)
+    return () => window.removeEventListener('thcad-voice', onVoice)
+  })
 
   useEffect(() => {
     if (!sample) listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -35,9 +59,20 @@ export function ChatPanel() {
     if (!text) return
     // Desktop app with a loaded local model → real inference; otherwise the honest notice.
     if (!(await nativeAiReady())) return send(text, t.runtimeReply)
+    const host = await getHost()
     const doc = useCad.getState().activeDoc()
-    if (!doc) return send(text, t.liveNoDoc)
     const tid = startLive(text, t.thinking)
+    // questions get a written answer; requests to change the open drawing go to the edit pipeline
+    const where = host ? await aiRoute(host, text) : 'no-model'
+    if (where !== 'edit' || !doc) {
+      if (!host || where === 'no-model') return updateTurn(tid, { pending: false, text: t.runtimeReply })
+      const a = await aiAnswer(host, text, useAiStudio.getState().turns.filter((x) => x.id !== tid))
+      return updateTurn(tid, {
+        pending: false,
+        text: a.ok ? a.text : fmt(t.liveInvalid, { error: a.error ?? 'empty reply' }),
+        stats: a.seconds ? fmt(t.liveStats, { seconds: a.seconds.toFixed(1), tps: Math.round(a.tokensPerSecond ?? 0) }) + (where === 'edit' ? ` · ${t.liveNoDoc}` : '') : undefined,
+      })
+    }
     const r = await requestNativeEdit(text, doc)
     const p = r.proposal
     updateTurn(tid, {
@@ -103,7 +138,7 @@ export function ChatPanel() {
           aria-label={t.placeholder}
           onChange={(e) => set({ draft: e.target.value })}
         />
-        <button type="button" className={s.cbtn} aria-label={t.voice} title={t.voice} onClick={() => toast(t.voiceNative)}>
+        <button type="button" className={`${s.cbtn} ${voice.listening ? s.cbtnOn : ''}`} aria-label={t.voice} title={t.voice} aria-pressed={voice.listening} onClick={toggleVoice}>
           <Mic size={20} strokeWidth={1.6} />
         </button>
         <button type="submit" className={s.send} aria-label={t.send} disabled={!draft.trim() || turns.some((x) => x.role === 'assistant' && x.pending)}>

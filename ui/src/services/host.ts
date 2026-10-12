@@ -40,6 +40,9 @@ export interface HostApi {
   scene3dFrame(key: string, w: number, h: number, mode: string, selected: string, highlightedCsv: string): Promise<{ ok: boolean; url?: string; ms?: number }>
   scene3dCamera(key: string, action: string, a: number, b: number, c: number): Promise<void>
   scene3dPick(key: string, x: number, y: number): Promise<string>
+  voiceAvailability(locale: string): Promise<{ available: boolean; onDevice: boolean; reason: string; locale: string }>
+  voiceStart(locale: string): Promise<void>
+  voiceStop(): Promise<void>
   scene3dLoadBim(key: string, modelJson: string, extrasJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
   scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
@@ -61,7 +64,7 @@ export interface HostApi {
   pickFolder(title: string, start: string): Promise<string>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText', fn: (payload: unknown) => void): void
 }
 
 export interface HostSystemInfo {

@@ -18,6 +18,8 @@ import { PipeIcon } from '../../components/icons'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
 import { ComponentThumb } from './ComponentThumb'
 import { ComponentPanel } from './ComponentPanel'
+import { recommend, rankWithModel } from '../../library/recommend'
+import { getHost } from '../../services/host'
 import s from './Components.module.css'
 
 type Ico = ComponentType<{ size?: number; strokeWidth?: number }>
@@ -118,12 +120,25 @@ export function ComponentsScreen() {
     if (upload.current) upload.current.value = ''
   }
 
+  const recs = useMemo(() => (strip === 'ai' ? recommend(all, lib.recent, lib.favorites) : []), [strip, all, lib.recent, lib.favorites])
+  const [aiOrder, setAiOrder] = useState<{ ids: string[]; label: string } | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
+  const rankAi = async () => {
+    const host = await getHost()
+    if (!host) return toast(T.aiNoModel)
+    setAiBusy(true)
+    const r = await rankWithModel(host, recs)
+    setAiBusy(false)
+    if (!r || !r.ids.length) return toast(T.aiNoModel)
+    setAiOrder({ ids: r.ids, label: fmt(T.aiRanked, { model: r.model ?? 'local', s: r.seconds.toFixed(1) }) })
+  }
+  const aiList = aiOrder ? [...aiOrder.ids.map((id) => recs.find((r) => r.c.id === id)!).filter(Boolean), ...recs.filter((r) => !aiOrder.ids.includes(r.c.id))] : recs
   const stripItems: { c: LibComponent; at?: number }[] =
     strip === 'recent'
       ? lib.recent.map((r) => ({ c: all.find((x) => x.id === r.id)!, at: r.at })).filter((x) => x.c)
       : strip === 'shared'
         ? all.filter((c) => c.shared).map((c) => ({ c }))
-        : []
+        : aiList.map((r) => ({ c: r.c }))
 
   const chip = <K extends keyof Filters>(k: K, label: string, opts: [NonNullable<Filters[K]>, string][]) => (
     <FilterChip key={k} label={label} value={filters[k] ? opts.find((o) => o[0] === filters[k])?.[1] : undefined}
@@ -273,7 +288,13 @@ export function ComponentsScreen() {
                 <small>{at ? fmt(T.used, { time: relativeTime(at, lang) }) : c.sizeLabel}</small>
               </article>
             ))}
-            {strip === 'ai' && <p className={s.empty}>{T.aiNone}</p>}
+            {strip === 'ai' && !stripItems.length && <p className={s.empty}>{T.aiNone}</p>}
+            {strip === 'ai' && stripItems.length > 0 && (
+              <p className={s.aiNote} data-testid="ai-rec-note">
+                {aiBusy ? T.aiBusy : aiOrder ? aiOrder.label : T.aiRule}
+                {!aiOrder && !aiBusy && <button type="button" className={s.aiAsk} onClick={() => void rankAi()}>{T.aiAsk}</button>}
+              </p>
+            )}
             {strip === 'recent' && !stripItems.length && <p className={s.empty}>{T.noRecent}</p>}
           </div>
         </section>

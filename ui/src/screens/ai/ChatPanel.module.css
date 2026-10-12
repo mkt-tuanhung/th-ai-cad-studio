@@ -507,3 +507,9 @@
   font-size: 11px;
   color: #8a93a1;
 }
+
+.cbtnOn {
+  color: #fff !important;
+  background: #dc2626 !important;
+  border-radius: 50%;
+}

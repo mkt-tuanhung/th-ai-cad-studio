@@ -188,12 +188,13 @@ await step('Upload Component (DXF) adds a real, selectable, insertable item', as
   assert.ok(await panel().getByText('1000 mm').first().isVisible())
 })
 
-await step('Team Shared lists shared items; AI Recommended is an honest "Not connected" state', async () => {
+await step('Team Shared lists shared items; AI Recommended suggests components from the project (rule-based, labelled)', async () => {
   await page.getByRole('tab', { name: 'Team Shared' }).click()
   assert.ok(await page.locator('section[aria-label="Team Shared"] article').count() > 0)
   await page.getByRole('tab', { name: 'AI Recommended' }).click()
-  assert.ok(await page.getByText('Not connected — the local AI does not rank components yet.').isVisible())
-  assert.equal(await page.getByRole('button', { name: 'View all' }).isDisabled(), true)
+  assert.match(await page.getByTestId('ai-rec-note').innerText(), /Suggested from what this project contains \(rule-based/)
+  assert.ok((await page.locator('[class*=stripItems] article').count()) >= 3)
+  assert.equal(await page.getByRole('button', { name: 'View all' }).isDisabled(), false) // suggestions can be listed in the grid
   await page.getByRole('tab', { name: 'Recently Used' }).click()
   await page.getByRole('button', { name: 'View all' }).click()
   assert.equal(await grid().count(), (await lib()).recent.length)

@@ -14,6 +14,8 @@
   <key>LSArchitecturePriority</key><array><string>arm64</string></array>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+  <key>NSMicrophoneUsageDescription</key><string>Voice CAD: speak a command or a question; the speech is recognised on this Mac and never leaves it.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>Voice CAD turns your speech into text on this Mac (on-device recognition only).</string>
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>

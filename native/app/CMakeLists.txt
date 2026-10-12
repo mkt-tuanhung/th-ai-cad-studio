@@ -9,18 +9,22 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/dwg_reader.cpp src/dwg_reader.hpp
   src/native_viewport.cpp src/native_viewport.hpp
   src/video_writer.cpp src/video_writer.hpp
+  src/speech_input.hpp
   src/mac_window.hpp
 )
 if(APPLE)
-  target_sources(THAICADStudio PRIVATE src/mac_window.mm src/video_writer_mac.mm)
+  target_sources(THAICADStudio PRIVATE src/mac_window.mm src/video_writer_mac.mm src/speech_input_mac.mm)
   # ARC keeps the AVFoundation writer objects alive as C++ members
-  set_source_files_properties(src/video_writer_mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+  set_source_files_properties(src/video_writer_mac.mm src/speech_input_mac.mm PROPERTIES COMPILE_FLAGS "-fobjc-arc")
 else()
   target_sources(THAICADStudio PRIVATE src/window_other.cpp)
 endif()
+if(NOT APPLE AND NOT WIN32)
+  target_sources(THAICADStudio PRIVATE src/speech_input_other.cpp)
+endif()
 if(WIN32)
-  target_sources(THAICADStudio PRIVATE src/video_writer_win.cpp)
-  target_link_libraries(THAICADStudio PRIVATE mfplat mfreadwrite mfuuid)
+  target_sources(THAICADStudio PRIVATE src/video_writer_win.cpp src/speech_input_win.cpp)
+  target_link_libraries(THAICADStudio PRIVATE mfplat mfreadwrite mfuuid sapi ole32)
 endif()
 set_target_properties(THAICADStudio PROPERTIES
   OUTPUT_NAME "TH AI CAD Studio"
@@ -33,7 +37,7 @@ target_link_libraries(THAICADStudio PRIVATE
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::WebEngineWidgets Qt6::WebChannel
   thcad::ai thcad::bim thcad::core)
 if(APPLE)
-  target_link_libraries(THAICADStudio PRIVATE "-framework AppKit" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo")
+  target_link_libraries(THAICADStudio PRIVATE "-framework AppKit" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo" "-framework Speech")
 endif()
 target_compile_definitions(THAICADStudio PRIVATE THCAD_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 if(THCAD_WITH_OCCT)

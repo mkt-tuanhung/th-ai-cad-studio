@@ -19,6 +19,7 @@
 
 #include "dwg_reader.hpp"
 #include "video_writer.hpp"
+#include "speech_input.hpp"
 #include "native_viewport.hpp"
 #include "thcad/ai/assistant.hpp"
 #include "thcad/core/commands.hpp"
@@ -133,6 +134,25 @@ void HostBridge::aiRequest(const QString& request) {
   });
   connect(t, &QThread::finished, t, &QObject::deleteLater);
   t->start();
+}
+
+QJsonObject HostBridge::voiceAvailability(const QString& locale) {
+  bool available = false, onDevice = false;
+  const QString reason = SpeechInput::availability(locale, &available, &onDevice);
+  return {{"available", available}, {"onDevice", onDevice}, {"reason", reason}, {"locale", locale}};
+}
+
+void HostBridge::voiceStart(const QString& locale) {
+  if (!speech_) speech_ = std::make_unique<SpeechInput>();
+  speech_->start(locale, [this](const QString& text, bool final, const QString& error) {
+    QJsonObject r{{"text", text}, {"final", final}};
+    if (!error.isEmpty()) r["error"] = error;
+    emit voiceText(r);
+  });
+}
+
+void HostBridge::voiceStop() {
+  if (speech_) speech_->stop();
 }
 
 bool HostBridge::aiTask(const QString& taskJson) {

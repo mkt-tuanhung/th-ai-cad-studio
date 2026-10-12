@@ -38,7 +38,8 @@ export function AiStudioScreen() {
       case 'compare':
         return studio.set({ tab: 'files' })
       case 'voiceCad':
-        return toast(t.chat.voiceNative)
+        // the chat composer owns the microphone
+        return window.dispatchEvent(new Event('thcad-voice'))
       case 'geometryDoctor': {
         // Deterministic local checks on the open drawing — no model involved.
         const doc = cad.activeDoc()

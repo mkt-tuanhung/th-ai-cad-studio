@@ -15,7 +15,7 @@
 #include <QString>
 
 namespace thcad::occt { class OffscreenView; class SceneView; }
-namespace thcad::app { class VideoWriter; }
+namespace thcad::app { class VideoWriter; class SpeechInput; }
 #include <QImage>
 #include <QList>
 
@@ -42,6 +42,11 @@ class HostBridge : public QObject {
    *  Runs off the UI thread; the result arrives on 'aiTaskResult' {id, ok, text, seconds, tokens,
    *  tokensPerSecond, error?}. Returns false when no model is ready (nothing is generated). */
   Q_INVOKABLE bool aiTask(const QString& taskJson);
+  /** Voice CAD (on-device only): {available, onDevice, reason} for a locale ("vi-VN", "en-US"). */
+  Q_INVOKABLE QJsonObject voiceAvailability(const QString& locale);
+  /** Starts listening; text arrives on 'voiceText' {text, final, error?}. */
+  Q_INVOKABLE void voiceStart(const QString& locale);
+  Q_INVOKABLE void voiceStop();
   /** Replaces the engine document with the UI's open drawing (JSON, see documentToJson). */
   Q_INVOKABLE QJsonObject cadLoad(const QString& documentJson);
 
@@ -116,6 +121,7 @@ class HostBridge : public QObject {
  signals:
   void aiResult(const QJsonObject& result);
   void aiTaskResult(const QJsonObject& result);
+  void voiceText(const QJsonObject& result);
   void documentChanged(const QJsonObject& document);
   void dwgResult(const QJsonObject& result);
   /** {id, samples, total, ms, preview?} while running; {id, done:true, ok, path?, error?, …} at the end. */
@@ -146,6 +152,7 @@ class HostBridge : public QObject {
   int seqIndex_ = 0;
   QList<QImage> seqImages_;
   std::unique_ptr<VideoWriter> video_;
+  std::unique_ptr<SpeechInput> speech_;
   void renderTick();
   void renderFinish(bool ok, const QString& error);
 };

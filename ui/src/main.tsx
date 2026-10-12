@@ -55,4 +55,8 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), renders: useRenders }
   })
+  import('./state/aiStudio').then(({ useAiStudio }) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), aiStudio: useAiStudio }
+  })
 }
