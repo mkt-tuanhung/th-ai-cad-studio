@@ -29,7 +29,7 @@ export function CivilBrowser() {
         { key: 'xs-canal', label: b.sectionsOf, icon: <FolderClosed {...I} />, children: [0, 100, 200, 300, 400, 500].map((x) => ({ key: `sta-${x}`, label: `STA ${sta(x)}`, icon: <Box {...I} /> })) },
       ] },
       { key: 'surfaces', label: b.surfaces, icon: <FolderClosed {...I} />, children: [
-        { key: 'sf-eg', label: b.eg, icon: <Waves {...I} /> },
+        { key: 'sf-eg', label: doc.survey ? `${b.eg} – ${doc.survey.name}` : b.eg, icon: <Waves {...I} /> },
         { key: 'sf-dg', label: b.dg, icon: <Waves {...I} /> },
       ] },
       { key: 'drainage', label: b.drainage, icon: <FolderClosed {...I} />, children: [
@@ -51,6 +51,7 @@ export function CivilBrowser() {
     if (k === 'ch-typ') return set({ browserSel: k, view: 'section' })
     if (k === 'ch-lin') return set({ browserSel: k, bottom: 'channel', view: 'plan' })
     if (k === 'sh-3') return set({ browserSel: k, view: 'schedule' })
+    if (k === 'sf-eg' && !doc.survey) return set({ browserSel: k, right: 'layers', importOpen: true })
     if (k === 'sf-eg' || k === 'sf-dg') return set({ browserSel: k, right: 'layers' })
     if (!n.children) toast(fmt(t.toast.native, { what: n.label }))
   }

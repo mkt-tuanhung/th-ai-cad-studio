@@ -1,5 +1,7 @@
 import { fmt, useT } from '../../i18n'
-import { EXISTING_GROUND, hydraulics, interp, segments, sta, type CivilModel } from '../../civil/model'
+import { groundOf, hydraulics, interp, segments, sta, type CivilModel } from '../../civil/model'
+import { crossLine } from '../../civil/tin'
+import { tinOf } from '../../civil/surveyModel'
 import s from './Civil.module.css'
 
 /** Longitudinal profile drawn from the model: EG (survey), design invert, top of bank, culverts. */
@@ -9,7 +11,8 @@ export function ProfileChart({ m, w, h, station, onStation }: { m: CivilModel; w
   const { H } = hydraulics(m)
   const pad = { l: 44, r: 10, t: 10, b: 24 }
   const s0 = m.alignment.start, s1 = m.alignment.end
-  const zs = [...EXISTING_GROUND.map(([, z]) => z), ...m.invert.map(([, z]) => z), ...m.invert.map(([, z]) => z + H)]
+  const EG = groundOf(m)
+  const zs = [...EG.map(([, z]) => z), ...m.invert.map(([, z]) => z), ...m.invert.map(([, z]) => z + H)]
   const zmin = Math.floor(Math.min(...zs) - 0.5), zmax = Math.ceil(Math.max(...zs) + 0.8)
   const X = (st: number) => pad.l + ((st - s0) / (s1 - s0)) * (w - pad.l - pad.r)
   const Y = (z: number) => pad.t + ((zmax - z) / (zmax - zmin)) * (h - pad.t - pad.b)
@@ -41,7 +44,7 @@ export function ProfileChart({ m, w, h, station, onStation }: { m: CivilModel; w
       ))}
       <text x={12} y={(h - pad.b) / 2 + pad.t} className={s.axis} transform={`rotate(-90 12 ${(h - pad.b) / 2 + pad.t})`} textAnchor="middle">{t.elev}</text>
       <path d={`${line(m.invert)} L${X(s1)},${Y(interp(m.invert, s1) + hydraulics(m).y)} ${m.invert.slice().reverse().map(([a, b]) => `L${X(a).toFixed(1)},${Y(b + hydraulics(m).y).toFixed(1)}`).join(' ')} Z`} className={s.water} />
-      <path d={line(EXISTING_GROUND)} className={s.eg} />
+      <path d={line(EG)} className={s.eg} />
       <path d={line(tob)} className={s.tob} />
       <path d={line(m.invert)} className={s.dg} />
       {flat.map((g) => <path key={g.from} d={line([[g.from, interp(m.invert, g.from)], [g.to, interp(m.invert, g.to)]])} className={s.flat}><title>{`${sta(g.from)}–${sta(g.to)}: ${t.flat}`}</title></path>)}
@@ -71,9 +74,13 @@ export function SectionChart({ m, w, h, station }: { m: CivilModel; w: number; h
   const { bottomWidth: b, sideSlope: k } = m.params
   const H = hy.H
   const top = b + 2 * k * H
-  const g = interp(EXISTING_GROUND, station) - interp(m.invert, station) // ground above invert
+  const inv = interp(m.invert, station)
+  const g = interp(groundOf(m), station) - inv // ground above invert (centre line)
   const span = top + 6
-  const zTop = Math.max(H, g) + 1.2, zBot = -0.25
+  // surveyed ground across the section (from the TIN), relative to the invert
+  const tin = tinOf(m)
+  const cross = tin && m.plan ? crossLine(tin, m.plan, station, span / 2, 0.5).map(([o, z]) => [o, z - inv] as [number, number]) : []
+  const zTop = Math.max(H, g, ...cross.map(([, z]) => z)) + 1.2, zBot = -0.25
   // vertical exaggeration (as on drawn canal sections): the depth would otherwise be a sliver
   const sx = (w - 60) / span
   const sy = Math.min((h - 34) / (zTop - zBot), sx * 8)
@@ -94,7 +101,11 @@ export function SectionChart({ m, w, h, station }: { m: CivilModel; w: number; h
       {/* soil around the cut */}
       <path d={`M${X(-span / 2)},${Y(groundL)} L${X(-half)},${Y(bank)} L${X(-b / 2)},${Y(0)} L${X(b / 2)},${Y(0)} L${X(half)},${Y(bank)} L${X(span / 2)},${Y(groundL)} L${X(span / 2)},${Y(zBot)} L${X(-span / 2)},${Y(zBot)} Z`} fill="url(#soil)" className={s.soil} />
       {/* existing ground at this station */}
-      <line x1={X(-span / 2)} x2={X(span / 2)} y1={Y(g)} y2={Y(g)} className={s.egLine} />
+      {cross.length >= 2 ? (
+        <path d={cross.map(([o, z], i) => `${i ? 'L' : 'M'}${X(o).toFixed(1)},${Y(z).toFixed(1)}`).join(' ')} className={s.egLine} fill="none" data-testid="section-survey-ground" />
+      ) : (
+        <line x1={X(-span / 2)} x2={X(span / 2)} y1={Y(g)} y2={Y(g)} className={s.egLine} />
+      )}
       <line x1={X(-span / 2)} x2={X(-half)} y1={Y(bank)} y2={Y(bank)} className={s.grass} />
       <line x1={X(half)} x2={X(span / 2)} y1={Y(bank)} y2={Y(bank)} className={s.grass} />
       {/* water at normal depth */}

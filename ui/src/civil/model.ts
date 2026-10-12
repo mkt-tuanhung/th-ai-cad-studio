@@ -19,6 +19,9 @@ export interface DesignParams {
   liningT: number // m
 }
 
+import { crossLine } from './tin'
+import { tinOf } from './surveyModel'
+
 /** Design invert profile: [station, elevation] vertices with grade breaks. */
 export type Profile = [number, number][]
 
@@ -45,9 +48,17 @@ export interface CivilModel {
   params: DesignParams
   invert: Profile
   culverts: Culvert[]
+  /** Imported survey (points / TIN / alignment) — see civil/survey.ts. */
+  survey?: import('./survey').Survey
+  /** Alignment centre line in plan (m), station 0 at the first vertex. */
+  plan?: [number, number][]
+  /** Existing ground sampled from the survey surface along the plan alignment (every 20 m). */
+  ground?: Profile
+  /** TIN long-edge trimming limit (m); null/undefined = automatic. */
+  tinMaxEdge?: number | null
 }
 
-/** Existing ground along CANAL-01 every 20 m (survey, sample). */
+/** Existing ground along CANAL-01 every 20 m (sample project; replaced by the imported survey surface). */
 export const EXISTING_GROUND: Profile = [
   [0, 7.75], [20, 7.82], [40, 7.95], [60, 8.05], [80, 7.9], [100, 7.66], [120, 7.52], [140, 7.61], [160, 7.74], [180, 7.62],
   [200, 7.45], [220, 7.38], [240, 7.31], [260, 7.42], [280, 7.55], [300, 7.48], [320, 7.33], [340, 7.21], [360, 7.15], [380, 7.24],
@@ -67,6 +78,9 @@ export function createNorthCanal(): CivilModel {
     ],
   }
 }
+
+/** Existing ground used by every calculation: the survey surface when imported, otherwise the sample profile. */
+export const groundOf = (m: CivilModel): Profile => (m.ground && m.ground.length >= 2 ? m.ground : EXISTING_GROUND)
 
 /* ---------------- geometry along the alignment ---------------- */
 
@@ -132,9 +146,41 @@ export function hydraulics(m: CivilModel, S = typicalSlope(m)) {
 const CREST = 3.0
 const ROAD = 0.3
 
+/**
+ * Cut / fill areas from the surveyed cross section (when a survey surface and plan alignment exist):
+ * the design template (channel, 3 m crests at top of bank + 0.30 m, outer embankment slopes down to the
+ * ground) is compared with the ground line across the section, integrated every 0.25 m.
+ */
+function surveyedAreas(m: CivilModel, s: number, H: number, gc: number, inv: number) {
+  const tin = tinOf(m)
+  if (!tin || !m.plan) return null
+  const { bottomWidth: b, sideSlope: k } = m.params
+  const top = b + 2 * k * H
+  const crestZ = H + ROAD
+  const half = top / 2 + CREST + k * (crestZ + 6) + 2
+  const ground = crossLine(tin, m.plan, s, half, 0.25)
+  if (ground.length < 8) return null
+  const gAt = new Map(ground.map(([o, z]) => [Math.round(o * 4), z - inv]))
+  let cut = 0, fill = 0
+  for (let i = -Math.round(half * 4); i <= Math.round(half * 4); i++) {
+    const x = Math.abs(i / 4)
+    const g = gAt.get(i) ?? gc - inv // gaps (outside the TIN): centre-line ground
+    let z: number, outer = false
+    if (x <= b / 2) z = 0
+    else if (x <= top / 2) z = (x - b / 2) / Math.max(k, 1e-9)
+    else if (x <= top / 2 + CREST) z = crestZ
+    else (z = crestZ - (x - top / 2 - CREST) / Math.max(k, 1e-9)), (outer = true)
+    if (g > z && !outer) cut += (g - z) * 0.25
+    if (z > g) fill += (z - g) * 0.25
+  }
+  return { cut, fill }
+}
+
 export function areasAt(m: CivilModel, s: number, H: number) {
-  const g = interp(EXISTING_GROUND, s)
+  const g = interp(groundOf(m), s)
   const inv = interp(m.invert, s)
+  const sv = surveyedAreas(m, s, H, g, inv)
+  if (sv) return { g, inv, ...sv }
   const { bottomWidth: b, sideSlope: k } = m.params
   const d = Math.max(0, g - inv)
   const cut = (b + k * d) * d

@@ -4,7 +4,12 @@ import { toast } from '../../state/toast'
 import { useCivil, type CivilAiTab, type CivilRight as Tab } from '../../state/civil'
 import { NumField, PRow, PSelect, PanelTabs, Section, wsStyles as w } from '../../components/workspace/Workspace'
 import { checks, hydraulics, narrowerOption, sta, type DesignParams } from '../../civil/model'
+import { tinOf } from '../../civil/surveyModel'
+import { removeSurvey, setMaxEdge } from './surveyActions'
 import s from './Civil.module.css'
+
+/** Station with millimetres, e.g. 0+619.992. */
+const sta3 = (v: number) => `${Math.floor(v / 1000)}+${(v % 1000).toFixed(3).padStart(7, '0')}`
 
 export function CivilRight() {
   const t = useT().civil
@@ -44,8 +49,8 @@ function Props() {
         <PRow label={p.name}><span>{a.name}</span></PRow>
         <PRow label={p.type}><span>{t.names[a.type] ?? a.type}</span></PRow>
         <PRow label={p.description}><span>{t.names[a.description] ?? a.description}</span><Pencil size={11} className={s.pencil} /></PRow>
-        <PRow label={p.start}><span>{sta(a.start)}.000</span></PRow>
-        <PRow label={p.end}><span>{sta(a.end)}.000</span></PRow>
+        <PRow label={p.start}><span>{sta3(a.start)}</span></PRow>
+        <PRow label={p.end}><span>{sta3(a.end)}</span></PRow>
         <PRow label={p.length}><span>{(a.end - a.start).toFixed(3)} m</span></PRow>
         <PRow label={p.speed}><span>-</span></PRow>
         <PRow label={p.site}><span>{t.names[a.site] ?? a.site}</span><Pencil size={11} className={s.pencil} /></PRow>
@@ -89,21 +94,66 @@ function Layers() {
   const t = useT().civil
   const { layers, set } = useCivil()
   return (
-    <Section title={t.right.layers}>
-      {(Object.keys(t.layers) as (keyof typeof t.layers)[]).map((k) => (
-        <PRow key={k} label={t.layers[k]}>
-          <input type="checkbox" aria-label={t.layers[k]} checked={layers[k] !== false} onChange={() => set({ layers: { ...layers, [k]: !(layers[k] !== false) } })} />
-        </PRow>
-      ))}
+    <>
+      <Section title={t.right.layers}>
+        {(Object.keys(t.layers) as (keyof typeof t.layers)[]).map((k) => (
+          <PRow key={k} label={t.layers[k]}>
+            <input type="checkbox" aria-label={t.layers[k]} checked={layers[k] !== false} onChange={() => set({ layers: { ...layers, [k]: !(layers[k] !== false) } })} />
+          </PRow>
+        ))}
+      </Section>
+      <SurveyPanel />
+    </>
+  )
+}
+
+/** Imported survey surface: source, statistics, contour interval, edge limit, remove / re-import. */
+function SurveyPanel() {
+  const t = useT().civil.survey
+  const { doc, contour, set } = useCivil()
+  const tin = tinOf(doc)
+  const n2 = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 2 })
+  return (
+    <Section title={t.panel}>
+      {doc.survey && tin ? (
+        <div data-testid="survey-panel">
+          <PRow label={t.source}>{doc.survey.name}</PRow>
+          <PRow label={t.crs}>{doc.survey.crs}</PRow>
+          <PRow label={t.points}>{tin.x.length.toLocaleString('en-US')}</PRow>
+          <PRow label={t.triangles}>{(tin.tri.length / 3).toLocaleString('en-US')}</PRow>
+          <PRow label={t.area}>{n2(tin.area / 10000)} ha</PRow>
+          <PRow label={t.zRange}>{tin.zmin.toFixed(2)} … {tin.zmax.toFixed(2)} m</PRow>
+          <PRow label={t.egSource}>{doc.ground ? t.fromSurvey : t.fromSample}</PRow>
+          <PRow label={t.contour}>
+            <PSelect label={t.contour} value={String(contour)} onChange={(v) => set({ contour: Number(v) })} options={['0.1', '0.25', '0.5', '1', '2', '5'].map((v) => ({ value: v, label: `${v} m` }))} />
+          </PRow>
+          {!doc.survey.faces && (
+            <PRow label={t.maxEdge}>
+              <NumField label={t.maxEdge} value={Math.round((tin.maxEdge ?? 0) * 100) / 100} min={0.5} max={10000} unit="m" onCommit={(v) => setMaxEdge(v)} />
+            </PRow>
+          )}
+          <p className={s.refs}>
+            <button type="button" className={w.link} onClick={() => set({ importOpen: true })}>{t.reimport}</button>
+            {' · '}
+            <button type="button" className={w.link} onClick={() => removeSurvey(t)}>{t.remove}</button>
+          </p>
+        </div>
+      ) : (
+        <p className={s.refs}>
+          {t.noSurvey}{' '}
+          <button type="button" className={w.link} onClick={() => set({ importOpen: true })}>{t.choose}</button>
+        </p>
+      )}
     </Section>
   )
 }
 
 function Refs() {
   const t = useT().civil
+  const { doc } = useCivil()
   return (
     <Section title={t.right.references}>
-      <p className={s.refs}>{t.refs.survey}</p>
+      <p className={s.refs}>{doc.survey ? `${t.survey.egSource}: ${doc.survey.name} (${doc.survey.format.toUpperCase()}, ${doc.survey.crs})` : t.refs.survey}</p>
       <p className={s.refs}>{t.refs.imagery}</p>
       <p className={s.refs}>{t.refs.standard}</p>
     </Section>

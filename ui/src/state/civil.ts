@@ -1,5 +1,8 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
+import { toast } from './toast'
+import { useSettings } from './settings'
+import { getMessages } from '../i18n'
 import { createNorthCanal, type CivilModel } from '../civil/model'
 import { undoableActions, type Undoable } from './undoable'
 
@@ -18,6 +21,11 @@ interface CivilState extends Undoable<CivilModel> {
   browserSel: string
   layers: Record<string, boolean>
   allRows: boolean
+  /** Contour interval (m) of the survey plan. */
+  contour: number
+  /** Plan view: drawing a new alignment. */
+  drawing: boolean
+  importOpen: boolean
   edit: (label: string, fn: (d: CivilModel) => CivilModel) => string | null
   undo: () => string | null
   redo: () => string | null
@@ -34,7 +42,35 @@ export function validateCivil(m: CivilModel): string | null {
   if (!(p.discharge > 0 && p.discharge <= 500)) return 'Design discharge'
   if (!(p.slopeMin > 0 && p.slopeMin < p.slopeMax && p.slopeMax <= 0.05)) return 'Design Slope'
   for (let i = 1; i < m.invert.length; i++) if (!(m.invert[i][0] > m.invert[i - 1][0])) return 'Profile stations'
+  if (!(m.alignment.end - m.alignment.start >= 20)) return 'Alignment length'
   return null
+}
+
+/**
+ * localStorage with a fallback for large surveys: when the quota is exceeded the raw survey points are
+ * left out (alignment, sampled ground and design are kept) and the user is told once.
+ */
+let warned = false
+const civilStorage: StateStorage = {
+  getItem: (k) => localStorage.getItem(k),
+  removeItem: (k) => localStorage.removeItem(k),
+  setItem: (k, v) => {
+    try {
+      localStorage.setItem(k, v)
+    } catch {
+      const o = JSON.parse(v) as { state?: { doc?: { survey?: unknown } } }
+      if (o.state?.doc?.survey) delete o.state.doc.survey
+      try {
+        localStorage.setItem(k, JSON.stringify(o))
+      } catch {
+        /* still too large: keep the session in memory only */
+      }
+      if (!warned) {
+        warned = true
+        toast(getMessages(useSettings.getState().language).civil.survey.tooLarge, 'warning')
+      }
+    }
+  },
 }
 
 export const useCivil = create<CivilState>()(
@@ -52,10 +88,13 @@ export const useCivil = create<CivilState>()(
       browserSel: 'al-canal',
       layers: { alignment: true, channel: true, ground: true, row: true, structures: true, surfaces: true },
       allRows: false,
+      contour: 0.25,
+      drawing: false,
+      importOpen: false,
       ...undoableActions<CivilModel, CivilState>(get, set, validateCivil),
       set: (p) => set(p),
       reset: () => set({ doc: createNorthCanal(), undoStack: [], redoStack: [] }),
     }),
-    { name: 'thcad.civil', version: 1, partialize: (s) => ({ doc: s.doc, station: s.station, layers: s.layers, bottom: s.bottom }) },
+    { name: 'thcad.civil', version: 1, storage: createJSONStorage(() => civilStorage), partialize: (s) => ({ doc: s.doc, station: s.station, layers: s.layers, bottom: s.bottom, contour: s.contour }) },
   ),
 )

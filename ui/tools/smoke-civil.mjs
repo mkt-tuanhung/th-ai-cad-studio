@@ -29,7 +29,7 @@ await step('opens like the mockup: Plan view, CANAL-01, Earthwork Quantities, ST
   assert.ok(await page.locator('[aria-current="true"]').filter({ hasText: 'CANAL-01 (Main)' }).isVisible())
   const t = await section().textContent()
   assert.match(t, /12\.00 m/); assert.match(t, /8\.00 m/); assert.match(t, /2\.00/); assert.match(t, /1\.00 m/)
-  assert.ok(await page.getByText('DEMO imagery · survey / GIS not connected').isVisible())
+  assert.ok(await page.getByText('DEMO imagery · import a survey: More Tools → Import survey / GIS').isVisible())
 })
 
 await step('normal depth is computed with Manning (0.50 m for Q = 6.7 m³/s) — not the mockup’s 3.00 m', async () => {
