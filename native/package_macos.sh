@@ -33,6 +33,12 @@ cp "$SRC" "$APP/Contents/Resources/licenses/libredwg/"
 tar -xzOf "$SRC" libredwg-0.14/COPYING > "$APP/Contents/Resources/licenses/libredwg/COPYING"
 cp third_party/libredwg/README.md "$APP/Contents/Resources/licenses/libredwg/"
 cp ../THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/licenses/"
+# Voice CAD: whisper.cpp `whisper-cli` (MIT), a separate static program (third_party/whisper)
+WHISPER=$(third_party/whisper/build_macos.sh)
+cp "$WHISPER" "$APP/Contents/Helpers/whisper-cli"
+mkdir -p "$APP/Contents/Resources/licenses/whisper"
+cp "$(dirname "$WHISPER")/../../LICENSE" "$APP/Contents/Resources/licenses/whisper/LICENSE"
+cp third_party/whisper/README.md "$APP/Contents/Resources/licenses/whisper/"
 python3 tools/fix_bundle_paths.py "$APP"
 # every Mach-O in the bundle must be relocatable
 BAD=$(find "$APP" -type f -perm +111 -o -type f -name "*.dylib" | while read -r f; do otool -L "$f" 2>/dev/null | grep -q "/opt/homebrew" && echo "$f"; done || true)

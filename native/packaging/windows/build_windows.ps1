@@ -88,6 +88,24 @@ if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "dwg2dxf --version timed out"
 if ($P.ExitCode -ne 0) { throw "dwg2dxf --version failed (exit $($P.ExitCode))" }
 Get-Content "$Build\dwg2dxf-version.txt" | Write-Host
 
+# 5c) Voice CAD: whisper.cpp whisper-cli (MIT) as a separate program in whisper\ with its own ggml DLLs
+#     (kept apart from llama.cpp's ggml next to the exe); see third_party/whisper/README.md
+Write-Host "== Speech recognition (whisper.cpp)"
+$WZip = Fetch "https://github.com/ggml-org/whisper.cpp/releases/download/b5130/whisper-bin-x64.zip" "F9EC6C52A2E949B62AB51FA21D0D497958F9E41C3010C157C4E42932D5316F3C"
+$WSrc = Fetch "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.4.tar.gz" "57E280CEE375AB02425B806AD5146B99F6EB9357E3C2B31357C8A6AF2E2E44AE"
+$WTmp = "$Build\whisper"
+Remove-Item -Recurse -Force $WTmp -ErrorAction SilentlyContinue
+Expand-Archive $WZip -DestinationPath $WTmp
+New-Item -ItemType Directory -Force "$Stage\whisper", "$Stage\licenses\whisper" | Out-Null
+Copy-Item "$WTmp\Release\whisper-cli.exe", "$WTmp\Release\whisper.dll" "$Stage\whisper\"
+Get-ChildItem "$WTmp\Release\ggml*.dll" | Copy-Item -Destination "$Stage\whisper\"
+python -c "import sys, tarfile; t = tarfile.open(sys.argv[1], 'r:gz'); open(sys.argv[2], 'wb').write(t.extractfile('whisper.cpp-1.9.4/LICENSE').read())" $WSrc "$Stage\licenses\whisper\LICENSE"; Check "whisper LICENSE"
+Copy-Item "$Native\third_party\whisper\README.md" "$Stage\licenses\whisper\"
+$P = Start-Process -FilePath "$Stage\whisper\whisper-cli.exe" -ArgumentList "--help" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\whisper-help.txt" -RedirectStandardError "$Build\whisper-help-err.txt"
+if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "whisper-cli --help timed out" }
+if ($P.ExitCode -ne 0) { throw "whisper-cli --help failed (exit $($P.ExitCode))" }
+Write-Host "   whisper-cli runs"
+
 # 6) Optional signing, then the installer
 Write-Host "== Installer (Inno Setup)"
 if ($SignCmd) { Invoke-Expression "$SignCmd `"$Stage\TH AI CAD Studio.exe`"" }

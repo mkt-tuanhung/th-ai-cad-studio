@@ -36,6 +36,7 @@ export function ChatPanel() {
     (text) => set({ draft: (base.current ? base.current + ' ' : '') + text }),
     (why) => toast(why === 'browser' ? t.voiceNative : fmt(t.voiceUnavailable, { why }), 'warning'),
     (used, why) => toast(fmt(t.voiceFallback, { why, used })),
+    (st) => (st === 'transcribing' ? toast(t.voiceTranscribing) : st === 'silence' ? toast(t.voiceSilence, 'warning') : undefined),
   )
   const toggleVoice = () => {
     if (!voice.listening) {
@@ -148,7 +149,7 @@ export function ChatPanel() {
           aria-label={t.placeholder}
           onChange={(e) => set({ draft: e.target.value })}
         />
-        <button type="button" className={`${s.cbtn} ${voice.listening ? s.cbtnOn : ''}`} aria-label={t.voice} title={t.voice} aria-pressed={voice.listening} onClick={toggleVoice}>
+        <button type="button" className={`${s.cbtn} ${voice.listening ? s.cbtnOn : ''}`} aria-label={t.voice} title={t.voice} aria-pressed={voice.listening} aria-busy={voice.busy} disabled={voice.busy} onClick={toggleVoice}>
           <Mic size={20} strokeWidth={1.6} />
         </button>
         <button type="submit" className={s.send} aria-label={t.send} disabled={!draft.trim() || turns.some((x) => x.role === 'assistant' && x.pending)}>

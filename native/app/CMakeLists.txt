@@ -10,6 +10,7 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/native_viewport.cpp src/native_viewport.hpp
   src/video_writer.cpp src/video_writer.hpp
   src/speech_input.hpp
+  src/whisper_runner.cpp src/whisper_runner.hpp
   src/mac_window.hpp
 )
 if(APPLE)
@@ -34,7 +35,7 @@ set_target_properties(THAICADStudio PROPERTIES
   MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/Info.plist.in
 )
 target_link_libraries(THAICADStudio PRIVATE
-  Qt6::Core Qt6::Gui Qt6::Widgets Qt6::WebEngineWidgets Qt6::WebChannel
+  Qt6::Core Qt6::Gui Qt6::Widgets Qt6::WebEngineWidgets Qt6::WebChannel Qt6::Network
   thcad::ai thcad::bim thcad::core)
 if(APPLE)
   target_link_libraries(THAICADStudio PRIVATE "-framework AppKit" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo" "-framework Speech")

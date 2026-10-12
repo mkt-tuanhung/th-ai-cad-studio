@@ -20,6 +20,7 @@
 #include "dwg_reader.hpp"
 #include "video_writer.hpp"
 #include "speech_input.hpp"
+#include "whisper_runner.hpp"
 #include "native_viewport.hpp"
 #include "thcad/ai/assistant.hpp"
 #include "thcad/core/commands.hpp"
@@ -153,6 +154,19 @@ void HostBridge::voiceStart(const QString& locale) {
 
 void HostBridge::voiceStop() {
   if (speech_) speech_->stop();
+}
+
+QJsonObject HostBridge::whisperStatus() { return WhisperRunner::status(); }
+
+void HostBridge::whisperDownload() {
+  WhisperRunner::download([this](const QJsonObject& p) { emit whisperProgress(p); });
+}
+
+void HostBridge::voiceTranscribe(const QString& id, const QString& wavBase64, const QString& lang) {
+  WhisperRunner::transcribe(QByteArray::fromBase64(wavBase64.toLatin1()), lang, [this, id](QJsonObject r) {
+    r["id"] = id;
+    emit voiceTranscript(r);
+  });
 }
 
 bool HostBridge::aiTask(const QString& taskJson) {

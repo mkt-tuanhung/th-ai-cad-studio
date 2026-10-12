@@ -163,6 +163,7 @@ export function AiModelCard(p: CardProps) {
         <Modal title={A.manageTitle} onClose={() => setManage(false)}>
           <p className={s.modalText}>{A.manageText}</p>
           <p className={s.modalPath}>{folderPath('modelsDir', p.draft.modelsDir, sys)}</p>
+          <SpeechModel />
           <ul className={s.modelList}>
             {models.map((m) => (
               <li key={m.path}>
@@ -176,6 +177,46 @@ export function AiModelCard(p: CardProps) {
         </Modal>
       )}
     </Card>
+  )
+}
+
+/** Whisper speech model: status, and a download the user starts (547 MB, checksum-verified by the host). */
+function SpeechModel() {
+  const A = useT().settings.ai
+  const [st, setSt] = useState<{ available: boolean; model: string; modelBytes: number } | null | 'browser'>(null)
+  const [pct, setPct] = useState<number | null>(null)
+  const refresh = async () => {
+    const h = await getHost()
+    setSt(h ? await h.whisperStatus() : 'browser')
+  }
+  useEffect(() => {
+    void refresh()
+  }, [])
+  const download = async () => {
+    const h = await getHost()
+    if (!h) return
+    setPct(0)
+    h.on('whisperProgress', (p) => {
+      const r = p as { received?: number; total?: number; done?: boolean; ok?: boolean; error?: string }
+      if (!r.done) return setPct(r.total ? Math.floor(((r.received ?? 0) / r.total) * 100) : 0)
+      setPct(null)
+      toast(r.ok ? A.speechDone : fmt(A.speechFailed, { why: r.error ?? '' }), r.ok ? 'success' : 'warning')
+      void refresh()
+    })
+    void h.whisperDownload()
+  }
+  return (
+    <div className={s.speech} data-testid="speech-model">
+      <b>{A.speechTitle}</b>
+      <p>
+        {st === 'browser' ? A.speechBrowser : !st ? '…' : st.available ? fmt(A.speechReady, { model: st.model.replace(/^ggml-|\.bin$/g, ''), size: formatGb(st.modelBytes) }) : A.speechMissing}
+      </p>
+      {st && st !== 'browser' && !st.available && (
+        <ActionButton variant="primary" disabled={pct !== null} onClick={() => void download()}>
+          {pct !== null ? fmt(A.speechProgress, { pct }) : A.speechDownload}
+        </ActionButton>
+      )}
+    </div>
   )
 }
 

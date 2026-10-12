@@ -1182,3 +1182,22 @@
   font-size: 11px;
   color: #6b7381;
 }
+
+.speech {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.speech b {
+  color: var(--text-strong);
+}
+
+.speech p {
+  line-height: 1.45;
+}

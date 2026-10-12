@@ -47,6 +47,12 @@ class HostBridge : public QObject {
   /** Starts listening; text arrives on 'voiceText' {text, final, error?}. */
   Q_INVOKABLE void voiceStart(const QString& locale);
   Q_INVOKABLE void voiceStop();
+  /** Whisper (whisper.cpp helper + model): {available, helper, model, modelBytes, reason?}. */
+  Q_INVOKABLE QJsonObject whisperStatus();
+  /** Transcribes a 16 kHz mono WAV recorded by the page; result on 'voiceTranscript' {id, ok, text, ms, error?}. */
+  Q_INVOKABLE void voiceTranscribe(const QString& id, const QString& wavBase64, const QString& lang);
+  /** Settings → Download the Whisper model (user action); progress on 'whisperProgress'. */
+  Q_INVOKABLE void whisperDownload();
   /** Replaces the engine document with the UI's open drawing (JSON, see documentToJson). */
   Q_INVOKABLE QJsonObject cadLoad(const QString& documentJson);
 
@@ -127,6 +133,8 @@ class HostBridge : public QObject {
   void aiResult(const QJsonObject& result);
   void aiTaskResult(const QJsonObject& result);
   void voiceText(const QJsonObject& result);
+  void voiceTranscript(const QJsonObject& result);
+  void whisperProgress(const QJsonObject& progress);
   void documentChanged(const QJsonObject& document);
   void dwgResult(const QJsonObject& result);
   /** {id, samples, total, ms, preview?} while running; {id, done:true, ok, path?, error?, …} at the end. */

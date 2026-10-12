@@ -53,7 +53,7 @@ endif()
 add_subdirectory(tools)
 
 if(THCAD_WITH_QT)
-  find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Widgets WebEngineWidgets WebChannel)
+  find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Widgets WebEngineWidgets WebChannel Network)
   if(Qt6_FOUND)
     message(STATUS "Qt ${Qt6_VERSION}: desktop app enabled")
     add_subdirectory(app)

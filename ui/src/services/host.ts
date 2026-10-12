@@ -43,6 +43,10 @@ export interface HostApi {
   voiceAvailability(locale: string): Promise<{ available: boolean; onDevice: boolean; reason: string; locale: string }>
   voiceStart(locale: string): Promise<void>
   voiceStop(): Promise<void>
+  /** Local Whisper (whisper.cpp helper + model in <models>/whisper). */
+  whisperStatus(): Promise<{ available: boolean; helper: string; model: string; modelBytes: number; reason?: string }>
+  voiceTranscribe(id: string, wavBase64: string, lang: string): Promise<void>
+  whisperDownload(): Promise<void>
   scene3dLoadBim(key: string, modelJson: string, extrasJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
   scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
@@ -68,7 +72,7 @@ export interface HostApi {
   dwgWriteTo(script: string, dir: string, name: string): Promise<{ ok: boolean; path?: string; bytes?: number; entities?: number; error?: string }>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress', fn: (payload: unknown) => void): void
 }
 
 export interface HostSystemInfo {

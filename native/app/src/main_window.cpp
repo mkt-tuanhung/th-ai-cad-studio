@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QWebChannel>
 #include <QWebEnginePage>
+#include <QWebEnginePermission>
 #include <QWebEngineProfile>
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
@@ -127,6 +128,15 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
   // Dev: THCAD_UI_URL=http://127.0.0.1:5173 (Vite). Otherwise the bundled build via thcad://.
   QString url = qEnvironmentVariable("THCAD_UI_URL", QStringLiteral("thcad://app/index.html"));
+  // Microphone (Voice CAD → local Whisper): granted to the app's own UI only; any other origin is refused.
+  // The operating system still asks the user once (macOS: NSMicrophoneUsageDescription).
+  const QUrl uiUrl(url);
+  connect(page, &QWebEnginePage::permissionRequested, this, [uiUrl](QWebEnginePermission p) {
+    const QUrl o = p.origin();
+    const bool own = o.scheme() == uiUrl.scheme() && o.host() == uiUrl.host() && o.port() == uiUrl.port();
+    if (own && p.permissionType() == QWebEnginePermission::PermissionType::MediaAudioCapture) p.grant();
+    else p.deny();
+  });
   const QString route = qEnvironmentVariable("THCAD_ROUTE", QStringLiteral("dashboard"));
   // QA: THCAD_SELFTEST=1 exercises the bridge from the page (same calls the UI makes) and quits.
   // THCAD_SCRIPT=/path.js runs any QA script the same way.
