@@ -12,8 +12,16 @@
     out('localAi', ai)
     check('AI status is measured (source native, real memory)', ai.source === 'native' && ai.vramTotalGb > 8)
     check('no model → not ready, not online', ai.modelName === null ? !ai.ready && !ai.online : true)
-    // the desktop UI seeds the engine with the open drawing first; work on a blank one for determinism
-    for (let i = 0; i < 50 && !(window.thcadSyncStats && window.thcadSyncStats.loads > 0); i++) await new Promise((r) => setTimeout(r, 100))
+    // the desktop UI seeds the engine with the open drawing first (after its IndexedDB hydration, which can take
+    // several seconds on a busy machine); work on a blank one for determinism
+    for (let i = 0; i < 200 && !(window.thcadSyncStats && window.thcadSyncStats.loads > 0); i++) await new Promise((r) => setTimeout(r, 100))
+    // the restored drawing (IndexedDB) can be loaded a second time: wait until no load happened for 1.5 s
+    for (let last = -1, calm = 0, i = 0; i < 40 && calm < 3; i++) {
+      await new Promise((r) => setTimeout(r, 500))
+      const n = window.thcadSyncStats ? window.thcadSyncStats.loads : 0
+      calm = n === last ? calm + 1 : 0
+      last = n
+    }
     await h.cadLoad(JSON.stringify({ id: 'selftest', name: 'selftest.dwg', currentLayer: '0', layers: [], entities: [] }))
     const line = { type: 'add', label: 'LINE', entities: [{ kind: 'line', layer: 'A-Wall', a: [0, 0], b: [3600, 0] }] }
     const r1 = await h.cadExecute(JSON.stringify(line))

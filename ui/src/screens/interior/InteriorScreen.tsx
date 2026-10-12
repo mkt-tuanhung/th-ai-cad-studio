@@ -17,6 +17,7 @@ import { InteriorBottom } from './InteriorBottom'
 import { InteriorRight } from './InteriorRight'
 import { CabinetDialog } from './CabinetDialog'
 import { NestingDialog } from './NestingDialog'
+import { FromCadDialog } from '../bim/FromCadDialog'
 import s from './Interior.module.css'
 
 /** Interior workspace — mockup 09 (Design). */
@@ -27,6 +28,7 @@ export function InteriorScreen() {
   const navigate = useRouter((st) => st.navigate)
   const st = useInterior()
   const [cabOpen, setCabOpen] = useState(false)
+  const [fromCad, setFromCad] = useState(false)
   const [max, setMax] = useState(false)
 
   useEffect(() => {
@@ -109,6 +111,7 @@ export function InteriorScreen() {
             c: 1062,
             label: t.tools.more,
             items: [
+              { label: T.bim.fromCad.interiorMenu, onSelect: () => setFromCad(true) },
               { label: t.moreItems.edge, onSelect: () => st.set({ bottom: 'cutlist' }) },
               { label: t.moreItems.nesting, onSelect: () => st.set({ nestingOpen: true }) },
               { label: t.moreItems.toolpath, onSelect: () => st.set({ nestingOpen: true }) },
@@ -137,6 +140,7 @@ export function InteriorScreen() {
       </div>
       {cabOpen && <CabinetDialog onClose={() => setCabOpen(false)} />}
       {st.nestingOpen && <NestingDialog onClose={() => st.set({ nestingOpen: false })} />}
+      {fromCad && <FromCadDialog interior onClose={() => setFromCad(false)} />}
     </div>
   )
 }

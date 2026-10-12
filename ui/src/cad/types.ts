@@ -22,6 +22,9 @@ interface EntityBase {
   transparency: number
   /** Set on geometry inserted from the Components library as one block (selected together). */
   block?: { id: string; name: string }
+  /** Imported from a DXF/DWG block instance (INSERT): instance id, block name, world rotation (radians).
+   *  Informational only (plan recognition reads furniture / doors from it); selection is per entity. */
+  insert?: { id: string; name: string; rot: number }
 }
 
 export interface LineEntity extends EntityBase {

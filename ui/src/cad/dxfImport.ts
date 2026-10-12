@@ -367,9 +367,12 @@ export function importDxf(text: string): DxfImport {
   const used = new Set<string>()
   let seq = 0
   const stamp = Date.now().toString(36)
+  /** Model-space INSERT the entity being emitted comes from (outermost block). */
+  let ins: Entity['insert'] | undefined
+  let insSeq = 0
   const base = (layer: string) => {
     used.add(layer)
-    return { id: `dxf-${stamp}-${++seq}`, layer, color: 'ByLayer', linetype: 'ByLayer' as const, lineweight: 'ByLayer' as const, transparency: 0 }
+    return { id: `dxf-${stamp}-${++seq}`, layer, color: 'ByLayer', linetype: 'ByLayer' as const, lineweight: 'ByLayer' as const, transparency: 0, ...(ins ? { insert: ins } : {}) }
   }
   const poly = (layer: string, pts: Vec2[], closed: boolean, m: M, filled = false) => {
     if (pts.length < 2) return
@@ -507,9 +510,12 @@ export function importDxf(text: string): DxfImport {
               e: num(r, 10) + cos * ox - sin * oy, f: num(r, 20) + sin * ox + cos * oy,
             }
             const mm = mul(m, mul(local, { ...I, e: -b.base.x, f: -b.base.y }))
+            // each model-space block instance is tagged (name + rotation), so plan recognition can treat it as one object
+            if (depth === 0) ins = { id: `ins-${stamp}-${++insSeq}`, name: str(r, 2), rot: rotOf(mm) }
             for (const c of b.recs) emit(c, mm, layer, depth + 1)
           }
         for (const a of r.children) emit(a, m, null, depth + 1) // attributes are already in world coords
+        if (depth === 0) ins = undefined
         break
       }
       case '3DFACE': {

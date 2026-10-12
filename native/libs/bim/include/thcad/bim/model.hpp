@@ -26,6 +26,8 @@ struct Model {
   std::vector<Wall> walls;
   std::vector<Opening> doors, windows;
   std::vector<Room> rooms;
+  /** Levels that carry a drawn floor or roof slab (the UI builds those); the 3D builder adds no default slab there. */
+  std::vector<std::string> slabLevels;
 
   const Level* level(const std::string& id) const;
   const WallType* type(const std::string& id) const;

@@ -42,6 +42,8 @@ export interface Item {
   thumb?: string
   /** Links a cabinet item to its parametric definition (cut list). */
   cabinet?: string
+  /** Plan placement of each instance (centre, rotation in degrees) — items built from a CAD plan. */
+  at?: { x: number; y: number; rot: number }[]
 }
 
 export interface Material {

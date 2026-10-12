@@ -37,10 +37,10 @@ Chào em. Anh là Minh Dũng, chủ dự án phần mềm MD CAD AI STUDIO (tên
 - Mô hình AI trên máy anh nằm ở ~/Library/Application Support/TH AI CAD Studio/models (7B, 3B, whisper). Đừng xoá hay di chuyển.
 
 ## Việc đang chờ (tiếp tục từ đây)
-Câu anh hỏi cuối phiên trước: "AI có tự vẽ 3D từ bản CAD mặt cắt ngang và dọc không?" Câu trả lời là CHƯA có tính năng này. Em đã đề xuất hai hướng:
-- A. Hạ tầng (kênh, đường): đọc DWG trắc dọc + trắc ngang theo lý trình → dựng corridor 3D, mặt đất và mặt thiết kế, tính khối lượng đào đắp.
-- B. Nhà: đọc DWG mặt bằng + mặt cắt → dựng tường, cửa, sàn trong BIM → 3D và IFC.
-Nguyên tắc: code đọc hình học, AI chỉ giúp nhận diện layer và đối tượng, kết quả vẫn qua bước đề xuất và duyệt. Anh sẽ chọn hướng và gửi file DWG mẫu. Nếu anh chưa nói, em hỏi anh chọn A hay B và xin file mẫu trước khi làm.
+Anh đã chọn làm cả hai hướng dựng 3D từ bản vẽ 2D, B trước; ưu tiên nội thất, xây dựng và máy CNC.
+- B (nhà: DWG mặt bằng → BIM 3D, IFC, Nội thất, bảng cắt CNC) ĐÃ XONG ngày 2026-10-12, xem qa/QA_FROM_CAD.md. Chưa kiểm trên DWG thật do người vẽ: xin anh file nhà thật để kiểm.
+- A (kênh, đường: DWG trắc dọc + trắc ngang theo lý trình → corridor 3D, mặt đất và mặt thiết kế, khối lượng đào đắp) CHƯA LÀM. Mẫu thật có trên máy: ~/Documents/Zalo Received Files/1. BVTK Kênh Đức Phong - Kênh đất.dwg (hỏi anh trước khi dùng).
+Nguyên tắc: code đọc hình học, AI chỉ giúp nhận diện layer và đối tượng, kết quả vẫn qua bước đề xuất và duyệt.
 
 Các việc khác còn mở, xem mục 9–10 của file audit: chưa thử nút tải mô hình AI trên máy Windows thật; AI chưa tự tạo được tường hay ống mới trong BIM/MEP; IFC và STEP mới chỉ xuất được, chưa mở được; ký mã (tốn phí) để sau; PWA giám sát từ xa để sau.
 

@@ -22,6 +22,7 @@ import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popo
 import { Modal } from '../../components/ui/Modal'
 import { useBim, type BimTool } from '../../state/bim'
 import { nextMark } from '../../bim/geometry'
+import { FromCadDialog } from './FromCadDialog'
 import s from './BimRibbon.module.css'
 
 type ToolKey = keyof ReturnType<typeof useT>['bim']['tools']
@@ -49,6 +50,7 @@ export function BimRibbon() {
   const [moreOpen, setMoreOpen, moreRef] = useDismissable<HTMLDivElement>()
   const { tool, set } = useBim()
   const [levelOpen, setLevelOpen] = useState(false)
+  const [fromCad, setFromCad] = useState(false)
   // drawing tools work in the plan view of the current level
   const pick = (k: ToolKey) => (k === 'level' ? setLevelOpen(true) : set({ tool: k as BimTool, view: 'plan', selection: null, pendingComponent: null }))
   return (
@@ -76,16 +78,17 @@ export function BimRibbon() {
             </span>
           </button>
           {moreOpen && (
-            <PopoverPanel width={180}>
+            <PopoverPanel width={210}>
               <MenuList
                 onClose={() => setMoreOpen(false)}
-                items={(['curtainWall', 'ceiling', 'railing', 'component'] as const).map((k) => ({ label: t.tools[k], onSelect: () => pick(k) }))}
+                items={[...(['curtainWall', 'ceiling', 'railing', 'component'] as const).map((k) => ({ label: t.tools[k], onSelect: () => pick(k) })), { label: t.fromCad.menu, onSelect: () => setFromCad(true) }]}
               />
             </PopoverPanel>
           )}
         </div>
       </div>
       {levelOpen && <LevelDialog onClose={() => setLevelOpen(false)} />}
+      {fromCad && <FromCadDialog onClose={() => setFromCad(false)} />}
     </div>
   )
 }

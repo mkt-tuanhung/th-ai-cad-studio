@@ -146,7 +146,7 @@ function furniture(i: Item, at: Place, ceiling: number): Prim[] {
   }
 }
 
-/** Where each item instance stands in plan: the sample layout, else a 1.2 m grid around its room centre. */
+/** Where each item instance stands in plan: the sample layout, its own placement (from a CAD plan), else a 1.2 m grid around its room centre. */
 export function itemPlacements(doc: InteriorDoc): { item: Item; room: Room; at: Place[] }[] {
   const auto: Record<string, number> = {}
   const out: { item: Item; room: Room; at: Place[] }[] = []
@@ -157,6 +157,7 @@ export function itemPlacements(doc: InteriorDoc): { item: Item; room: Room; at: 
     const at: Place[] = []
     for (let k = 0; k < i.qty; k++) {
       if (lay && lay.room === i.room && lay.at[k]) at.push(lay.at[k])
+      else if (i.at?.[k]) at.push(i.at[k])
       else {
         // items without a layout yet: a 1.2 m grid around the room centre (shown where they will be placed)
         const b = bbox(room)

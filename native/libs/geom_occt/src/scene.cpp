@@ -460,6 +460,7 @@ int SceneView::addBuilding(const bim::Model& m, bool ground) {
   for (const auto& [lv, b] : spans) {
     const bim::Level* l = m.level(lv);
     if (!l || b.x1 <= b.x0) continue;
+    if (std::find(m.slabLevels.begin(), m.slabLevels.end(), lv) != m.slabLevels.end()) continue;  // drawn slab there
     // slab top at the level, outer face of the 200 mm exterior walls
     add("slab:" + lv, BRepPrimAPI_MakeBox(gp_Pnt(b.x0 - 100, b.y0 - 100, l->elevation - 200), b.x1 - b.x0 + 200, b.y1 - b.y0 + 200, 200).Shape(), {0.8, 0.79, 0.77}, "matte");
   }

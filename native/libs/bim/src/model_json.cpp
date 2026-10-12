@@ -50,6 +50,9 @@ std::optional<Model> modelFromJson(const json::Value& v, const Model& placements
   openings("windows", Opening::Cat::Window, m.windows);
   if (const json::Array* a = arr(v, "rooms"))
     for (const auto& r : *a) m.rooms.push_back({s(r, "id"), s(r, "number"), s(r, "name"), s(r, "level"), n(r, "area")});
+  if (const json::Array* a = arr(v, "slabs"))
+    for (const auto& sl : *a)
+      if (const std::string k = s(sl, "kind"); k == "floor" || k == "roof") m.slabLevels.push_back(s(sl, "level"));
   return m;
 }
 

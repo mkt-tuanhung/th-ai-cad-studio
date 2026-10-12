@@ -52,11 +52,12 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
       if (tools.section.planes) tools.setSection({ on: false, around: [] })
       return
     }
+    const all = { x0: Math.min(...doc.rooms.flatMap((r) => r.outline.map((p) => p.x))), x1: Math.max(...doc.rooms.flatMap((r) => r.outline.map((p) => p.x))), y0: Math.min(...doc.rooms.flatMap((r) => r.outline.map((p) => p.y))), y1: Math.max(...doc.rooms.flatMap((r) => r.outline.map((p) => p.y))) }
+    // sample rooms by id; rooms built from a CAD plan have other ids, so the elevation frames the whole level
     const R = (id: string) => {
       const o = doc.rooms.find((r) => r.id === id)?.outline ?? []
-      return { x0: Math.min(...o.map((p) => p.x)), x1: Math.max(...o.map((p) => p.x)), y0: Math.min(...o.map((p) => p.y)), y1: Math.max(...o.map((p) => p.y)) }
+      return o.length ? { x0: Math.min(...o.map((p) => p.x)), x1: Math.max(...o.map((p) => p.x)), y0: Math.min(...o.map((p) => p.y)), y1: Math.max(...o.map((p) => p.y)) } : all
     }
-    const all = { x0: Math.min(...doc.rooms.flatMap((r) => r.outline.map((p) => p.x))), x1: Math.max(...doc.rooms.flatMap((r) => r.outline.map((p) => p.x))), y0: Math.min(...doc.rooms.flatMap((r) => r.outline.map((p) => p.y))), y1: Math.max(...doc.rooms.flatMap((r) => r.outline.map((p) => p.y))) }
     let planes: number[][], eye: number[], at: number[]
     if (cut === 'elev-living' || cut === 'elev-kitchen') {
       const b = R(cut === 'elev-living' ? 'living' : 'dining')

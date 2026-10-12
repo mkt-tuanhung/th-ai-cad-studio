@@ -3,6 +3,7 @@ import { mepEn } from './ws/mep'
 import { civilEn } from './ws/civil'
 import { mechEn } from './ws/mechanical'
 import { rendersEn } from './ws/renders'
+import { fromCadEn } from './ws/fromCad'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
   app: {
@@ -532,6 +533,7 @@ export const en = {
     },
   },
   bim: {
+    fromCad: fromCadEn,
     crumbs: { projects: 'Projects', project: 'Villa Riverside', discipline: 'Architecture' },
     disciplines: { architecture: 'Architecture', structure: 'Structure', mep: 'MEP' },
     views: { plan: 'Plan', '3d': '3D', schedule: 'Schedule' },

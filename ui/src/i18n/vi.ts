@@ -4,6 +4,7 @@ import { mepVi } from './ws/mep'
 import { civilVi } from './ws/civil'
 import { mechVi } from './ws/mechanical'
 import { rendersVi } from './ws/renders'
+import { fromCadVi } from './ws/fromCad'
 
 export const vi: Messages = {
   app: {
@@ -534,6 +535,7 @@ export const vi: Messages = {
     },
   },
   bim: {
+    fromCad: fromCadVi,
     crumbs: { projects: 'Dự án', project: 'Villa Riverside', discipline: 'Kiến trúc' },
     disciplines: { architecture: 'Kiến trúc', structure: 'Kết cấu', mep: 'MEP' },
     views: { plan: 'Mặt bằng', '3d': '3D', schedule: 'Thống kê' },
