@@ -243,3 +243,55 @@ export function sectionDocuments(m: CivilModel, title: string, words: RouteWords
   }
   return docs
 }
+
+/* ---------------- tables (bill of quantities, door and window schedule) ---------------- */
+
+export interface TableCol {
+  head: string
+  /** width on paper (mm) */
+  w: number
+  align?: 'left' | 'center'
+}
+export type TableRow = string[] | { group: string }
+
+/**
+ * A table as A3 sheets at 1:1 (paper millimetres): the title, the header row, the rows (a group row spans the
+ * width in bold-sized text), 6.5 mm a row and up to `perSheet` rows a sheet; wider tables are scaled to 390 mm.
+ */
+export function tableDocuments(title: string, cols: TableCol[], rows: TableRow[], perSheet = 34): CadDocument[] {
+  const W0 = cols.reduce((a, c) => a + c.w, 0)
+  const k = W0 > 390 ? 390 / W0 : 1
+  const ws = cols.map((c) => c.w * k), W = ws.reduce((a, b) => a + b, 0)
+  const rh = 6.5, th = 2.4
+  const sheets: TableRow[][] = []
+  for (let i = 0; i < rows.length; i += perSheet) sheets.push(rows.slice(i, i + perSheet))
+  if (!sheets.length) sheets.push([])
+  return sheets.map((page, si) => {
+    const out: Entity[] = []
+    const name = sheets.length > 1 ? `${title} (${si + 1}/${sheets.length})` : title
+    out.push(T('A-ANNO-TEXT', { x: 0, y: rh * 1.6 }, 5, name.toUpperCase()))
+    const xs = ws.reduce<number[]>((a, w) => [...a, a[a.length - 1] + w], [0])
+    const line = (i: number, cells: string[] | null, group?: string) => {
+      const y = -i * rh
+      out.push(L('A-TABL', { x: 0, y }, { x: W, y }))
+      if (group !== undefined) out.push(T('A-ANNO-TEXT', { x: 1.5, y: y - rh + 1.9 }, th * 1.05, group.toUpperCase()))
+      else if (cells) cells.forEach((v, c) => {
+        const center = (cols[c]?.align ?? 'left') === 'center'
+        out.push(T('A-ANNO-TEXT', { x: center ? (xs[c] + xs[c + 1]) / 2 : xs[c] + 1.5, y: y - rh + 1.9 }, th, v, center ? 'center' : 'left'))
+      })
+    }
+    line(0, cols.map((c) => c.head))
+    page.forEach((r, i) => line(i + 1, Array.isArray(r) ? r : null, Array.isArray(r) ? undefined : r.group))
+    const n = page.length + 1
+    out.push(L('A-TABL', { x: 0, y: -n * rh }, { x: W, y: -n * rh }), L('A-TABL', { x: 0, y: -rh + 0.01 }, { x: W, y: -rh + 0.01 }))
+    // column lines, row by row: a group row is one cell across the width (only its outer edges)
+    const allRows: (TableRow | null)[] = [null, ...page]
+    allRows.forEach((r, i) => {
+      const y0 = -i * rh, y1 = -(i + 1) * rh
+      const at = r && !Array.isArray(r) ? [xs[0], xs[xs.length - 1]] : xs
+      at.forEach((x) => out.push(L('A-TABL', { x, y: y0 }, { x, y: y1 })))
+    })
+    const d = doc(name, [lay('A-TABL', '#1f2937', 0.18), lay('A-ANNO-TEXT', '#1f2937', 0.25)], out)
+    return { ...d, layouts: [{ id: 'layout1', name: 'A3', paper: 'A3', scale: 1 }] }
+  })
+}

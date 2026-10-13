@@ -10,7 +10,7 @@
 import type { BimModel, Column, Component, GridLine, Level, Opening, Railing, Room, Slab, Stair, Wall, WallType } from './model'
 import type { Cabinet, Item, ItemCategory, Room as InteriorRoom } from '../interior/model'
 import { MATERIALS } from '../interior/model'
-import { interiorPoint, wallLine, type FurnKind, type RecFurniture, type Recognition } from './fromCad'
+import { interiorPoint, norm, wallLine, type FurnKind, type RecFurniture, type Recognition } from './fromCad'
 import type { P2 } from './model'
 import { wallEnds } from './geometry'
 
@@ -45,6 +45,8 @@ export interface BuildNames {
   opening: string
   window: string
   furniture: Record<FurnKind, string>
+  /** name given to an unnamed room found to be a double-height void */
+  voidRoom?: string
 }
 
 /** Default heights of furniture blocks (mm) — a plan has none. */
@@ -117,6 +119,7 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
   const walls: Wall[] = [], doors: Opening[] = [], windows: Opening[] = [], rooms: Room[] = [], columns: Column[] = []
   const slabs: Slab[] = [], components: Component[] = [], grids: GridLine[] = []
   let nd = 0, nw = 0, nf = 0
+  const unnamed = new Set<string>()
   const usedMarks = new Set<string>()
   const markOr = (m: string | null, prefix: string, n: number) => {
     // tags may repeat (a door type used several times): keep the tag, make the id unique
@@ -167,6 +170,7 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     }
     p.rec.rooms.forEach((r, k) => {
       const num = r.number ?? `${li + 1}${String(k + 1).padStart(2, '0')}`
+      if (!r.name) unnamed.add(`room-${lv.id}-${k + 1}`)
       rooms.push({ id: `room-${lv.id}-${k + 1}`, category: 'room', number: num, name: r.name ?? names.room(k + 1), level: lv.id, area: r.area, outline: r.outline.map(T) })
     })
     if (!p.roof && above)
@@ -189,10 +193,179 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     const [ox, oy] = align.origins[sorted.length - 1]
     slabs.push({ id: `S${slabs.length + 1}`, category: 'slab', mark: `S${slabs.length + 1}`, kind: 'roof', level: levels[levels.length - 1].id, offset: 0, thickness: opt.slabT, outline: top.rec.footprint.map((q) => [r1(q[0] - ox), r1(q[1] - oy)] as P2) })
   }
-  const { stairs, landings, railings } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
-  slabs.push(...landings)
+  const edges = balconiesAndVoids(levels, rooms, walls, types, slabs, opt.slabT, names.voidRoom ?? 'Void', unnamed, [...doors, ...windows])
+  const { stairs, landings, railings: stairRails } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
+  for (const sl of [...edges.slabs, ...landings]) slabs.push({ ...sl, id: sl.landing ? sl.id : `S${slabs.length + 1}`, mark: sl.landing ? sl.mark : `S${slabs.length + 1}` })
+  const railings = [...stairRails, ...edges.railings].map((r, i) => ({ ...r, id: `railing-${i + 1}`, mark: `RL${i + 1}` }))
   const model: BimModel = { levels, wallTypes: [...types.values()], walls, doors, windows, rooms, columns, slabs, stairs, railings, components, grids, annotations: [] }
   return { model, align, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length, railings: railings.length } }
+}
+
+/* ---------------- balconies, double-height voids ---------------- */
+
+const BALCONY = /\b(BAN ?CONG|LO ?GIA|LOGGIA|BALCON(Y|IES)?|TERRACE|SAN ?THUONG|SAN ?PHOI)\b/
+const VOID_IN = /\b(THONG ?TANG|DOUBLE ?HEIGHT|VOID)\b/
+const VOID_ONLY = /^(O |KHOANG )?(THONG ?TANG|VOID|GIENG ?TROI|LO ?THONG ?TANG)$/
+export const BALCONY_H = 1100, VOID_H = 1000
+
+const centroid = (o: P2[]): P2 => [o.reduce((s, p) => s + p[0], 0) / o.length, o.reduce((s, p) => s + p[1], 0) / o.length]
+const areaOf = (o: P2[]) => Math.abs(o.reduce((s, p, i) => s + p[0] * o[(i + 1) % o.length][1] - o[(i + 1) % o.length][0] * p[1], 0)) / 2
+
+/**
+ * Balconies and double-height voids, from the room names, as the plans draw them:
+ *  - a balcony / loggia / terrace above the ground floor gets its own floor slab when it lies outside the
+ *    building's footprint; a wall drawn on its outer edge (outside beyond it, no door or window in it) is its
+ *    parapet, BALCONY_H high instead of a storey (a wall running on past the balcony, or with a door beside it,
+ *    is split: only its stretch along the balcony becomes parapet); every other stretch of its edge with no wall gets a guard rail
+ *    BALCONY_H high;
+ *  - a void: a room named as one ("Ô THÔNG TẦNG", "GIẾNG TRỜI"), or the room on the floor above a room whose
+ *    name says it is double height ("P. KHÁCH THÔNG TẦNG") — the floor slab is cut out under it and a guard rail
+ *    VOID_H high runs on its open edges. The void room is flagged (no floor finish, no Interior room).
+ */
+export function balconiesAndVoids(levels: Level[], rooms: Room[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[], slabT: number, voidName: string, unnamed: Set<string>, openings: Opening[]): { slabs: Slab[]; railings: Railing[]; parapets: number } {
+  const outSlabs: Slab[] = [], railings: Railing[] = []
+  const lvIdx = (id: string) => levels.findIndex((l) => l.id === id)
+  const floorOf = (lv: string) => slabs.find((s) => s.level === lv && s.kind === 'floor' && !s.landing)
+  // stretches of an edge with no wall along it (wall centre line parallel, within half its thickness + 200 mm)
+  const open = (lv: string, a: P2, b: P2): [number, number][] => {
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1])
+    if (L < 300) return []
+    const u: P2 = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]
+    const cov: [number, number][] = []
+    for (const w of walls) {
+      if (w.baseLevel !== lv) continue
+      const { a: wa, dir } = wallEnds(w)
+      if (Math.abs(dir[0] * u[0] + dir[1] * u[1]) < 0.98) continue
+      const off = Math.abs(-(wa[0] - a[0]) * u[1] + (wa[1] - a[1]) * u[0])
+      if (off > (types.get(w.typeId)?.thickness ?? 200) / 2 + 200) continue
+      const p0 = (wa[0] - a[0]) * u[0] + (wa[1] - a[1]) * u[1], p1 = p0 + w.length * (dir[0] * u[0] + dir[1] * u[1])
+      if (Math.max(p0, p1) <= 0 || Math.min(p0, p1) >= L) continue
+      cov.push([Math.max(0, Math.min(p0, p1) - 50), Math.min(L, Math.max(p0, p1) + 50)])
+    }
+    cov.sort((x, y) => x[0] - y[0])
+    const out: [number, number][] = []
+    let s = 0
+    for (const [c0, c1] of cov) { if (c0 > s) out.push([s, c0]); s = Math.max(s, c1) }
+    if (s < L) out.push([s, L])
+    return out.filter(([x, y]) => y - x >= 300)
+  }
+  // a guard rail round the open stretches of an outline, 50 mm in from its edge (the outline inset, corners where
+  // the inset edges meet); stretches meeting at a corner join, round the start of the outline too
+  const guard = (lv: string, o: P2[], height: number) => {
+    const N = o.length
+    const sgnA = o.reduce((a, p, i) => a + p[0] * o[(i + 1) % N][1] - o[(i + 1) % N][0] * p[1], 0) > 0 ? 1 : -1
+    const U = o.map((a, i) => { const b = o[(i + 1) % N], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as P2 })
+    const IN = U.map((u) => [-u[1] * sgnA, u[0] * sgnA] as P2)
+    // inset vertex i: where the inset edges i−1 and i cross
+    const V = o.map((p, i) => {
+      const k = (i - 1 + N) % N, n1 = IN[k], n2 = IN[i], u1 = U[k], u2 = U[i]
+      const det = u1[0] * u2[1] - u1[1] * u2[0]
+      if (Math.abs(det) < 1e-6) return [p[0] + n2[0] * 50, p[1] + n2[1] * 50] as P2
+      const a1: P2 = [p[0] + n1[0] * 50, p[1] + n1[1] * 50], a2: P2 = [p[0] + n2[0] * 50, p[1] + n2[1] * 50]
+      const t = ((a2[0] - a1[0]) * u2[1] - (a2[1] - a1[1]) * u2[0]) / det
+      return [a1[0] + u1[0] * t, a1[1] + u1[1] * t] as P2
+    })
+    const lines: P2[][] = []
+    let cur: P2[] = []
+    let startsAtZero = false, endsAtEnd = false
+    for (let i = 0; i < N; i++) {
+      const a = o[i], b = o[(i + 1) % N]
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1])
+      if (L < 1) continue
+      const u = U[i], n = IN[i]
+      const at = (s: number): P2 => (s < 1 ? V[i] : s > L - 1 ? V[(i + 1) % N] : [a[0] + u[0] * s + n[0] * 50, a[1] + u[1] * s + n[1] * 50])
+      const st = open(lv, a, b)
+      if (!st.length) { if (cur.length >= 2) lines.push(cur); cur = []; continue }
+      st.forEach(([s0, s1]) => {
+        if (!(s0 < 1 && cur.length)) { if (cur.length >= 2) lines.push(cur); cur = [at(s0)]; if (i === 0 && s0 < 1) startsAtZero = true }
+        cur.push(at(s1))
+        if (s1 < L - 1) { lines.push(cur); cur = [] }
+        else if (i === N - 1) endsAtEnd = true
+      })
+    }
+    if (cur.length >= 2) lines.push(cur)
+    // the last stretch runs on into the first one round vertex 0
+    if (startsAtZero && endsAtEnd && lines.length > 1) { const last = lines.pop()!; lines[0] = [...last, ...lines[0].slice(1)] }
+    const r2 = (p: P2): P2 => [r1(p[0]), r1(p[1])]
+    for (const l of lines) railings.push({ id: '', category: 'railing', mark: '', level: lv, pts: l.map(r2), height })
+  }
+  // parapets: walls along a balcony edge with no room beyond them
+  let parapets = 0
+  const inRoom = (lv: string, p: P2) => rooms.some((x) => x.level === lv && !BALCONY.test(norm(x.name)) && x.outline && x.outline.length >= 3 && inside(p, x.outline))
+  for (const r of rooms) {
+    if (lvIdx(r.level) <= 0 || !r.outline || r.outline.length < 3 || !BALCONY.test(norm(r.name))) continue
+    const c = centroid(r.outline)
+    for (let i = 0; i < r.outline.length; i++) {
+      const a = r.outline[i], b = r.outline[(i + 1) % r.outline.length]
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1])
+      if (L < 300) continue
+      const u: P2 = [(b[0] - a[0]) / L, (b[1] - a[1]) / L]
+      let n: P2 = [-u[1], u[0]]
+      if ((c[0] - a[0]) * n[0] + (c[1] - a[1]) * n[1] > 0) n = [-n[0], -n[1]] // outwards
+      for (const w of [...walls]) {
+        if (w.baseLevel !== r.level || w.topLevel === w.baseLevel) continue
+        const { a: wa, dir } = wallEnds(w)
+        if (Math.abs(dir[0] * u[0] + dir[1] * u[1]) < 0.98) continue
+        const t = types.get(w.typeId)?.thickness ?? 200
+        if (Math.abs(-(wa[0] - a[0]) * u[1] + (wa[1] - a[1]) * u[0]) > t / 2 + 200) continue
+        const p0 = (wa[0] - a[0]) * u[0] + (wa[1] - a[1]) * u[1], p1 = p0 + w.length * (dir[0] * u[0] + dir[1] * u[1])
+        const lo = Math.max(0, Math.min(p0, p1)), hi = Math.min(L, Math.max(p0, p1))
+        if (hi - lo < 0.5 * Math.min(L, w.length)) continue
+        const m = (lo + hi) / 2, q: P2 = [a[0] + u[0] * m + n[0] * (t / 2 + 300), a[1] + u[1] * m + n[1] * (t / 2 + 300)]
+        if (inRoom(r.level, q)) continue
+        // the stretch along the balcony, in the wall's own length; openings in it keep the wall a storey high
+        const along = (e: number) => (a[0] + u[0] * e - wa[0]) * dir[0] + (a[1] + u[1] * e - wa[1]) * dir[1]
+        let s0 = Math.max(0, Math.min(along(lo), along(hi))), s1 = Math.min(w.length, Math.max(along(lo), along(hi)))
+        if (s0 < 150) s0 = 0
+        if (s1 > w.length - 150) s1 = w.length
+        const ops = openings.filter((o) => o.hostWall === w.id)
+        if (ops.some((o) => o.offset < s1 && o.offset + o.width > s0)) continue
+        const w0 = { ...w }
+        const piece = (from: number, to: number, parapet: boolean, id: string): Wall => ({ ...w0, id, mark: id, x: r1(wa[0] + dir[0] * from), y: r1(wa[1] + dir[1] * from), length: r1(to - from), ...(parapet ? { topLevel: w0.baseLevel, topOffset: BALCONY_H } : {}) })
+        const parts: [number, number, boolean][] = [[0, s0, false], [s0, s1, true], [s1, w.length, false]].filter(([f, t]) => (t as number) - (f as number) > 1) as [number, number, boolean][]
+        parts.forEach(([f, t, par], k) => {
+          let id = w0.id
+          if (k > 0) { let j = 1; while (walls.some((x) => x.id === `${w0.id}-${j}`)) j++; id = `${w0.id}-${j}` }
+          const nw = piece(f, t, par, id)
+          if (k === 0) Object.assign(w, nw)
+          else walls.push(nw)
+          // openings move to the piece they are in
+          for (const o of ops) if (o.offset >= f - 1 && o.offset < t) { o.hostWall = id; o.offset = r1(o.offset - f) }
+        })
+        parapets++
+      }
+    }
+  }
+  for (const r of rooms) {
+    const li = lvIdx(r.level)
+    if (li <= 0 || !r.outline || r.outline.length < 3) continue
+    const n = norm(r.name)
+    if (BALCONY.test(n)) {
+      const fp = floorOf(r.level)
+      if (!fp || !inside(centroid(r.outline), fp.outline)) outSlabs.push({ id: '', category: 'slab', mark: '', kind: 'floor', level: r.level, offset: 0, thickness: slabT, outline: r.outline })
+      guard(r.level, r.outline, BALCONY_H)
+    }
+  }
+  const voids = new Set<Room>()
+  for (const r of rooms) {
+    if (!r.outline || r.outline.length < 3) continue
+    const n = norm(r.name)
+    if (VOID_ONLY.test(n) && lvIdx(r.level) > 0) voids.add(r)
+    else if (VOID_IN.test(n)) {
+      // the room above it is the void
+      const up = levels[lvIdx(r.level) + 1]
+      const A = areaOf(r.outline)
+      const above = up && rooms.find((x) => x.level === up.id && x.outline && x.outline.length >= 3 && inside(centroid(x.outline), r.outline!) && areaOf(x.outline) > 0.6 * A && areaOf(x.outline) < 1.5 * A)
+      if (above) { voids.add(above); if (unnamed.has(above.id)) above.name = voidName }
+    }
+  }
+  for (const v of voids) {
+    v.void = true
+    const fl = floorOf(v.level)
+    if (fl) fl.openings = [...(fl.openings ?? []), v.outline!]
+    guard(v.level, v.outline!, VOID_H)
+  }
+  return { slabs: outSlabs, railings, parapets }
 }
 
 /* ---------------- stairs ---------------- */
@@ -458,7 +631,7 @@ export function buildInterior(model: BimModel, levelId: string, furniture: RecFu
   const slab = model.slabs.find((s) => s.level === above?.id)?.thickness ?? 120
   const ceiling = Math.max(2200, Math.min(6000, (above && lv ? above.elevation - lv.elevation : 3000) - slab))
   const rooms: InteriorRoom[] = model.rooms
-    .filter((r) => r.level === levelId && r.outline && r.outline.length >= 3)
+    .filter((r) => r.level === levelId && !r.void && r.outline && r.outline.length >= 3)
     .map((r) => ({ id: r.id, name: r.name, outline: r.outline!.map(([x, y]) => ({ x, y })), ceilingHeight: ceiling, floorFinish: 'Porcelain Tile - Beige', wallFinish: 'Paint - Warm White', ceilingFinish: 'Gypsum - White' }))
   const roomOf = (p: P2): string | null => {
     const r = rooms.find((x) => inside(p, x.outline.map((q) => [q.x, q.y] as P2)))

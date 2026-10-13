@@ -28,6 +28,19 @@ export function stairFlight(m: BimModel, st: BimModel['stairs'][number]) {
   return { z, ...stairRisers(m, st.baseLevel, st.topLevel) }
 }
 
+/** The side profile of a flight (local x along the run, y up): the steps on top, a sloping waist slab of
+ *  150 mm under them, meeting the floor in front and ending under the top tread. */
+export function stairProfile(st: BimModel['stairs'][number], n: number, riser: number): [number, number][] {
+  const going = st.length / n, H = n * riser
+  const waist = 150 / Math.cos(Math.atan2(riser, going))
+  const prof: [number, number][] = [[0, 0]]
+  for (let i = 0; i < n; i++) prof.push([i * going, (i + 1) * riser], [(i + 1) * going, (i + 1) * riser])
+  const xs = Math.min(st.length / 2, Math.max(0, (waist - riser) / (riser / going)))
+  prof.push([st.length, Math.max(H - 120, Math.min(H - 1, riser + H - waist))])
+  if (xs > 1) prof.push([xs, 0])
+  return prof.filter((q, i, a) => i === 0 || q[0] !== a[i - 1][0] || q[1] !== a[i - 1][1])
+}
+
 export function bimExtras(m: BimModel): Scene {
   const items: SceneItem[] = []
   for (const c of m.columns) {
@@ -48,18 +61,9 @@ export function bimExtras(m: BimModel): Scene {
     const { n, riser, z } = stairFlight(m, st)
     const t = (st.angle * Math.PI) / 180
     const ux = Math.cos(t), uy = Math.sin(t)
-    // one flight = its side profile (the steps on top, a sloping waist slab of 150 mm under them) extruded
-    // across the width: local x along the run, local y up, extruded towards the right of the run
-    const going = st.length / n, H = n * riser
-    const waist = 150 / Math.cos(Math.atan2(riser, going))
-    const prof: [number, number][] = [[0, 0]]
-    for (let i = 0; i < n; i++) prof.push([i * going, (i + 1) * riser], [(i + 1) * going, (i + 1) * riser])
-    // the soffit: parallel to the nosings, meeting the floor in front and ending under the top tread
-    const xs = Math.min(st.length / 2, Math.max(0, (waist - riser) / (riser / going)))
-    prof.push([st.length, Math.max(H - 120, Math.min(H - 1, riser + H - waist))])
-    if (xs > 1) prof.push([xs, 0])
+    // one flight = its side profile extruded across the width (towards the right of the run)
     const nx = -uy * (st.width / 2), ny = ux * (st.width / 2)
-    const parts: Prim[] = [{ ...prism([st.x + nx, st.y + ny, z], prof.filter((q, i, a) => i === 0 || q[0] !== a[i - 1][0] || q[1] !== a[i - 1][1]), st.width), z: [uy, -ux, 0], x: [ux, uy, 0] }]
+    const parts: Prim[] = [{ ...prism([st.x + nx, st.y + ny, z], stairProfile(st, n, riser), st.width), z: [uy, -ux, 0], x: [ux, uy, 0] }]
     items.push({ id: st.id, rgb: CONCRETE, parts })
   }
   for (const r of m.railings) {

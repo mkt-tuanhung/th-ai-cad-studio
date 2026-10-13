@@ -130,6 +130,35 @@ export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawin
   for (let i = 0; i + 1 < marks.length; i++) dim([u0, marks[i]], [u0, marks[i + 1]], 1600)
   if (marks.length > 2) dim([u0, marks[0]], [u0, marks[marks.length - 1]], 3200)
 
+  // elevations: sill and head heights of the windows seen (on walls facing the viewer, not behind a nearer wall
+  // that covers them in plan and height)
+  if (r.kind === 'elev') {
+    const lev = (id: string) => model.levels.find((l) => l.id === id)?.elevation ?? 0
+    const facing = model.walls.filter((w) => { const t = ((w.angle ?? 0) * Math.PI) / 180; return Math.abs(Math.cos(t) * v.toViewer[0] + Math.sin(t) * v.toViewer[1]) < 0.05 })
+    const span = (w: BimModel['walls'][number], s0: number, s1: number) => { const t = ((w.angle ?? 0) * Math.PI) / 180, x = w.x ?? 0, y = w.y ?? 0; const a = uOf(x + Math.cos(t) * s0, y + Math.sin(t) * s0), b = uOf(x + Math.cos(t) * s1, y + Math.sin(t) * s1); return [Math.min(a, b), Math.max(a, b)] }
+    const depth = (w: BimModel['walls'][number]) => (w.x ?? 0) * v.toViewer[0] + (w.y ?? 0) * v.toViewer[1]
+    const seen = new Set<string>()
+    for (const o of model.windows) {
+      const w = facing.find((x) => x.id === o.hostWall)
+      if (!w) continue
+      const [u0, u1] = span(w, o.offset, o.offset + o.width)
+      const z0 = lev(w.baseLevel) + w.baseOffset + o.sill, z1 = z0 + o.height
+      const hidden = facing.some((b) => {
+        if (b === w || depth(b) < depth(w) + 100) return false
+        const [b0, b1] = span(b, 0, b.length)
+        const bz0 = lev(b.baseLevel) + b.baseOffset, bz1 = lev(b.topLevel) + b.topOffset
+        return Math.min(b1, u1) - Math.max(b0, u0) > 0.5 * (u1 - u0) && Math.min(bz1, z1) - Math.max(bz0, z0) > 0.5 * (z1 - z0)
+      })
+      if (hidden) continue
+      for (const [z, dy] of [[z0, -T * 0.95], [z1, T * 0.25]] as const) {
+        const key = `${Math.round(u0 / 50)}:${Math.round(z)}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        text('A-ANNO-TEXT', u0, z + dy, T * 0.7, elevText(z))
+      }
+    }
+  }
+
   // sections: room names where the cutting plane passes through the room's outline
   if (r.kind === 'section' && cutAt !== undefined) {
     const ax = r.axis === 'x' ? 0 : 1

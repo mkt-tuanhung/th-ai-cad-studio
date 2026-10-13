@@ -159,6 +159,10 @@ Bài này chạy **12/12 PASS**. Kiểm tra:
   - **Tầng cuối của thang:** lan can chắn cao 1000 mm chạy ngang mép ô thang phía trên vế 1, dừng cách tường 50 mm.
   - **Trong IFC:** là IfcRailing; tay vịn dốc theo vế.
   - **VILLA_150:** 3 lan can — 2 lan can ô giếng (tầng 1→2 và 2→3) và 1 lan can chắn ở tầng 3.
+- **Ban công, ô thông tầng** (2026-10-13): xem `QA_AUTO.md`, mục "Mô hình nhà, từ tên phòng".
+  - Tường vẽ trên mép ban công là tường lan can cao 1100 mm; tường dài có cửa thì được tách.
+  - Ô thông tầng làm sàn có lỗ, có lan can.
+  - VILLA_150: 12 đoạn tường lan can; Tầng 2 có ô thông tầng trên P. KHÁCH THÔNG TẦNG.
 - **VILLA_150:** 2 thang chữ U (tầng 1→2 và 2→3), 4 vế × 11 bậc. Cao bậc 177 mm và 164 mm, chiếu nghỉ sâu 1200 mm. Kiểm tra mô hình đạt hết.
 - **Cao độ bậu và chiều cao cửa sổ:** nếu bản vẽ không ghi kích thước bằng chữ thì dùng giá trị mặc định trong hộp thoại.
 - **Thể tích tường:** tường chạy qua cột tính cả phần chồng lên cột. Sai số nhỏ, cỡ 0,25 × 0,2 × chiều cao tầng cho mỗi cột nằm trong khe tường.

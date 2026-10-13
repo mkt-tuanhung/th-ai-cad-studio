@@ -65,6 +65,8 @@ export interface Room {
   area: number // m²
   /** Boundary placed in plan (rooms of the original survey carry only their area). */
   outline?: P2[]
+  /** A double-height void (no floor of its own: the slab is cut out under it). */
+  void?: boolean
 }
 
 export interface Column {

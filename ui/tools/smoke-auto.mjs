@@ -52,7 +52,9 @@ await step('a house DXF: read, recognised and built by itself — building summa
   assert.equal(await page.getByTestId('auto-kind').innerText(), 'Building')
   const h = await page.getByTestId('auto-house').innerText()
   assert.match(h, /3 levels · 18 walls · 9 doors · 13 windows · 10 rooms · 12 columns · 18 furniture/)
-  assert.match(h, /Interior \(Tầng 1\): 5 rooms · 9 items · 4 cabinets → \d+ parts on \d+ sheets · \d+ CNC programs/)
+  assert.match(h, /Interior \(Tầng 1\): 5 rooms · 9 items · 4 cabinets/)
+  // the cut list and CNC cover every level with furniture (Tầng 2 has a wardrobe too)
+  assert.match(h, /Cut list and CNC, 2 levels: \d+ cabinets → \d+ parts on \d+ sheets · \d+ CNC programs/)
   assert.match(h, /Model checks: all passed/)
   // elevations and sections are drawn by the OCCT kernel: the browser says so instead of pretending
   assert.match(h, /Elevations and sections need the desktop app/)
@@ -66,7 +68,7 @@ await step('Approve & build everything: BIM + Interior applied, the ZIP holds IF
   const names = zipNames(houseZip)
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `missing ${re} in ${names.join(' | ')}`)
   has(/BIM\.ifc$/); has(/Walls\.csv$/); has(/Rooms\.csv$/); has(/Doors and windows\.csv$/); has(/Floor plan Tầng 1\.dxf$/); has(/Floor plan Tầng 2\.dxf$/)
-  has(/Floor plan.*\.svg$/); has(/Interior furniture\.csv$/); has(/Cut list\.csv$/); has(/Nesting\.dxf$/); has(/CNC .*\.nc$/i); has(/^Report\.html$/)
+  has(/Floor plan.*\.svg$/); has(/Bill of quantities\.csv$/); has(/Bill of quantities.*\.svg$/); has(/Door and window schedule.*\.svg$/); has(/Interior furniture\.csv$/); has(/Cut list\.csv$/); has(/Nesting\.dxf$/); has(/CNC .*\.nc$/i); has(/^Report\.html$/)
   await page.getByTestId('auto-done').waitFor()
   const bim = (await store('thcad.bim')).model
   assert.equal(bim.walls.length, 18)

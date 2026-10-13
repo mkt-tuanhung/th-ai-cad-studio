@@ -32,6 +32,9 @@ export interface AutoHouse {
   interior: InteriorBuild | null
   /** Index (in sorted levels) of the level the Interior data comes from. */
   interiorLevel: number | null
+  /** Interior data of every level with rooms (the package's furniture schedule, cut list, nesting, CNC cover
+   *  them all; the Interior workspace gets `interior`, one level). */
+  interiors: { level: string; build: InteriorBuild }[]
   /** Elevations and sections by the OCCT kernel (desktop; added after the run by src/auto/views.ts). */
   views?: HouseViews
 }
@@ -41,6 +44,8 @@ export interface AutoRoute {
   chosen: Route
   model: CivilModel
   volume: ReturnType<typeof volumes>
+  /** every route of the drawing (the package has them all; the Civil workspace gets `model`) */
+  all: { name: string; model: CivilModel; volume: ReturnType<typeof volumes> }[]
 }
 
 export interface AutoResult {
@@ -121,7 +126,13 @@ export async function runAuto(doc: CadDocument, opt: AutoOptions): Promise<AutoR
     sorted.forEach((p, i) => { if (p.rec.furniture.length > sorted[li].rec.furniture.length) li = i })
     const lv = built.model.levels[li]
     const interior = lv && built.model.rooms.some((r) => r.level === lv.id) ? buildInterior(built.model, lv.id, sorted[li].rec.furniture, built.align.origins[li], opt.names) : null
-    house = { plans, recs: real, built, checks: runModelChecks(built.model), interior, interiorLevel: interior ? li : null }
+    const interiors = sorted.flatMap((p, i) => {
+      const l = built.model.levels[i]
+      if (!l || p.roof || !built.model.rooms.some((r) => r.level === l.id && !r.void)) return []
+      const b = i === li && interior ? interior : buildInterior(built.model, l.id, p.rec.furniture, built.align.origins[i], opt.names)
+      return b.rooms.length ? [{ level: l.name, build: b }] : []
+    })
+    house = { plans, recs: real, built, checks: runModelChecks(built.model), interior, interiorLevel: interior ? li : null, interiors }
   }
 
   // routes
@@ -131,7 +142,7 @@ export async function runAuto(doc: CadDocument, opt: AutoOptions): Promise<AutoR
   const routes = findRoutes(doc, civilRoles).filter((r) => r.sections.length >= 2)
   if (routes.length) {
     const chosen = [...routes].sort((a, b) => b.sections.length - a.sections.length)[0]
-    route = { routes, chosen, model: buildCivilModel(opt.civilBase, chosen, doc.name), volume: volumes(chosen.sections) }
+    route = { routes, chosen, model: buildCivilModel(opt.civilBase, chosen, doc.name), volume: volumes(chosen.sections), all: routes.map((x) => ({ name: x.name, model: buildCivilModel(opt.civilBase, x, doc.name), volume: volumes(x.sections) })) }
   }
   opt.onStep?.('check')
   const kind = house && route ? 'both' : house ? 'house' : route ? 'route' : 'none'

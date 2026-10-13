@@ -13,7 +13,7 @@ import { getHost } from '../../services/host'
 import { readDrawing } from '../../cad/batch'
 import type { CadDocument } from '../../cad/types'
 import { runAuto, withRoute, type AutoResult, type AutoStep } from '../../auto/pipeline'
-import { makePackage, writePackage, type Written } from '../../auto/package'
+import { allCabinets, makePackage, writePackage, type Written } from '../../auto/package'
 import { houseViews } from '../../auto/views'
 import { reportHtml } from '../../auto/report'
 import { cutList } from '../../interior/model'
@@ -92,9 +92,10 @@ export function AutoDialog() {
   // the package and the numbers shown before approval (same code as the files written)
   const cam = useInterior((st) => st.cam)
   const camSetup = useMemo(() => ({ nest: nestSettings(cam), cnc: cam.cnc }), [cam])
-  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t])
+  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, boq: t.boq, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t])
   const files = useMemo(() => (res ? makePackage(res, camSetup, pkgText, keep) : []), [res, camSetup, pkgText, keep])
-  const nesting = useMemo(() => (res?.house?.interior?.cabinets.length ? nest(piecesOf(res.house.interior.cabinets), camSetup.nest) : null), [res, camSetup])
+  const cabinets = useMemo(() => (res ? allCabinets(res) : []), [res])
+  const nesting = useMemo(() => (cabinets.length ? nest(piecesOf(cabinets), camSetup.nest) : null), [cabinets, camSetup])
 
   const summary = useMemo(() => {
     if (!res) return null
@@ -106,8 +107,9 @@ export function AutoDialog() {
       house.push(fmt(t.house, { levels: c.levels, walls: c.walls, doors: c.doors, windows: c.windows, rooms: c.rooms, columns: c.columns, furniture: c.components, stairs: c.stairs, railings: c.railings }))
       const it = res.house.interior
       if (it) {
-        const parts = it.cabinets.flatMap(cutList).reduce((a, p) => a + p.qty, 0)
-        house.push(fmt(t.interior, { level: res.house.built.model.levels[res.house.interiorLevel ?? 0]?.name ?? '', rooms: it.rooms.length, items: it.items.length, cabinets: it.cabinets.length, parts, sheets: nesting?.sheets.length ?? 0, programs: files.filter((f) => / - CNC /.test(f.name)).length }))
+        house.push(fmt(t.interior, { level: res.house.built.model.levels[res.house.interiorLevel ?? 0]?.name ?? '', rooms: it.rooms.length, items: it.items.length, cabinets: it.cabinets.length }))
+        const parts = cabinets.flatMap(cutList).reduce((a, p) => a + p.qty, 0)
+        if (cabinets.length) house.push(fmt(t.production, { n: res.house.interiors.filter((x) => x.build.cabinets.length).length || 1, cabinets: cabinets.length, parts, sheets: nesting?.sheets.length ?? 0, programs: files.filter((f) => / - CNC /.test(f.name)).length }))
       } else house.push(t.noInterior)
       const v = res.house.views
       if (v?.views.length) house.push(fmt(t.views, { e: v.views.filter((x) => x.kind === 'elev').length, s: v.views.filter((x) => x.kind === 'section').length, t: (v.ms / 1000).toFixed(1) }))
@@ -122,6 +124,8 @@ export function AutoDialog() {
       const v = res.route.volume
       route.push(fmt(t.route, { name: res.route.model.alignment.name, sections: res.route.chosen.sections.length, len: n0(v.length), cut: n0(v.cut), fill: n0(v.fill) }))
       if (v.drawn) route.push(fmt(t.routeDrawn, { cut: n0(v.drawn.cut), fill: n0(v.drawn.fill), dc: (((v.cut - v.drawn.cut) / Math.max(1e-9, v.drawn.cut)) * 100).toFixed(2), df: (((v.fill - v.drawn.fill) / Math.max(1e-9, v.drawn.fill)) * 100).toFixed(2) }))
+      const ci = res.route.routes.indexOf(res.route.chosen)
+      ;(res.route.all ?? []).forEach((o, i) => { if (i !== ci) route.push(fmt(t.routeAlso, { name: o.name, sections: res.route!.routes[i]?.sections.length ?? 0, len: n0(o.volume.length), cut: n0(o.volume.cut), fill: n0(o.volume.fill) })) })
       const r = res.route.chosen
       if (r.missing.length) warnings.push(fmt(C.missing, { list: r.missing.join(', ') }))
       const off = r.sections.filter((x) => x.tableOff > 0).length
@@ -132,7 +136,7 @@ export function AutoDialog() {
     }
     const ai = !res.ai ? (aiOn ? t.aiNotNeeded : t.noAi) : res.ai.set.length ? fmt(t.aiDone, { n: res.ai.set.length, m: res.ai.asked, s: res.ai.seconds.toFixed(1) }) : fmt(t.aiNone, { m: res.ai.asked, s: res.ai.seconds.toFixed(1) })
     return { house, route, warnings, checks, ai }
-  }, [res, t, T, files, nesting, aiOn, desktop])
+  }, [res, t, T, files, nesting, cabinets, aiOn, desktop])
 
   const approve = async () => {
     if (!res || !summary) return

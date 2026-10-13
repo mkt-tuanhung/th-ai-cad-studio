@@ -21,8 +21,9 @@ import { wallsCsv, levelOf } from '../bim/model'
 import { cutList, type Cabinet } from '../interior/model'
 import { DEFAULT_NEST, layoutDxf, nest, piecesOf, type NestSettings } from '../cam/nesting'
 import { camSheet, type CamSettings } from '../cam/gcode'
-import { earthwork, interp, sta } from '../civil/model'
-import { planDocument, profileDocument, sectionDocuments, type RouteWords } from './drawings'
+import { earthwork, interp, sta, type CivilModel } from '../civil/model'
+import { planDocument, profileDocument, sectionDocuments, tableDocuments, type RouteWords, type TableRow } from './drawings'
+import { boq, openingSchedule, type BoqWords } from '../bim/quantities'
 import type { AutoResult } from './pipeline'
 
 export type OutFile =
@@ -39,6 +40,15 @@ export interface PackageText {
   report: (body: string) => string
   /** words on the route sheets (the drawings' own Vietnamese defaults when absent) */
   words?: RouteWords
+  /** bill of quantities and door / window schedule */
+  boq?: {
+    title: string
+    schedule: string
+    words: BoqWords
+    heads: { no: string; item: string; unit: string; total: string }
+    sched: { mark: string; kind: string; family: string; width: string; height: string; sill: string; levels: string; count: string }
+    kinds: { door: string; window: string }
+  }
 }
 
 const csv = (rows: (string | number)[][]) => rows.map((r) => r.map((c) => (/[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : String(c))).join(',')).join('\n') + '\n'
@@ -49,6 +59,14 @@ export interface CamSetup {
 }
 export const defaultCam = (cnc: CamSettings): CamSetup => ({ nest: DEFAULT_NEST, cnc })
 
+/** The cabinets of every level for the cut list, nesting and CNC (named "<level> · <cabinet>" when several
+ *  levels have some, so parts and programs say where they go). */
+export function allCabinets(r: AutoResult): Cabinet[] {
+  const ints = r.house?.interiors?.length ? r.house.interiors : r.house?.interior ? [{ level: '', build: r.house.interior }] : []
+  const multi = ints.filter((x) => x.build.cabinets.length).length > 1
+  return ints.flatMap(({ level, build }) => build.cabinets.map((c) => (multi ? { ...c, name: `${level} · ${c.name}` } : c)))
+}
+
 /** Every file of the package (in memory). `include` limits it to the parts the user kept. */
 export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, include: { house: boolean; interior: boolean; route: boolean }): OutFile[] {
   const base = r.file.replace(/\.(dwg|dxf)$/i, '')
@@ -58,7 +76,8 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     out.push({ name: `${base} - ${title}.dxf`, kind: 'text', text: toDxf2000(doc) })
     out.push({ name: `${base} - ${title}.dwg`, kind: 'dwg', doc })
     // a sheet with its own scale (elevations, sections: 1:100) plots at it; the others at the scale that fits
-    pages.push({ ...plotPage(doc, 'A3', doc.layouts?.[0]?.scale ?? undefined), name: title })
+    // the title block names the project (the drawing's file) and the sheet
+    pages.push({ ...plotPage({ ...doc, name: `${base} — ${title}` }, 'A3', doc.layouts?.[0]?.scale ?? undefined), name: title })
   }
   if (r.house && include.house) {
     const m = r.house.built.model
@@ -76,11 +95,32 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     const vp: Page[] = []
     for (const v of views) drawing(v.title, v.doc, vp)
     if (vp.length) out.push({ name: `${base} - ${t.views}.pdf`, kind: 'pdf', pages: vp })
+    if (t.boq) {
+      const B = t.boq
+      // bill of quantities: CSV (every level a column) and the table sheets
+      const rows = boq(m, B.words)
+      const lvs = [...m.levels].sort((a, b) => a.elevation - b.elevation).map((l) => l.name).filter((n) => rows.some((r) => r.byLevel[n]))
+      const q = (v: number, unit: string) => (v ? (unit === B.words.units.pcs ? String(Math.round(v)) : v.toFixed(2)) : '')
+      add(`${B.title}.csv`, csv([[B.heads.no, B.heads.item, B.heads.unit, ...lvs, B.heads.total], ...rows.map((r, i) => [i + 1, r.item, r.unit, ...lvs.map((l) => q(r.byLevel[l] ?? 0, r.unit)), q(r.total, r.unit)])]))
+      const tr: TableRow[] = []
+      let g = ''
+      rows.forEach((r, i) => { if (r.group !== g) { g = r.group; tr.push({ group: g }) } tr.push([String(i + 1), r.item, r.unit, ...lvs.map((l) => q(r.byLevel[l] ?? 0, r.unit)), q(r.total, r.unit)]) })
+      const bp: Page[] = []
+      tableDocuments(B.title, [{ head: B.heads.no, w: 12, align: 'center' }, { head: B.heads.item, w: 110 }, { head: B.heads.unit, w: 18, align: 'center' }, ...lvs.map((l) => ({ head: l, w: 34, align: 'center' as const })), { head: B.heads.total, w: 38, align: 'center' }], tr).forEach((d, i, a) => drawing(a.length > 1 ? `${B.title} ${i + 1}` : B.title, d, bp))
+      out.push({ name: `${base} - ${B.title}.pdf`, kind: 'pdf', pages: bp })
+      // door and window schedule sheet
+      const S = B.sched
+      const sp: Page[] = []
+      tableDocuments(B.schedule, [{ head: S.mark, w: 26, align: 'center' }, { head: S.kind, w: 26 }, { head: S.family, w: 60 }, { head: S.width, w: 26, align: 'center' }, { head: S.height, w: 26, align: 'center' }, { head: S.sill, w: 26, align: 'center' }, { head: S.levels, w: 80 }, { head: S.count, w: 24, align: 'center' }],
+        openingSchedule(m).map((e) => [e.mark, B.kinds[e.kind], e.family, String(e.width), String(e.height), e.kind === 'door' ? '' : String(e.sill), e.levels.join(', '), String(e.count)])).forEach((d, i, a) => drawing(a.length > 1 ? `${B.schedule} ${i + 1}` : B.schedule, d, sp))
+      out.push({ name: `${base} - ${B.schedule}.pdf`, kind: 'pdf', pages: sp })
+    }
   }
   if (r.house?.interior && include.interior) {
-    const d = r.house.interior
-    const room = (id: string) => d.rooms.find((x) => x.id === id)?.name ?? id
-    add('Interior furniture.csv', csv([['Item', 'Category', 'Room', 'W (mm)', 'D (mm)', 'H (mm)', 'Material', 'Qty'], ...d.items.map((i) => [i.name, i.category, room(i.room), i.w ?? '', i.d ?? '', i.h, i.material, i.qty])]))
+    // every level with rooms: the furniture schedule, cut list, nesting and CNC of the whole house
+    const ints = r.house.interiors?.length ? r.house.interiors : [{ level: '', build: r.house.interior }]
+    add('Interior furniture.csv', csv([['Level', 'Item', 'Category', 'Room', 'W (mm)', 'D (mm)', 'H (mm)', 'Material', 'Qty'], ...ints.flatMap(({ level, build: d }) => d.items.map((i) => [level, i.name, i.category, d.rooms.find((x) => x.id === i.room)?.name ?? i.room, i.w ?? '', i.d ?? '', i.h, i.material, i.qty]))]))
+    const d = { cabinets: allCabinets(r) }
     const parts = d.cabinets.flatMap((c) => cutList(c))
     add('Cut list.csv', csv([['Cabinet', 'Part', 'Qty', 'Length (mm)', 'Width (mm)', 'Thickness (mm)', 'Material', 'Edge banding (mm/pc)'], ...parts.map((p) => [p.cabinet, p.part, p.qty, p.l, p.wd, p.t, p.material, p.edge])]))
     if (d.cabinets.length) {
@@ -94,14 +134,24 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     }
   }
   if (r.route && include.route) {
-    const m = r.route.model
+    // every route of the drawing; with several, each file is named after its route
+    const all = r.route.all?.length ? r.route.all : [{ name: r.route.model.alignment.name, model: r.route.model, volume: r.route.volume }]
+    for (const rt of all) routeFiles(rt.model, all.length > 1 ? `${rt.name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()} - ` : '')
+  }
+  function routeFiles(m: CivilModel, pre: string) {
+    const add = (name: string, text: string) => out.push({ name: `${base} - ${pre}${name}`, kind: 'text', text })
+    const drawing = (title: string, doc: CadDocument, pages: Page[]) => {
+      out.push({ name: `${base} - ${pre}${title}.dxf`, kind: 'text', text: toDxf2000(doc) })
+      out.push({ name: `${base} - ${pre}${title}.dwg`, kind: 'dwg', doc })
+      pages.push({ ...plotPage({ ...doc, name: `${base} — ${pre}${title}` }, 'A3', doc.layouts?.[0]?.scale ?? undefined), name: title })
+    }
     add('Earthwork.csv', csv([['From', 'To', 'Length (m)', 'Cut (m3)', 'Fill (m3)', 'Net (m3)'], ...earthwork(m).map((x) => [sta(x.from), sta(x.to), x.length.toFixed(2), x.cut.toFixed(2), x.fill.toFixed(2), x.net.toFixed(2)])]))
     add('Cross sections.csv', csv([['Stake', 'Station', 'Cut (m2)', 'Fill (m2)', 'Drawing cut (m2)', 'Drawing fill (m2)'], ...(m.sections ?? []).map((x) => [x.name, sta(x.station), x.cut.toFixed(3), x.fill.toFixed(3), x.drawn?.cut?.toFixed(2) ?? '', x.drawn?.fill?.toFixed(2) ?? ''])]))
     add('Long profile.csv', csv([['Station', 'Existing (m)', 'Design invert (m)'], ...m.invert.map(([s, z]) => [sta(s), m.ground?.length ? interp(m.ground, s).toFixed(3) : '', z.toFixed(3)])]))
     const pages: Page[] = []
     drawing(t.profile, profileDocument(m, t.profile, t.words), pages)
     sectionDocuments(m, t.sections, t.words).forEach((d, i) => drawing(`${t.sections} ${i + 1}`, d, pages))
-    out.push({ name: `${base} - ${t.profile} + ${t.sections}.pdf`, kind: 'pdf', pages })
+    out.push({ name: `${base} - ${pre}${t.profile} + ${t.sections}.pdf`, kind: 'pdf', pages })
   }
   return out
 }

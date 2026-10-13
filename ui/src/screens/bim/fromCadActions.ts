@@ -15,6 +15,7 @@ import type { FurnKind } from '../../bim/fromCad'
 export function buildNames(t: Messages['bim']['fromCad']): BuildNames {
   return {
     roofLevel: t.names.roofLevel,
+    voidRoom: t.names.voidRoom,
     room: (n) => fmt(t.names.room, { n }),
     wallExt: (v) => fmt(t.names.wallExt, { t: v }),
     wallInt: (v) => fmt(t.names.wallInt, { t: v }),

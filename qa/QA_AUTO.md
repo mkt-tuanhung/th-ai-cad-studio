@@ -47,16 +47,36 @@ Lối vào:
   - **mặt cắt 1-1 qua cầu thang** (như bộ hồ sơ VN): mặt cắt đi dọc theo tim vế 1 của cầu thang thấp nhất, nhìn về phía vế 2. Kết quả: vế 1 bị cắt tô đặc (bậc + bản thang nghiêng), chiếu nghỉ tô đặc, vế 2 thấy phía sau, **lan can dốc theo vế**, sàn tầng trên có lỗ ô thang. **Mặt cắt 2-2** qua giữa nhà theo phương còn lại. Nhà không có cầu thang thì cả hai mặt cắt qua giữa nhà;
   - nét vẽ là nét khuất được khử chính xác bằng lõi OCCT (cùng lõi với BIM → Project Browser); phần bị cắt (tường, sàn) tô đặc;
   - trên bản vẽ có: cao độ từng tầng (tên + cốt), trục kèm bóng số, kích thước tầng và tổng, tên phòng trên mặt cắt;
+  - **mặt đứng ghi cốt bậu và cốt đỉnh từng cửa sổ nhìn thấy** (cửa sổ khuất sau tường gần hơn thì không ghi);
   - khổ A3 tỉ lệ 1:100; nếu công trình lớn không vừa thì tự lên 1:125, 1:150…
+- **Bảng khối lượng** (CSV + PDF/DXF/DWG), mỗi tầng một cột, có cột tổng (`bim/quantities.ts`):
+  - **BTCT:** sàn (đã trừ lỗ ô thang, ô thông tầng), sàn mái, chiếu nghỉ, cột, bản thang + bậc;
+  - **xây:** theo bề dày tường — diện tích đã trừ cửa, và khối xây;
+  - **hoàn thiện:** trát và sơn, tách mặt trong / mặt ngoài. Tường nằm trên chu vi sàn có một mặt ngoài; tường lan can ban công có hai mặt ngoài;
+  - **lát nền:** theo diện tích phòng, không tính ô thông tầng;
+  - **cửa:** số lượng và diện tích cửa đi, cửa sổ; diện tích vách kính;
+  - **lan can:** chiều dài, đo dọc theo độ dốc.
+- **Bảng thống kê cửa** (PDF/DXF/DWG): mỗi dòng là một ký hiệu + kích thước, kèm tầng và số lượng.
+- **Khung tên** ghi tên công trình (tên file bản vẽ) và tên tờ.
 
-**Nội thất:**
-- Interior furniture `.csv`;
+**Nội thất — cả nhà, mọi tầng có phòng** (phân hệ Nội thất vẫn mở một tầng, tầng có nhiều đồ nhất):
+- Interior furniture `.csv` (có cột tầng);
 - Cut list `.csv`;
 - Part labels `.csv`;
 - Nesting `.dxf`;
-- **chương trình CNC `.nc`** cho mỗi tấm ván và mỗi dao: T1 cắt biên, T2 khoan lỗ chốt kệ, T3 khoét bản lề.
+- **chương trình CNC `.nc`** cho mỗi tấm ván và mỗi dao: T1 cắt biên, T2 khoan lỗ chốt kệ, T3 khoét bản lề. Khi có nhiều tầng, tên tủ ghi kèm tầng ("Tầng 2 · Tủ áo").
 
-**Tuyến:**
+**Mô hình nhà, từ tên phòng** (`balconiesAndVoids` trong `bim/fromCadBuild.ts`):
+- **Ban công, lô gia, sân thượng, sân phơi:**
+  - phần nằm ngoài chu vi nhà có sàn riêng;
+  - tường vẽ trên mép ngoài là **tường lan can cao 1100 mm**, không phải cao cả tầng. Tường chạy dài qua chỗ có cửa thì được tách: chỉ đoạn dọc ban công thành lan can, đoạn có cửa vẫn cao cả tầng;
+  - mép hở không có tường thì đặt lan can thép cao 1100 mm.
+- **Ô thông tầng:**
+  - nhận khi phòng tầng dưới có tên "… THÔNG TẦNG" và tầng trên có phòng chồng lên nó, hoặc khi phòng được đặt tên đúng là "Ô thông tầng" / "giếng trời";
+  - sàn được khoét lỗ, mép hở có lan can cao 1000 mm;
+  - không tính lát nền, không đưa vào Nội thất.
+
+**Tuyến — mọi tuyến trong bản vẽ** (phân hệ Civil mở tuyến được chọn; các file mang tên tuyến khi có nhiều tuyến):
 - Earthwork (theo 100 m) / Cross sections / Long profile `.csv`;
 - **trắc dọc** dạng DXF + DWG. Bản vẽ phóng đại tỉ lệ đứng, có tên từng đường và bảng cọc;
 - **trắc ngang** 6 mặt cắt mỗi tờ A3, dạng DXF + DWG;
@@ -74,8 +94,8 @@ Lối vào:
 |---|---|
 | `house_vn_SYNTHETIC.dxf` (smoke-auto, trình duyệt) | Building · 3 tầng · 18 tường · 9 cửa đi · 13 cửa sổ · 10 phòng · 12 cột · 18 đồ. Nội thất Tầng 1: 5 phòng, 4 tủ. Kiểm tra mô hình đạt hết. ZIP có IFC4, DXF mặt bằng chứa A-WALL, CSV, G-code, báo cáo. |
 | `canal_route_SYNTHETIC.dxf` (smoke-auto) | Route · 4 mặt cắt · 150 m · đào 650 m³ · đắp 741 m³. |
-| `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **4 vế thang (2 thang chữ U) · 3 lan can**. **4 mặt đứng (trục 1-4, 4-1, A-F, F-A) · 2 mặt cắt (1-1 qua cầu thang, 2-2)**, OCCT mất 12 s; toàn bộ chạy 13 s. **49 file, 0 lỗi.** |
-| Kênh Đức Phong (DWG thật, e2e_auto) | Route trong 43 s (AI phân loại 10/23 layer lạ, mất 38,8 s). Tuyến Đức Phong 1: 33 mặt cắt · 1.600 m · đào 6.161 m³ · đắp 4.324 m³, lệch so với hồ sơ −0,04 % / +0,44 %. **19 file, 0 lỗi.** |
+| `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **4 vế thang (2 thang chữ U) · 3 lan can**. **4 mặt đứng (trục 1-4, 4-1, A-F, F-A) · 2 mặt cắt (1-1 qua cầu thang, 2-2)**, OCCT mất 12 s; toàn bộ chạy 13 s. **12 đoạn tường lan can ban công / sân thượng** (1100 mm; tường sau ban công có cửa được tách). **Ô thông tầng** trên P. KHÁCH THÔNG TẦNG: sàn Tầng 2 có lỗ. **Nội thất cả nhà:** 3 tầng, 11 tủ → 152 tấm trên 35 tấm ván · 66 chương trình CNC. **Bảng khối lượng** 22 hạng mục, ví dụ: sàn 51,79 m³, cột 14,57 m³, thang 1,16 m³, xây tường 200 là 90,91 m³, lát nền 397,92 m², lan can 14,51 m. **Bảng thống kê cửa** 2 tờ. Mặt đứng có cốt cửa sổ. **105 file, 0 lỗi.** |
+| Kênh Đức Phong (DWG thật, e2e_auto) | **Cả 2 tuyến** trong hồ sơ: Đức Phong 1 (33 mặt cắt · 1.600 m · đào 6.161 m³ · đắp 4.324 m³, lệch so với hồ sơ −0,04 % / +0,44 %) và Đức Phong 3 (27 mặt cắt · 1.350 m · đào 6.000 m³ · đắp 6.901 m³). **35 file, 0 lỗi.** |
 
 **Kiểm tra file đầu ra:**
 - **IFC:** IfcOpenShell đọc được — 4 IfcBuildingStorey · 73 IfcWall + 4 IfcCurtainWall · 35 IfcDoor · 22 IfcWindow · 45 IfcSpace · 63 IfcColumn · 4 IfcSlab · 62 IfcFurniture.
@@ -97,7 +117,7 @@ Lối vào:
 - Mặt cắt: tên phòng dài chồng lên nhau. Giờ số phòng nằm trên, tên phòng nằm dưới, chữ tự thu nhỏ cho vừa bề rộng phòng (sửa luôn cho BIM → Project Browser).
 - Bản vẽ mặt đứng / mặt cắt BIM luôn mang tên mẫu "Villa Riverside - …" ở khung tên. Bộ 1 lệnh giờ dùng tên bản vẽ thật.
 
-Ảnh mẫu đầu ra (VILLA_150): `qa/fromcad/auto_plan_cuts.png`, `auto_elevation_A-F.png`, `auto_section_1-1.png` (mặt cắt qua cầu thang), `auto_section_stair_zoom.png` (phóng to phần thang).
+Ảnh mẫu đầu ra (VILLA_150): `qa/fromcad/auto_plan_cuts.png`, `auto_elevation_A-F.png`, `auto_section_1-1.png` (mặt cắt qua cầu thang), `auto_section_stair_zoom.png` (phóng to phần thang), `auto_boq.png` (bảng khối lượng), `auto_door_schedule.png` (bảng thống kê cửa).
 
 ## Cách chạy lại
 
@@ -122,7 +142,11 @@ Ghi chú: trong e2e, file mẫu luôn mang tên `sample.dwg` vì host không tru
   - lan can cầu thang tự đặt theo quy tắc: phía ô giếng, cạnh không có tường, và lan can chắn ở tầng cuối. Chiều cao mặc định 900 / 1000 mm, chưa có hộp chọn mẫu lan can (kính, gỗ, song sắt). Trụ đặt cách nhau ≤ 1,2 m, chưa vẽ từng song;
   - chưa ghi cốt cửa sổ, chưa ký hiệu vật liệu mặt ngoài;
   - mặt đứng chỉ đẹp khi mô hình dựng đúng: phần nào máy nhận nhầm trên mặt bằng thì mặt đứng cũng sai theo.
-- Chưa có bảng thống kê cửa trên bản vẽ (cửa mới có trong CSV).
-- **Nội thất:** chỉ dựng cho một tầng (tầng có nhiều đồ nhất). Tủ là tủ tham số theo loại đồ nhận ra (tủ áo, tủ bếp, kệ TV…), chưa đọc chi tiết cánh và ngăn từ bản vẽ.
-- **Tuyến:** chỉ dựng tuyến được chọn. Bộ hồ sơ chưa có trắc dọc các tuyến khác trong cùng bản vẽ.
+- **Bảng khối lượng:**
+  - đây là khối lượng hình học từ mô hình, chưa có đơn giá, chưa tách cốt thép, ván khuôn, móng, dầm (mặt bằng không vẽ dầm, móng);
+  - tường tính cả phần chồng lên cột và sàn;
+  - sàn Tầng 1 tính như sàn BTCT; nếu là nền đất đầm thì cần sửa lại.
+- **Nội thất:** phân hệ Nội thất chỉ mở một tầng; bảng cắt / CNC thì đủ mọi tầng. Tủ là tủ tham số theo loại đồ nhận ra (tủ áo, tủ bếp, kệ TV…), chưa đọc chi tiết cánh và ngăn từ bản vẽ.
+- **Ban công, ô thông tầng:** nhận theo tên phòng. Phòng không có tên thì không nhận được, trừ ô nằm trên phòng "… thông tầng".
+- **Tuyến:** chưa tách đắp máy / đắp thủ công; chưa ghép với toạ độ tuyến.
 - **CNC:** G-code theo cấu hình máy trong Interior → Nesting (mặc định chung). **Phải chạy thử không phôi** trước khi cắt thật.

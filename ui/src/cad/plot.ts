@@ -37,7 +37,14 @@ function extents(doc: CadDocument) {
     if (e.kind === 'line') (grow(e.a), grow(e.b))
     else if (e.kind === 'polyline') e.pts.forEach((p) => grow(p))
     else if (e.kind === 'circle' || e.kind === 'arc') grow(e.c, e.r)
-    else if (e.kind === 'text') grow(e.p, e.height * [...e.value].length * 0.6)
+    else if (e.kind === 'text') {
+      // the text's box: its width from the insertion point (or both ways when centred), its height above the
+      // baseline; turned text by the radius it can reach
+      const w = e.height * [...e.value].length * 0.6
+      if (Math.abs(e.rotation ?? 0) > 1e-6) grow(e.p, w)
+      else if (e.align === 'center') (grow({ x: e.p.x - w / 2, y: e.p.y }), grow({ x: e.p.x + w / 2, y: e.p.y + e.height }))
+      else (grow(e.p), grow({ x: e.p.x + w, y: e.p.y + e.height }))
+    }
     else if (e.kind === 'dimension') {
       const g = dimensionGeometry(e.a, e.b, e.offset)
       ;[e.a, e.b, g.da, g.db].forEach((p) => grow(p, e.textHeight))

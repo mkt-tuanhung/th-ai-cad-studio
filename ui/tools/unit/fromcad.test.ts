@@ -6,7 +6,9 @@
 import { decodeDxf, importDxf } from '../../src/cad/dxfImport'
 import type { CadDocument } from '../../src/cad/types'
 import { dominantAngle, findFlights, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
-import { buildBimModel, buildInterior, DEFAULT_BUILD, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
+import { balconiesAndVoids, buildBimModel, buildInterior, DEFAULT_BUILD, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
+import { boq, openingSchedule } from '../../src/bim/quantities'
+import { autoEn } from '../../src/i18n/ws/auto'
 import type { Entity } from '../../src/cad/types'
 import { stairSection } from '../../src/auto/views'
 import { runModelChecks, wallVolume } from '../../src/bim/model'
@@ -87,6 +89,18 @@ export function run(file?: string) {
     check(`${label}: interior data valid (rooms, placed items, cabinets for the cut list)`, validateInterior({ rooms: int.rooms, items: int.items, cabinets: int.cabinets }) === null && int.rooms.length === 5 && int.cabinets.length === 4 && int.items.every((x) => x.at?.length === x.qty),
       `${int.items.length} items, cabinets ${int.cabinets.map((c) => `${c.name} ${c.w}×${c.d}×${c.h} (${cutList(c).reduce((s, p) => s + p.qty, 0)} parts)`).join('; ')}`)
     if (label === 'straight') out.push(`  straight wall volume used as reference: ${vol.toFixed(3)}`)
+    // bill of quantities: masonry = gross wall volume − the openings in it; slabs, floors, doors, windows by count
+    const W = autoEn.boq.words
+    const B = boq(m, W)
+    const sum = (f: (r: (typeof B)[number]) => boolean) => B.filter(f).reduce((a, r) => a + r.total, 0)
+    const opVol = [...m.doors, ...m.windows].reduce((a, o) => { const w = m.walls.find((x) => x.id === o.hostWall)!; return a + (o.width * o.height * (m.wallTypes.find((t) => t.id === w.typeId)?.thickness ?? 0)) / 1e9 }, 0)
+    const slabVol = m.slabs.reduce((a, x) => a + (Math.abs(x.outline.reduce((s2, p, i) => s2 + p[0] * x.outline[(i + 1) % x.outline.length][1] - x.outline[(i + 1) % x.outline.length][0] * p[1], 0)) / 2 / 1e6) * x.thickness / 1000, 0)
+    const masonry = sum((r) => r.group === W.groups.masonry && r.unit === W.units.m3)
+    check(`${label}: bill of quantities — masonry = gross − openings, slab concrete, floor = rooms, doors / windows counted`,
+      Math.abs(masonry - (vol - opVol)) < 0.01 && Math.abs(sum((r) => r.item === W.items.slab || r.item === W.items.roof) - slabVol) < 0.01 && Math.abs(sum((r) => r.item === W.items.floor) - m.rooms.reduce((a, x) => a + x.area, 0)) < 0.01 && sum((r) => r.item === W.items.doors) === m.doors.length && sum((r) => r.item === W.items.windows) === m.windows.length && sum((r) => r.item === W.items.plasterOut) > 0,
+      `masonry ${masonry.toFixed(3)} vs ${(vol - opVol).toFixed(3)}; ${B.map((r) => `${r.item} ${r.total.toFixed(2)} ${r.unit}`).join('; ')}`)
+    const sch = openingSchedule(m)
+    check(`${label}: door / window schedule — every opening counted once, by mark and size`, sch.reduce((a, e) => a + e.count, 0) === m.doors.length + m.windows.length && sch.every((e) => e.levels.length >= 1), sch.map((e) => `${e.mark}×${e.count}`).join(' '))
     // one command: elevations named by the grids they show (Vietnamese convention), sections 1-1 / 2-2 marked on the plans
     const titles = viewRequests(m, autoVi.viewWords).map((r) => r.title)
     check(`${label}: elevations named by their grids, sections 1-1 and 2-2`, /^Mặt đứng trục 1-\d+$/.test(titles[0]) && /^Mặt đứng trục A-[B-Z]$/.test(titles[1]) && /^Mặt đứng trục \d+-1$/.test(titles[2]) && /^Mặt đứng trục [B-Z]-A$/.test(titles[3]) && titles[4] === 'Mặt cắt 1-1' && titles[5] === 'Mặt cắt 2-2', titles.join(' | '))
@@ -94,6 +108,7 @@ export function run(file?: string) {
     check(`${label}: section cuts drawn on the floor plan (both ends, arrow, number)`, plan.entities.filter((e) => e.layer === 'A-SECT').length === 12 && plan.entities.filter((e) => e.kind === 'text' && (e.value === '1' || e.value === '2') && e.layer === 'A-ANNO-TEXT').length === 4)
   }
   stairChecks(check)
+  edgeChecks(check)
   if (file) out.push(...villa(file).lines)
   out.push(fails ? `FAILED ${fails}` : 'ALL PASS')
   return out.join('\n')
@@ -164,4 +179,33 @@ function stairChecks(check: (name: string, ok: boolean, extra?: string) => void)
   const m = { levels, stairs, walls: [], slabs: [], rooms: [], grids: [] } as unknown as Parameters<typeof stairSection>[0]
   const sec = stairSection(m)
   check('stairs: section 1-1 along flight 1 (x = 9250), looking towards flight 2 (−x)', !!sec && sec.axis === 'x' && sec.at === 9250 && sec.face === 'right', JSON.stringify(sec))
+}
+
+/** A balcony with no parapet drawn, a void named as one, and a parapet wall split around the door in it. */
+function edgeChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  const levels = [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Tầng 2', elevation: 3600 }, { id: 'L3', name: 'Mái', elevation: 7200 }]
+  const types = new Map([['E200', { id: 'E200', family: 'Basic Wall', name: 'Ext 200', thickness: 200, structure: '', finishExt: '', finishInt: '', description: '' }]])
+  const wall = (id: string, x: number, y: number, length: number, angle: number) => ({ id, category: 'wall' as const, mark: id, typeId: 'E200', baseLevel: 'L2', baseOffset: 0, topLevel: 'L3', topOffset: 0, length, x, y, angle })
+  // the building 10 × 8 m; its front wall on y = 0; a 4 × 1.4 m balcony in front (no wall drawn on its edges)
+  const walls = [wall('W1', 0, 0, 10000, 0), wall('W2', 10000, 0, 8000, 90), wall('W3', 10000, 8000, 10000, 180), wall('W4', 0, 8000, 8000, 270)]
+  const fp: [number, number][] = [[0, 0], [10000, 0], [10000, 8000], [0, 8000]]
+  const slabs = [{ id: 'S2', category: 'slab', mark: 'S2', kind: 'floor', level: 'L2', offset: 0, thickness: 120, outline: fp }] as Parameters<typeof balconiesAndVoids>[4]
+  const rooms = [
+    { id: 'r1', category: 'room', number: '201', name: 'BAN CÔNG', level: 'L2', area: 5.6, outline: [[3000, -1400], [7000, -1400], [7000, 0], [3000, 0]] },
+    { id: 'r2', category: 'room', number: '202', name: 'Ô THÔNG TẦNG', level: 'L2', area: 6, outline: [[1000, 2000], [4000, 2000], [4000, 4000], [1000, 4000]] },
+    { id: 'r3', category: 'room', number: '203', name: 'PHÒNG NGỦ', level: 'L2', area: 30, outline: [[5000, 1000], [9000, 1000], [9000, 7000], [5000, 7000]] },
+  ] as Parameters<typeof balconiesAndVoids>[1]
+  const res = balconiesAndVoids(levels, rooms, walls, types, slabs, 120, 'Ô thông tầng', new Set(), [])
+  const bal = res.railings.filter((r) => r.height === 1100), vd = res.railings.filter((r) => r.height === 1000)
+  const pts = bal[0]?.pts ?? []
+  check('balcony without a parapet drawn: its own slab, one guard rail 1.1 m round its three open edges (50 mm in), none along the facade', res.slabs.length === 1 && bal.length === 1 && pts.length === 4 && JSON.stringify(pts) === JSON.stringify([[3050, -50], [3050, -1350], [6950, -1350], [6950, -50]]), JSON.stringify(res.railings))
+  check('void: the floor slab cut out under it, flagged, a guard rail 1 m round it', !!rooms[1].void && slabs[0].openings?.length === 1 && vd.length === 1 && vd[0].pts.length === 5, JSON.stringify(vd))
+  // a parapet drawn as a wall on the balcony edge, running on past it with a door in the rest
+  const w5 = { ...wall('W5', 0, -1400, 10000, 0) }
+  const door = { id: 'd1', category: 'door', mark: 'D1', family: 'Door', type: '', hostWall: 'W5', offset: 8000, width: 900, height: 2100, sill: 0 } as Parameters<typeof balconiesAndVoids>[8][number]
+  const walls2 = [...walls.map((x) => ({ ...x })), w5]
+  const rooms2 = rooms.map((r) => ({ ...r, void: undefined }))
+  balconiesAndVoids(levels, rooms2, walls2, types, [{ ...slabs[0], openings: undefined }], 120, 'Ô thông tầng', new Set(), [door])
+  const par = walls2.filter((x) => x.id.startsWith('W5'))
+  check('parapet: the wall along the balcony edge is split — that stretch 1.1 m high, the rest (with its door) a storey', par.length === 3 && par.some((x) => x.topLevel === 'L2' && x.topOffset === 1100 && x.length === 4000) && par.filter((x) => x.topLevel === 'L3').length === 2 && door.hostWall !== 'W5' && door.offset === 1000, JSON.stringify(par.map((x) => [x.id, x.x, x.length, x.topLevel, x.topOffset])) + ' door ' + door.hostWall + ' @' + door.offset)
 }
