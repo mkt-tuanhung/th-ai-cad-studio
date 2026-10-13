@@ -122,6 +122,8 @@ export interface Railing {
   level: string
   pts: P2[]
   height: number
+  /** Base height above the level at each point (a stair rail climbs with its flight); 0 when absent. */
+  z?: number[]
 }
 
 /** Loadable component placed as its bounding box (furniture, equipment). */

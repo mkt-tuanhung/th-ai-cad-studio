@@ -103,7 +103,7 @@ export function AutoDialog() {
     let checks = ''
     if (res.house) {
       const c = res.house.built.counts
-      house.push(fmt(t.house, { levels: c.levels, walls: c.walls, doors: c.doors, windows: c.windows, rooms: c.rooms, columns: c.columns, furniture: c.components, stairs: c.stairs }))
+      house.push(fmt(t.house, { levels: c.levels, walls: c.walls, doors: c.doors, windows: c.windows, rooms: c.rooms, columns: c.columns, furniture: c.components, stairs: c.stairs, railings: c.railings }))
       const it = res.house.interior
       if (it) {
         const parts = it.cabinets.flatMap(cutList).reduce((a, p) => a + p.qty, 0)

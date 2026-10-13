@@ -109,6 +109,8 @@ export function planDocument(m: BimModel, levelId: string, title: string, cuts: 
   }
   const lvIds = new Set(flights.map((st) => st.baseLevel))
   for (const sl of m.slabs) if (sl.landing && lvIds.has(sl.level)) out.push(P('A-STRS', sl.outline.map(v), true))
+  // railings: the stair rails with their flights, the guard rails of this floor
+  for (const r of m.railings) if ((lvIds.has(r.level) || r.level === levelId) && r.pts.length >= 2) out.push(P('A-STRS', r.pts.map(v), false))
   if (!Number.isFinite(x0)) { x0 = 0; y0 = 0; x1 = 10000; y1 = 10000 }
   for (const g of m.grids) {
     const a = v(g.a), b = v(g.b)

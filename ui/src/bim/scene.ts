@@ -68,11 +68,14 @@ export function bimExtras(m: BimModel): Scene {
     const parts: Prim[] = []
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const [a, b] = [r.pts[i], r.pts[i + 1]]
+      // base heights at both ends: a stair rail runs parallel to the nosings
+      const za = z + (r.z?.[i] ?? 0), zb = z + (r.z?.[i + 1] ?? 0)
       const L = Math.hypot(b[0] - a[0], b[1] - a[1])
+      if (L < 1) continue
       const k = Math.max(1, Math.ceil(L / 1200))
-      for (let j = i === 0 ? 0 : 1; j <= k; j++) parts.push(vcyl(a[0] + ((b[0] - a[0]) * j) / k, a[1] + ((b[1] - a[1]) * j) / k, z, 20, r.height))
-      parts.push(cylBetween([a[0], a[1], z + r.height], [b[0], b[1], z + r.height], 25))
-      parts.push(cylBetween([a[0], a[1], z + r.height * 0.45], [b[0], b[1], z + r.height * 0.45], 12))
+      for (let j = i === 0 ? 0 : 1; j <= k; j++) parts.push(vcyl(a[0] + ((b[0] - a[0]) * j) / k, a[1] + ((b[1] - a[1]) * j) / k, za + ((zb - za) * j) / k, 20, r.height))
+      parts.push(cylBetween([a[0], a[1], za + r.height], [b[0], b[1], zb + r.height], 25))
+      parts.push(cylBetween([a[0], a[1], za + r.height * 0.45], [b[0], b[1], zb + r.height * 0.45], 12))
     }
     items.push({ id: r.id, rgb: STEEL, mat: 'metal', parts })
   }

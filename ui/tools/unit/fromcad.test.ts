@@ -147,13 +147,19 @@ function stairChecks(check: (name: string, ok: boolean, extra?: string) => void)
   const types = new Map([['I200', { id: 'I200', family: 'Basic Wall', name: 'Int 200', thickness: 200, structure: '', finishExt: '', finishInt: '', description: '' }]])
   const slabs = [{ id: 'S1', category: 'slab', mark: 'S1', kind: 'floor', level: 'L1', offset: 0, thickness: 120, outline: [[0, 0], [10000, 0], [10000, 15000], [0, 15000]] }, { id: 'S2', category: 'slab', mark: 'S2', kind: 'floor', level: 'L2', offset: 0, thickness: 120, outline: [[0, 0], [10000, 0], [10000, 15000], [0, 15000]] }] as Parameters<typeof stairsFrom>[5]
   const picks = [{ rec: rec(lower), levelName: 'Tầng 1', elevation: 0, roof: false }, { rec: rec(upper), levelName: 'Tầng 2', elevation: 3900, roof: false }]
-  const { stairs, landings } = stairsFrom(picks, [[0, 0], [0, 0]], levels, [wall], types, slabs)
+  // the stair hall: walls on both outer sides of the flights (x 7400 and 9900) and beyond the landing
+  const side = (id: string, x: number) => ({ ...wall, id, mark: id, x, y: 7000, length: 4600, angle: 90 })
+  const { stairs, landings, railings } = stairsFrom(picks, [[0, 0], [0, 0]], levels, [wall, side('W2', 7400), side('W3', 9900)], types, slabs)
   const [f1, f2] = stairs
   check('stairs: a U stair for the storey — flight 1 up +y from the floor, flight 2 back from the landing, 22 risers of 177 mm', stairs.length === 2 && f1.angle === 90 && f1.x === 9250 && f1.y === 7600 && f1.risers === 11 && f1.baseOffset === 0 && f2.angle === -90 && f2.x === 8050 && f2.y === 10300 && f2.baseOffset === 1950 && f2.risers === 11 && Math.abs((f1.rise ?? 0) / 11 - 177.3) < 0.1, JSON.stringify(stairs.map((x) => [x.x, x.y, x.angle, x.baseOffset, x.rise, x.risers])))
   const ld = landings[0]
   const ys = ld ? ld.outline.map((q) => q[1]) : []
   check('stairs: the landing at the top of flight 1, across both flights, up to the wall face beyond (1200 mm deep)', landings.length === 1 && !!ld.landing && ld.offset === 1950 && Math.min(...ys) === 10300 && Math.max(...ys) === 11500, JSON.stringify(ld))
   check('stairs: the stair well cut through the floor above only', !slabs[0].openings && slabs[1].openings?.length === 1, JSON.stringify(slabs[1].openings))
+  const inner = railings.find((r) => r.level === 'L1'), guard = railings.find((r) => r.level === 'L2')
+  const r = (f1?.rise ?? 0) / 11
+  check('stairs: railings — the inner rail up flight 1, round the landing, up flight 2 (900 mm, parallel to the nosings); none along the walls', railings.length === 2 && !!inner && inner.height === 900 && inner.pts.length === 6 && inner.pts.every((q) => q[0] === 8750 || q[0] === 8550) && JSON.stringify(inner.z) === JSON.stringify([r, 1950, 1950, 1950 + r, 3900, 3900].map((v) => Math.round(v * 10) / 10)), JSON.stringify(railings.map((x) => [x.level, x.height, x.pts, x.z])))
+  check('stairs: the guard rail on the top floor across the open edge of the well over flight 1 (1000 mm), stopping at the wall', !!guard && guard.height === 1000 && JSON.stringify(guard.pts) === JSON.stringify([[8700, 7550], [9750, 7550]]), JSON.stringify(guard))
   // the section of the drawing set goes along flight 1 and looks towards flight 2
   const m = { levels, stairs, walls: [], slabs: [], rooms: [], grids: [] } as unknown as Parameters<typeof stairSection>[0]
   const sec = stairSection(m)

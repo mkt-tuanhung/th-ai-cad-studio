@@ -153,6 +153,12 @@ Bài này chạy **12/12 PASS**. Kiểm tra:
 - **Chiều cao bậc** = chiều cao tầng / tổng số bậc vẽ, nếu ra 140–200 mm; nếu không thì chia tầng thành các bậc ≤ 175 mm.
 - **Ô sàn tầng trên được khoét** lỗ cầu thang. Trong IFC: sàn có lỗ (IfcArbitraryProfileDefWithVoids), chiếu nghỉ là IfcSlab `.LANDING.`.
 - **Hình khối 3D:** mỗi vế là một khối bậc + bản thang nghiêng dày 150 mm (OCCT), nên mặt cắt ra giống bản vẽ thật.
+- **Lan can cầu thang** (2026-10-13): thép, trụ cách nhau ≤ 1,2 m, tay vịn và thanh giữa song song với mũi bậc.
+  - **Thang chữ U:** lan can phía ô giếng là một đường liền, đi lên vế 1, vòng qua chiếu nghỉ, rồi lên vế 2. Cao 900 mm.
+  - **Cạnh vế không có tường** (tim tường cách mép vế quá 350 mm): có lan can 900 mm. Cạnh có tường thì không đặt lan can.
+  - **Tầng cuối của thang:** lan can chắn cao 1000 mm chạy ngang mép ô thang phía trên vế 1, dừng cách tường 50 mm.
+  - **Trong IFC:** là IfcRailing; tay vịn dốc theo vế.
+  - **VILLA_150:** 3 lan can — 2 lan can ô giếng (tầng 1→2 và 2→3) và 1 lan can chắn ở tầng 3.
 - **VILLA_150:** 2 thang chữ U (tầng 1→2 và 2→3), 4 vế × 11 bậc. Cao bậc 177 mm và 164 mm, chiếu nghỉ sâu 1200 mm. Kiểm tra mô hình đạt hết.
 - **Cao độ bậu và chiều cao cửa sổ:** nếu bản vẽ không ghi kích thước bằng chữ thì dùng giá trị mặc định trong hộp thoại.
 - **Thể tích tường:** tường chạy qua cột tính cả phần chồng lên cột. Sai số nhỏ, cỡ 0,25 × 0,2 × chiều cao tầng cho mỗi cột nằm trong khe tường.

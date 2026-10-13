@@ -210,13 +210,15 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     const items: string[] = []
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const [a, b] = [r.pts[i], r.pts[i + 1]]
+      const za = r.z?.[i] ?? 0, zb = r.z?.[i + 1] ?? 0
       const L = Math.hypot(b[0] - a[0], b[1] - a[1])
       if (L < 1) continue
-      const d: [number, number, number] = [(b[0] - a[0]) / L, (b[1] - a[1]) / L, 0]
-      // top rail: a 50 × 50 section swept along the segment
-      items.push(extrude(rect(0, 0, 50, 50), L, [a[0], a[1], r.height - 25], d, [0, 0, 1]))
+      const L3 = Math.hypot(L, zb - za)
+      const d: [number, number, number] = [(b[0] - a[0]) / L3, (b[1] - a[1]) / L3, (zb - za) / L3]
+      // top rail: a 50 × 50 section swept along the segment (sloping with a stair); profile x horizontal
+      items.push(extrude(rect(0, 0, 50, 50), L3, [a[0], a[1], za + r.height - 25], d, [-(b[1] - a[1]) / L, (b[0] - a[0]) / L, 0]))
       const k = Math.max(1, Math.ceil(L / 1200))
-      for (let j = i === 0 ? 0 : 1; j <= k; j++) items.push(extrude(w.add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${ax2(0, 0)},20.)`), r.height - 50, [a[0] + d[0] * (L * j) / k, a[1] + d[1] * (L * j) / k, 0]))
+      for (let j = i === 0 ? 0 : 1; j <= k; j++) items.push(extrude(w.add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${ax2(0, 0)},20.)`), r.height - 50, [a[0] + ((b[0] - a[0]) * j) / k, a[1] + ((b[1] - a[1]) * j) / k, za + ((zb - za) * j) / k]))
     }
     const el = w.add(`IFCRAILING('${ifcGuid('railing:' + r.id)}',$,${stepString('Railing:' + r.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(items)},${stepString(r.mark)},.GUARDRAIL.)`)
     count('IfcRailing')

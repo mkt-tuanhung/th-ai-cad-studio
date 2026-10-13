@@ -41,10 +41,10 @@ Lối vào:
   - tên phòng + diện tích (chữ tự thu nhỏ cho vừa phòng);
   - đồ nội thất, lưới trục, kích thước tổng;
   - **ký hiệu mặt cắt 1-1, 2-2**: nét đậm ở hai đầu, mũi tên chỉ đúng hướng nhìn, số hiệu;
-  - **cầu thang**: vế, nét bậc, mũi tên lên, chiếu nghỉ.
+  - **cầu thang**: vế, nét bậc, mũi tên lên, chiếu nghỉ, lan can.
 - **mặt đứng và mặt cắt nhà** (chỉ có trên bản desktop), mỗi bản vẽ dạng DXF + DWG, cùng một file PDF "Mặt đứng + mặt cắt":
   - 4 mặt đứng, **đặt tên theo trục** như bản vẽ VN: "Mặt đứng trục 1-4", "4-1", "A-F", "F-A". Nếu không có lưới trục thì đặt theo hướng (Nam, Bắc, Đông, Tây);
-  - **mặt cắt 1-1 qua cầu thang** (như bộ hồ sơ VN): mặt cắt đi dọc theo tim vế 1 của cầu thang thấp nhất, nhìn về phía vế 2. Kết quả: vế 1 bị cắt tô đặc (bậc + bản thang nghiêng), chiếu nghỉ tô đặc, vế 2 thấy phía sau, sàn tầng trên có lỗ ô thang. **Mặt cắt 2-2** qua giữa nhà theo phương còn lại. Nhà không có cầu thang thì cả hai mặt cắt qua giữa nhà;
+  - **mặt cắt 1-1 qua cầu thang** (như bộ hồ sơ VN): mặt cắt đi dọc theo tim vế 1 của cầu thang thấp nhất, nhìn về phía vế 2. Kết quả: vế 1 bị cắt tô đặc (bậc + bản thang nghiêng), chiếu nghỉ tô đặc, vế 2 thấy phía sau, **lan can dốc theo vế**, sàn tầng trên có lỗ ô thang. **Mặt cắt 2-2** qua giữa nhà theo phương còn lại. Nhà không có cầu thang thì cả hai mặt cắt qua giữa nhà;
   - nét vẽ là nét khuất được khử chính xác bằng lõi OCCT (cùng lõi với BIM → Project Browser); phần bị cắt (tường, sàn) tô đặc;
   - trên bản vẽ có: cao độ từng tầng (tên + cốt), trục kèm bóng số, kích thước tầng và tổng, tên phòng trên mặt cắt;
   - khổ A3 tỉ lệ 1:100; nếu công trình lớn không vừa thì tự lên 1:125, 1:150…
@@ -74,7 +74,7 @@ Lối vào:
 |---|---|
 | `house_vn_SYNTHETIC.dxf` (smoke-auto, trình duyệt) | Building · 3 tầng · 18 tường · 9 cửa đi · 13 cửa sổ · 10 phòng · 12 cột · 18 đồ. Nội thất Tầng 1: 5 phòng, 4 tủ. Kiểm tra mô hình đạt hết. ZIP có IFC4, DXF mặt bằng chứa A-WALL, CSV, G-code, báo cáo. |
 | `canal_route_SYNTHETIC.dxf` (smoke-auto) | Route · 4 mặt cắt · 150 m · đào 650 m³ · đắp 741 m³. |
-| `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **4 vế thang (2 thang chữ U)**. **4 mặt đứng (trục 1-4, 4-1, A-F, F-A) · 2 mặt cắt (1-1 qua cầu thang, 2-2)**, OCCT mất 12 s; toàn bộ chạy 13 s. **49 file, 0 lỗi.** |
+| `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **4 vế thang (2 thang chữ U) · 3 lan can**. **4 mặt đứng (trục 1-4, 4-1, A-F, F-A) · 2 mặt cắt (1-1 qua cầu thang, 2-2)**, OCCT mất 12 s; toàn bộ chạy 13 s. **49 file, 0 lỗi.** |
 | Kênh Đức Phong (DWG thật, e2e_auto) | Route trong 43 s (AI phân loại 10/23 layer lạ, mất 38,8 s). Tuyến Đức Phong 1: 33 mặt cắt · 1.600 m · đào 6.161 m³ · đắp 4.324 m³, lệch so với hồ sơ −0,04 % / +0,44 %. **19 file, 0 lỗi.** |
 
 **Kiểm tra file đầu ra:**
@@ -119,7 +119,7 @@ Ghi chú: trong e2e, file mẫu luôn mang tên `sample.dwg` vì host không tru
 
 - **Mặt đứng, mặt cắt:**
   - mặt cắt 2-2 luôn đi qua giữa nhà; chỉ nhận được thang vế thẳng (1 vế, chữ U), chưa nhận thang xoắn hay bậc rẻ quạt;
-  - chưa có lan can, tay vịn cầu thang;
+  - lan can cầu thang tự đặt theo quy tắc: phía ô giếng, cạnh không có tường, và lan can chắn ở tầng cuối. Chiều cao mặc định 900 / 1000 mm, chưa có hộp chọn mẫu lan can (kính, gỗ, song sắt). Trụ đặt cách nhau ≤ 1,2 m, chưa vẽ từng song;
   - chưa ghi cốt cửa sổ, chưa ký hiệu vật liệu mặt ngoài;
   - mặt đứng chỉ đẹp khi mô hình dựng đúng: phần nào máy nhận nhầm trên mặt bằng thì mặt đứng cũng sai theo.
 - Chưa có bảng thống kê cửa trên bản vẽ (cửa mới có trong CSV).

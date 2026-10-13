@@ -7,7 +7,7 @@
  * they share (or on the corner of their walls) so storeys stack. The result replaces nothing by itself: the
  * caller commits it as ONE undoable edit after the user approved the preview.
  */
-import type { BimModel, Column, Component, GridLine, Level, Opening, Room, Slab, Stair, Wall, WallType } from './model'
+import type { BimModel, Column, Component, GridLine, Level, Opening, Railing, Room, Slab, Stair, Wall, WallType } from './model'
 import type { Cabinet, Item, ItemCategory, Room as InteriorRoom } from '../interior/model'
 import { MATERIALS } from '../interior/model'
 import { interiorPoint, wallLine, type FurnKind, type RecFurniture, type Recognition } from './fromCad'
@@ -94,7 +94,7 @@ const r1 = (v: number) => Math.round(v * 10) / 10
 export interface BuildResult {
   model: BimModel
   align: Alignment
-  counts: { levels: number; walls: number; doors: number; windows: number; rooms: number; columns: number; slabs: number; components: number; grids: number; stairs: number }
+  counts: { levels: number; walls: number; doors: number; windows: number; rooms: number; columns: number; slabs: number; components: number; grids: number; stairs: number; railings: number }
 }
 
 export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: BuildNames): BuildResult {
@@ -189,10 +189,10 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     const [ox, oy] = align.origins[sorted.length - 1]
     slabs.push({ id: `S${slabs.length + 1}`, category: 'slab', mark: `S${slabs.length + 1}`, kind: 'roof', level: levels[levels.length - 1].id, offset: 0, thickness: opt.slabT, outline: top.rec.footprint.map((q) => [r1(q[0] - ox), r1(q[1] - oy)] as P2) })
   }
-  const { stairs, landings } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
+  const { stairs, landings, railings } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
   slabs.push(...landings)
-  const model: BimModel = { levels, wallTypes: [...types.values()], walls, doors, windows, rooms, columns, slabs, stairs, railings: [], components, grids, annotations: [] }
-  return { model, align, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length } }
+  const model: BimModel = { levels, wallTypes: [...types.values()], walls, doors, windows, rooms, columns, slabs, stairs, railings, components, grids, annotations: [] }
+  return { model, align, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length, railings: railings.length } }
 }
 
 /* ---------------- stairs ---------------- */
@@ -223,8 +223,13 @@ const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1]
  * a landing at its top as deep as the space up to the wall beyond, flight 2 back to the upper floor. Riser
  * height = storey height / the risers drawn (both flights), when that is a normal riser (140…200 mm); else the
  * storey is divided in risers ≤ 175 mm. The upper floor slab gets the stair well cut out.
+ * Railings (steel, posts ≤ 1.2 m apart): on every side of a flight with no wall along it, 50 mm in from its edge
+ * and parallel to the nosings, RAIL_H high — on a U stair the inner rail runs on round the landing from flight 1 to
+ * flight 2 as one; on the floor where a stair ends, a guard rail GUARD_H high across the open edge of its well.
  */
-export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[]): { stairs: Stair[]; landings: Slab[] } {
+export const RAIL_H = 900, GUARD_H = 1000
+
+export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[]): { stairs: Stair[]; landings: Slab[]; railings: Railing[] } {
   const cl: FlightCluster[] = []
   sorted.forEach((p, li) => {
     const [ox, oy] = origins[li]
@@ -256,8 +261,28 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
     used.add(a)
     if (b) { used.add(b); systems.push([a, b]) } else systems.push([a])
   }
-  const stairs: Stair[] = [], landings: Slab[] = []
+  const stairs: Stair[] = [], landings: Slab[] = [], railings: Railing[] = []
   let no = 0
+  // a wall along the side of a flight (its centre line within 350 mm of the edge, over half the run)
+  const wallAt = (lv: string, c: FlightCluster, sEdge: number) => walls.some((w) => {
+    if (w.baseLevel !== lv) return false
+    const { a: wa, dir: wu } = wallEnds(w)
+    if (Math.abs(dot(wu, c.n)) < 0.95 || Math.abs(dot(wa, c.d) - sEdge) > 350) return false
+    const w0 = dot(wa, c.n), w1 = w0 + w.length * dot(wu, c.n)
+    return Math.min(Math.max(w0, w1), c.t1) - Math.max(Math.min(w0, w1), c.t0) > 0.5 * (c.t1 - c.t0)
+  })
+  // a rail along a flight on one side (+1: its left): from the first nosing to the top one, then on to its top end
+  const railOf = (st: Stair, side: 1 | -1) => {
+    const t = (st.angle * Math.PI) / 180, u: P2 = [Math.cos(t), Math.sin(t)], nl: P2 = [-u[1], u[0]]
+    const o = side * (st.width / 2 - 50), n = st.risers ?? 1, g = st.length / n, r = (st.rise ?? 0) / n, z0 = st.baseOffset ?? 0
+    const p = (along: number): P2 => [r1(st.x + u[0] * along + nl[0] * o), r1(st.y + u[1] * along + nl[1] * o)]
+    return { pts: [p(0), p(st.length - g), p(st.length)], z: [r1(z0 + r), r1(z0 + n * r), r1(z0 + n * r)] }
+  }
+  const sideTo = (st: Stair, q: P2): 1 | -1 => { const t = (st.angle * Math.PI) / 180; return (-Math.sin(t) * (q[0] - st.x) + Math.cos(t) * (q[1] - st.y) >= 0 ? 1 : -1) }
+  const leftEdge = (c: FlightCluster, st: Stair) => { const t = (st.angle * Math.PI) / 180; const nl: P2 = [-Math.sin(t), Math.cos(t)]; return dot(nl, c.d) > 0 ? c.s1 : c.s0 }
+  const rail = (lv: string, pts: P2[], z: number[], height: number) => railings.push({ id: `railing-${railings.length + 1}`, category: 'railing', mark: `RL${railings.length + 1}`, level: lv, pts, height, z })
+  // per stair system: the storeys it was built for, with flight 1 (cluster and element) of each
+  const built = new Map<FlightCluster[], { li: number; c1: FlightCluster; other: FlightCluster | undefined; st: Stair }[]>()
   const at = (c: FlightCluster, s: number, t: number): P2 => [r1(c.d[0] * s + c.n[0] * t), r1(c.d[1] * s + c.n[1] * t)]
   const rect = (c: FlightCluster, s0: number, s1: number, t0: number, t1: number): P2[] => [at(c, s0, t0), at(c, s1, t0), at(c, s1, t1), at(c, s0, t1)]
   const ang = (v: P2) => Math.round((Math.atan2(v[1], v[0]) * 180) / Math.PI * 1000) / 1000
@@ -285,8 +310,20 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
         const [x, y] = at(c, (c.s0 + c.s1) / 2, tb)
         return { id: `stair-${stairs.length + 1}`, category: 'stair', mark, baseLevel: lv.id, topLevel: above.id, x, y, angle: ang([c.n[0] * u, c.n[1] * u]), length: r1(c.t1 - c.t0), width: r1(c.s1 - c.s0), baseOffset: r1(base), rise: r1(k * riser), risers: k }
       }
-      stairs.push(flight(c1, u1, 0, k1, `ST${no}`))
+      const s1st = flight(c1, u1, 0, k1, `ST${no}`)
+      stairs.push(s1st)
+      built.set(sys, [...(built.get(sys) ?? []), { li, c1, other: c2, st: s1st }])
       let well = rect(c1, c1.s0, c1.s1, c1.t0, c1.t1)
+      // open sides of a flight get a rail (the side towards the other flight of a U stair is done below)
+      const openRails = (c: FlightCluster, st: Stair, skip: 1 | -1 | 0) => {
+        for (const side of [1, -1] as const) {
+          if (side === skip) continue
+          const edge = side === 1 ? leftEdge(c, st) : leftEdge(c, st) === c.s1 ? c.s0 : c.s1
+          if (wallAt(lv.id, c, edge)) continue
+          const r = railOf(st, side)
+          rail(lv.id, r.pts, r.z, RAIL_H)
+        }
+      }
       if (c2) {
         // landing at the top of flight 1 across both flights, up to the wall beyond (else as deep as a flight is wide)
         const te = u1 > 0 ? c1.t1 : c1.t0
@@ -306,15 +343,40 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
         const z = k1 * riser
         const out = rect(c1, S0, S1, te, te + u1 * D)
         landings.push({ id: `landing-${landings.length + 1}`, category: 'slab', mark: `LD${landings.length + 1}`, kind: 'floor', level: lv.id, offset: r1(z), thickness: 100, outline: out, landing: true })
-        stairs.push(flight(c2, (-u1) as 1 | -1, z, k2, `ST${no}b`))
+        const s2st = flight(c2, (-u1) as 1 | -1, z, k2, `ST${no}b`)
+        stairs.push(s2st)
         well = rect(c1, S0, S1, Math.min(c1.t0, c2.t0, te + u1 * D), Math.max(c1.t1, c2.t1, te + u1 * D))
-      }
+        // the inner rail: up flight 1, across the well at the landing, up flight 2 — one rail
+        const in1 = sideTo(s1st, [s2st.x, s2st.y]), in2 = sideTo(s2st, [s1st.x, s1st.y])
+        const a = railOf(s1st, in1), b = railOf(s2st, in2)
+        rail(lv.id, [...a.pts, ...b.pts], [...a.z, ...b.z], RAIL_H)
+        openRails(c1, s1st, in1)
+        openRails(c2, s2st, in2)
+      } else openRails(c1, s1st, 0)
       // the stair well through the floor above
       const up = slabs.find((s) => s.level === above.id && s.kind === 'floor' && !s.landing)
       if (up) up.openings = [...(up.openings ?? []), well]
     }
   }
-  return { stairs, landings }
+  // the floor where a stair ends: a guard rail across the open edge of its well (over flight 1 of a U stair,
+  // along the open sides of a straight one), where no wall stands
+  for (const list of built.values()) {
+    for (const { li, c1, other, st } of list) {
+      if (list.some((x) => x.li === li + 1)) continue
+      const above = levels[li + 1], lv = levels[li]
+      if (!above) continue
+      // the floor-side end of the well: the bottom of flight 1, the guard 50 mm back on the floor
+      const t = (st.angle * Math.PI) / 180
+      const tb = dot([st.x, st.y], c1.n), sgn = Math.cos(t) * c1.n[0] + Math.sin(t) * c1.n[1] > 0 ? 1 : -1
+      if (other) {
+        const inner = Math.abs(c1.s0 - other.s1) < Math.abs(c1.s1 - other.s0) ? c1.s0 : c1.s1
+        const outer = inner === c1.s0 ? c1.s1 : c1.s0
+        const sOut = wallAt(lv.id, c1, outer) ? outer + (outer > inner ? -50 : 50) : outer
+        rail(above.id, [at(c1, inner, tb - sgn * 50), at(c1, sOut, tb - sgn * 50)], [0, 0], GUARD_H)
+      } else for (const edge of [c1.s0, c1.s1]) if (!wallAt(lv.id, c1, edge)) rail(above.id, [at(c1, edge, c1.t0), at(c1, edge, c1.t1)], [0, 0], GUARD_H)
+    }
+  }
+  return { stairs, landings, railings }
 }
 
 /** Two models side by side: the imported levels become extra levels (renamed if their elevation is taken). */
