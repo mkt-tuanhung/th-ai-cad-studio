@@ -10,7 +10,9 @@ import { balconiesAndVoids, buildBimModel, buildInterior, DEFAULT_BUILD, stairsF
 import { boq, openingSchedule, priceOf, readPrices } from '../../src/bim/quantities'
 import { applyStructure, readRebar, readStructure } from '../../src/bim/structure'
 import { parseSlope, readRoofs, roofQuantities } from '../../src/bim/roof'
-import { readMep } from '../../src/auto/mep'
+import { mepRole, readMep } from '../../src/auto/mep'
+import { buildMepModel } from '../../src/auto/mepModel'
+import { findClashes } from '../../src/mep/model'
 import { bimExtras } from '../../src/bim/scene'
 import { autoEn } from '../../src/i18n/ws/auto'
 import type { Entity } from '../../src/cad/types'
@@ -385,8 +387,17 @@ function mepChecks(check: (name: string, ok: boolean, extra?: string) => void) {
     // a schematic far away: not a plan
     L('P-CW', 40000, -29000, 48000, -29000), Tx('P-TEXT', 42000, -32000, 'SƠ ĐỒ NGUYÊN LÝ CẤP NƯỚC', 300),
   ]
-  const r = readMep({ name: 'mep.dxf', entities: ents } as unknown as CadDocument, ['Tầng 1'], 'Mái')
+  ents.push(Tx('P-TEXT', 1000, -29150, 'OĐ1 D110'), ...[0, 1].flatMap((i) => [C('E-SWITCH', 6000 + i * 800, 2500, 60), L('E-SWITCH', 6040 + i * 800, 2540, 6180 + i * 800, 2680)]))
+  const r = readMep({ name: 'mep.dxf', entities: ents } as unknown as CadDocument, [{ name: 'Tầng 1', elevation: 0 }, { name: 'Tầng 2', elevation: 3600 }], 'Mái')
   const row = (key: string) => r.rows.find((x) => x.key === key)
   check('MEP: 2 plans (the schematic left out); 3 lights, 2 sockets, 5 m of wiring, an air conditioner 12k', r.plans.length === 2 && row('mep:light')?.total === 3 && row('mep:socket')?.total === 2 && Math.abs((row('mep:wire')?.total ?? 0) - 5) < 1e-9 && row('mep:ac:12k')?.total === 1 && r.plans.every((p) => p.level === 'Tầng 1'), JSON.stringify(r))
+  check('MEP: a riser "OĐ1 D110" a storey high; drops to 2 switches and 2 sockets estimated (storey − slab − mounting height)', Math.abs((row('mep:riser:110')?.total ?? 0) - 3.6) < 1e-9 && Math.abs((row('mep:wireDrop')?.total ?? 0) - (2 * (3600 - 120 - 1250) + 2 * (3600 - 120 - 400)) / 1000) < 1e-9, JSON.stringify({ riser: row('mep:riser:110'), drop: row('mep:wireDrop') }))
+  check('MEP roles: fire and low-current layers', mepRole('F-DETECT') === 'detector' && mepRole('F-ALARM') === 'alarm' && mepRole('F-EXT') === 'extinguisher' && mepRole('F-SIGN') === 'exitSign' && mepRole('L-CCTV') === 'camera' && mepRole('L-CCTV-FOV') === 'ignore' && mepRole('L-WIFI') === 'ap' && mepRole('L-WIFI-R') === 'ignore' && mepRole('L-DATA') === 'data' && mepRole('PCCC - ĐẦU BÁO KHÓI') === 'detector' && mepRole('P-CW') === 'cold' && mepRole('E-LIGHT') === 'light')
+  // the coordination model: a drain main along x under the usual beams, a branch teeing into it, one beam deeper
+  const bim = { levels: [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Tầng 2', elevation: 3600 }], slabs: [], walls: [], rooms: [], columns: [], grids: [],
+    beams: [{ id: 'b1', category: 'beam', mark: 'D1', level: 'L2', topOffset: -50, x: 0, y: 0, angle: 90, length: 6000, b: 220, h: 300 }, { id: 'b2', category: 'beam', mark: 'D2', level: 'L2', topOffset: -50, x: 2000, y: 0, angle: 90, length: 6000, b: 220, h: 300 }, { id: 'b3', category: 'beam', mark: 'D3', level: 'L2', topOffset: -50, x: 4000, y: 0, angle: 90, length: 6000, b: 220, h: 600 }] } as unknown as Parameters<typeof buildMepModel>[1]
+  const mm = buildMepModel([{ level: 'Tầng 1', role: 'waste', size: '110', pts: [[-500, 3000], [5000, 3000]] }, { level: 'Tầng 1', role: 'waste', size: '75', pts: [[3000, 1000], [3000, 3050]] }, { level: 'Tầng 1', role: 'light', size: null, at: [1000, 1000] }], bim)
+  const cl = findClashes(mm.model)
+  check('MEP model: pipes under the usual beams (300 deep) — only the deeper beam (600) is in the way; the tee is no clash', mm.pipes === 2 && cl.length === 1 && cl[0].kind === 'pipe-beam' && /D3/.test(cl[0].b) && mm.fixtures === 1 && mm.pipeBeam === 1, JSON.stringify({ pipes: mm.model.pipes, cl }))
   check('MEP: pipes measured and sized by the label next to them (cold D25 4 m, waste D90 3 m), a floor drain', Math.abs((row('mep:cold:25')?.total ?? 0) - 4) < 1e-9 && Math.abs((row('mep:waste:90')?.total ?? 0) - 3) < 1e-9 && row('mep:fixture')?.total === 1 && !r.rows.some((x) => x.role === 'cold' && x.total > 4.001), JSON.stringify(r.rows))
 }

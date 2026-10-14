@@ -8,7 +8,7 @@ target_include_directories(thcad_geom_occt PUBLIC include PRIVATE ${OpenCASCADE_
 if(NOT MSVC)
   target_compile_options(thcad_geom_occt PRIVATE -Wno-pedantic -Wno-deprecated-declarations)
 endif()
-target_link_libraries(thcad_geom_occt PUBLIC thcad::core thcad::bim PRIVATE TKernel TKMath TKG3d TKBRep TKTopAlgo TKPrim TKBO TKGeomBase TKDESTEP TKXSBase TKDE TKService TKV3d TKOpenGl TKG2d TKHLR TKFillet)
+target_link_libraries(thcad_geom_occt PUBLIC thcad::core thcad::bim PRIVATE TKernel TKMath TKG3d TKBRep TKTopAlgo TKPrim TKBO TKGeomBase TKDESTEP TKXSBase TKDE TKService TKV3d TKOpenGl TKG2d TKHLR TKMesh TKFillet)
 if(APPLE)
   target_link_libraries(thcad_geom_occt PRIVATE "-framework AppKit")
 endif()

@@ -34,8 +34,8 @@ export type OutFile =
 
 export interface MepWords {
   title: string
-  groups: { elec: string; hvac: string; plumb: string }
-  items: Record<'panel' | 'light' | 'switch' | 'socket' | 'wire' | 'lps' | 'ac' | 'fan' | 'cold' | 'hot' | 'waste' | 'sewer' | 'storm' | 'vent' | 'fixture', string>
+  groups: { elec: string; hvac: string; plumb: string; fire: string; elv: string }
+  items: Record<'panel' | 'light' | 'switch' | 'socket' | 'wire' | 'wireDrop' | 'lps' | 'ac' | 'fan' | 'cold' | 'hot' | 'waste' | 'sewer' | 'storm' | 'vent' | 'riser' | 'fixture' | 'detector' | 'alarm' | 'extinguisher' | 'exitSign' | 'sprinkler' | 'hydrant' | 'seal' | 'data' | 'tv' | 'ap' | 'camera' | 'intercom' | 'rack' | 'elvCable', string>
   acNone: string
   sizeNone: string
   sizeNote: string
@@ -251,8 +251,8 @@ export function mepBoqRows(res: MepResult[], M: MepWords, U: BoqWords['units']):
   const map = new Map<string, BoqRow>()
   for (const r of res)
     for (const x of r.rows) {
-      const group = ['panel', 'light', 'switch', 'socket', 'wire', 'lps'].includes(x.role) ? M.groups.elec : ['ac', 'fan'].includes(x.role) ? M.groups.hvac : M.groups.plumb
-      const pipe = ['cold', 'hot', 'waste', 'sewer', 'storm', 'vent'].includes(x.role)
+      const group = ['panel', 'light', 'switch', 'socket', 'wire', 'wireDrop', 'lps'].includes(x.role) ? M.groups.elec : ['ac', 'fan'].includes(x.role) ? M.groups.hvac : ['detector', 'alarm', 'extinguisher', 'exitSign', 'sprinkler', 'hydrant', 'seal'].includes(x.role) ? M.groups.fire : ['data', 'tv', 'ap', 'camera', 'intercom', 'rack', 'elvCable'].includes(x.role) ? M.groups.elv : M.groups.plumb
+      const pipe = ['cold', 'hot', 'waste', 'sewer', 'storm', 'vent', 'riser'].includes(x.role)
       const size = x.role === 'ac' ? (x.size ? x.size.toUpperCase() : M.acNone) : pipe ? (x.size ? `D${x.size} ${M.sizeNote}` : M.sizeNone) : ''
       const item = (M.items as Record<string, string>)[x.role].replace('{size}', size).trim()
       const e = map.get(x.key) ?? { key: x.key, group, item, unit: x.unit === 'pcs' ? U.pcs : U.m, byLevel: {}, total: 0 }

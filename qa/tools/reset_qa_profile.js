@@ -5,7 +5,7 @@
 ;(async () => {
   await window.thcadHostReady
   const set = Storage.prototype.setItem
-  const keys = ['thcad.bim', 'thcad.interior', 'thcad.civil']
+  const keys = ['thcad.bim', 'thcad.interior', 'thcad.civil', 'thcad.mep']
   Storage.prototype.setItem = function (k, v) { if (!keys.includes(k)) set.call(this, k, v) }
   for (const k of keys) localStorage.removeItem(k)
   await new Promise((r) => setTimeout(r, 5000))

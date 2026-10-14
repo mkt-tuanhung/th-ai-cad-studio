@@ -9,7 +9,7 @@
   const qa = '/Users/mac/Downloads/TH_AI_CAD_Studio_UI_Handoff_v1/th-ai-cad-studio/qa/fromcad/'
   let fails = 0
   const check = (name, ok, extra = '') => { if (!ok) fails++; log((ok ? 'PASS ' : 'FAIL ') + name + (extra ? ' — ' + extra : '')) }
-  const keys = ['thcad.bim', 'thcad.interior', 'thcad.civil']
+  const keys = ['thcad.bim', 'thcad.interior', 'thcad.civil', 'thcad.mep']
   const saved = Object.fromEntries(keys.map((k) => [k, localStorage.getItem(k)]))
   try {
     const h = await window.thcadHostReady
@@ -60,6 +60,25 @@
     const txt = done?.innerText.replace(/\n/g, ' | ') ?? ''
     log('done: ' + txt)
     check('Approve: models applied, the package written into the folder, no file failed', !!done && /files written to/.test(txt) && !/not written/.test(txt), txt)
+    if (names.some((x) => /MEP/i.test(x))) {
+      // the MEP workspace got the coordination model (pipes, fittings, the beams of the structure)
+      await sleep(500)
+      const mepDoc = JSON.parse(localStorage.getItem('thcad.mep') ?? '{}').state?.doc
+      // the MEP workspace opens on it (plan and 3D)
+      const errs = []
+      window.addEventListener('error', (ev) => errs.push(String(ev.message)))
+      ;[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Open MEP')?.click()
+      await until(() => location.hash === '#/mep', 5000)
+      await sleep(4000)
+      await h.qaGrab(qa + 'auto_mep_workspace_desktop.png')
+      // the live OCCT model of the imported pipes and beams (Shaded)
+      ;[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Shaded')?.click()
+      await sleep(8000)
+      await h.qaGrab(qa + 'auto_mep_shaded_desktop.png')
+      const shown = document.body.innerText
+      check('the MEP workspace opens on the imported model without errors', !errs.length && /Pipe P1/.test(shown) && /PPR|uPVC/.test(shown), errs.join(' | ') || shown.slice(0, 200))
+      check('the MEP workspace got the model built from the drawings', !!mepDoc && mepDoc.pipes?.length > 20 && mepDoc.beams?.length > 20 && mepDoc.fixtures?.length > 50, `${mepDoc?.pipes?.length} pipes, ${mepDoc?.beams?.length} beams, ${mepDoc?.fixtures?.length} fixtures`)
+    }
     await h.qaGrab(qa + `auto_${/route/i.test(kind ?? '') ? 'route' : 'house'}_done_desktop.png`)
   } catch (e) {
     fails++

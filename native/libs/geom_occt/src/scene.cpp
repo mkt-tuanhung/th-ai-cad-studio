@@ -71,6 +71,9 @@
 #include <HLRAlgo_Projector.hxx>
 #include <HLRBRep_Algo.hxx>
 #include <HLRBRep_HLRToShape.hxx>
+#include <HLRBRep_PolyAlgo.hxx>
+#include <HLRBRep_PolyHLRToShape.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Edge.hxx>
@@ -637,12 +640,18 @@ SceneView::Drawing2D SceneView::drawing2d(const std::array<double, 3>& toViewer,
       }
       shapes = std::move(kept);
     }
-    Handle(HLRBRep_Algo) algo = new HLRBRep_Algo();
-    for (const TopoDS_Shape& s : shapes) algo->Add(s);
+    // hidden lines on the triangulation (HLRBRep_PolyAlgo): the exact algorithm (HLRBRep_Algo) can read past its
+    // data on some models and crash the app (HLRBRep_Data::NextInterference); building drawings are planar faces,
+    // which the polygonal one draws exactly, and it is faster. Meshed fine enough for curved items at 1:100.
+    Handle(HLRBRep_PolyAlgo) algo = new HLRBRep_PolyAlgo();
+    for (const TopoDS_Shape& s : shapes) {
+      BRepMesh_IncrementalMesh mesh(s, 2.0, false, 0.2, true);
+      algo->Load(s);
+    }
     algo->Projector(proj);
     algo->Update();
-    algo->Hide();
-    HLRBRep_HLRToShape hlr(algo);
+    HLRBRep_PolyHLRToShape hlr;
+    hlr.Update(algo);
     double u0 = 1e300, v0 = 1e300, u1 = -1e300, v1 = -1e300;
     for (const TopoDS_Shape& comp : {hlr.VCompound(), hlr.OutLineVCompound()}) {
       if (comp.IsNull()) continue;

@@ -16,6 +16,8 @@ import type { HouseViews } from './views'
 import { applyStructure, hasStructure, readStructure } from '../bim/structure'
 import { readRoofs } from '../bim/roof'
 import { hasMep, readMep, type MepResult } from './mep'
+import { buildMepModel, type MepBuild } from './mepModel'
+import { cross } from '../bim/structure'
 import type { CadDocument } from '../cad/types'
 import { DEFAULT_REC, findPlans, layerStats, recognize, roofElevation, type LayerRole, type LayerStat, type PlanRegion, type Recognition } from '../bim/fromCad'
 import { DEFAULT_BUILD, buildBimModel, buildInterior, type BuildNames, type BuildResult, type InteriorBuild } from '../bim/fromCadBuild'
@@ -62,8 +64,10 @@ export interface AutoResult {
   ai: { asked: number; set: string[]; seconds: number; model?: string; error?: string } | null
   house: AutoHouse | null
   route: AutoRoute | null
-  /** quantities from the MEP drawings (electrical, plumbing, air conditioning) */
+  /** quantities from the MEP drawings (electrical, plumbing, air conditioning, fire, low-current) */
   mep: MepResult[]
+  /** the MEP coordination model built from them on the building (pipes, fixtures, the beams), with its clashes */
+  mepModel: MepBuild | null
   ms: number
 }
 
@@ -179,10 +183,17 @@ export async function runAuto(doc: CadDocument, opt: AutoOptions): Promise<AutoR
     route = { routes, chosen, model: buildCivilModel(opt.civilBase, chosen, doc.name), volume: volumes(chosen.sections), all: routes.map((x) => ({ name: x.name, model: buildCivilModel(opt.civilBase, x, doc.name), volume: volumes(x.sections) })) }
   }
   // MEP drawings of the project: devices and runs per level
-  const mep = [doc, ...(opt.extras ?? [])].filter(hasMep).map((d) => readMep(d, house?.built.model.levels.map((l) => l.name) ?? [], opt.names.roofLevel)).filter((x) => x.plans.length && x.rows.length)
+  const bm = house?.built.model
+  const mlevels = bm ? [...bm.levels].sort((a, b) => a.elevation - b.elevation).map((l) => ({ name: l.name, elevation: l.elevation })) : []
+  // placed on the building by its alignment grid (for the coordination model)
+  const g = house?.built.align.grid ?? null
+  const mg = (lab: string) => bm?.grids.find((x) => x.label === lab)
+  const at = g && mg(g[0]) && mg(g[1]) ? cross(mg(g[0])!, mg(g[1])!) : null
+  const mep = [doc, ...(opt.extras ?? [])].filter(hasMep).map((d) => readMep(d, mlevels, opt.names.roofLevel, g && at ? { grid: g, at } : undefined)).filter((x) => x.plans.length && x.rows.length)
+  const mepModel = bm && mep.some((x) => x.items.length) ? buildMepModel(mep.flatMap((x) => x.items), bm) : null
   opt.onStep?.('check')
   const kind = house && route ? 'both' : house ? 'house' : route ? 'route' : mep.length ? 'mep' : 'none'
-  return { file: doc.name, kind, houseRoles, civilRoles, ai, house, route, mep, ms: Date.now() - t0 }
+  return { file: doc.name, kind, houseRoles, civilRoles, ai, house, route, mep, mepModel, ms: Date.now() - t0 }
 }
 
 /** Builds the Civil model of another route of the same result (the user picked it). */

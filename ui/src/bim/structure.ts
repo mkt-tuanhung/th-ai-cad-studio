@@ -65,7 +65,7 @@ const r1 = (v: number) => Math.round(v * 10) / 10
 export function gridsIn(ents: Entity[], texts: Txt[], box: Box): { label: string; a: P2; b: P2 }[] {
   const out: { label: string; a: P2; b: P2 }[] = []
   // grid bubbles sit past the line ends, well outside a narrow plan
-  const labels = texts.filter((t) => t.value.trim().length <= 3 && inBox(t.p, box, 12000))
+  const labels = texts.filter((t) => /^([A-Z]{1,2}|\d{1,2}[A-Z]?)'?$/i.test(t.value.trim()) && !/^D\d/i.test(t.value.trim()) && inBox(t.p, box, 12000))
   for (const e of ents) {
     for (const [a, b] of segsOf(e)) {
       const L = Math.hypot(b.x - a.x, b.y - a.y)

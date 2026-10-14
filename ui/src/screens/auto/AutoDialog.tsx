@@ -7,6 +7,7 @@ import { toast } from '../../state/toast'
 import { useCad } from '../../state/cad'
 import { useCivil } from '../../state/civil'
 import { useInterior } from '../../state/interior'
+import { useMep } from '../../state/mep'
 import { useRouter } from '../../state/router'
 import { useAutoRun } from '../../state/auto'
 import { getHost } from '../../services/host'
@@ -46,7 +47,7 @@ export function AutoDialog() {
   const [phase, setPhase] = useState<Phase>('pick')
   const [steps, setSteps] = useState<Partial<Record<StepKey, 'run' | 'done' | 'skip'>>>({})
   const [res, setRes] = useState<AutoResult | null>(null)
-  const [keep, setKeep] = useState({ house: true, interior: true, route: true, files: true })
+  const [keep, setKeep] = useState({ house: true, interior: true, route: true, mep: true, files: true })
   const [written, setWritten] = useState<Written[] | null>(null)
   const [dir, setDir] = useState<string | null>(null)
   const [progress, setProgress] = useState<[number, number] | null>(null)
@@ -91,7 +92,7 @@ export function AutoDialog() {
       }
       setSteps(Object.fromEntries(STEPS.map((k) => [k, seen.includes(k) ? 'done' : 'skip'])))
       setRes(r)
-      setKeep({ house: !!r.house, interior: !!r.house?.interior, route: !!r.route, files: r.kind !== 'none' })
+      setKeep({ house: !!r.house, interior: !!r.house?.interior, route: !!r.route, mep: !!r.mepModel, files: r.kind !== 'none' })
       setPhase('review')
     } catch (e) {
       const why = e instanceof Error ? e.message : String(e)
@@ -160,8 +161,14 @@ export function AutoDialog() {
     const mepL: string[] = []
     for (const x of res.mep ?? []) {
       const sum = (f: (r: (typeof x.rows)[number]) => boolean) => x.rows.filter(f).reduce((a, r) => a + r.total, 0)
-      mepL.push(fmt(t.mepLine, { file: x.file, lights: n0(sum((r) => r.role === 'light')), switches: n0(sum((r) => r.role === 'switch')), sockets: n0(sum((r) => r.role === 'socket')), ac: n0(sum((r) => r.role === 'ac')), wire: n0(sum((r) => r.role === 'wire')), pipe: n0(sum((r) => ['cold', 'hot', 'waste', 'sewer', 'storm', 'vent'].includes(r.role))) }))
+      const n = (role: string) => n0(sum((r) => r.role === role))
+      const any = (roles: string[]) => x.rows.some((r) => roles.includes(r.role))
+      if (any(['light', 'switch', 'socket', 'wire', 'cold', 'hot', 'waste', 'sewer', 'storm', 'vent', 'ac']))
+        mepL.push(fmt(t.mepLine, { file: x.file, lights: n('light'), switches: n('switch'), sockets: n('socket'), ac: n('ac'), wire: n0(sum((r) => r.role === 'wire' || r.role === 'wireDrop')), pipe: n0(sum((r) => ['cold', 'hot', 'waste', 'sewer', 'storm', 'vent', 'riser'].includes(r.role))) }))
+      if (any(['detector', 'alarm', 'extinguisher', 'exitSign', 'sprinkler', 'hydrant'])) mepL.push(fmt(t.mepFireLine, { file: x.file, detectors: n('detector'), alarms: n('alarm'), ext: n('extinguisher'), signs: n('exitSign'), sprinklers: n('sprinkler') }))
+      if (any(['data', 'tv', 'ap', 'camera', 'intercom'])) mepL.push(fmt(t.mepElvLine, { file: x.file, data: n('data'), tv: n('tv'), ap: n('ap'), cam: n('camera'), intercom: n('intercom') }))
     }
+    if (res.mepModel) { const mm = res.mepModel; mepL.push(fmt(t.mepModelLine, { pipes: mm.pipes, fixtures: mm.fixtures, beams: mm.beams, clashes: mm.pipeBeam, levels: Object.keys(mm.levels).join(', ') })) }
     if (mepL.length) warnings.push(t.mepNote)
     const ai = !res.ai ? (aiOn ? t.aiNotNeeded : t.noAi) : res.ai.set.length ? fmt(t.aiDone, { n: res.ai.set.length, m: res.ai.asked, s: res.ai.seconds.toFixed(1) }) : fmt(t.aiNone, { m: res.ai.asked, s: res.ai.seconds.toFixed(1) })
     return { house, route, mep: mepL, warnings, checks, ai }
@@ -178,6 +185,13 @@ export function AutoDialog() {
       const e = st.edit(label, () => m)
       if (e) toast(fmt(t.invalid, { what: T.nav.civil, why: e }), 'warning')
       else st.set({ station: m.sections?.[0]?.station ?? m.alignment.start, profileRange: null, view: 'profile', bottom: 'earthwork' })
+    }
+    if (keep.mep && res.mepModel) {
+      const st = useMep.getState(), mm = res.mepModel.model
+      const e = st.edit(label, () => mm)
+      // the old selection is not in the new model: select its first pipe
+      if (e) toast(fmt(t.invalid, { what: 'MEP', why: e }), 'warning')
+      else st.set({ sel: mm.pipes[0] ? { kind: 'pipe', id: mm.pipes[0].id } : null })
     }
     toast(fmt(t.built, { name: res.file }), 'success')
     if (keep.files && files.length) {
@@ -201,7 +215,7 @@ export function AutoDialog() {
   }
 
   const docList = Object.values(cadDocs)
-  const go = (r: 'bim' | 'interior' | 'civil') => { hide(); navigate(r) }
+  const go = (r: 'bim' | 'interior' | 'civil' | 'mep') => { hide(); navigate(r) }
   const failed = written?.filter((w) => !w.ok) ?? []
   const icon = (k: StepKey) => {
     const st = steps[k]
@@ -264,6 +278,7 @@ export function AutoDialog() {
                 {res.house && <label><input type="checkbox" checked={keep.house} onChange={(e) => setKeep({ ...keep, house: e.target.checked })} />{t.part.house}</label>}
                 {res.house?.interior && <label><input type="checkbox" checked={keep.interior} onChange={(e) => setKeep({ ...keep, interior: e.target.checked })} />{t.part.interior}</label>}
                 {res.route && <label><input type="checkbox" checked={keep.route} onChange={(e) => setKeep({ ...keep, route: e.target.checked })} />{t.part.route}</label>}
+                {res.mepModel && <label><input type="checkbox" checked={keep.mep} onChange={(e) => setKeep({ ...keep, mep: e.target.checked })} />{t.part.mep}</label>}
                 <label><input type="checkbox" checked={keep.files} onChange={(e) => setKeep({ ...keep, files: e.target.checked })} data-testid="auto-keep-files" />{t.part.files} — <span data-testid="auto-files">{fmt(desktop ? t.files : t.filesBrowser, { n: files.length + 1 })}</span></label>
               </div>
             )}
@@ -284,6 +299,7 @@ export function AutoDialog() {
                   {res.house && keep.house && <ActionButton onClick={() => go('bim')}>{t.openBim}</ActionButton>}
                   {res.house?.interior && keep.interior && <ActionButton onClick={() => go('interior')}>{t.openInterior}</ActionButton>}
                   {res.route && keep.route && <ActionButton onClick={() => go('civil')}>{t.openCivil}</ActionButton>}
+                  {res.mepModel && keep.mep && <ActionButton onClick={() => go('mep')}>{t.openMep}</ActionButton>}
                 </div>
               </div>
             )}
