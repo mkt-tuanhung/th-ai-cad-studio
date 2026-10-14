@@ -13,7 +13,10 @@ Lối vào:
 Chọn hoặc thả **nhiều file cùng lúc**:
 - bản vẽ kiến trúc (mặt bằng);
 - bản vẽ **kết cấu**: file có tên chứa STRUCT / KẾT CẤU / KC thì được xếp sau;
-- tuỳ chọn một file **đơn giá `.csv`** (cột Mã / Hạng mục / Đơn giá). File mẫu "Đơn giá (điền vào).csv" luôn có trong bộ hồ sơ để anh điền.
+- bản vẽ **điện nước (MEP)**;
+- tuỳ chọn một file **đơn giá `.csv`** (cột Mã / Hạng mục / Đơn giá). File mẫu "Đơn giá (điền vào).csv" luôn có trong bộ hồ sơ để anh điền. Trong file này có thêm 2 dòng **thông số dự án**:
+  - `pileLength`: chiều dài 1 cọc, m — dùng để ra mét cọc và bê tông cọc;
+  - `machineShare`: % đào đắp bằng máy.
 
 ## Luồng
 
@@ -85,6 +88,28 @@ Chọn hoặc thả **nhiều file cùng lúc**:
   - bảng khối lượng có thêm móng, dầm, **ván khuôn**, **cốt thép ước tính**.
 - **Dự toán:** khi có file đơn giá thì làm thêm "Dự toán" (CSV + PDF): khối lượng × đơn giá, có tổng.
 
+**Cốt thép theo chi tiết điển hình** (2026-10-14, `readRebar` trong `bim/structure.ts`): đọc các dòng ghi dưới tiêu đề chi tiết. Ký hiệu Φ, ø, %%c đều đọc được.
+- **Cột:** "CỘT C1 …" / "4Φ16 • ĐAI Φ6a100/200". Thép chủ cao 1 tầng + nối 40d. Đai dày hơn ở 2 đầu, đoạn dày = max(h/6, cạnh cột, 500).
+- **Dầm:** mỗi chiều cao dầm một mặt cắt ("220×350" / "dưới 4Φ12" / "trên 2Φ16" / "Φ8a200 (gối) / a200").
+  - Thép dưới và trên dài theo nhịp thông thủy + neo 30d mỗi đầu; đai dày ở L/4 mỗi đầu.
+  - Chưa tính thép gia cường gối, vì bản vẽ không ghi số lượng.
+- **Đài cọc:** lưới dưới và lưới trên theo 2 phương, lớp bảo vệ 50.
+- **Bản thang và chiếu nghỉ:** thép dưới và trên dọc theo bản thang, neo 30d.
+- **Kết quả:** thép chia theo nhóm Φ ≤ 10 / Φ ≤ 18 / Φ > 18. Bộ phận không có chi tiết (sàn, giằng) vẫn ước tính theo hàm lượng và ghi rõ trên dòng.
+
+**Hoàn thiện theo tên phòng** (2026-10-14):
+- **Ốp tường WC / tắm / giặt:** cao 2,4 m, đã trừ cửa.
+- **Chống thấm:** sàn WC + 300 mm chân tường; ban công; mái.
+- **Trần:** mọi phòng trừ ban công.
+- **Len chân tường:** phòng khô, đã trừ cửa.
+
+**Điện nước (MEP)** (2026-10-14, `auto/mep.ts`):
+- **Đọc** mặt bằng điện và cấp thoát nước từng tầng theo tên bản vẽ; sơ đồ nguyên lý thì bỏ qua.
+- **Thiết bị:** đếm theo ký hiệu (một cụm nét chạm nhau = một thiết bị): đèn, công tắc, ổ cắm, tủ điện, điều hoà, quạt hút, thiết bị vệ sinh / phễu thu. Điều hoà lấy công suất ghi bên cạnh ("ĐH 24k").
+- **Dây và ống:** đo chiều dài vẽ trên mặt bằng. Ống lấy đường kính theo ghi chú gần ống nhất, có ghi "(theo ghi chú gần nhất)". Đoạn đi đứng (ống đứng, dây xuống công tắc) không có trên mặt bằng nên chưa tính; điều này ghi trên dòng và trong cảnh báo.
+- **Kết quả:** "Bảng khối lượng điện nước" (CSV + PDF/DXF/DWG). Các dòng điện nước có trong file đơn giá và dự toán chung.
+- **Mặt cắt 2-2:** giờ đi qua ô thông tầng nếu nhà có (nhìn thấy khoảng thông tầng), nếu không thì qua giữa nhà.
+
 **Cầu thang, mái** (bổ sung 2026-10-13):
 - **Thang chữ L:** hai vế vuông góc, chiếu nghỉ vuông ở góc.
 - **Bậc rẻ quạt:** dựng thành chiếu nghỉ, có cảnh báo.
@@ -128,6 +153,7 @@ Chọn hoặc thả **nhiều file cùng lúc**:
 | `canal_route_SYNTHETIC.dxf` (smoke-auto) | Route · 4 mặt cắt · 150 m · đào 650 m³ · đắp 741 m³. |
 | `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **4 vế thang (2 thang chữ U) · 3 lan can**. **4 mặt đứng (trục 1-4, 4-1, A-F, F-A) · 2 mặt cắt (1-1 qua cầu thang, 2-2)**, OCCT mất 12 s; toàn bộ chạy 13 s. **12 đoạn tường lan can ban công / sân thượng** (1100 mm; tường sau ban công có cửa được tách). **Ô thông tầng** trên P. KHÁCH THÔNG TẦNG: sàn Tầng 2 có lỗ. **Nội thất cả nhà:** 3 tầng, 11 tủ → 152 tấm trên 35 tấm ván · 66 chương trình CNC. **Bảng khối lượng** 22 hạng mục, ví dụ: sàn 51,79 m³, cột 14,57 m³, thang 1,16 m³, xây tường 200 là 90,91 m³, lát nền 397,92 m², lan can 14,51 m. **Bảng thống kê cửa** 2 tờ. Mặt đứng có cốt cửa sổ. **105 file, 0 lỗi.** |
 | **VILLA_150_MASTER.dwg + VILLA_150_STRUCTURE.dwg + đơn giá thử** (e2e_auto, nhiều file) | Kết cấu: **20 đài móng · 46 cọc · 32 giằng · 109 dầm** (kích thước theo ký hiệu), thêm 2 lỗ sàn (giếng thang máy, ô thoáng mái). Lỗ ô thang và ô thông tầng đọc từ bản kết cấu **trùng khớp** với lỗ mà phần kiến trúc tự suy ra. Số cọc của cả 20 đài khớp với số ghi. Bảng khối lượng có móng, dầm 21,97 m³, ván khuôn, cốt thép ước tính. Dự toán: 6 / 38 hạng mục có giá (file giá thử). IFC: 141 IfcBeam, 20 IfcFooting, 0 lỗi. **125 file, 0 lỗi.** |
+| **VILLA_150 MASTER + STRUCTURE + MEP + giá thử** (2026-10-14, 4 file) | Ra thêm: **96 đèn · 33 công tắc · 89 ổ cắm · 23 điều hoà (theo công suất 9k/12k/18k/24k và dàn nóng) · 381 m dây · 226 m ống**; 8 mặt bằng MEP (3 tầng + mái, điện và nước). Thép theo chi tiết: dầm 3.975 kg, cột 2.057 kg, đài 840 kg, thang 202 kg (cùng cỡ với ước tính theo hàm lượng trước đây: dầm 3.515, cột 2.185). **129 file, 0 lỗi**, IFC 0 lỗi. |
 | `house_vn_SYNTHETIC.dxf + roof_hip_SYNTHETIC.dxf` | Mái 4 mái 19° (i = 35 %), 138 m² lợp = 13 × 10 m / cos 19,3°. Mặt đứng có mái; có mặt bằng mái; IFC IfcRoof 0 lỗi. **74 file, 0 lỗi.** |
 | Kênh Đức Phong (DWG thật, e2e_auto) | **Cả 2 tuyến** trong hồ sơ: Đức Phong 1 (33 mặt cắt · 1.600 m · đào 6.161 m³ · đắp 4.324 m³, lệch so với hồ sơ −0,04 % / +0,44 %) và Đức Phong 3 (27 mặt cắt · 1.350 m · đào 6.000 m³ · đắp 6.901 m³). **35 file, 0 lỗi.** |
 
@@ -179,8 +205,8 @@ Ghi chú: e2e lấy file qua `host.qaSampleFile(i)` (chỉ có ở chế độ Q
 
 - **Chưa thử trên bản vẽ nhà do người thật vẽ.** Bộ VILLA_150 (kiến trúc + kết cấu) do AI tạo; bộ SYNTHETIC do code tạo. Cần file thật của anh.
 - **Bảng khối lượng / dự toán:**
-  - cốt thép là **ước tính theo hàm lượng** (kg/m³ ghi trên từng dòng), chưa phải bóc từ bảng thống kê thép;
-  - cọc mới đếm số cây, vì chiều dài cọc không có trên bản vẽ;
+  - cốt thép: bộ phận có chi tiết điển hình thì tính theo chi tiết. Đó là mặt cắt đại diện cho mỗi chiều cao dầm, nên chưa phải bảng thống kê thép từng cấu kiện. Bộ phận không có chi tiết (sàn, giằng) vẫn ước tính theo hàm lượng. Chưa tính thép gia cường gối dầm;
+  - cọc: số cây đếm từ bản vẽ; mét cọc và bê tông cọc chỉ có khi ghi `pileLength` trong file đơn giá;
   - đơn giá: phần mềm không có sẵn giá, anh điền vào file "Đơn giá (điền vào).csv" rồi chọn file đó cùng bản vẽ;
   - tường tính cả phần chồng lên cột và dầm; sàn tầng 1 tính như sàn BTCT, ván khuôn chỉ tính phần thành.
 - **Kết cấu:** chỉ đọc mặt bằng móng và mặt bằng dầm (đài, giằng, dầm, lỗ sàn, chiều dày sàn). Chưa đọc mặt cắt dầm, chi tiết thép, cột thay đổi tiết diện theo tầng.
@@ -191,5 +217,6 @@ Ghi chú: e2e lấy file qua `host.qaSampleFile(i)` (chỉ có ở chế độ Q
 - **Mái dốc:** dựng theo hình chữ nhật bao ngoài (mái chữ L dựng gần đúng, có cảnh báo); chỉ có mái 4 mái và 2 mái; mái phải có độ dốc ghi trên bản vẽ.
 - **Ban công, ô thông tầng:** nhận theo tên phòng, theo vị trí ngoài chu vi nhà, hoặc theo dấu gạch chéo ô thông tầng. Ban công nằm trong chu vi nhà mà không có tên thì chưa nhận được.
 - **Nội thất:** phân hệ Nội thất chỉ mở một tầng; bảng cắt / CNC thì đủ mọi tầng.
+- **Điện nước:** đường kính ống gán theo ghi chú gần nhất, có thể nhầm khi nhiều ống đi sát nhau. Chưa tính đoạn đi đứng. Ký hiệu thiết bị phải nằm đúng layer (E-LIGHT, Ổ CẮM…).
 - **Tuyến:** tách đào/đắp máy và thủ công theo **tỷ lệ** (mặc định 90/10, sửa bằng dòng `machineShare` trong bảng đơn giá), chưa tính theo hình học mặt cắt. Chưa ghép với toạ độ tuyến.
 - **CNC:** G-code theo cấu hình máy trong Interior → Nesting. **Phải chạy thử không phôi** trước khi cắt thật.

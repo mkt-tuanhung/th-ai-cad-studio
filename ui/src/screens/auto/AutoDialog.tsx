@@ -103,7 +103,7 @@ export function AutoDialog() {
   // the package and the numbers shown before approval (same code as the files written)
   const cam = useInterior((st) => st.cam)
   const camSetup = useMemo(() => ({ nest: nestSettings(cam), cnc: cam.cnc }), [cam])
-  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, boq: { ...t.boq, prices }, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t, prices])
+  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, boq: { ...t.boq, prices }, mep: t.mep, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t, prices])
   const files = useMemo(() => (res ? makePackage(res, camSetup, pkgText, keep) : []), [res, camSetup, pkgText, keep])
   const cabinets = useMemo(() => (res ? allCabinets(res) : []), [res])
   const nesting = useMemo(() => (cabinets.length ? nest(piecesOf(cabinets), camSetup.nest) : null), [cabinets, camSetup])
@@ -157,8 +157,14 @@ export function AutoDialog() {
       if (anch) warnings.push(fmt(C.anchoredWarn, { n: anch }))
       if (!res.route.model.invert.some(([, z], i, a) => i && Math.abs(z - a[0][1]) > 1e-6)) warnings.push(C.noFlow)
     }
+    const mepL: string[] = []
+    for (const x of res.mep ?? []) {
+      const sum = (f: (r: (typeof x.rows)[number]) => boolean) => x.rows.filter(f).reduce((a, r) => a + r.total, 0)
+      mepL.push(fmt(t.mepLine, { file: x.file, lights: n0(sum((r) => r.role === 'light')), switches: n0(sum((r) => r.role === 'switch')), sockets: n0(sum((r) => r.role === 'socket')), ac: n0(sum((r) => r.role === 'ac')), wire: n0(sum((r) => r.role === 'wire')), pipe: n0(sum((r) => ['cold', 'hot', 'waste', 'sewer', 'storm', 'vent'].includes(r.role))) }))
+    }
+    if (mepL.length) warnings.push(t.mepNote)
     const ai = !res.ai ? (aiOn ? t.aiNotNeeded : t.noAi) : res.ai.set.length ? fmt(t.aiDone, { n: res.ai.set.length, m: res.ai.asked, s: res.ai.seconds.toFixed(1) }) : fmt(t.aiNone, { m: res.ai.asked, s: res.ai.seconds.toFixed(1) })
-    return { house, route, warnings, checks, ai }
+    return { house, route, mep: mepL, warnings, checks, ai }
   }, [res, t, T, files, nesting, cabinets, aiOn, desktop, prices])
 
   const approve = async () => {
@@ -184,7 +190,7 @@ export function AutoDialog() {
       setPhase('write')
       const all = files.length + 1
       setProgress([0, all])
-      const report = reportHtml(res, t.report, { ai: summary.ai, house: summary.house, route: summary.route, checks: summary.checks, warnings: summary.warnings, files }, lang)
+      const report = reportHtml(res, t.report, { ai: summary.ai, house: [...summary.house, ...summary.mep], route: summary.route, checks: summary.checks, warnings: summary.warnings, files }, lang)
       const zipName = `${res.file.replace(/\.(dwg|dxf)$/i, '')} - MD CAD AI STUDIO.zip`
       const w = await writePackage(files, report, host, d, zipName, (n) => setProgress([n, all]))
       setWritten(w)
@@ -237,6 +243,7 @@ export function AutoDialog() {
             <h4>{t.found}: <b data-testid="auto-kind">{t.kinds[res.kind]}</b> <span className={s.file}>{res.file} · {(res.ms / 1000).toFixed(1)} s · {summary.ai}</span></h4>
             {res.kind === 'none' && <p className={s.warnBox} role="alert">{t.none}</p>}
             {summary.house.length > 0 && <div className={s.card} data-testid="auto-house"><b>{t.kinds.house}</b>{summary.house.map((l) => <div key={l}>{l}</div>)}<div className={s.small}>{fmt(t.checks, { ok: summary.checks })}</div></div>}
+            {summary.mep.length > 0 && <div className={s.card} data-testid="auto-mep"><b>{t.kinds.mep}</b>{summary.mep.map((l) => <div key={l}>{l}</div>)}</div>}
             {summary.route.length > 0 && (
               <div className={s.card} data-testid="auto-route">
                 <b>{t.kinds.route}</b>

@@ -223,6 +223,16 @@ export interface PitchedRoof {
   approx?: boolean
 }
 
+/** Reinforcement as the typical details of the structural drawings give it (bars: number × diameter; meshes and
+ *  stirrups: diameter at spacing, stirrups closer at the supports). */
+export interface RebarSpec {
+  column?: { main: { n: number; d: number }; stirrups: { d: number; aEnd: number; aMid: number } }
+  /** a section per beam depth: the bars of the deepest-reinforced beam of that depth */
+  beams: { h: number; bottom: { n: number; d: number }; top: { n: number; d: number }; stirrups: { d: number; aEnd: number; aMid: number } }[]
+  cap?: { bottom: { d: number; a: number }; top: { d: number; a: number } }
+  stair?: { bottom: { d: number; a: number }; top: { d: number; a: number } }
+}
+
 export interface BimModel {
   levels: Level[]
   wallTypes: WallType[]
@@ -241,6 +251,7 @@ export interface BimModel {
   beams?: Beam[]
   footings?: Footing[]
   roofs?: PitchedRoof[]
+  rebar?: RebarSpec
 }
 
 export type ElementCategory = 'wall' | 'door' | 'window' | 'room' | 'level' | 'column' | 'slab' | 'stair' | 'railing' | 'component' | 'grid' | 'annotation'

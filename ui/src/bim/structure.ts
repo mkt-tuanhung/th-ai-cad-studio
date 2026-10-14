@@ -15,7 +15,7 @@
  * Nothing is designed here: what the drawing does not say is reported as a warning.
  */
 import type { CadDocument, Entity, Vec2 } from '../cad/types'
-import type { Beam, BimModel, Footing, P2 } from './model'
+import type { Beam, BimModel, Footing, P2, RebarSpec } from './model'
 import { boxOf, norm, parseElevation, parseSize, segsOf, type Box } from './fromCad'
 
 export type StructRole = 'beam' | 'tie' | 'found' | 'pile' | 'slab' | 'open' | 'grid' | 'text' | 'ignore'
@@ -50,6 +50,8 @@ export interface StructResult {
   footings: Footing[]
   /** per level: openings in the slab (model coordinates) and its thickness when written */
   slabs: { level: string; openings: P2[][]; thickness: number | null }[]
+  /** the reinforcement of the typical details, when written */
+  rebar?: RebarSpec
   warnings: string[]
 }
 
@@ -246,6 +248,8 @@ export function readStructure(doc: CadDocument, m: BimModel, alignGrid: [string,
       for (const bm of out.beams.slice(first)) bm.topOffset = top ?? -500
     }
   }
+  const rb = readRebar(doc)
+  if (rb) out.rebar = rb
   return out
 }
 
@@ -262,5 +266,46 @@ export function applyStructure(m: BimModel, s: StructResult): BimModel {
     const add = x.openings.filter((o) => !(sl.openings ?? []).some((e) => ov(o, e) > 0.5 * Math.min(area(o), area(e))))
     return { ...sl, ...(x.thickness ? { thickness: x.thickness } : {}), ...(add.length ? { openings: [...(sl.openings ?? []), ...add] } : {}) }
   })
-  return { ...m, slabs, beams: [...(m.beams ?? []), ...s.beams], footings: [...(m.footings ?? []), ...s.footings] }
+  return { ...m, slabs, beams: [...(m.beams ?? []), ...s.beams], footings: [...(m.footings ?? []), ...s.footings], ...(s.rebar ? { rebar: s.rebar } : {}) }
+}
+
+/* ---------------- reinforcement from the typical details ---------------- */
+
+/** Accents off, upper case, symbols kept; the diameter sign (Φ, φ, Ø, ø, %%c) written "Φ". */
+const up = (s: string) => s.replace(/%%[cC]|[φØø∅]/g, 'Φ').normalize('NFD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'D').toUpperCase()
+
+/**
+ * The typical details of a structural drawing ("CHI TIẾT ĐIỂN HÌNH"): a heading and the lines written under it —
+ *  "CỘT C1 250×250" / "4Φ16 • ĐAI Φ6a100/200"; a beam section "220×350" / "dưới 4Φ12" / "trên 2Φ16 …" /
+ *  "Φ8a200 (gối) / a200"; "ĐÀI MÓNG …" / "DƯỚI Φ16a150 • TRÊN Φ12a200"; "BẢN THANG …" / "Φ10a150 dưới • Φ8a200 trên".
+ * Null when none is written.
+ */
+export function readRebar(doc: CadDocument): RebarSpec | null {
+  const texts = doc.entities.filter((e): e is Txt => e.kind === 'text').map((t) => ({ t, u: up(t.value) }))
+  const under = (h: Txt) => texts.filter(({ t }) => Math.abs(t.p.x - h.p.x) <= 150 && t.p.y < h.p.y && t.p.y > h.p.y - Math.max(400, h.height * 6)).map((x) => x.u).join(' • ')
+  const spec: RebarSpec = { beams: [] }
+  const stir = (s: string) => { const m = /Φ\s*(\d+)\s*A\s*(\d+)(?:\s*\(GOI\))?\s*\/\s*A?\s*(\d+)/.exec(s) ?? /Φ\s*(\d+)\s*A\s*(\d+)()/.exec(s); return m ? { d: +m[1], aEnd: +m[2], aMid: +(m[3] || m[2]) } : null }
+  const bars = (s: string, word: string) => { const m = new RegExp(`${word}\\s*(\\d+)\\s*Φ\\s*(\\d+)`).exec(s); return m ? { n: +m[1], d: +m[2] } : null }
+  const mesh = (s: string, before: string | null, after: string | null) => {
+    const m = before ? new RegExp(`${before}\\s*Φ\\s*(\\d+)\\s*A\\s*(\\d+)`).exec(s) : new RegExp(`Φ\\s*(\\d+)\\s*A\\s*(\\d+)\\s*${after}`).exec(s)
+    return m ? { d: +m[1], a: +m[2] } : null
+  }
+  for (const { t, u } of texts) {
+    if (/^COT\s*[A-Z]*\d/.test(u) && !spec.column) {
+      const b = under(t), main = /(\d+)\s*Φ\s*(\d+)/.exec(b), s = stir(b.replace(/^.*?DAI/, ''))
+      if (main && s) spec.column = { main: { n: +main[1], d: +main[2] }, stirrups: s }
+    } else if (/^\s*\d{3}\s*[×X*]\s*\d{3}\s*$/.test(u)) {
+      const b = under(t), bot = bars(b, 'DUOI'), top = bars(b, 'TREN'), s = stir(b)
+      const h = +(/[×X*]\s*(\d{3})/.exec(u)![1])
+      if (bot && top && s && !spec.beams.some((x) => x.h === h)) spec.beams.push({ h, bottom: bot, top, stirrups: s })
+    } else if (/DAI MONG/.test(u) && !spec.cap) {
+      const b = under(t), bot = mesh(b, 'DUOI', null), top = mesh(b, 'TREN', null)
+      if (bot && top) spec.cap = { bottom: bot, top }
+    } else if (/BAN THANG/.test(u) && !spec.stair) {
+      const b = under(t), bot = mesh(b, null, 'DUOI'), top = mesh(b, null, 'TREN')
+      if (bot && top) spec.stair = { bottom: bot, top }
+    }
+  }
+  spec.beams.sort((a, b) => a.h - b.h)
+  return spec.column || spec.beams.length || spec.cap || spec.stair ? spec : null
 }

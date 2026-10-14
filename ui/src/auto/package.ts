@@ -23,13 +23,23 @@ import { DEFAULT_NEST, layoutDxf, nest, piecesOf, type NestSettings } from '../c
 import { camSheet, type CamSettings } from '../cam/gcode'
 import { earthwork, interp, sta, type CivilModel } from '../civil/model'
 import { planDocument, profileDocument, roofPlanDocument, sectionDocuments, structurePlanDocument, tableDocuments, type RouteWords, type TableRow } from './drawings'
-import { boq, openingSchedule, priceOf, type BoqWords } from '../bim/quantities'
+import { boq, openingSchedule, priceOf, type BoqRow, type BoqWords } from '../bim/quantities'
+import type { MepResult } from './mep'
 import type { AutoResult } from './pipeline'
 
 export type OutFile =
   | { name: string; kind: 'text'; text: string }
   | { name: string; kind: 'pdf'; pages: Page[] }
   | { name: string; kind: 'dwg'; doc: CadDocument }
+
+export interface MepWords {
+  title: string
+  groups: { elec: string; hvac: string; plumb: string }
+  items: Record<'panel' | 'light' | 'switch' | 'socket' | 'wire' | 'lps' | 'ac' | 'fan' | 'cold' | 'hot' | 'waste' | 'sewer' | 'storm' | 'vent' | 'fixture', string>
+  acNone: string
+  sizeNone: string
+  sizeNote: string
+}
 
 export interface PackageText {
   plan: (level: string) => string
@@ -40,6 +50,8 @@ export interface PackageText {
   report: (body: string) => string
   /** words on the route sheets (the drawings' own Vietnamese defaults when absent) */
   words?: RouteWords
+  /** MEP quantities */
+  mep?: MepWords
   /** bill of quantities and door / window schedule */
   boq?: {
     title: string
@@ -54,6 +66,7 @@ export interface PackageText {
     roofPlan: string
     beamPlan: string // "{level}"
     priceHeads: { key: string; price: string; amount: string }
+    params: { pileLength: string; machineShare: string }
     /** a unit price list given with the drawings (BOQ key or item text → price) */
     prices?: { file: string; map: Map<string, number> } | null
   }
@@ -88,6 +101,7 @@ export function machineShare(prices?: Map<string, number>): number {
 export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, include: { house: boolean; interior: boolean; route: boolean }): OutFile[] {
   const base = r.file.replace(/\.(dwg|dxf)$/i, '')
   const out: OutFile[] = []
+  const priceRows: BoqRow[] = []
   const add = (name: string, text: string) => out.push({ name: `${base} - ${name}`, kind: 'text', text })
   const drawing = (title: string, doc: CadDocument, pages: Page[]) => {
     out.push({ name: `${base} - ${title}.dxf`, kind: 'text', text: toDxf2000(doc) })
@@ -116,7 +130,8 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     if (t.boq) {
       const B = t.boq
       // bill of quantities: CSV (every level a column) and the table sheets
-      const rows = boq(m, B.words)
+      const pl = B.prices?.map.get('pileLength')
+      const rows = boq(m, B.words, { ...(pl ? { pileLength: pl } : {}) })
       const lvs = [...m.levels].sort((a, b) => a.elevation - b.elevation).map((l) => l.name).filter((n) => rows.some((r) => r.byLevel[n]))
       const q = (v: number, unit: string) => (v ? (unit === B.words.units.pcs ? String(Math.round(v)) : v.toFixed(2)) : '')
       add(`${B.title}.csv`, csv([[B.heads.no, B.heads.item, B.heads.unit, ...lvs, B.heads.total], ...rows.map((r, i) => [i + 1, r.item, r.unit, ...lvs.map((l) => q(r.byLevel[l] ?? 0, r.unit)), q(r.total, r.unit)])]))
@@ -126,23 +141,7 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
       const bp: Page[] = []
       tableDocuments(B.title, [{ head: B.heads.no, w: 12, align: 'center' }, { head: B.heads.item, w: 110 }, { head: B.heads.unit, w: 18, align: 'center' }, ...lvs.map((l) => ({ head: l, w: 34, align: 'center' as const })), { head: B.heads.total, w: 38, align: 'center' }], tr).forEach((d, i, a) => drawing(a.length > 1 ? `${B.title} ${i + 1}` : B.title, d, bp))
       out.push({ name: `${base} - ${B.title}.pdf`, kind: 'pdf', pages: bp })
-      // unit prices: a template with every line to fill in; with a price list given, the estimate
-      const H = B.heads, PH = B.priceHeads
-      add(`${B.priceTemplate}.csv`, csv([[PH.key, H.item, H.unit, H.total, PH.price], ...rows.map((r) => [r.key, r.item, r.unit, q(r.total, r.unit), B.prices ? (priceOf(B.prices.map, r) ?? '') : ''])]))
-      if (B.prices && rows.some((r) => priceOf(B.prices!.map, r) !== undefined)) {
-        const P = B.prices.map
-        const money = (v: number) => Math.round(v).toLocaleString('vi-VN')
-        const priced = rows.map((r) => ({ r, p: priceOf(P, r) }))
-        const sum = priced.reduce((a, x) => a + (x.p !== undefined ? x.p * x.r.total : 0), 0)
-        add(`${B.estimate}.csv`, csv([[H.no, H.item, H.unit, H.total, PH.price, PH.amount], ...priced.map(({ r, p }, i) => [i + 1, r.item, r.unit, q(r.total, r.unit), p ?? '', p !== undefined ? Math.round(p * r.total) : '']), ['', B.words.all, '', '', '', Math.round(sum)]]))
-        const er: TableRow[] = []
-        let g2 = ''
-        priced.forEach(({ r, p }, i) => { if (r.group !== g2) { g2 = r.group; er.push({ group: g2 }) } er.push([String(i + 1), r.item, r.unit, q(r.total, r.unit), p !== undefined ? money(p) : '', p !== undefined ? money(p * r.total) : '']) })
-        er.push(['', B.words.all.toUpperCase(), '', '', '', money(sum)])
-        const ep: Page[] = []
-        tableDocuments(B.estimate, [{ head: H.no, w: 12, align: 'center' }, { head: H.item, w: 150 }, { head: H.unit, w: 18, align: 'center' }, { head: H.total, w: 40, align: 'center' }, { head: PH.price, w: 50, align: 'center' }, { head: PH.amount, w: 60, align: 'center' }], er).forEach((d, i, a) => drawing(a.length > 1 ? `${B.estimate} ${i + 1}` : B.estimate, d, ep))
-        out.push({ name: `${base} - ${B.estimate}.pdf`, kind: 'pdf', pages: ep })
-      }
+      priceRows.push(...rows)
       // structural sheets: the foundation plan and a beam plan per level, from the structural drawings
       if ((m.footings?.length ?? 0) || (m.beams?.length ?? 0)) {
         const sp2: Page[] = []
@@ -203,7 +202,65 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     sectionDocuments(m, t.sections, t.words).forEach((d, i) => drawing(`${t.sections} ${i + 1}`, d, pages))
     out.push({ name: `${base} - ${pre}${t.profile} + ${t.sections}.pdf`, kind: 'pdf', pages })
   }
+  // MEP drawings: devices counted, wiring and pipes measured (src/auto/mep.ts)
+  if (r.mep?.length && t.mep && t.boq) {
+    const M = t.mep, B = t.boq
+    const mrows = mepBoqRows(r.mep, M, B.words.units)
+    const lvs = [...new Set(mrows.flatMap((x) => Object.keys(x.byLevel)))]
+    const order = (r.house?.built.model.levels ?? []).map((l) => l.name)
+    lvs.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99))
+    const q = (v: number, unit: string) => (v ? (unit === B.words.units.pcs ? String(Math.round(v)) : v.toFixed(2)) : '')
+    add(`${M.title}.csv`, csv([[B.heads.no, B.heads.item, B.heads.unit, ...lvs, B.heads.total], ...mrows.map((x, i) => [i + 1, x.item, x.unit, ...lvs.map((l) => q(x.byLevel[l] ?? 0, x.unit)), q(x.total, x.unit)])]))
+    const tr: TableRow[] = []
+    let g = ''
+    mrows.forEach((x, i) => { if (x.group !== g) { g = x.group; tr.push({ group: g }) } tr.push([String(i + 1), x.item, x.unit, ...lvs.map((l) => q(x.byLevel[l] ?? 0, x.unit)), q(x.total, x.unit)]) })
+    const mp: Page[] = []
+    tableDocuments(M.title, [{ head: B.heads.no, w: 12, align: 'center' }, { head: B.heads.item, w: 130 }, { head: B.heads.unit, w: 18, align: 'center' }, ...lvs.map((l) => ({ head: l, w: 30, align: 'center' as const })), { head: B.heads.total, w: 34, align: 'center' }], tr).forEach((d, i, a) => drawing(a.length > 1 ? `${M.title} ${i + 1}` : M.title, d, mp))
+    out.push({ name: `${base} - ${M.title}.pdf`, kind: 'pdf', pages: mp })
+    priceRows.push(...mrows)
+  }
+  // unit prices for every line of the quantities (building and MEP), and the estimate with a price list given
+  if (t.boq && priceRows.length) {
+    // unit prices: a template with every line to fill in; with a price list given, the estimate
+    const B = t.boq, H = B.heads, PH = B.priceHeads
+    const rows = priceRows
+    const q = (v: number, unit: string) => (v ? (unit === B.words.units.pcs ? String(Math.round(v)) : v.toFixed(2)) : '')
+    // project figures the drawings do not give go in the same list (their value in the price column)
+    const par = (k: string) => B.prices?.map.get(k) ?? ''
+    add(`${B.priceTemplate}.csv`, csv([[PH.key, H.item, H.unit, H.total, PH.price], ...rows.map((r) => [r.key, r.item, r.unit, q(r.total, r.unit), B.prices ? (priceOf(B.prices.map, r) ?? '') : '']), ['pileLength', B.params.pileLength, 'm', '', par('pileLength')], ['machineShare', B.params.machineShare, '%', '', par('machineShare')]]))
+    if (B.prices && rows.some((r) => priceOf(B.prices!.map, r) !== undefined)) {
+      const P = B.prices.map
+      const money = (v: number) => Math.round(v).toLocaleString('vi-VN')
+      const priced = rows.map((r) => ({ r, p: priceOf(P, r) }))
+      const sum = priced.reduce((a, x) => a + (x.p !== undefined ? x.p * x.r.total : 0), 0)
+      add(`${B.estimate}.csv`, csv([[H.no, H.item, H.unit, H.total, PH.price, PH.amount], ...priced.map(({ r, p }, i) => [i + 1, r.item, r.unit, q(r.total, r.unit), p ?? '', p !== undefined ? Math.round(p * r.total) : '']), ['', B.words.all, '', '', '', Math.round(sum)]]))
+      const er: TableRow[] = []
+      let g2 = ''
+      priced.forEach(({ r, p }, i) => { if (r.group !== g2) { g2 = r.group; er.push({ group: g2 }) } er.push([String(i + 1), r.item, r.unit, q(r.total, r.unit), p !== undefined ? money(p) : '', p !== undefined ? money(p * r.total) : '']) })
+      er.push(['', B.words.all.toUpperCase(), '', '', '', money(sum)])
+      const ep: Page[] = []
+      tableDocuments(B.estimate, [{ head: H.no, w: 12, align: 'center' }, { head: H.item, w: 150 }, { head: H.unit, w: 18, align: 'center' }, { head: H.total, w: 40, align: 'center' }, { head: PH.price, w: 50, align: 'center' }, { head: PH.amount, w: 60, align: 'center' }], er).forEach((d, i, a) => drawing(a.length > 1 ? `${B.estimate} ${i + 1}` : B.estimate, d, ep))
+      out.push({ name: `${base} - ${B.estimate}.pdf`, kind: 'pdf', pages: ep })
+    }
+  }
   return out
+}
+
+/** The MEP quantities as lines of a bill (group, item text, unit), the diameter split said to be by label. */
+export function mepBoqRows(res: MepResult[], M: MepWords, U: BoqWords['units']): BoqRow[] {
+  const map = new Map<string, BoqRow>()
+  for (const r of res)
+    for (const x of r.rows) {
+      const group = ['panel', 'light', 'switch', 'socket', 'wire', 'lps'].includes(x.role) ? M.groups.elec : ['ac', 'fan'].includes(x.role) ? M.groups.hvac : M.groups.plumb
+      const pipe = ['cold', 'hot', 'waste', 'sewer', 'storm', 'vent'].includes(x.role)
+      const size = x.role === 'ac' ? (x.size ? x.size.toUpperCase() : M.acNone) : pipe ? (x.size ? `D${x.size} ${M.sizeNote}` : M.sizeNone) : ''
+      const item = (M.items as Record<string, string>)[x.role].replace('{size}', size).trim()
+      const e = map.get(x.key) ?? { key: x.key, group, item, unit: x.unit === 'pcs' ? U.pcs : U.m, byLevel: {}, total: 0 }
+      for (const [k, v] of Object.entries(x.byLevel)) e.byLevel[k] = (e.byLevel[k] ?? 0) + v
+      e.total += x.total
+      map.set(x.key, e)
+    }
+  return [...map.values()]
 }
 
 export interface Written {

@@ -8,8 +8,9 @@ import type { CadDocument } from '../../src/cad/types'
 import { dominantAngle, findFlights, findSpirals, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
 import { balconiesAndVoids, buildBimModel, buildInterior, DEFAULT_BUILD, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
 import { boq, openingSchedule, priceOf, readPrices } from '../../src/bim/quantities'
-import { applyStructure, readStructure } from '../../src/bim/structure'
+import { applyStructure, readRebar, readStructure } from '../../src/bim/structure'
 import { parseSlope, readRoofs, roofQuantities } from '../../src/bim/roof'
+import { readMep } from '../../src/auto/mep'
 import { bimExtras } from '../../src/bim/scene'
 import { autoEn } from '../../src/i18n/ws/auto'
 import type { Entity } from '../../src/cad/types'
@@ -102,6 +103,8 @@ export function run(file?: string) {
     check(`${label}: bill of quantities — masonry = gross − openings, slab concrete, floor = rooms, doors / windows counted`,
       Math.abs(masonry - (vol - opVol)) < 0.01 && Math.abs(sum((r) => r.item === W.items.slab || r.item === W.items.roof) - slabVol) < 0.01 && Math.abs(sum((r) => r.item === W.items.floor) - m.rooms.reduce((a, x) => a + x.area, 0)) < 0.01 && sum((r) => r.item === W.items.doors) === m.doors.length && sum((r) => r.item === W.items.windows) === m.windows.length && sum((r) => r.item === W.items.plasterOut) > 0,
       `masonry ${masonry.toFixed(3)} vs ${(vol - opVol).toFixed(3)}; ${B.map((r) => `${r.item} ${r.total.toFixed(2)} ${r.unit}`).join('; ')}`)
+    const wet = m.rooms.filter((r) => /WC/.test(r.name)), dry = m.rooms.filter((r) => !/WC/.test(r.name))
+    check(`${label}: finishes — WC walls tiled and its floor waterproofed, ceilings = room areas, skirting in the dry rooms only`, wet.length > 0 && (B.find((r) => r.key === 'tilesWet')?.total ?? 0) > 0 && Math.abs((B.find((r) => r.key === 'ceiling')?.total ?? 0) - m.rooms.reduce((a, r) => a + r.area, 0)) < 0.01 && (B.find((r) => r.key === 'waterproof')?.total ?? 0) > wet.reduce((a, r) => a + r.area, 0) && (B.find((r) => r.key === 'skirting')?.total ?? 0) > 0 && dry.length > 0)
     const sch = openingSchedule(m)
     check(`${label}: door / window schedule — every opening counted once, by mark and size`, sch.reduce((a, e) => a + e.count, 0) === m.doors.length + m.windows.length && sch.every((e) => e.levels.length >= 1), sch.map((e) => `${e.mark}×${e.count}`).join(' '))
     // one command: elevations named by the grids they show (Vietnamese convention), sections 1-1 / 2-2 marked on the plans
@@ -115,6 +118,8 @@ export function run(file?: string) {
   structureChecks(check)
   stairKindChecks(check)
   roofChecks(check)
+  rebarChecks(check)
+  mepChecks(check)
   if (file) out.push(...villa(file).lines)
   out.push(fails ? `FAILED ${fails}` : 'ALL PASS')
   return out.join('\n')
@@ -332,4 +337,56 @@ function roofChecks(check: (name: string, ok: boolean, extra?: string) => void) 
   const sc = bimExtras({ ...m, roofs: rr.roofs } as Parameters<typeof bimExtras>[0])
   const hi = sc.items.find((x) => x.id === hip.id), gi = sc.items.find((x) => x.id === gable.id)
   check('roof 3D: the gable mass (a prism), the hip one with its two ends cut', !!hi && hi.parts[0].k === 'prism' && hi.cuts?.length === 2 && !!gi && !gi.cuts)
+}
+
+/** The typical details read as written (Φ, ø and %%c alike) and the bars counted from them. */
+function rebarChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  let k = 0
+  const Tx = (x: number, y: number, value: string): Entity => ({ color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer: 'S-TEXT', id: `t${++k}`, kind: 'text', p: { x, y }, height: 50, value, rotation: 0, align: 'left' })
+  const ents = [
+    Tx(0, 0, 'CỘT C1 250×250'), Tx(0, -60, '4Φ16 • ĐAI Φ6a100/200'),
+    Tx(1000, 0, '220×300'), Tx(1000, -60, 'dưới 2ø12'), Tx(1000, -110, 'trên 2%%c16 + gia cường gối'), Tx(1000, -160, 'Φ8a100 (gối) / a200'),
+    Tx(2000, 0, 'ĐÀI MÓNG 2 CỌC ĐIỂN HÌNH, H=700'), Tx(2000, -60, 'DƯỚI Φ16a150 • TRÊN Φ12a200'),
+    Tx(3000, 0, 'BẢN THANG BTCT 140'), Tx(3000, -60, 'Φ10a150 dưới • Φ8a200 trên'),
+  ]
+  const spec = readRebar({ entities: ents } as unknown as CadDocument)
+  check('rebar details: column 4Φ16 / Φ6a100/200, beam 300 (2ø12, 2%%c16, Φ8a100/a200), pile cap and stair meshes', !!spec && spec.column?.main.n === 4 && spec.column.main.d === 16 && spec.column.stirrups.d === 6 && spec.column.stirrups.aEnd === 100 && spec.column.stirrups.aMid === 200 && spec.beams[0]?.h === 300 && spec.beams[0].bottom.d === 12 && spec.beams[0].top.d === 16 && spec.beams[0].stirrups.aEnd === 100 && spec.cap?.bottom.d === 16 && spec.cap.top.a === 200 && spec.stair?.bottom.d === 10 && spec.stair.top.a === 200, JSON.stringify(spec))
+  // one column 250 × 250, 3 m: 4Φ16 × (3 + 40 × 0.016) m; stirrups Φ6, 500 mm closer zones at both ends
+  const m = { levels: [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Tầng 2', elevation: 3000 }], wallTypes: [], walls: [], doors: [], windows: [], rooms: [], slabs: [], stairs: [], railings: [], components: [], annotations: [], grids: [],
+    columns: [{ id: 'C1', category: 'column', mark: 'C1', level: 'L1', topLevel: 'L2', x: 0, y: 0, w: 250, d: 250 }], rebar: spec } as unknown as Parameters<typeof boq>[0]
+  const B = boq(m, autoEn.boq.words)
+  const main = B.find((r) => r.key === 'rebarD:column:1')?.total ?? 0, st = B.find((r) => r.key === 'rebarD:column:0')?.total ?? 0
+  const expMain = 4 * (3 + 0.64) * 0.00617 * 256
+  const nSt = Math.ceil(1000 / 100) + Math.ceil(2000 / 200) + 1, expSt = nSt * ((2 * (200 + 200) + 120) / 1000) * 0.00617 * 36
+  check('rebar from the details: column main bars and stirrups by their diameter class, no ratio estimate left for it', Math.abs(main - expMain) < 1e-6 && Math.abs(st - expSt) < 1e-6 && !B.some((r) => r.key === 'rebar:column'), `${main} vs ${expMain}; ${st} vs ${expSt}`)
+}
+
+/** MEP plans: devices counted by their symbols, runs measured, pipes sized by the label next to them, schematics left. */
+function mepChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  let k = 0
+  const base = (layer: string) => ({ color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer, id: `m${++k}` }) as const
+  const L = (layer: string, ax: number, ay: number, bx: number, by: number): Entity => ({ ...base(layer), kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } })
+  const C = (layer: string, x: number, y: number, r: number): Entity => ({ ...base(layer), kind: 'circle', c: { x, y }, r })
+  const A = (layer: string, x: number, y: number, r: number): Entity => ({ ...base(layer), kind: 'arc', c: { x, y }, r, start: 0, end: Math.PI })
+  const PL = (layer: string, pts: [number, number][], closed = false): Entity => ({ ...base(layer), kind: 'polyline', closed, pts: pts.map(([x, y]) => ({ x, y })) })
+  const Tx = (layer: string, x: number, y: number, value: string, height = 200): Entity => ({ ...base(layer), kind: 'text', p: { x, y }, height, value, rotation: 0, align: 'left' })
+  const light = (x: number, y: number) => [C('E-LIGHT', x, y, 140), L('E-LIGHT', x - 100, y - 100, x + 100, y + 100), L('E-LIGHT', x - 100, y + 100, x + 100, y - 100)]
+  const ents: Entity[] = [
+    ...light(1000, 1000), ...light(3000, 1000), ...light(5000, 1000),
+    A('E-POWER', 1000, 3000, 110), L('E-POWER', 890, 3000, 1110, 3000), A('E-POWER', 4000, 3000, 110), L('E-POWER', 3890, 3000, 4110, 3000),
+    PL('E-CIRCUIT', [[1000, 1000], [5000, 1000], [5000, 2000]]),
+    PL('M-AC', [[6000, 500], [6900, 500], [6900, 720], [6000, 720]], true), Tx('E-TEXT', 6000, 900, 'ĐH 12k'),
+    Tx('E-TEXT', 2000, -2000, 'MẶT BẰNG ĐIỆN – CHIẾU SÁNG TẦNG 1', 380),
+    // plumbing, 30 m lower
+    PL('P-CW', [[1000, -29000], [5000, -29000]]), Tx('P-TEXT', 2500, -28850, 'D25'),
+    L('P-WASTE', 1000, -27000, 4000, -27000), Tx('P-TEXT', 2500, -26850, 'D90'),
+    C('P-EQUIP', 4000, -27000, 80), L('P-EQUIP', 3945, -27055, 4055, -26945), L('P-EQUIP', 3945, -26945, 4055, -27055),
+    Tx('P-TEXT', 2000, -32000, 'MẶT BẰNG CẤP THOÁT NƯỚC TẦNG 1', 380),
+    // a schematic far away: not a plan
+    L('P-CW', 40000, -29000, 48000, -29000), Tx('P-TEXT', 42000, -32000, 'SƠ ĐỒ NGUYÊN LÝ CẤP NƯỚC', 300),
+  ]
+  const r = readMep({ name: 'mep.dxf', entities: ents } as unknown as CadDocument, ['Tầng 1'], 'Mái')
+  const row = (key: string) => r.rows.find((x) => x.key === key)
+  check('MEP: 2 plans (the schematic left out); 3 lights, 2 sockets, 5 m of wiring, an air conditioner 12k', r.plans.length === 2 && row('mep:light')?.total === 3 && row('mep:socket')?.total === 2 && Math.abs((row('mep:wire')?.total ?? 0) - 5) < 1e-9 && row('mep:ac:12k')?.total === 1 && r.plans.every((p) => p.level === 'Tầng 1'), JSON.stringify(r))
+  check('MEP: pipes measured and sized by the label next to them (cold D25 4 m, waste D90 3 m), a floor drain', Math.abs((row('mep:cold:25')?.total ?? 0) - 4) < 1e-9 && Math.abs((row('mep:waste:90')?.total ?? 0) - 3) < 1e-9 && row('mep:fixture')?.total === 1 && !r.rows.some((x) => x.role === 'cold' && x.total > 4.001), JSON.stringify(r.rows))
 }

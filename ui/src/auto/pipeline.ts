@@ -15,6 +15,7 @@ import type { HostApi } from '../services/host'
 import type { HouseViews } from './views'
 import { applyStructure, hasStructure, readStructure } from '../bim/structure'
 import { readRoofs } from '../bim/roof'
+import { hasMep, readMep, type MepResult } from './mep'
 import type { CadDocument } from '../cad/types'
 import { DEFAULT_REC, findPlans, layerStats, recognize, roofElevation, type LayerRole, type LayerStat, type PlanRegion, type Recognition } from '../bim/fromCad'
 import { DEFAULT_BUILD, buildBimModel, buildInterior, type BuildNames, type BuildResult, type InteriorBuild } from '../bim/fromCadBuild'
@@ -54,13 +55,15 @@ export interface AutoRoute {
 
 export interface AutoResult {
   file: string
-  kind: 'house' | 'route' | 'both' | 'none'
+  kind: 'house' | 'route' | 'both' | 'mep' | 'none'
   houseRoles: Record<string, LayerRole>
   civilRoles: Record<string, CivilRole>
   /** Layers the AI classified (only those no rule knew), null when the AI was not asked. */
   ai: { asked: number; set: string[]; seconds: number; model?: string; error?: string } | null
   house: AutoHouse | null
   route: AutoRoute | null
+  /** quantities from the MEP drawings (electrical, plumbing, air conditioning) */
+  mep: MepResult[]
   ms: number
 }
 
@@ -175,9 +178,11 @@ export async function runAuto(doc: CadDocument, opt: AutoOptions): Promise<AutoR
     const chosen = [...routes].sort((a, b) => b.sections.length - a.sections.length)[0]
     route = { routes, chosen, model: buildCivilModel(opt.civilBase, chosen, doc.name), volume: volumes(chosen.sections), all: routes.map((x) => ({ name: x.name, model: buildCivilModel(opt.civilBase, x, doc.name), volume: volumes(x.sections) })) }
   }
+  // MEP drawings of the project: devices and runs per level
+  const mep = [doc, ...(opt.extras ?? [])].filter(hasMep).map((d) => readMep(d, house?.built.model.levels.map((l) => l.name) ?? [], opt.names.roofLevel)).filter((x) => x.plans.length && x.rows.length)
   opt.onStep?.('check')
-  const kind = house && route ? 'both' : house ? 'house' : route ? 'route' : 'none'
-  return { file: doc.name, kind, houseRoles, civilRoles, ai, house, route, ms: Date.now() - t0 }
+  const kind = house && route ? 'both' : house ? 'house' : route ? 'route' : mep.length ? 'mep' : 'none'
+  return { file: doc.name, kind, houseRoles, civilRoles, ai, house, route, mep, ms: Date.now() - t0 }
 }
 
 /** Builds the Civil model of another route of the same result (the user picked it). */

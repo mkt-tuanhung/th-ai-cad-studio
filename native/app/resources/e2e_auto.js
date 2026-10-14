@@ -42,6 +42,7 @@
     input.dispatchEvent(new Event('change', { bubbles: true }))
     const t0 = Date.now()
     const ready = await until(() => document.querySelector('[data-testid=auto-approve]'), 600000)
+    if (names.some((x) => /MEP/i.test(x))) { const mp = dlg.querySelector('[data-testid=auto-mep]')?.innerText ?? ''; check('the MEP drawing counted and measured: lights, switches, sockets, wiring, pipes', /[1-9]\d* lights · [1-9]\d* switches · [1-9]\d* sockets · \d+ air conditioners · [1-9][\d,]* m of wiring · [1-9][\d,]* m of pipes/.test(mp), mp.replace(/\n/g, ' | ')) }
     const kind = dlg.querySelector('[data-testid=auto-kind]')?.textContent
     log(`found: ${kind} in ${((Date.now() - t0) / 1000).toFixed(1)} s — ${dlg.querySelector('h4')?.textContent ?? ''}`)
     for (const id of ['auto-house', 'auto-route']) { const el = dlg.querySelector(`[data-testid=${id}]`); if (el) log(el.innerText.replace(/\n/g, ' | ')) }

@@ -57,7 +57,11 @@ export function viewRequests(m: BimModel, w: ViewWords): DrawingReq[] {
   const st = stairSection(m)
   // 1-1 along the stair (as Vietnamese drawing sets do) when there is one, 2-2 across it through the middle;
   // without stairs: 1-1 a plane of constant y seen from the south, 2-2 a plane of constant x seen from the west
-  if (st) return [...elev, { kind: 'section', ...st, title: fill(w.section, { n: 1 }) }, { kind: 'section', ...(st.axis === 'x' ? { axis: 'y', face: 'front' } : { axis: 'x', face: 'left' }), title: fill(w.section, { n: 2 }) }]
+  // 2-2 through the double-height void when there is one (the space a section shows best), else the middle
+  const vd = m.rooms.find((r) => r.void && r.outline && r.outline.length >= 3)
+  const vc = vd ? [vd.outline!.reduce((a, p) => a + p[0], 0) / vd.outline!.length, vd.outline!.reduce((a, p) => a + p[1], 0) / vd.outline!.length] : null
+  const at2 = (axis: 'x' | 'y') => (vc ? { at: Math.round(axis === 'x' ? vc[0] : vc[1]) } : {})
+  if (st) return [...elev, { kind: 'section', ...st, title: fill(w.section, { n: 1 }) }, { kind: 'section', ...(st.axis === 'x' ? { axis: 'y' as const, face: 'front' as const, ...at2('y') } : { axis: 'x' as const, face: 'left' as const, ...at2('x') }), title: fill(w.section, { n: 2 }) }]
   return [...elev, { kind: 'section', axis: 'y', face: 'front', title: fill(w.section, { n: 1 }) }, { kind: 'section', axis: 'x', face: 'left', title: fill(w.section, { n: 2 }) }]
 }
 
