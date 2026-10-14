@@ -21,7 +21,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/civil', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/civil', { waitUntil: 'networkidle' })
 const tool = (name) => page.getByRole('toolbar').getByRole('button', { name, exact: true }).first().click()
 /** Click a profile point (station, elevation) through the chart's own transform. */
 const profileAt = async (s, z) => {

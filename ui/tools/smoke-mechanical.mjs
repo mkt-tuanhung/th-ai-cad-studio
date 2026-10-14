@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/mechanical', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/mechanical', { waitUntil: 'networkidle' })
 const checks = () => page.getByRole('region', { name: 'AI Design Checks' })
 const blank = () => page.locator('body').click({ position: { x: 900, y: 450 } })
 const param = (n) => page.getByRole('textbox', { name: n, exact: true })
@@ -101,7 +101,7 @@ await step('Mates tab lists the 8 mates; Drawing tab opens CAD 2D', async () => 
   assert.equal(await page.getByRole('table', { name: 'Mates (8)' }).getByRole('row').count(), 9)
   await page.getByRole('tab', { name: 'Drawing' }).click()
   await page.waitForURL(/#\/cad2d/)
-  await page.goto('http://127.0.0.1:5173/#/mechanical', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/mechanical', { waitUntil: 'networkidle' })
 })
 
 await step('Export → BOM CSV', async () => {

@@ -1,0 +1,7 @@
+Mã,Hạng mục,Đơn vị,Đơn giá
+slab,Sàn (GIÁ THỬ - KHÔNG PHẢI GIÁ THẬT),m³,1.000.000
+beam,Dầm (GIÁ THỬ),m³,1.000.000
+column,Cột (GIÁ THỬ),m³,1.000.000
+footing,Đài móng (GIÁ THỬ),m³,1.000.000
+wallVol:200,Tường 200 (GIÁ THỬ),m³,500.000
+floor,Lát nền (GIÁ THỬ),m²,100.000

@@ -10,6 +10,7 @@
 #include <QStorageInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QThread>
 
 #include <algorithm>
@@ -1179,6 +1180,18 @@ QString HostBridge::qaSampleDwg() const {
   if (qEnvironmentVariableIntValue("THCAD_QA") != 1) return {};
   QFile f(qEnvironmentVariable("THCAD_DWG_SAMPLE"));
   return f.open(QIODevice::ReadOnly) ? QString::fromLatin1(f.readAll().toBase64()) : QString();
+}
+
+QString HostBridge::qaSampleFile(int index) const {
+  if (qEnvironmentVariableIntValue("THCAD_QA") != 1) return QStringLiteral("{}");
+  const QStringList paths = qEnvironmentVariable("THCAD_DWG_SAMPLE").split(QLatin1Char('|'), Qt::SkipEmptyParts);
+  if (index < 0 || index >= paths.size()) return QStringLiteral("{}");
+  QFile f(paths[index]);
+  if (!f.open(QIODevice::ReadOnly)) return QStringLiteral("{}");
+  QJsonObject o;
+  o.insert(QStringLiteral("name"), QFileInfo(paths[index]).fileName());
+  o.insert(QStringLiteral("base64"), QString::fromLatin1(f.readAll().toBase64()));
+  return QString::fromUtf8(QJsonDocument(o).toJson(QJsonDocument::Compact));
 }
 
 bool HostBridge::qaGrab(const QString& path) {

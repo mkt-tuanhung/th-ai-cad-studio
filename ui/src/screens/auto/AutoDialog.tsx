@@ -13,10 +13,12 @@ import { getHost } from '../../services/host'
 import { readDrawing } from '../../cad/batch'
 import type { CadDocument } from '../../cad/types'
 import { runAuto, withRoute, type AutoResult, type AutoStep } from '../../auto/pipeline'
-import { allCabinets, makePackage, writePackage, type Written } from '../../auto/package'
+import { allCabinets, machineShare, makePackage, writePackage, type Written } from '../../auto/package'
 import { houseViews } from '../../auto/views'
 import { reportHtml } from '../../auto/report'
 import { cutList } from '../../interior/model'
+import { boq, priceOf, readPrices } from '../../bim/quantities'
+import { roofQuantities } from '../../bim/roof'
 import { nest, piecesOf } from '../../cam/nesting'
 import { nestSettings } from '../interior/NestingDialog'
 import { applyBim, applyInterior, buildNames } from '../bim/fromCadActions'
@@ -24,7 +26,9 @@ import s from './Auto.module.css'
 
 type Phase = 'pick' | 'run' | 'review' | 'write' | 'done'
 type StepKey = 'read' | AutoStep | 'views'
-const STEPS: StepKey[] = ['read', 'layers', 'ai', 'house', 'route', 'build', 'check', 'views']
+const STEPS: StepKey[] = ['read', 'layers', 'ai', 'house', 'route', 'build', 'structure', 'check', 'views']
+/** A structural drawing by its file name (it goes after the architectural one). */
+const STRUCT_NAME = /(STRUCT|KET ?CAU|KẾT ?CẤU|\bKC\b|S-)/i
 const n0 = (v: number) => Math.round(v).toLocaleString('en-US')
 
 /**
@@ -52,13 +56,20 @@ export function AutoDialog() {
   const input = useRef<HTMLInputElement>(null)
   const started = useRef(0)
   const [took, setTook] = useState(0)
+  const [prices, setPrices] = useState<{ file: string; map: Map<string, number> } | null>(null)
 
-  const start = async (doc: CadDocument | null, f?: File) => {
+  const start = async (doc: CadDocument | null, picked?: File[]) => {
     started.current = Date.now()
     setPhase('run')
     setSteps({ read: 'run' })
+    const f = picked?.find((x) => !/\.csv$/i.test(x.name))
     try {
-      const d = doc ?? (f ? (await readDrawing(f)).doc : null)
+      // several files: the drawings (architecture first, structural ones after) and a unit price list (CSV)
+      const drawingsIn = (picked ?? []).filter((x) => !/\.csv$/i.test(x.name)).sort((a, b) => Number(STRUCT_NAME.test(a.name)) - Number(STRUCT_NAME.test(b.name)))
+      const csv = (picked ?? []).find((x) => /\.csv$/i.test(x.name))
+      setPrices(csv ? { file: csv.name, map: readPrices(await csv.text()) } : null)
+      const docs = doc ? [doc] : await Promise.all(drawingsIn.map(async (x) => (await readDrawing(x)).doc))
+      const d = docs[0] ?? null
       if (!d) return setPhase('pick')
       const host = await getHost()
       setDesktop(!!host)
@@ -68,7 +79,7 @@ export function AutoDialog() {
       const seen: StepKey[] = ['read']
       setSteps({ read: 'done' })
       let r = await runAuto(d, {
-        host, useAi, names: buildNames(T.bim.fromCad), levelName: (n) => fmt(T.bim.fromCad.levelDefault, { n }), civilBase: useCivil.getState().doc,
+        host, useAi, names: buildNames(T.bim.fromCad), levelName: (n) => fmt(T.bim.fromCad.levelDefault, { n }), civilBase: useCivil.getState().doc, extras: docs.slice(1),
         onStep: (st) => { seen.push(st); setSteps(Object.fromEntries(seen.map((k, i) => [k, i === seen.length - 1 ? 'run' : 'done']))) },
       })
       // elevations and sections: the OCCT kernel of the desktop app
@@ -92,7 +103,7 @@ export function AutoDialog() {
   // the package and the numbers shown before approval (same code as the files written)
   const cam = useInterior((st) => st.cam)
   const camSetup = useMemo(() => ({ nest: nestSettings(cam), cnc: cam.cnc }), [cam])
-  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, boq: t.boq, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t])
+  const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, boq: { ...t.boq, prices }, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t, prices])
   const files = useMemo(() => (res ? makePackage(res, camSetup, pkgText, keep) : []), [res, camSetup, pkgText, keep])
   const cabinets = useMemo(() => (res ? allCabinets(res) : []), [res])
   const nesting = useMemo(() => (cabinets.length ? nest(piecesOf(cabinets), camSetup.nest) : null), [cabinets, camSetup])
@@ -111,6 +122,17 @@ export function AutoDialog() {
         const parts = cabinets.flatMap(cutList).reduce((a, p) => a + p.qty, 0)
         if (cabinets.length) house.push(fmt(t.production, { n: res.house.interiors.filter((x) => x.build.cabinets.length).length || 1, cabinets: cabinets.length, parts, sheets: nesting?.sheets.length ?? 0, programs: files.filter((f) => / - CNC /.test(f.name)).length }))
       } else house.push(t.noInterior)
+      const roofs = res.house.built.model.roofs ?? []
+      if (roofs.length) house.push(fmt(t.roof, { n: roofs.length, kinds: roofs.map((r) => `${r.kind === 'hip' ? T.auto.roofKinds.hip : T.auto.roofKinds.gable} ${r.slope.toFixed(0)}°`).join(', '), area: n0(roofs.reduce((a, r) => a + roofQuantities(r).area, 0)) }))
+      for (const n of res.house.built.notes ?? []) { const [code, ...rest] = n.split(':'); warnings.push(fmt((t.notes as Record<string, string>)[code] ?? n, { what: rest.join(':') })) }
+      for (const s of res.house.structure ?? []) {
+        house.push(fmt(t.structure, { file: s.file, footings: s.footings, piles: s.piles, ties: s.ties, beams: s.beams, openings: s.openings }))
+        for (const w of s.warnings) { const [code, ...rest] = w.split(':'); warnings.push(`${s.file}: ${fmt((t.structWarn as Record<string, string>)[code] ?? w, { what: rest.join(':') })}`) }
+      }
+      if (prices) {
+        const rows = boq(res.house.built.model, t.boq.words)
+        house.push(fmt(t.boq.priceNote, { file: prices.file, n: rows.filter((r) => priceOf(prices.map, r) !== undefined).length, m: rows.length }))
+      }
       const v = res.house.views
       if (v?.views.length) house.push(fmt(t.views, { e: v.views.filter((x) => x.kind === 'elev').length, s: v.views.filter((x) => x.kind === 'section').length, t: (v.ms / 1000).toFixed(1) }))
       if (v?.error) warnings.push(fmt(t.viewsFailed, { why: v.error }))
@@ -123,6 +145,7 @@ export function AutoDialog() {
     if (res.route) {
       const v = res.route.volume
       route.push(fmt(t.route, { name: res.route.model.alignment.name, sections: res.route.chosen.sections.length, len: n0(v.length), cut: n0(v.cut), fill: n0(v.fill) }))
+      { const ms = machineShare(prices?.map); route.push(fmt(t.routeSplit, { m: Math.round(ms * 100), h: Math.round((1 - ms) * 100), cm: n0(v.cut * ms), ch: n0(v.cut * (1 - ms)), fm: n0(v.fill * ms), fh: n0(v.fill * (1 - ms)) })) }
       if (v.drawn) route.push(fmt(t.routeDrawn, { cut: n0(v.drawn.cut), fill: n0(v.drawn.fill), dc: (((v.cut - v.drawn.cut) / Math.max(1e-9, v.drawn.cut)) * 100).toFixed(2), df: (((v.fill - v.drawn.fill) / Math.max(1e-9, v.drawn.fill)) * 100).toFixed(2) }))
       const ci = res.route.routes.indexOf(res.route.chosen)
       ;(res.route.all ?? []).forEach((o, i) => { if (i !== ci) route.push(fmt(t.routeAlso, { name: o.name, sections: res.route!.routes[i]?.sections.length ?? 0, len: n0(o.volume.length), cut: n0(o.volume.cut), fill: n0(o.volume.fill) })) })
@@ -136,7 +159,7 @@ export function AutoDialog() {
     }
     const ai = !res.ai ? (aiOn ? t.aiNotNeeded : t.noAi) : res.ai.set.length ? fmt(t.aiDone, { n: res.ai.set.length, m: res.ai.asked, s: res.ai.seconds.toFixed(1) }) : fmt(t.aiNone, { m: res.ai.asked, s: res.ai.seconds.toFixed(1) })
     return { house, route, warnings, checks, ai }
-  }, [res, t, T, files, nesting, cabinets, aiOn, desktop])
+  }, [res, t, T, files, nesting, cabinets, aiOn, desktop, prices])
 
   const approve = async () => {
     if (!res || !summary) return
@@ -189,12 +212,12 @@ export function AutoDialog() {
               className={`${s.drop} ${over ? s.over : ''}`}
               onDragOver={(e) => { e.preventDefault(); setOver(true) }}
               onDragLeave={() => setOver(false)}
-              onDrop={(e) => { e.preventDefault(); setOver(false); const f = e.dataTransfer.files?.[0]; if (f) void start(null, f) }}
+              onDrop={(e) => { e.preventDefault(); setOver(false); const fs = [...(e.dataTransfer.files ?? [])]; if (fs.length) void start(null, fs) }}
             >
               <FileUp size={28} strokeWidth={1.5} />
               <span>{t.drop}</span>
               <ActionButton variant="primary" onClick={() => input.current?.click()}>{t.choose}</ActionButton>
-              <input ref={input} type="file" hidden accept=".dwg,.dxf" aria-label={t.choose} data-testid="auto-file" onChange={(e) => { const f = e.target.files?.[0]; if (f) void start(null, f); e.target.value = '' }} />
+              <input ref={input} type="file" hidden multiple accept=".dwg,.dxf,.csv" aria-label={t.choose} data-testid="auto-file" onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void start(null, fs); e.target.value = '' }} />
             </div>
             {docList.length > 0 && (
               <div className={s.open}>

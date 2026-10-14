@@ -139,6 +139,8 @@ class HostBridge : public QObject {
   Q_INVOKABLE QJsonObject dwgWriteDxfTo(const QString& dxf, const QString& dir, const QString& name);
   /** QA only (THCAD_QA=1): bytes of $THCAD_DWG_SAMPLE as base64 (the page cannot read files). */
   Q_INVOKABLE QString qaSampleDwg() const;
+  /** QA: file `index` of THCAD_DWG_SAMPLE ("a.dwg|b.dxf|…") as {"name", "base64"}; {} past the last one. */
+  Q_INVOKABLE QString qaSampleFile(int index) const;
   /** QA only (THCAD_QA=1): saves a Qt grab of the window. */
   Q_INVOKABLE bool qaGrab(const QString& path);
   /** Option A: the UI reports where its viewport slot is; the native viewer is placed there. */

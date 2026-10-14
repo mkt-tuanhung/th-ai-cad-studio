@@ -70,6 +70,7 @@ export interface HostApi {
   cadExportPdf(pageJson: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; error?: string; cancelled?: boolean }>
   /** QA only (THCAD_QA=1). */
   qaSampleDwg(): Promise<string>
+  qaSampleFile(index: number): Promise<string>
   systemInfo(): Promise<HostSystemInfo>
   setModelsDir(dir: string): Promise<{ ok: boolean; model?: string; loaded?: boolean; error?: string }>
   setAiGpu(on: boolean): Promise<boolean>

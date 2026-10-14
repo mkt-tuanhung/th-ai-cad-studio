@@ -17,7 +17,7 @@ const step = async (name, fn) => {
 }
 const cad = () => page.evaluate(() => { const s = window.__thcad.cad.getState(); const d = s.docs[s.activeId]; return { name: d.name, n: d.entities.length, kinds: d.entities.reduce((a, e) => ((a[e.kind] = (a[e.kind] ?? 0) + 1), a), {}), layers: d.layers.map((l) => l.name), underlay: d.underlay && { w: d.underlay.natW, mm: d.underlay.mmPerPx } } })
 
-await page.goto('http://127.0.0.1:5173/#/ai-studio', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/ai-studio', { waitUntil: 'networkidle' })
 await page.getByRole('radio', { name: 'EN' }).click()
 
 await step('vector PDF → CAD geometry at 1:100 (lines, polylines, texts on PDF-* layers)', async () => {
@@ -42,7 +42,7 @@ await step('exact size: the plot frame (5 mm inside the A3 edge = 410 mm) comes 
 })
 
 await step('raster PNG → underlay with an honest note (image processing, not AI); 150 dpi at 1:100', async () => {
-  await page.goto('http://127.0.0.1:5173/#/ai-studio')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/ai-studio')
   await page.locator('input[type=file][accept="image/*,.pdf"]').setInputFiles(FX + 'canal_plot_raster.png')
   const dlg = page.getByRole('dialog', { name: /Scan to CAD — canal_plot_raster\.png/ })
   await dlg.getByText(/not an AI that understands the drawing/).waitFor()
@@ -54,7 +54,7 @@ await step('raster PNG → underlay with an honest note (image processing, not A
 })
 
 await step('raster plan (synthetic, Vietnamese labels) → vectorised: lines + circle at true size, text read by OCR', async () => {
-  await page.goto('http://127.0.0.1:5173/#/ai-studio')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/ai-studio')
   await page.locator('input[type=file][accept="image/*,.pdf"]').setInputFiles(FX + 'vi_plan_SYNTHETIC.png')
   const dlg = page.getByRole('dialog', { name: /vi_plan_SYNTHETIC\.png/ })
   await dlg.getByLabel('Drawing scale').selectOption('50')
@@ -82,7 +82,7 @@ await step('raster plan (synthetic, Vietnamese labels) → vectorised: lines + c
 })
 
 await step('real drawing scanned at 200 dpi (the canal sheet) → lines + Vietnamese text', async () => {
-  await page.goto('http://127.0.0.1:5173/#/ai-studio')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/ai-studio')
   await page.locator('input[type=file][accept="image/*,.pdf"]').setInputFiles(FX + 'canal_plot_200dpi.png')
   const dlg = page.getByRole('dialog', { name: /canal_plot_200dpi\.png/ })
   await dlg.getByLabel('Drawing scale').selectOption('1')

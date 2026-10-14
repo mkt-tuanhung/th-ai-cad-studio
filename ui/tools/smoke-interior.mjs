@@ -20,7 +20,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/interior', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/interior', { waitUntil: 'networkidle' })
 const doc = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.interior') ?? '{"state":{}}').state.doc)
 const table = (name) => page.getByRole('table', { name })
 const rows = (name) => table(name).getByRole('row')
@@ -132,7 +132,7 @@ await step('ribbon + header: Cut List tool opens the tab, Drawings goes to CAD 2
   assert.equal(await page.getByRole('tab', { name: 'Cut List (Production)' }).getAttribute('aria-selected'), 'true')
   await page.getByRole('tab', { name: 'Drawings' }).click()
   await page.waitForURL(/#\/cad2d/)
-  await page.goto('http://127.0.0.1:5173/#/interior', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/interior', { waitUntil: 'networkidle' })
 })
 
 await step('VI: workspace, tabs, rooms and default brief are translated', async () => {

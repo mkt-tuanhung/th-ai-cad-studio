@@ -91,7 +91,8 @@ export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawin
     ents.push({ ...base, id: id(), layer: 'A-SECT-CUT', kind: 'polyline', pts, closed: true, filled: true })
   }
 
-  const [u0, , u1, v1] = nd.bounds
+  const [u0, v0, u1, v1] = nd.bounds
+  const below = Math.min(0, v0 - Math.min(...model.levels.map((l) => l.elevation), 0))
   const v = VIEW[r.face]
   const uOf = (x: number, y: number) => x * v.xDir[0] + y * v.xDir[1]
   // ground line
@@ -116,7 +117,7 @@ export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawin
     if (Math.abs((dx / L) * v.toViewer[0] + (dy / L) * v.toViewer[1]) < 0.99) continue
     const u = uOf(g.a[0], g.a[1])
     const top = v1 + 1500
-    line('A-GRID', [u, ground - 800], [u, top])
+    line('A-GRID', [u, ground + below - 800], [u, top])
     ents.push({ ...base, id: id(), layer: 'A-GRID', kind: 'circle', c: { x: u, y: top + 450 }, r: 450 })
     text('A-ANNO-TEXT', u, top + 450 - T / 2, T * 1.2, g.label, 'center')
   }
@@ -124,7 +125,8 @@ export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawin
   // dimensions: overall width under the ground line; storey heights and the top on the left
   const dim = (a: [number, number], b: [number, number], offset: number) =>
     ents.push({ ...base, id: id(), layer: 'A-ANNO-DIMS', kind: 'dimension', a: { x: a[0], y: a[1] }, b: { x: b[0], y: b[1] }, offset, override: null, textHeight: T })
-  dim([u0, ground], [u1, ground], -1400)
+  // the overall dimension under everything drawn (foundations below the ground included)
+  dim([u0, ground], [u1, ground], below - 1400)
   const heights = [...levels.map((l) => l.elevation).filter((y) => y >= ground && y <= v1 + 1), v1]
   const marks = [...new Set(heights.map((y) => Math.round(y)))].sort((a, b) => a - b)
   for (let i = 0; i + 1 < marks.length; i++) dim([u0, marks[i]], [u0, marks[i + 1]], 1600)
@@ -179,8 +181,8 @@ export function drawingDocument(model: BimModel, r: DrawingReq, nd: NativeDrawin
   }
 
   // title under the drawing
-  text('A-ANNO-TEXT', u0, ground - 3300, T * 1.6, r.title.toUpperCase())
-  text('A-ANNO-TEXT', u0, ground - 3300 - T * 2, T, `1:${scale}`)
+  text('A-ANNO-TEXT', u0, ground + below - 3300, T * 1.6, r.title.toUpperCase())
+  text('A-ANNO-TEXT', u0, ground + below - 3300 - T * 2, T, `1:${scale}`)
 
   const doc = createBlankDocument(opt.name ?? `Villa Riverside - ${r.title}.dwg`)
   doc.layers = [...doc.layers.filter((l) => !LAYERS.some((x) => x.name === l.name)), ...LAYERS]

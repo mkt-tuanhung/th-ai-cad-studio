@@ -1,4 +1,4 @@
-// One command in the desktop app: ⌘K "one command" → the drawing $THCAD_DWG_SAMPLE (a real DWG, LibreDWG) →
+// One command in the desktop app: ⌘K "one command" → the drawings $THCAD_DWG_SAMPLE ("a.dwg|b.dwg|prices.csv": real DWGs, LibreDWG) →
 // recognised and built by itself (local AI on unknown layers when loaded) → Approve → the models applied and the
 // whole package written into $THCAD_PICK_DIR (PDF sheet sets and DWG by the host, IFC / DXF / CSV / G-code /
 // report). The QA profile's stores are put back at the end (see qa/tools/reset_qa_profile.js).
@@ -19,18 +19,25 @@
     // the command bar: type "one command" and pick the command
     const bar = await until(() => document.querySelector('input[aria-label^="Search projects"]'), 15000)
     bar.focus()
+    // the window may not have the keyboard focus (another app in front): no focus event then — send it
+    bar.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    bar.dispatchEvent(new FocusEvent('focus'))
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(bar, 'one command')
     bar.dispatchEvent(new Event('input', { bubbles: true }))
     const opt = await until(() => [...document.querySelectorAll('[role=option]')].find((o) => /One command/.test(o.textContent)))
     check('⌘K command bar offers "One command"', !!opt)
     opt.click()
     const dlg = await until(() => document.querySelector('[data-testid=auto]'))
-    const b64 = await h.qaSampleDwg()
-    const name = (await h.info()).qaSampleName || 'sample.dwg'
-    const file = new File([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], name)
+    // every file of $THCAD_DWG_SAMPLE ("a.dwg|b.dwg|prices.csv"), under its own name
     const input = dlg.querySelector('[data-testid=auto-file]')
     const dt = new DataTransfer()
-    dt.items.add(file)
+    for (let i = 0; ; i++) {
+      const f = JSON.parse(await h.qaSampleFile(i))
+      if (!f.name) break
+      dt.items.add(new File([Uint8Array.from(atob(f.base64), (c) => c.charCodeAt(0))], f.name))
+    }
+    const names = [...dt.files].map((x) => x.name)
+    log('files: ' + names.join(', '))
     input.files = dt.files
     input.dispatchEvent(new Event('change', { bubbles: true }))
     const t0 = Date.now()
@@ -41,8 +48,10 @@
     log('files: ' + (dlg.querySelector('[data-testid=auto-files]')?.textContent ?? ''))
     check('the drawing was read, recognised and built by itself', !!ready && !!kind && kind !== 'Nothing to build', kind || 'timeout')
     if (/Building/.test(kind ?? '')) {
-      const h = dlg.querySelector('[data-testid=auto-house]')?.innerText ?? ''
-      check('elevations (named by their grids) and sections by the OCCT kernel', /Drawings: 4 elevations · 2 sections/.test(h), h.replace(/\n/g, ' | '))
+      const hs = dlg.querySelector('[data-testid=auto-house]')?.innerText ?? ''
+      check('elevations (named by their grids) and sections by the OCCT kernel', /Drawings: 4 elevations · 2 sections/.test(hs), hs.replace(/\n/g, ' | '))
+      if (names.some((x) => /STRUCT/i.test(x))) check('the structural drawing read onto the building: pile caps, piles, tie beams, beams', /Structure \(.+\): [1-9]\d* pile caps · [1-9]\d* piles · [1-9]\d* tie beams · [1-9]\d* beams/.test(hs), hs.replace(/\n/g, ' | '))
+      if (names.some((x) => /\.csv$/i.test(x))) check('unit prices read from the CSV', /Unit prices from .+ — [1-9]\d* of \d+ lines priced/.test(hs), hs.replace(/\n/g, ' | '))
     }
     await h.qaGrab(qa + `auto_${/route/i.test(kind ?? '') ? 'route' : 'house'}_review_desktop.png`)
     document.querySelector('[data-testid=auto-approve]').click()

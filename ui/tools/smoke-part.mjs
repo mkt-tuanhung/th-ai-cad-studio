@@ -20,7 +20,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/mechanical', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/mechanical', { waitUntil: 'networkidle' })
 const tool = (name) => page.getByRole('toolbar').getByRole('button', { name, exact: true }).first().click()
 const tree = () => page.getByRole('region', { name: 'Feature Tree' })
 

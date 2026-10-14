@@ -21,7 +21,7 @@ await page.addInitScript(() => {
   }
 })
 const bim = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__thcad.bim.getState().model)))
-await page.goto('http://127.0.0.1:5173/#/bim', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/bim', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad?.bim)
 
 const plan = () => page.getByTestId('bim-plan')

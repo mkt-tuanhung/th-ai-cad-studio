@@ -8,7 +8,7 @@ const browser = await chromium.launch({ args: ['--enable-gpu', '--use-angle=meta
 for (const mode of ['svg', 'gpu']) {
   const page = await browser.newPage({ viewport: { width: 1586, height: 992 }, deviceScaleFactor: 1 })
   page.on('pageerror', (e) => console.log('pageerror', e.message))
-  await page.goto((process.env.BENCH_URL ?? 'http://127.0.0.1:5173/') + '#/cad2d', { waitUntil: 'networkidle' })
+  await page.goto((process.env.BENCH_URL ?? (process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/') + '#/cad2d', { waitUntil: 'networkidle' })
   await page.waitForFunction(() => window.__thcad?.cad?.persist.hasHydrated())
   await page.evaluate((m) => { window.thcadGpuPref.force = m === 'gpu' }, mode)
   await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: basename(file), mimeType: 'application/dxf', buffer: readFileSync(file) })

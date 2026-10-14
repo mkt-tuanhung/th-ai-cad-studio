@@ -61,7 +61,7 @@ export const fromCadEn = {
   invalid: 'The model rules rejected the result ({mark}) — nothing was changed',
   undoLabel: 'Build from CAD: {name}',
   names: {
-    roofLevel: 'Roof', voidRoom: 'Void', room: 'Room {n}', wallExt: 'Exterior wall {t} mm', wallInt: 'Interior wall {t} mm', curtain: 'Curtain wall {t} mm',
+    roofLevel: 'Roof', voidRoom: 'Void', balconyRoom: 'Balcony', room: 'Room {n}', wallExt: 'Exterior wall {t} mm', wallInt: 'Interior wall {t} mm', curtain: 'Curtain wall {t} mm',
     door: 'Single door', doubleDoor: 'Double / sliding door', opening: 'Opening', window: 'Window',
   },
   furniture: {
@@ -134,7 +134,7 @@ export const fromCadVi: typeof fromCadEn = {
   invalid: 'Quy tắc mô hình từ chối kết quả ({mark}) — không có gì thay đổi',
   undoLabel: 'Dựng từ CAD: {name}',
   names: {
-    roofLevel: 'Mái', voidRoom: 'Ô thông tầng', room: 'Phòng {n}', wallExt: 'Tường ngoài {t} mm', wallInt: 'Tường trong {t} mm', curtain: 'Vách kính {t} mm',
+    roofLevel: 'Mái', voidRoom: 'Ô thông tầng', balconyRoom: 'Ban công', room: 'Phòng {n}', wallExt: 'Tường ngoài {t} mm', wallInt: 'Tường trong {t} mm', curtain: 'Vách kính {t} mm',
     door: 'Cửa đi 1 cánh', doubleDoor: 'Cửa 2 cánh / cửa lùa', opening: 'Lỗ mở', window: 'Cửa sổ',
   },
   furniture: {

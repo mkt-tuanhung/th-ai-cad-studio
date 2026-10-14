@@ -8,6 +8,13 @@ Lối vào:
 
 Đây là một hộp thoại mở thêm. Không đổi bố cục của 12 màn đã duyệt.
 
+## Nhiều file một lúc (2026-10-13)
+
+Chọn hoặc thả **nhiều file cùng lúc**:
+- bản vẽ kiến trúc (mặt bằng);
+- bản vẽ **kết cấu**: file có tên chứa STRUCT / KẾT CẤU / KC thì được xếp sau;
+- tuỳ chọn một file **đơn giá `.csv`** (cột Mã / Hạng mục / Đơn giá). File mẫu "Đơn giá (điền vào).csv" luôn có trong bộ hồ sơ để anh điền.
+
 ## Luồng
 
 1. **Chọn bản vẽ.** Thả hoặc chọn file DWG / DXF, hoặc dùng bản vẽ đang mở trong CAD 2D. DWG được đọc qua LibreDWG.
@@ -66,6 +73,27 @@ Lối vào:
 - Nesting `.dxf`;
 - **chương trình CNC `.nc`** cho mỗi tấm ván và mỗi dao: T1 cắt biên, T2 khoan lỗ chốt kệ, T3 khoét bản lề. Khi có nhiều tầng, tên tủ ghi kèm tầng ("Tầng 2 · Tủ áo").
 
+**Kết cấu — từ bản vẽ kết cấu** (`bim/structure.ts`):
+- **Đọc mặt bằng móng:** đài móng (tên "M3 (2 cọc)", đếm cọc vẽ trong đài và đối chiếu với số ghi), cọc, giằng móng "GM 250×450". Đỉnh và đáy đài lấy theo chữ "ĐỈNH ĐÀI −0.950" / "ĐÁY ĐÀI −1.600".
+- **Đọc mặt bằng kết cấu sàn từng tầng:**
+  - dầm: hai nét song song, kích thước theo ký hiệu "D2-1 220x300"; dầm không có ký hiệu lấy chiều cao của dầm cùng bề rộng, có đánh dấu;
+  - lỗ sàn: hình gạch chéo; chiều dày sàn "h=120"; cao độ KC theo tên bản vẽ.
+- **Đặt vào mô hình** theo giao trục 1/A.
+- **Kết quả:**
+  - dầm, đài, giằng được dựng 3D, có trong IFC (IfcBeam, IfcFooting) và hiện trên mặt cắt;
+  - bản vẽ **mặt bằng móng** và **mặt bằng dầm từng tầng** nằm trong bộ hồ sơ;
+  - bảng khối lượng có thêm móng, dầm, **ván khuôn**, **cốt thép ước tính**.
+- **Dự toán:** khi có file đơn giá thì làm thêm "Dự toán" (CSV + PDF): khối lượng × đơn giá, có tổng.
+
+**Cầu thang, mái** (bổ sung 2026-10-13):
+- **Thang chữ L:** hai vế vuông góc, chiếu nghỉ vuông ở góc.
+- **Bậc rẻ quạt:** dựng thành chiếu nghỉ, có cảnh báo.
+- **Thang xoắn:** nét bậc toả ra từ tâm. Dựng 3D bậc hình quạt quanh cột giữa, có lan can vòng theo bậc; IFC .SPIRAL_STAIR.
+- **Mái dốc:** đọc từ "MẶT BẰNG MÁI", độ dốc ghi bằng "i = 35%" hoặc "30°".
+  - **4 mái hay 2 mái** nhận theo chữ ghi, hoặc theo nét bờ nóc chạy hết chiều dài;
+  - dựng 3D, IFC (IfcRoof), hiện trên mặt đứng; có bản vẽ **mặt bằng mái**; bảng khối lượng có diện tích lợp, bờ nóc, bờ chảy, tường thu hồi;
+  - độ dốc dưới 5° (dốc thoát nước "i=2%") là mái bằng, không dựng mái dốc.
+
 **Mô hình nhà, từ tên phòng** (`balconiesAndVoids` trong `bim/fromCadBuild.ts`):
 - **Ban công, lô gia, sân thượng, sân phơi:**
   - phần nằm ngoài chu vi nhà có sàn riêng;
@@ -76,8 +104,12 @@ Lối vào:
   - sàn được khoét lỗ, mép hở có lan can cao 1000 mm;
   - không tính lát nền, không đưa vào Nội thất.
 
+**Ban công / ô thông tầng không có tên** (bổ sung):
+- phòng nằm ngoài chu vi sàn, ở tầng trên tầng 1, là ban công;
+- phòng có dấu gạch chéo (hai đường chéo nối góc) là ô thông tầng.
+
 **Tuyến — mọi tuyến trong bản vẽ** (phân hệ Civil mở tuyến được chọn; các file mang tên tuyến khi có nhiều tuyến):
-- Earthwork (theo 100 m) / Cross sections / Long profile `.csv`;
+- Earthwork (theo 100 m) / Cross sections / Long profile `.csv`. File Earthwork có thêm cột **đào/đắp bằng máy và thủ công** (mặc định 90 % / 10 %, ghi rõ trong tên cột) và dòng tổng;
 - **trắc dọc** dạng DXF + DWG. Bản vẽ phóng đại tỉ lệ đứng, có tên từng đường và bảng cọc;
 - **trắc ngang** 6 mặt cắt mỗi tờ A3, dạng DXF + DWG;
 - một file PDF gộp trắc dọc và trắc ngang.
@@ -95,6 +127,8 @@ Lối vào:
 | `house_vn_SYNTHETIC.dxf` (smoke-auto, trình duyệt) | Building · 3 tầng · 18 tường · 9 cửa đi · 13 cửa sổ · 10 phòng · 12 cột · 18 đồ. Nội thất Tầng 1: 5 phòng, 4 tủ. Kiểm tra mô hình đạt hết. ZIP có IFC4, DXF mặt bằng chứa A-WALL, CSV, G-code, báo cáo. |
 | `canal_route_SYNTHETIC.dxf` (smoke-auto) | Route · 4 mặt cắt · 150 m · đào 650 m³ · đắp 741 m³. |
 | `VILLA_150_MASTER.dwg` (e2e_auto, desktop, LibreDWG) | Building · 4 tầng · 77 tường · 35 cửa đi · 22 cửa sổ · 45 phòng · 63 cột · 62 đồ. Nội thất Tầng 1: 14 phòng · 12 món · 3 tủ → 39 tấm trên 9 tấm ván · 19 chương trình CNC. Kiểm tra mô hình đạt hết. **4 vế thang (2 thang chữ U) · 3 lan can**. **4 mặt đứng (trục 1-4, 4-1, A-F, F-A) · 2 mặt cắt (1-1 qua cầu thang, 2-2)**, OCCT mất 12 s; toàn bộ chạy 13 s. **12 đoạn tường lan can ban công / sân thượng** (1100 mm; tường sau ban công có cửa được tách). **Ô thông tầng** trên P. KHÁCH THÔNG TẦNG: sàn Tầng 2 có lỗ. **Nội thất cả nhà:** 3 tầng, 11 tủ → 152 tấm trên 35 tấm ván · 66 chương trình CNC. **Bảng khối lượng** 22 hạng mục, ví dụ: sàn 51,79 m³, cột 14,57 m³, thang 1,16 m³, xây tường 200 là 90,91 m³, lát nền 397,92 m², lan can 14,51 m. **Bảng thống kê cửa** 2 tờ. Mặt đứng có cốt cửa sổ. **105 file, 0 lỗi.** |
+| **VILLA_150_MASTER.dwg + VILLA_150_STRUCTURE.dwg + đơn giá thử** (e2e_auto, nhiều file) | Kết cấu: **20 đài móng · 46 cọc · 32 giằng · 109 dầm** (kích thước theo ký hiệu), thêm 2 lỗ sàn (giếng thang máy, ô thoáng mái). Lỗ ô thang và ô thông tầng đọc từ bản kết cấu **trùng khớp** với lỗ mà phần kiến trúc tự suy ra. Số cọc của cả 20 đài khớp với số ghi. Bảng khối lượng có móng, dầm 21,97 m³, ván khuôn, cốt thép ước tính. Dự toán: 6 / 38 hạng mục có giá (file giá thử). IFC: 141 IfcBeam, 20 IfcFooting, 0 lỗi. **125 file, 0 lỗi.** |
+| `house_vn_SYNTHETIC.dxf + roof_hip_SYNTHETIC.dxf` | Mái 4 mái 19° (i = 35 %), 138 m² lợp = 13 × 10 m / cos 19,3°. Mặt đứng có mái; có mặt bằng mái; IFC IfcRoof 0 lỗi. **74 file, 0 lỗi.** |
 | Kênh Đức Phong (DWG thật, e2e_auto) | **Cả 2 tuyến** trong hồ sơ: Đức Phong 1 (33 mặt cắt · 1.600 m · đào 6.161 m³ · đắp 4.324 m³, lệch so với hồ sơ −0,04 % / +0,44 %) và Đức Phong 3 (27 mặt cắt · 1.350 m · đào 6.000 m³ · đắp 6.901 m³). **35 file, 0 lỗi.** |
 
 **Kiểm tra file đầu ra:**
@@ -108,6 +142,12 @@ Lối vào:
 - **DWG** (AC1015): đọc ngược bằng `dwg2dxf` của LibreDWG, số đối tượng khớp đúng với file DXF cùng tên. Cụ thể: mặt bằng 216, trắc dọc 270, trắc ngang 45, mặt đứng A-F 257, mặt cắt 1-1 257.
 - **G-code:** đầu file có ghi chú gốc toạ độ / dao / chiều sâu. Ví dụ tấm MFC 18 #1 T1 có 208 lệnh G1.
 
+**Lỗi tìm ra và đã sửa trong lúc kiểm thử (đợt 2026-10-13 chiều):**
+- Dốc thoát nước "i=2%" của mái bằng VILLA bị nhận thành mái 4 mái 1°. Giờ dưới 5° coi là mái bằng.
+- Hàm chuẩn hoá chữ bỏ cả dấu "=", "%", "(" nên không đọc được "i = 35%", "(2 cọc)", "H=700". Đã sửa.
+- Kiểm thử desktop chập chờn ở bước ⌘K: cửa sổ app không được focus nên ô tìm kiếm không mở. Kịch bản giờ gửi sự kiện focus.
+- Một phiên Claude khác (dự án khác) đang chạy Vite ở cổng 5173. Các bộ smoke giờ đọc địa chỉ từ biến `THCAD_UI`.
+
 **Lỗi tìm ra và đã sửa trong lúc kiểm thử:**
 - Tên chương trình CNC bị lặp tên job ("sample - CNC sample - …").
 - AI bị coi là "chưa nạp" khi mô hình chưa được nạp lần đầu. Giờ chỉ cần có file mô hình là đủ.
@@ -117,7 +157,7 @@ Lối vào:
 - Mặt cắt: tên phòng dài chồng lên nhau. Giờ số phòng nằm trên, tên phòng nằm dưới, chữ tự thu nhỏ cho vừa bề rộng phòng (sửa luôn cho BIM → Project Browser).
 - Bản vẽ mặt đứng / mặt cắt BIM luôn mang tên mẫu "Villa Riverside - …" ở khung tên. Bộ 1 lệnh giờ dùng tên bản vẽ thật.
 
-Ảnh mẫu đầu ra (VILLA_150): `qa/fromcad/auto_plan_cuts.png`, `auto_elevation_A-F.png`, `auto_section_1-1.png` (mặt cắt qua cầu thang), `auto_section_stair_zoom.png` (phóng to phần thang), `auto_boq.png` (bảng khối lượng), `auto_door_schedule.png` (bảng thống kê cửa).
+Ảnh mẫu đầu ra (VILLA_150): `qa/fromcad/auto_plan_cuts.png`, `auto_elevation_A-F.png`, `auto_section_1-1.png` (mặt cắt qua cầu thang), `auto_section_stair_zoom.png` (phóng to phần thang), `auto_boq.png` (bảng khối lượng), `auto_door_schedule.png` (bảng thống kê cửa). Kết cấu và mái: `auto_foundation_plan.png`, `auto_beam_plan_T2.png`, `auto_roof_elevation.png`.
 
 ## Cách chạy lại
 
@@ -128,25 +168,28 @@ cd ui && node tools/smoke-auto.mjs
 Kiểm thử desktop:
 
 ```bash
-qa/tools/rune2e.sh native/app/resources/e2e_auto.js 600 THCAD_UI_URL=http://127.0.0.1:5173 THCAD_SPLASH=0 THCAD_DWG_SAMPLE=<file.dwg> THCAD_PICK_DIR=<thư mục trống>
+qa/tools/rune2e.sh native/app/resources/e2e_auto.js 600 THCAD_UI_URL=http://127.0.0.1:5173 THCAD_SPLASH=0 "THCAD_DWG_SAMPLE=<kiến trúc.dwg>|<kết cấu.dwg>|<đơn giá.csv>" THCAD_PICK_DIR=<thư mục trống>
 ```
 
 Sau khi chạy kiểm thử desktop, chạy `qa/tools/reset_qa_profile.js` trước `e2e_bimviews`. Lý do: Chromium ghi localStorage chậm.
 
-Ghi chú: trong e2e, file mẫu luôn mang tên `sample.dwg` vì host không truyền tên gốc. Khi anh dùng thật, các file trong bộ hồ sơ mang tên bản vẽ gốc.
+Ghi chú: e2e lấy file qua `host.qaSampleFile(i)` (chỉ có ở chế độ QA), nên file mang đúng tên gốc. Bộ smoke chạy được trên Vite ở cổng khác: `THCAD_UI=http://127.0.0.1:5174 node tools/smoke-auto.mjs`.
 
 ## Chưa làm / giới hạn
 
-- **Mặt đứng, mặt cắt:**
-  - mặt cắt 2-2 luôn đi qua giữa nhà; chỉ nhận được thang vế thẳng (1 vế, chữ U), chưa nhận thang xoắn hay bậc rẻ quạt;
-  - lan can cầu thang tự đặt theo quy tắc: phía ô giếng, cạnh không có tường, và lan can chắn ở tầng cuối. Chiều cao mặc định 900 / 1000 mm, chưa có hộp chọn mẫu lan can (kính, gỗ, song sắt). Trụ đặt cách nhau ≤ 1,2 m, chưa vẽ từng song;
-  - chưa ghi cốt cửa sổ, chưa ký hiệu vật liệu mặt ngoài;
-  - mặt đứng chỉ đẹp khi mô hình dựng đúng: phần nào máy nhận nhầm trên mặt bằng thì mặt đứng cũng sai theo.
-- **Bảng khối lượng:**
-  - đây là khối lượng hình học từ mô hình, chưa có đơn giá, chưa tách cốt thép, ván khuôn, móng, dầm (mặt bằng không vẽ dầm, móng);
-  - tường tính cả phần chồng lên cột và sàn;
-  - sàn Tầng 1 tính như sàn BTCT; nếu là nền đất đầm thì cần sửa lại.
-- **Nội thất:** phân hệ Nội thất chỉ mở một tầng; bảng cắt / CNC thì đủ mọi tầng. Tủ là tủ tham số theo loại đồ nhận ra (tủ áo, tủ bếp, kệ TV…), chưa đọc chi tiết cánh và ngăn từ bản vẽ.
-- **Ban công, ô thông tầng:** nhận theo tên phòng. Phòng không có tên thì không nhận được, trừ ô nằm trên phòng "… thông tầng".
-- **Tuyến:** chưa tách đắp máy / đắp thủ công; chưa ghép với toạ độ tuyến.
-- **CNC:** G-code theo cấu hình máy trong Interior → Nesting (mặc định chung). **Phải chạy thử không phôi** trước khi cắt thật.
+- **Chưa thử trên bản vẽ nhà do người thật vẽ.** Bộ VILLA_150 (kiến trúc + kết cấu) do AI tạo; bộ SYNTHETIC do code tạo. Cần file thật của anh.
+- **Bảng khối lượng / dự toán:**
+  - cốt thép là **ước tính theo hàm lượng** (kg/m³ ghi trên từng dòng), chưa phải bóc từ bảng thống kê thép;
+  - cọc mới đếm số cây, vì chiều dài cọc không có trên bản vẽ;
+  - đơn giá: phần mềm không có sẵn giá, anh điền vào file "Đơn giá (điền vào).csv" rồi chọn file đó cùng bản vẽ;
+  - tường tính cả phần chồng lên cột và dầm; sàn tầng 1 tính như sàn BTCT, ván khuôn chỉ tính phần thành.
+- **Kết cấu:** chỉ đọc mặt bằng móng và mặt bằng dầm (đài, giằng, dầm, lỗ sàn, chiều dày sàn). Chưa đọc mặt cắt dầm, chi tiết thép, cột thay đổi tiết diện theo tầng.
+- **Cầu thang:**
+  - bậc rẻ quạt dựng thành chiếu nghỉ, có cảnh báo;
+  - thang xoắn: số bậc tính theo chiều cao tầng (≤ 180 mm), góc quay kéo dài theo số bậc đó;
+  - mặt cắt 1-1 chỉ đi qua thang vế thẳng.
+- **Mái dốc:** dựng theo hình chữ nhật bao ngoài (mái chữ L dựng gần đúng, có cảnh báo); chỉ có mái 4 mái và 2 mái; mái phải có độ dốc ghi trên bản vẽ.
+- **Ban công, ô thông tầng:** nhận theo tên phòng, theo vị trí ngoài chu vi nhà, hoặc theo dấu gạch chéo ô thông tầng. Ban công nằm trong chu vi nhà mà không có tên thì chưa nhận được.
+- **Nội thất:** phân hệ Nội thất chỉ mở một tầng; bảng cắt / CNC thì đủ mọi tầng.
+- **Tuyến:** tách đào/đắp máy và thủ công theo **tỷ lệ** (mặc định 90/10, sửa bằng dòng `machineShare` trong bảng đơn giá), chưa tính theo hình học mặt cắt. Chưa ghép với toạ độ tuyến.
+- **CNC:** G-code theo cấu hình máy trong Interior → Nesting. **Phải chạy thử không phôi** trước khi cắt thật.

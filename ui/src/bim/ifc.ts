@@ -10,7 +10,8 @@
  */
 import { levelOf, typeOf, wallArea, wallHeight, wallVolume, type BimModel, type P2 } from './model'
 import { polyArea } from './geometry'
-import { stairFlight } from './scene'
+import { stairFlight, wedge } from './scene'
+import { roofFrame, roofQuantities } from './roof'
 
 const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'
 
@@ -182,6 +183,45 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     quantities(el, s.id, [['Depth', 'Length', s.thickness], ['GrossArea', 'Area', A], ['GrossVolume', 'Volume', (A * s.thickness) / 1000]])
   }
 
+  for (const b of m.beams ?? []) {
+    const S = st(b.level)
+    // the section hangs from the beam's top: profile centred on the axis, extruded along it
+    const t = (b.angle * Math.PI) / 180
+    const el = w.add(`IFCBEAM('${ifcGuid('beam:' + b.id)}',$,${stepString((b.tie ? 'Tie beam:' : 'Beam:') + b.mark)},$,$,${place(S.pl, [b.x, b.y, b.topOffset - b.h / 2])},${shape([extrude(rect(0, 0, b.h, b.b), b.length, [0, 0, 0], [Math.cos(t), Math.sin(t), 0], [0, 0, 1])])},${stepString(b.mark)},.BEAM.)`)
+    count('IfcBeam')
+    S.items.push(el)
+    material('Concrete - C30', el)
+    quantities(el, b.id, [['Length', 'Length', b.length], ['GrossVolume', 'Volume', (b.length * b.b * b.h) / 1e9]])
+  }
+  for (const r of m.roofs ?? []) {
+    const S = st(r.level)
+    const f = roofFrame(r)
+    const u: [number, number, number] = [f.u[0], f.u[1], 0], v: [number, number, number] = [f.v[0], f.v[1], 0]
+    // the gable mass; a hip roof clipped at both ends by the half-space over the slope from the end eaves
+    let solid = extrude(poly([[0, 0], [f.W, 0], [f.W / 2, f.h]]), f.L, [f.o[0], f.o[1], 0], u, v)
+    if (r.kind === 'hip') {
+      const k = Math.hypot(f.tan, 1)
+      for (const [along, sg] of [[0, 1], [f.L, -1]] as const) {
+        const nrm: [number, number, number] = [(-sg * f.tan * u[0]) / k, (-sg * f.tan * u[1]) / k, 1 / k]
+        const plane = w.add(`IFCPLANE(${ax3([f.o[0] + u[0] * along, f.o[1] + u[1] * along, 0], nrm, v)})`)
+        solid = w.add(`IFCBOOLEANCLIPPINGRESULT(.DIFFERENCE.,${solid},${w.add(`IFCHALFSPACESOLID(${plane},.F.)`)})`)
+      }
+    }
+    const el = w.add(`IFCROOF('${ifcGuid('roof:' + r.id)}',$,${stepString('Roof:' + r.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape([solid], r.kind === 'hip' ? 'Clipping' : 'SweptSolid')},${stepString(r.mark)},${r.kind === 'hip' ? '.HIP_ROOF.' : '.GABLE_ROOF.'})`)
+    count('IfcRoof')
+    S.items.push(el)
+    material('Roof tiles', el)
+    quantities(el, r.id, [['GrossArea', 'Area', roofQuantities(r).area]])
+  }
+  for (const f of m.footings ?? []) {
+    const S = st(f.level)
+    const el = w.add(`IFCFOOTING('${ifcGuid('footing:' + f.id)}',$,${stepString('Pile cap:' + f.mark)},$,$,${place(S.pl, [f.x, f.y, f.bottom])},${shape([extrude(rect(0, 0, f.w, f.d), f.top - f.bottom)])},${stepString(f.mark)},.PILE_CAP.)`)
+    count('IfcFooting')
+    S.items.push(el)
+    material('Concrete - C30', el)
+    quantities(el, f.id, [['GrossVolume', 'Volume', (f.w * f.d * (f.top - f.bottom)) / 1e9]])
+  }
+
   for (const c of m.columns) {
     const h = elev(c.topLevel) - elev(c.level)
     if (h <= 0) continue
@@ -196,6 +236,15 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
   for (const s of m.stairs) {
     const { n, riser } = stairFlight(m, s)
     const S = st(s.baseLevel)
+    if (s.spiral) {
+      const sp = s.spiral, a0 = (sp.a0 * Math.PI) / 180, da = (sp.sweep * Math.PI) / 180 / n
+      const steps = Array.from({ length: n }, (_, i) => extrude(poly(wedge(s.x, s.y, sp.r0, sp.r1, a0 + i * da, a0 + (i + 1) * da)), 60, [0, 0, (i + 1) * riser - 60 + (s.baseOffset ?? 0)]))
+      const el = w.add(`IFCSTAIR('${ifcGuid('stair:' + s.id)}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(steps)},${stepString(s.mark)},.SPIRAL_STAIR.)`)
+      count('IfcStair')
+      S.items.push(el)
+      material('Concrete - C30', el)
+      continue
+    }
     const going = s.length / n
     const steps = Array.from({ length: n }, (_, i) => extrude(rect((i + 0.5) * going, 0, going, s.width), (i + 1) * riser))
     const el = w.add(`IFCSTAIR('${ifcGuid('stair:' + s.id)}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [s.x, s.y, s.baseOffset ?? 0], s.angle)},${shape(steps)},${stepString(s.mark)},.STRAIGHT_RUN_STAIR.)`)

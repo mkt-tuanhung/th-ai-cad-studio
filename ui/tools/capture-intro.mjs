@@ -8,7 +8,7 @@ const page = await ctx.newPage()
 const errors = []
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
-await page.goto('http://127.0.0.1:5173/?splash=1#/dashboard')
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=1#/dashboard')
 const t0 = Date.now()
 for (const ms of [250, 900, 1500, 2300, 2900, 3500, 4200]) {
   await page.waitForTimeout(Math.max(0, ms - (Date.now() - t0)))
@@ -18,7 +18,7 @@ await page.waitForSelector('[data-testid=intro-screen]', { state: 'detached', ti
 const total = Date.now() - t0
 await page.waitForTimeout(400)
 await page.screenshot({ path: `${out}after_intro_dashboard.png` })
-await page.goto('http://127.0.0.1:5173/?splash=0#/brand')
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=0#/brand')
 await page.waitForTimeout(1200)
 await page.screenshot({ path: `${out}brand_screen.png`, fullPage: false })
 await page.getByTestId('installer-welcome').screenshot({ path: `${out}installer_welcome.png` })

@@ -13,6 +13,8 @@
  */
 import type { HostApi } from '../services/host'
 import type { HouseViews } from './views'
+import { applyStructure, hasStructure, readStructure } from '../bim/structure'
+import { readRoofs } from '../bim/roof'
 import type { CadDocument } from '../cad/types'
 import { DEFAULT_REC, findPlans, layerStats, recognize, roofElevation, type LayerRole, type LayerStat, type PlanRegion, type Recognition } from '../bim/fromCad'
 import { DEFAULT_BUILD, buildBimModel, buildInterior, type BuildNames, type BuildResult, type InteriorBuild } from '../bim/fromCadBuild'
@@ -22,7 +24,7 @@ import { buildCivilModel } from '../civil/fromCadBuild'
 import type { CivilModel } from '../civil/model'
 import { suggestCivilRoles, suggestLayerRoles } from '../ai/layerRoles'
 
-export type AutoStep = 'layers' | 'ai' | 'house' | 'route' | 'build' | 'check'
+export type AutoStep = 'layers' | 'ai' | 'house' | 'route' | 'build' | 'structure' | 'check'
 
 export interface AutoHouse {
   plans: PlanRegion[]
@@ -37,6 +39,8 @@ export interface AutoHouse {
   interiors: { level: string; build: InteriorBuild }[]
   /** Elevations and sections by the OCCT kernel (desktop; added after the run by src/auto/views.ts). */
   views?: HouseViews
+  /** What the structural drawings added (beams, foundations, slab openings / thickness). */
+  structure: { file: string; plans: number; beams: number; ties: number; footings: number; piles: number; openings: number; warnings: string[] }[]
 }
 
 export interface AutoRoute {
@@ -69,6 +73,9 @@ export interface AutoOptions {
   levelName: (n: number) => string
   civilBase: CivilModel
   onStep?: (s: AutoStep) => void
+  /** More drawings of the same project: structural drawings (beams, foundations) are read onto the building,
+   *  their routes added; the architectural plans are taken from `doc`. */
+  extras?: CadDocument[]
 }
 
 const pause = () => new Promise((r) => setTimeout(r, 0))
@@ -132,14 +139,38 @@ export async function runAuto(doc: CadDocument, opt: AutoOptions): Promise<AutoR
       const b = i === li && interior ? interior : buildInterior(built.model, l.id, p.rec.furniture, built.align.origins[i], opt.names)
       return b.rooms.length ? [{ level: l.name, build: b }] : []
     })
-    house = { plans, recs: real, built, checks: runModelChecks(built.model), interior, interiorLevel: interior ? li : null, interiors }
+    house = { plans, recs: real, built, checks: runModelChecks(built.model), interior, interiorLevel: interior ? li : null, interiors, structure: [] }
+    // structural drawings of the project (this one or the others given): beams, pile caps, ties, slab openings
+    const sdocs = [doc, ...(opt.extras ?? [])].filter(hasStructure)
+    if (sdocs.length) {
+      opt.onStep?.('structure')
+      await pause()
+      for (const d of sdocs) {
+        const s = readStructure(d, built.model, built.align.grid)
+        if (!s.plans.length) continue
+        const before = built.model.slabs.reduce((a, x) => a + (x.openings?.length ?? 0), 0)
+        built.model = applyStructure(built.model, s)
+        const after = built.model.slabs.reduce((a, x) => a + (x.openings?.length ?? 0), 0)
+        house.structure.push({ file: d.name, plans: s.plans.length, beams: s.beams.filter((b) => !b.tie).length, ties: s.beams.filter((b) => b.tie).length, footings: s.footings.length, piles: s.footings.reduce((a, f) => a + f.piles, 0), openings: after - before, warnings: s.warnings })
+      }
+      house.checks = runModelChecks(built.model)
+    }
+    // pitched roofs on the roof plans of any of the drawings
+    for (const d of [doc, ...(opt.extras ?? [])]) {
+      const rr = readRoofs(d, built.model, built.align.grid)
+      if (rr.roofs.length) built.model = { ...built.model, roofs: [...(built.model.roofs ?? []), ...rr.roofs.map((r, i) => ({ ...r, id: `roof-${(built.model.roofs?.length ?? 0) + i + 1}`, mark: `R${(built.model.roofs?.length ?? 0) + i + 1}` }))] }
+      built.notes.push(...rr.warnings)
+    }
   }
 
   // routes
   opt.onStep?.('route')
   await pause()
   let route: AutoRoute | null = null
-  const routes = findRoutes(doc, civilRoles).filter((r) => r.sections.length >= 2)
+  const routes = [doc, ...(opt.extras ?? [])].flatMap((d) => {
+    const roles = d === doc ? civilRoles : (Object.fromEntries(layerStats(d).map((s) => [s.name, civilRuleRole(s.name) ?? 'ignore'])) as Record<string, CivilRole>)
+    return findRoutes(d, roles).filter((r) => r.sections.length >= 2)
+  })
   if (routes.length) {
     const chosen = [...routes].sort((a, b) => b.sections.length - a.sections.length)[0]
     route = { routes, chosen, model: buildCivilModel(opt.civilBase, chosen, doc.name), volume: volumes(chosen.sections), all: routes.map((x) => ({ name: x.name, model: buildCivilModel(opt.civilBase, x, doc.name), volume: volumes(x.sections) })) }

@@ -17,7 +17,7 @@ const step = async (name, fn) => {
 
 await step('intro plays (credit exact, status of the real start-up steps) and leaves into the Dashboard in 3.5–6 s', async () => {
   const t0 = Date.now()
-  await page.goto('http://127.0.0.1:5173/?splash=1#/dashboard')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=1#/dashboard')
   await page.getByTestId('intro-screen').waitFor()
   await page.waitForTimeout(3600)
   assert.equal(await page.getByTestId('intro-screen').getByText(CREDIT, { exact: true }).count(), 1)
@@ -30,7 +30,7 @@ await step('intro plays (credit exact, status of the real start-up steps) and le
 })
 
 await step('Esc skips the intro', async () => {
-  await page.goto('http://127.0.0.1:5173/?splash=1&run=2#/dashboard')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=1&run=2#/dashboard')
   await page.getByTestId('intro-screen').waitFor()
   await page.waitForTimeout(700)
   await page.keyboard.press('Escape')
@@ -38,7 +38,7 @@ await step('Esc skips the intro', async () => {
 })
 
 await step('sidebar shows the MD CAD AI STUDIO logo; no trace of the old name in the UI', async () => {
-  await page.goto('http://127.0.0.1:5173/?splash=0#/dashboard')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=0#/dashboard')
   await page.getByRole('button', { name: 'MD CAD AI STUDIO' }).first().waitFor()
   assert.equal(await page.getByRole('img', { name: 'MD CAD AI STUDIO' }).first().isVisible(), true)
   assert.equal((await page.content()).includes('TH AI CAD'), false)
@@ -46,7 +46,7 @@ await step('sidebar shows the MD CAD AI STUDIO logo; no trace of the old name in
 })
 
 await step('installer welcome screen: name, tagline, exact credit; hero visual', async () => {
-  await page.goto('http://127.0.0.1:5173/?splash=0#/brand')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=0#/brand')
   const w = page.getByTestId('installer-welcome')
   await w.waitFor()
   assert.ok(await w.getByRole('heading', { name: 'MD CAD AI STUDIO' }).isVisible())
@@ -64,9 +64,9 @@ await step('brand loader overlay appears and goes away; app icon preview', async
 })
 
 await step('installer art export pages render (hero, DMG background)', async () => {
-  await page.goto('http://127.0.0.1:5173/?splash=0#/brand?shot=hero')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=0#/brand?shot=hero')
   await page.getByTestId('installer-hero').waitFor()
-  await page.goto('http://127.0.0.1:5173/?splash=0&run=3#/brand?shot=dmg')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/?splash=0&run=3#/brand?shot=dmg')
   await page.getByText(CREDIT, { exact: true }).waitFor()
   assert.equal(await page.getByTestId('installer-hero').count(), 0)
 })

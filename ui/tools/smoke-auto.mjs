@@ -25,7 +25,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/dashboard', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/dashboard', { waitUntil: 'networkidle' })
 const store = (k) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? '{}').state, k)
 /** Names in a ZIP (central directory). */
 const zipNames = (buf) => {
@@ -91,7 +91,7 @@ await step('Done: Open BIM 3D goes to the built model', async () => {
 })
 
 await step('a canal DXF from the Dashboard actions: route found, volumes, package with profile + sections', async () => {
-  await page.goto('http://127.0.0.1:5173/#/dashboard', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/dashboard', { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: 'See All' }).click()
   await page.getByRole('button', { name: /One command: build everything from a drawing/ }).click()
   await page.getByTestId('auto-file').setInputFiles(FX + 'civil/canal_route_SYNTHETIC.dxf')

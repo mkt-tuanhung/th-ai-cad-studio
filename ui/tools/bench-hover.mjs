@@ -6,7 +6,7 @@ import { basename } from 'node:path'
 const file = process.argv[2]
 const browser = await chromium.launch({ args: ['--enable-gpu', '--use-angle=metal', '--ignore-gpu-blocklist'] })
 const page = await browser.newPage({ viewport: { width: 1586, height: 992 } })
-await page.goto((process.env.BENCH_URL ?? 'http://127.0.0.1:5173/') + '#/cad2d', { waitUntil: 'networkidle' })
+await page.goto((process.env.BENCH_URL ?? (process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/') + '#/cad2d', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad?.cad?.persist.hasHydrated())
 await page.locator('input[type=file][accept=".dxf,.dwg"]').setInputFiles({ name: basename(file), mimeType: 'application/dxf', buffer: readFileSync(file) })
 await page.waitForFunction(() => { const s = window.__thcad.cad.getState(); return !!s.views[s.activeId] }, null, { timeout: 120000 })

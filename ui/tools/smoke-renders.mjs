@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/renders', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/renders', { waitUntil: 'networkidle' })
 const doc = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.renders') ?? '{"state":{}}').state.doc)
 const queueRows = () => page.getByRole('table', { name: 'Render Queue' }).getByRole('row')
 const blank = () => page.locator('body').click({ position: { x: 900, y: 420 } })

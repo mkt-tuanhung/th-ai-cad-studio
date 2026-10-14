@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/settings', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/settings', { waitUntil: 'networkidle' })
 const settings = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.settings')).state)
 const save = () => page.getByRole('button', { name: 'Save Changes', exact: true }).click()
 
@@ -54,7 +54,7 @@ await step('Save Changes persists units / precision / angle units and the rail r
 })
 
 await step('DIST in CAD 2D reports in the saved units and precision', async () => {
-  await page.goto('http://127.0.0.1:5173/#/cad2d', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/cad2d', { waitUntil: 'networkidle' })
   const input = page.getByRole('textbox', { name: 'Type a command or use AI...' })
   for (const l of ['DIST', '0,0', '3000,4000']) { await input.fill(l); await input.press('Enter') }
   const log = await page.getByRole('log').innerText()
@@ -62,7 +62,7 @@ await step('DIST in CAD 2D reports in the saved units and precision', async () =
   assert.match(log, /Angle in XY Plane = 0\.927 rad/)
   for (const l of ['AREA', '0,0', '2000,0', '2000,3000', '0,3000', '']) { await input.fill(l); await input.press('Enter') }
   assert.match(await page.getByRole('log').innerText(), /Area = 6\.000 m²,\s+Perimeter = 10\.000 m/)
-  await page.goto('http://127.0.0.1:5173/#/settings', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/settings', { waitUntil: 'networkidle' })
 })
 
 await step('language select switches the whole UI to Vietnamese after Save', async () => {
@@ -100,12 +100,12 @@ await step('Hardware Acceleration off → CAD 2D draws large drawings with SVG (
 await step('Max Undo Steps caps the CAD 2D history', async () => {
   await page.getByRole('spinbutton', { name: 'Max Undo Steps' }).fill('10')
   await save()
-  await page.goto('http://127.0.0.1:5173/#/cad2d', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/cad2d', { waitUntil: 'networkidle' })
   const input = page.getByRole('textbox', { name: 'Type a command or use AI...' })
   for (let i = 0; i < 14; i++) for (const l of ['LINE', `${i * 100},0`, `${i * 100},50`, '']) { await input.fill(l); await input.press('Enter') }
   const n = await page.evaluate(() => { const s = window.__thcad.cad.getState(); return s.history[s.activeId].undo.length })
   assert.equal(n, 10)
-  await page.goto('http://127.0.0.1:5173/#/settings', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/settings', { waitUntil: 'networkidle' })
 })
 
 await step('keyboard shortcut remap: OSNAP moves from F3 to F4 and works in CAD 2D', async () => {
@@ -114,11 +114,11 @@ await step('keyboard shortcut remap: OSNAP moves from F3 to F4 and works in CAD 
   await page.keyboard.press('F4')
   await save()
   assert.equal((await settings()).shortcuts.osnap, 'F4')
-  await page.goto('http://127.0.0.1:5173/#/cad2d', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/cad2d', { waitUntil: 'networkidle' })
   const before = await page.evaluate(() => window.__thcad.cad.getState().toggles.osnap)
   await page.keyboard.press('F4')
   assert.equal(await page.evaluate(() => window.__thcad.cad.getState().toggles.osnap), !before)
-  await page.goto('http://127.0.0.1:5173/#/settings', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/settings', { waitUntil: 'networkidle' })
 })
 
 await step('folder Change… in a browser opens a path editor; the new path shows in the rail after Save', async () => {

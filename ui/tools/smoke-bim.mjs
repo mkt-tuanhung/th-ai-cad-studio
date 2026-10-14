@@ -17,7 +17,7 @@ const step = async (name, fn) => {
 const bim = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__thcad.bim.getState())))
 const prop = (label) => page.locator(`text="${label}"`).locator('xpath=following-sibling::span[1]').innerText()
 
-await page.goto('http://127.0.0.1:5173/#/bim', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/bim', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad?.bim)
 
 await step('mockup state: 3D view, W1 in Properties, Walls (24), checks 0/3/5/0/0', async () => {

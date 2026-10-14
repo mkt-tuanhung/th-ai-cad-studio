@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/projects', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/projects', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad?.workspace)
 const ws = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__thcad.workspace.getState())))
 const cards = () => page.locator('article[aria-label]')
@@ -151,7 +151,7 @@ await step('Import Files adds a DXF; "Open in CAD 2D" opens it as a drawing', as
   await page.getByRole('menuitem', { name: 'Open in CAD 2D' }).click()
   await page.waitForFunction(() => location.hash === '#/cad2d')
   await page.waitForFunction(() => { const s = window.__thcad.cad.getState(); return s.docs[s.activeId]?.name === 'site-survey.dxf' })
-  await page.goto('http://127.0.0.1:5173/#/projects', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/projects', { waitUntil: 'networkidle' })
 })
 
 await step('New Project (modal) and From Template (with folders) create and select projects', async () => {
@@ -190,7 +190,7 @@ await step('changes survive a reload (persisted workspace)', async () => {
 })
 
 await step('Dashboard still shows 12 active projects and the same four recent projects', async () => {
-  await page.goto('http://127.0.0.1:5173/#/dashboard', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/dashboard', { waitUntil: 'networkidle' })
   const s = await ws()
   const active = s.projects.filter((p) => ['active', 'in-progress'].includes(p.details?.status ?? 'active') && !p.details?.sharedWithMe).length
   assert.ok(active >= 12)

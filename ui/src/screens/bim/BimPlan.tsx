@@ -736,6 +736,8 @@ function boxPoly(cx: number, cy: number, w: number, d: number, rot: number): P2[
 }
 
 function stairPoly(st: BimModel['stairs'][number]): P2[] {
+  // a spiral: the square round its outer circle
+  if (st.spiral) { const r = st.spiral.r1; return [[st.x - r, st.y - r], [st.x + r, st.y - r], [st.x + r, st.y + r], [st.x - r, st.y + r]] }
   const t = (st.angle * Math.PI) / 180
   const ux = Math.cos(t),
     uy = Math.sin(t),
@@ -751,6 +753,18 @@ function stairPoly(st: BimModel['stairs'][number]): P2[] {
 
 function StairPlan({ st, m, S, sel }: { st: BimModel['stairs'][number]; m: BimModel; S: (p: P2) => P2; sel: boolean }) {
   const { n } = stairFlight(m, st)
+  if (st.spiral) {
+    // the ring of treads: outer and inner circles, a line per riser
+    const sp = st.spiral, a0 = (sp.a0 * Math.PI) / 180, da = (sp.sweep * Math.PI) / 180 / n
+    const c = S([st.x, st.y]), r0 = Math.hypot(...(S([st.x + sp.r0, st.y]).map((v, i) => v - c[i]) as [number, number])), r1 = Math.hypot(...(S([st.x + sp.r1, st.y]).map((v, i) => v - c[i]) as [number, number]))
+    return (
+      <g>
+        <circle cx={c[0]} cy={c[1]} r={r1} className={`${s.stair} ${sel ? s.sel : ''}`} />
+        <circle cx={c[0]} cy={c[1]} r={r0} className={s.tread} />
+        {Array.from({ length: n + 1 }, (_, i) => { const a = a0 + i * da; const p = S([st.x + Math.cos(a) * sp.r0, st.y + Math.sin(a) * sp.r0]), q = S([st.x + Math.cos(a) * sp.r1, st.y + Math.sin(a) * sp.r1]); return <line key={i} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className={s.tread} /> })}
+      </g>
+    )
+  }
   const t = (st.angle * Math.PI) / 180
   const ux = Math.cos(t),
     uy = Math.sin(t),

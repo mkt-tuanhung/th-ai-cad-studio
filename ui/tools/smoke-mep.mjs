@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/mep', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/mep', { waitUntil: 'networkidle' })
 const doc = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.mep') ?? '{"state":{}}').state.doc)
 const tableRows = (re) => page.getByRole('table', { name: re }).getByRole('row')
 const row = (re, text) => tableRows(re).filter({ hasText: text }).first()

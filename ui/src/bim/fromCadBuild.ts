@@ -47,6 +47,8 @@ export interface BuildNames {
   furniture: Record<FurnKind, string>
   /** name given to an unnamed room found to be a double-height void */
   voidRoom?: string
+  /** … and to one found to be a balcony */
+  balconyRoom?: string
 }
 
 /** Default heights of furniture blocks (mm) — a plan has none. */
@@ -96,6 +98,8 @@ const r1 = (v: number) => Math.round(v * 10) / 10
 export interface BuildResult {
   model: BimModel
   align: Alignment
+  /** things built in a simplified way (winders as a landing…), "code:detail" */
+  notes: string[]
   counts: { levels: number; walls: number; doors: number; windows: number; rooms: number; columns: number; slabs: number; components: number; grids: number; stairs: number; railings: number }
 }
 
@@ -171,7 +175,7 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     p.rec.rooms.forEach((r, k) => {
       const num = r.number ?? `${li + 1}${String(k + 1).padStart(2, '0')}`
       if (!r.name) unnamed.add(`room-${lv.id}-${k + 1}`)
-      rooms.push({ id: `room-${lv.id}-${k + 1}`, category: 'room', number: num, name: r.name ?? names.room(k + 1), level: lv.id, area: r.area, outline: r.outline.map(T) })
+      rooms.push({ id: `room-${lv.id}-${k + 1}`, category: 'room', number: num, name: r.name ?? names.room(k + 1), level: lv.id, area: r.area, outline: r.outline.map(T), ...(r.crossed ? { void: true } : {}) })
     })
     if (!p.roof && above)
       for (const c of p.rec.columns) {
@@ -193,12 +197,12 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     const [ox, oy] = align.origins[sorted.length - 1]
     slabs.push({ id: `S${slabs.length + 1}`, category: 'slab', mark: `S${slabs.length + 1}`, kind: 'roof', level: levels[levels.length - 1].id, offset: 0, thickness: opt.slabT, outline: top.rec.footprint.map((q) => [r1(q[0] - ox), r1(q[1] - oy)] as P2) })
   }
-  const edges = balconiesAndVoids(levels, rooms, walls, types, slabs, opt.slabT, names.voidRoom ?? 'Void', unnamed, [...doors, ...windows])
-  const { stairs, landings, railings: stairRails } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
+  const edges = balconiesAndVoids(levels, rooms, walls, types, slabs, opt.slabT, names.voidRoom ?? 'Void', unnamed, [...doors, ...windows], names.balconyRoom ?? 'Balcony')
+  const { stairs, landings, railings: stairRails, notes } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
   for (const sl of [...edges.slabs, ...landings]) slabs.push({ ...sl, id: sl.landing ? sl.id : `S${slabs.length + 1}`, mark: sl.landing ? sl.mark : `S${slabs.length + 1}` })
   const railings = [...stairRails, ...edges.railings].map((r, i) => ({ ...r, id: `railing-${i + 1}`, mark: `RL${i + 1}` }))
   const model: BimModel = { levels, wallTypes: [...types.values()], walls, doors, windows, rooms, columns, slabs, stairs, railings, components, grids, annotations: [] }
-  return { model, align, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length, railings: railings.length } }
+  return { model, align, notes, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length, railings: railings.length } }
 }
 
 /* ---------------- balconies, double-height voids ---------------- */
@@ -220,9 +224,11 @@ const areaOf = (o: P2[]) => Math.abs(o.reduce((s, p, i) => s + p[0] * o[(i + 1) 
  *    BALCONY_H high;
  *  - a void: a room named as one ("Ô THÔNG TẦNG", "GIẾNG TRỜI"), or the room on the floor above a room whose
  *    name says it is double height ("P. KHÁCH THÔNG TẦNG") — the floor slab is cut out under it and a guard rail
- *    VOID_H high runs on its open edges. The void room is flagged (no floor finish, no Interior room).
+ *    VOID_H high runs on its open edges. The void room is flagged (no floor finish, no Interior room). A room the
+ *    plan crosses corner to corner is a void too (flagged by the recognition, src/bim/fromCad.ts).
+ *  - without a name: a room above the ground floor lying outside the floor slab of its level is a balcony.
  */
-export function balconiesAndVoids(levels: Level[], rooms: Room[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[], slabT: number, voidName: string, unnamed: Set<string>, openings: Opening[]): { slabs: Slab[]; railings: Railing[]; parapets: number } {
+export function balconiesAndVoids(levels: Level[], rooms: Room[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[], slabT: number, voidName: string, unnamed: Set<string>, openings: Opening[], balconyName = 'Balcony'): { slabs: Slab[]; railings: Railing[]; parapets: number } {
   const outSlabs: Slab[] = [], railings: Railing[] = []
   const lvIdx = (id: string) => levels.findIndex((l) => l.id === id)
   const floorOf = (lv: string) => slabs.find((s) => s.level === lv && s.kind === 'floor' && !s.landing)
@@ -292,8 +298,16 @@ export function balconiesAndVoids(levels: Level[], rooms: Room[], walls: Wall[],
   // parapets: walls along a balcony edge with no room beyond them
   let parapets = 0
   const inRoom = (lv: string, p: P2) => rooms.some((x) => x.level === lv && !BALCONY.test(norm(x.name)) && x.outline && x.outline.length >= 3 && inside(p, x.outline))
+  // unnamed rooms: outside the floor slab of their level (above the ground floor) → balconies
+  const isBalcony = new Set<Room>()
   for (const r of rooms) {
-    if (lvIdx(r.level) <= 0 || !r.outline || r.outline.length < 3 || !BALCONY.test(norm(r.name))) continue
+    if (!r.outline || r.outline.length < 3 || r.void) continue
+    if (BALCONY.test(norm(r.name))) { isBalcony.add(r); continue }
+    const fp = floorOf(r.level)
+    if (lvIdx(r.level) > 0 && unnamed.has(r.id) && fp && !inside(centroid(r.outline), fp.outline)) { isBalcony.add(r); r.name = balconyName }
+  }
+  for (const r of rooms) {
+    if (lvIdx(r.level) <= 0 || !r.outline || r.outline.length < 3 || !isBalcony.has(r)) continue
     const c = centroid(r.outline)
     for (let i = 0; i < r.outline.length; i++) {
       const a = r.outline[i], b = r.outline[(i + 1) % r.outline.length]
@@ -339,18 +353,18 @@ export function balconiesAndVoids(levels: Level[], rooms: Room[], walls: Wall[],
   for (const r of rooms) {
     const li = lvIdx(r.level)
     if (li <= 0 || !r.outline || r.outline.length < 3) continue
-    const n = norm(r.name)
-    if (BALCONY.test(n)) {
+    if (isBalcony.has(r)) {
       const fp = floorOf(r.level)
       if (!fp || !inside(centroid(r.outline), fp.outline)) outSlabs.push({ id: '', category: 'slab', mark: '', kind: 'floor', level: r.level, offset: 0, thickness: slabT, outline: r.outline })
       guard(r.level, r.outline, BALCONY_H)
     }
   }
   const voids = new Set<Room>()
+  for (const r of rooms) if (r.void && lvIdx(r.level) <= 0) r.void = undefined // a crossed room on the ground floor is no void
   for (const r of rooms) {
     if (!r.outline || r.outline.length < 3) continue
     const n = norm(r.name)
-    if (VOID_ONLY.test(n) && lvIdx(r.level) > 0) voids.add(r)
+    if ((VOID_ONLY.test(n) || r.void) && lvIdx(r.level) > 0) { voids.add(r); if (unnamed.has(r.id)) r.name = voidName }
     else if (VOID_IN.test(n)) {
       // the room above it is the void
       const up = levels[lvIdx(r.level) + 1]
@@ -402,7 +416,8 @@ const dot = (a: P2, b: P2) => a[0] * b[0] + a[1] * b[1]
  */
 export const RAIL_H = 900, GUARD_H = 1000
 
-export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[]): { stairs: Stair[]; landings: Slab[]; railings: Railing[] } {
+export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], walls: Wall[], types: Map<string, WallType>, slabs: Slab[]): { stairs: Stair[]; landings: Slab[]; railings: Railing[]; notes: string[] } {
+  const notes: string[] = []
   const cl: FlightCluster[] = []
   sorted.forEach((p, li) => {
     const [ox, oy] = origins[li]
@@ -434,6 +449,30 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
     used.add(a)
     if (b) { used.add(b); systems.push([a, b]) } else systems.push([a])
   }
+  // L pairs: two single flights at right angles, the second beside the square past the top of the first
+  const lPairs = new Set<FlightCluster[]>()
+  const lAdj = (a: FlightCluster, b: FlightCluster) => {
+    const pts: P2[] = [[b.s0, b.t0], [b.s1, b.t0], [b.s1, b.t1], [b.s0, b.t1]].map(([s, t]) => [b.d[0] * s + b.n[0] * t, b.d[1] * s + b.n[1] * t])
+    const bn = pts.map((p) => dot(p, a.n)), bd = pts.map((p) => dot(p, a.d))
+    const n0 = Math.min(...bn), n1 = Math.max(...bn), d0 = Math.min(...bd), d1 = Math.max(...bd)
+    const pastEnd = Math.abs(n0 - a.t1) < 400 || Math.abs(n1 - a.t0) < 400
+    const beside = Math.abs(d0 - a.s1) < 400 || Math.abs(d1 - a.s0) < 400
+    return pastEnd && beside
+  }
+  for (let i = 0; i < systems.length; i++) {
+    if (systems[i].length !== 1) continue
+    for (let j = i + 1; j < systems.length; j++) {
+      const a = systems[i][0], b = systems[j][0]
+      if (systems[j].length !== 1 || Math.abs(dot(a.n, b.n)) > 0.05 || !(lAdj(a, b) || lAdj(b, a))) continue
+      // flight 1 first: the one whose top end the other one leaves from
+      const sys = lAdj(a, b) ? [a, b] : [b, a]
+      systems[i] = sys
+      systems.splice(j, 1)
+      lPairs.add(sys)
+      break
+    }
+  }
+  const diagonals = sorted.flatMap((p, li) => (p.rec.stairDiagonals ?? []).map(([x, y]) => [x - origins[li][0], y - origins[li][1]] as P2))
   const stairs: Stair[] = [], landings: Slab[] = [], railings: Railing[] = []
   let no = 0
   // a wall along the side of a flight (its centre line within 350 mm of the edge, over half the run)
@@ -455,7 +494,7 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
   const leftEdge = (c: FlightCluster, st: Stair) => { const t = (st.angle * Math.PI) / 180; const nl: P2 = [-Math.sin(t), Math.cos(t)]; return dot(nl, c.d) > 0 ? c.s1 : c.s0 }
   const rail = (lv: string, pts: P2[], z: number[], height: number) => railings.push({ id: `railing-${railings.length + 1}`, category: 'railing', mark: `RL${railings.length + 1}`, level: lv, pts, height, z })
   // per stair system: the storeys it was built for, with flight 1 (cluster and element) of each
-  const built = new Map<FlightCluster[], { li: number; c1: FlightCluster; other: FlightCluster | undefined; st: Stair }[]>()
+  const built = new Map<FlightCluster[], { li: number; c1: FlightCluster; other: FlightCluster | undefined; st: Stair; L: boolean }[]>()
   const at = (c: FlightCluster, s: number, t: number): P2 => [r1(c.d[0] * s + c.n[0] * t), r1(c.d[1] * s + c.n[1] * t)]
   const rect = (c: FlightCluster, s0: number, s1: number, t0: number, t1: number): P2[] => [at(c, s0, t0), at(c, s1, t0), at(c, s1, t1), at(c, s0, t1)]
   const ang = (v: P2) => Math.round((Math.atan2(v[1], v[0]) * 180) / Math.PI * 1000) / 1000
@@ -466,9 +505,12 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
     if (H <= 0) continue
     for (const sys of systems) {
       if (!sys.some((c) => c.seen.has(li)) || !sys.some((c) => c.seen.has(li + 1))) continue
-      // flight 1: the one drawn on the lowest plan (the start of the stair)
-      const [c1, c2] = sys.length === 2 && Math.min(...sys[1].seen) < Math.min(...sys[0].seen) ? [sys[1], sys[0]] : [sys[0], sys[1]]
-      const u1 = (c1.up || (c2 ? -c2.up : 0) || 1) as 1 | -1
+      // flight 1: the one drawn on the lowest plan (the start of the stair); of an L, the one the other leaves
+      const isL = lPairs.has(sys)
+      const [c1, c2] = !isL && sys.length === 2 && Math.min(...sys[1].seen) < Math.min(...sys[0].seen) ? [sys[1], sys[0]] : [sys[0], sys[1]]
+      // up: as drawn; an L climbs towards the corner it turns at
+      const toCorner = isL && c2 ? ((dot([c2.d[0] * (c2.s0 + c2.s1) / 2 + c2.n[0] * (c2.t0 + c2.t1) / 2, c2.d[1] * (c2.s0 + c2.s1) / 2 + c2.n[1] * (c2.t0 + c2.t1) / 2], c1.n) > (c1.t0 + c1.t1) / 2 ? 1 : -1) as 1 | -1) : 0
+      const u1 = (c1.up || toCorner || (c2 ? -c2.up : 0) || 1) as 1 | -1
       let k1 = linesOf(c1), k2 = c2 ? linesOf(c2) : 0
       let riser = H / (k1 + k2)
       if (riser < 140 || riser > 200) {
@@ -485,8 +527,9 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
       }
       const s1st = flight(c1, u1, 0, k1, `ST${no}`)
       stairs.push(s1st)
-      built.set(sys, [...(built.get(sys) ?? []), { li, c1, other: c2, st: s1st }])
+      built.set(sys, [...(built.get(sys) ?? []), { li, c1, other: isL ? undefined : c2, st: s1st, L: isL }])
       let well = rect(c1, c1.s0, c1.s1, c1.t0, c1.t1)
+      let well2: P2[] | null = null
       // open sides of a flight get a rail (the side towards the other flight of a U stair is done below)
       const openRails = (c: FlightCluster, st: Stair, skip: 1 | -1 | 0) => {
         for (const side of [1, -1] as const) {
@@ -497,7 +540,23 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
           rail(lv.id, r.pts, r.z, RAIL_H)
         }
       }
-      if (c2) {
+      if (c2 && isL) {
+        // L: a square landing past the top of flight 1 (as wide as flight 2), flight 2 leaving it at right angles
+        const te = u1 > 0 ? c1.t1 : c1.t0
+        const sq = rect(c1, c1.s0, c1.s1, te, te + u1 * (c2.s1 - c2.s0))
+        const z = k1 * riser
+        landings.push({ id: `landing-${landings.length + 1}`, category: 'slab', mark: `LD${landings.length + 1}`, kind: 'floor', level: lv.id, offset: r1(z), thickness: 100, outline: sq, landing: true })
+        const cx = sq.reduce((a, p) => a + p[0], 0) / 4, cy = sq.reduce((a, p) => a + p[1], 0) / 4, tP = dot([cx, cy], c2.n)
+        const s2st = flight(c2, (Math.abs(c2.t0 - tP) < Math.abs(c2.t1 - tP) ? 1 : -1) as 1 | -1, z, k2, `ST${no}b`)
+        stairs.push(s2st)
+        well = rect(c1, c1.s0, c1.s1, Math.min(c1.t0, te + u1 * (c2.s1 - c2.s0)), Math.max(c1.t1, te + u1 * (c2.s1 - c2.s0)))
+        well2 = rect(c2, c2.s0, c2.s1, c2.t0, c2.t1)
+        openRails(c1, s1st, 0)
+        openRails(c2, s2st, 0)
+        // slanted tread lines in the corner: winders, built as this landing
+        const xs = sq.map((p) => p[0]), ys = sq.map((p) => p[1])
+        if (diagonals.some(([x, y]) => x > Math.min(...xs) - 50 && x < Math.max(...xs) + 50 && y > Math.min(...ys) - 50 && y < Math.max(...ys) + 50)) notes.push(`winders:${lv.name}`)
+      } else if (c2) {
         // landing at the top of flight 1 across both flights, up to the wall beyond (else as deep as a flight is wide)
         const te = u1 > 0 ? c1.t1 : c1.t0
         const S0 = Math.min(c1.s0, c2.s0), S1 = Math.max(c1.s1, c2.s1)
@@ -528,14 +587,43 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
       } else openRails(c1, s1st, 0)
       // the stair well through the floor above
       const up = slabs.find((s) => s.level === above.id && s.kind === 'floor' && !s.landing)
-      if (up) up.openings = [...(up.openings ?? []), well]
+      if (up) up.openings = [...(up.openings ?? []), well, ...(well2 ? [well2] : [])]
+    }
+  }
+  // spiral stairs: the same one on each plan by its centre; a storey gets one drawn on its plan and the one above
+  const sp: { c: P2; r0: number; r1: number; a0: number; sweep: number; lines: number; seen: Set<number> }[] = []
+  sorted.forEach((p, li) => {
+    for (const s of p.rec.spirals ?? []) {
+      const c: P2 = [s.c[0] - origins[li][0], s.c[1] - origins[li][1]]
+      const e = sp.find((x) => Math.hypot(x.c[0] - c[0], x.c[1] - c[1]) < 200)
+      if (e) { e.seen.add(li); if (s.lines > e.lines) Object.assign(e, { a0: s.a0, sweep: s.sweep, lines: s.lines, r0: s.r0, r1: s.r1 }) } else sp.push({ ...s, c, seen: new Set([li]) })
+    }
+  })
+  for (const s of sp) {
+    for (let li = 0; li + 1 < sorted.length; li++) {
+      if (sorted[li].roof || !s.seen.has(li) || !s.seen.has(li + 1)) continue
+      const lv = levels[li], above = levels[li + 1], H = above.elevation - lv.elevation
+      if (H <= 0) continue
+      const n = H / s.lines >= 140 && H / s.lines <= 220 ? s.lines : Math.ceil(H / 180)
+      const step = s.lines > 1 ? s.sweep / (s.lines - 1) : s.sweep
+      const sweep = step * n, rm = (s.r0 + s.r1) / 2
+      no++
+      const st: Stair = { id: `stair-${stairs.length + 1}`, category: 'stair', mark: `ST${no}`, baseLevel: lv.id, topLevel: above.id, x: r1(s.c[0]), y: r1(s.c[1]), angle: r1((s.a0 * 180) / Math.PI), length: r1(Math.abs(sweep) * rm), width: r1(s.r1 - s.r0), baseOffset: 0, rise: r1(H), risers: n, spiral: { r0: r1(s.r0), r1: r1(s.r1), a0: r1((s.a0 * 180) / Math.PI), sweep: r1((sweep * 180) / Math.PI) } }
+      stairs.push(st)
+      // the outer rail along the treads, rising with them; the well a circle through the floor above
+      const k = Math.max(4, Math.ceil(Math.abs(sweep) / (Math.PI / 12)))
+      const pts: P2[] = [], z: number[] = []
+      for (let i = 0; i <= k; i++) { const a = s.a0 + (sweep * i) / k; pts.push([r1(s.c[0] + Math.cos(a) * (s.r1 - 50)), r1(s.c[1] + Math.sin(a) * (s.r1 - 50))]); z.push(r1((H * i) / k)) }
+      rail(lv.id, pts, z, RAIL_H)
+      const up = slabs.find((x) => x.level === above.id && x.kind === 'floor' && !x.landing)
+      if (up) up.openings = [...(up.openings ?? []), Array.from({ length: 24 }, (_, i) => [r1(s.c[0] + Math.cos((i * Math.PI) / 12) * (s.r1 + 50)), r1(s.c[1] + Math.sin((i * Math.PI) / 12) * (s.r1 + 50))] as P2)]
     }
   }
   // the floor where a stair ends: a guard rail across the open edge of its well (over flight 1 of a U stair,
   // along the open sides of a straight one), where no wall stands
   for (const list of built.values()) {
-    for (const { li, c1, other, st } of list) {
-      if (list.some((x) => x.li === li + 1)) continue
+    for (const { li, c1, other, st, L } of list) {
+      if (L || list.some((x) => x.li === li + 1)) continue
       const above = levels[li + 1], lv = levels[li]
       if (!above) continue
       // the floor-side end of the well: the bottom of flight 1, the guard 50 mm back on the floor
@@ -549,7 +637,7 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
       } else for (const edge of [c1.s0, c1.s1]) if (!wallAt(lv.id, c1, edge)) rail(above.id, [at(c1, edge, c1.t0), at(c1, edge, c1.t1)], [0, 0], GUARD_H)
     }
   }
-  return { stairs, landings, railings }
+  return { stairs, landings, railings, notes }
 }
 
 /** Two models side by side: the imported levels become extra levels (renamed if their elevation is taken). */

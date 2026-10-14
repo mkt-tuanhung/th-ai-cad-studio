@@ -115,6 +115,8 @@ export interface Stair {
   baseOffset?: number
   rise?: number
   risers?: number
+  /** a spiral stair: (x, y) is its centre, width = r1 − r0; treads from angle a0 (deg) through sweep (deg, signed) */
+  spiral?: { r0: number; r1: number; a0: number; sweep: number }
 }
 
 export interface Railing {
@@ -170,6 +172,57 @@ export interface Comment {
   at: number
 }
 
+/** A beam (or a foundation tie beam) from the structural plans: its top `topOffset` from its level (structural
+ *  slab top), centre line from (x, y) along `angle`, section b × h (h counted from its top, the slab included). */
+export interface Beam {
+  id: string
+  category: 'beam'
+  mark: string
+  level: string
+  topOffset: number
+  x: number
+  y: number
+  angle: number
+  length: number
+  b: number
+  h: number
+  /** a foundation tie beam (giằng móng) */
+  tie?: boolean
+  /** h not written on the plan: taken from the plan's beams of the same width */
+  assumedH?: boolean
+}
+
+/** A pile cap / pad footing from the foundation plan: centre, size, top and bottom from its level, its piles. */
+export interface Footing {
+  id: string
+  category: 'footing'
+  mark: string
+  level: string
+  x: number
+  y: number
+  w: number
+  d: number
+  top: number
+  bottom: number
+  piles: number
+  /** pile section side (mm) */
+  pileSize?: number
+}
+
+/** A pitched roof over a rectangle (plan corners in order), its eaves on its level: hip (four slopes) or gable
+ *  (two slopes, a ridge end to end), slope in degrees. */
+export interface PitchedRoof {
+  id: string
+  category: 'roof'
+  mark: string
+  level: string
+  outline: P2[]
+  kind: 'hip' | 'gable'
+  slope: number
+  /** the rectangle stood for another outline (an L-shaped roof…): its box */
+  approx?: boolean
+}
+
 export interface BimModel {
   levels: Level[]
   wallTypes: WallType[]
@@ -184,6 +237,10 @@ export interface BimModel {
   components: Component[]
   grids: GridLine[]
   annotations: Annotation[]
+  /** from the structural drawings (one-command import) */
+  beams?: Beam[]
+  footings?: Footing[]
+  roofs?: PitchedRoof[]
 }
 
 export type ElementCategory = 'wall' | 'door' | 'window' | 'room' | 'level' | 'column' | 'slab' | 'stair' | 'railing' | 'component' | 'grid' | 'annotation'

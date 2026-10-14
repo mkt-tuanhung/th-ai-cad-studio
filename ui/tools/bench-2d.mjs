@@ -10,7 +10,7 @@ const browser = await chromium.launch({ args: ['--enable-gpu', '--use-angle=meta
 const results = []
 for (const f of files) {
   const page = await browser.newPage({ viewport: { width: 1586, height: 992 } })
-  await page.goto((process.env.BENCH_URL ?? 'http://127.0.0.1:5173/') + '#/cad2d', { waitUntil: 'networkidle' })
+  await page.goto((process.env.BENCH_URL ?? (process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/') + '#/cad2d', { waitUntil: 'networkidle' })
   await page.waitForFunction(() => window.__thcad?.cad?.persist.hasHydrated())
   const buf = readFileSync(f)
   const t0 = Date.now()

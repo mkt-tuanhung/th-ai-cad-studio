@@ -16,6 +16,7 @@ export function buildNames(t: Messages['bim']['fromCad']): BuildNames {
   return {
     roofLevel: t.names.roofLevel,
     voidRoom: t.names.voidRoom,
+    balconyRoom: t.names.balconyRoom,
     room: (n) => fmt(t.names.room, { n }),
     wallExt: (v) => fmt(t.names.wallExt, { t: v }),
     wallInt: (v) => fmt(t.names.wallInt, { t: v }),

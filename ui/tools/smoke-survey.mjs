@@ -22,7 +22,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/civil', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/civil', { waitUntil: 'networkidle' })
 const more = async (item) => {
   await page.getByRole('button', { name: 'More Tools', exact: true }).click()
   await page.getByRole('menuitem', { name: item }).click()

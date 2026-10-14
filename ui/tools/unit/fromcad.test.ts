@@ -5,9 +5,12 @@
 //   ifc      IFC 4 text of the model built from a DXF (checked with tools/check_ifc.py)
 import { decodeDxf, importDxf } from '../../src/cad/dxfImport'
 import type { CadDocument } from '../../src/cad/types'
-import { dominantAngle, findFlights, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
+import { dominantAngle, findFlights, findSpirals, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
 import { balconiesAndVoids, buildBimModel, buildInterior, DEFAULT_BUILD, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
-import { boq, openingSchedule } from '../../src/bim/quantities'
+import { boq, openingSchedule, priceOf, readPrices } from '../../src/bim/quantities'
+import { applyStructure, readStructure } from '../../src/bim/structure'
+import { parseSlope, readRoofs, roofQuantities } from '../../src/bim/roof'
+import { bimExtras } from '../../src/bim/scene'
 import { autoEn } from '../../src/i18n/ws/auto'
 import type { Entity } from '../../src/cad/types'
 import { stairSection } from '../../src/auto/views'
@@ -109,6 +112,9 @@ export function run(file?: string) {
   }
   stairChecks(check)
   edgeChecks(check)
+  structureChecks(check)
+  stairKindChecks(check)
+  roofChecks(check)
   if (file) out.push(...villa(file).lines)
   out.push(fails ? `FAILED ${fails}` : 'ALL PASS')
   return out.join('\n')
@@ -207,5 +213,123 @@ function edgeChecks(check: (name: string, ok: boolean, extra?: string) => void) 
   const rooms2 = rooms.map((r) => ({ ...r, void: undefined }))
   balconiesAndVoids(levels, rooms2, walls2, types, [{ ...slabs[0], openings: undefined }], 120, 'Ô thông tầng', new Set(), [door])
   const par = walls2.filter((x) => x.id.startsWith('W5'))
+  // unnamed: a room outside the footprint above the ground floor is a balcony; a crossed room a void
+  const rooms3 = [
+    { id: 'u1', category: 'room', number: '211', name: 'Room 11', level: 'L2', area: 5.6, outline: [[3000, -1400], [7000, -1400], [7000, 0], [3000, 0]] },
+    { id: 'u2', category: 'room', number: '212', name: 'Room 12', level: 'L2', area: 6, outline: [[1000, 2000], [4000, 2000], [4000, 4000], [1000, 4000]], void: true },
+  ] as Parameters<typeof balconiesAndVoids>[1]
+  const sl3 = [{ ...slabs[0], openings: undefined }] as Parameters<typeof balconiesAndVoids>[4]
+  const r3 = balconiesAndVoids(levels, rooms3, walls.map((x) => ({ ...x })), types, sl3, 120, 'Ô thông tầng', new Set(['u1', 'u2']), [], 'Ban công')
+  check('unnamed rooms: outside the footprint → a balcony (slab, guard rail, named); crossed corner to corner → a void (slab cut, guard rail)', rooms3[0].name === 'Ban công' && r3.slabs.length === 1 && r3.railings.some((r) => r.height === 1100) && rooms3[1].name === 'Ô thông tầng' && !!rooms3[1].void && sl3[0].openings?.length === 1 && r3.railings.some((r) => r.height === 1000), JSON.stringify({ n: rooms3.map((r) => r.name), rails: r3.railings.map((r) => r.height) }))
   check('parapet: the wall along the balcony edge is split — that stretch 1.1 m high, the rest (with its door) a storey', par.length === 3 && par.some((x) => x.topLevel === 'L2' && x.topOffset === 1100 && x.length === 4000) && par.filter((x) => x.topLevel === 'L3').length === 2 && door.hostWall !== 'W5' && door.offset === 1000, JSON.stringify(par.map((x) => [x.id, x.x, x.length, x.topLevel, x.topOffset])) + ' door ' + door.hostWall + ' @' + door.offset)
+}
+
+/** A structural drawing as the VILLA_150 set draws it, in code: a foundation plan and a floor beam plan, each with
+ *  its grids 1 / A offset from the model's, tags, levels written in the titles and texts. */
+function structureChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  let k = 0
+  const base = (layer: string) => ({ color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer, id: `e${++k}` }) as const
+  const L = (layer: string, ax: number, ay: number, bx: number, by: number): Entity => ({ ...base(layer), kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } })
+  const R = (layer: string, x0: number, y0: number, x1: number, y1: number): Entity => ({ ...base(layer), kind: 'polyline', closed: true, pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] })
+  const Tx = (layer: string, x: number, y: number, value: string, height = 200): Entity => ({ ...base(layer), kind: 'text', p: { x, y }, height, value, rotation: 0, align: 'left' })
+  const plan = (ox: number, title: string, body: Entity[]): Entity[] => [
+    // grids 1 (x = ox) and 2 (x = ox + 6000), A (y = 0) and B (y = 5000), labelled at their ends
+    L('S-GRID', ox, -2000, ox, 7000), Tx('S-GRID', ox, 7300, '1', 350), L('S-GRID', ox + 6000, -2000, ox + 6000, 7000), Tx('S-GRID', ox + 6000, 7300, '2', 350),
+    L('S-GRID', ox - 2000, 0, ox + 8000, 0), Tx('S-GRID', ox + 8300, 0, 'A', 350), L('S-GRID', ox - 2000, 5000, ox + 8000, 5000), Tx('S-GRID', ox + 8300, 5000, 'B', 350),
+    ...body, Tx('S-TEXT', ox + 2000, -3500, title, 380),
+  ]
+  const ents: Entity[] = [
+    ...plan(0, 'MẶT BẰNG MÓNG + GIẰNG MÓNG', [
+      R('S-FOUND', -300, -675, 300, 675), R('S-PILE', -125, -500, 125, -250), R('S-PILE', -125, 250, 125, 500), Tx('S-TAG', -250, 750, 'M1 (2 cọc)'),
+      L('S-TIE', 300, -125, 5700, -125), L('S-TIE', 300, 125, 5700, 125), Tx('S-TAG', 2500, 200, 'GM 250×450'),
+      Tx('S-TEXT', 2000, 2500, 'ĐÁY ĐÀI -1.600'),
+    ]),
+    Tx('S-LEVEL', -1800, -9000, '-0.950 ĐỈNH ĐÀI'),
+    ...plan(20000, 'MẶT BẰNG KẾT CẤU SÀN TẦNG 2  (MẶT SÀN KC +3.550)', [
+      L('S-BEAM', 20000, -110, 26000, -110), L('S-BEAM', 20000, 110, 26000, 110), Tx('S-TAG', 22000, 150, 'D2-1 220x400'),
+      L('S-BEAM', 20000, 4890, 26000, 4890), L('S-BEAM', 20000, 5110, 26000, 5110),
+      R('S-SLAB', 20000, 0, 26000, 5000), Tx('S-TAG', 21000, 2000, 'S1'), Tx('S-TAG', 21000, 1800, 'h=150'),
+      R('S-OPEN', 23000, 1000, 24000, 2500),
+    ]),
+  ]
+  const doc = { id: 's', name: 's.dxf', entities: ents, layers: [], currentLayer: '0', underlay: null, blocks: [], dirty: false, createdAt: 0, savedAt: null, source: 'dxf-import' } as unknown as CadDocument
+  // the model: grids 1 / A through (1000, 2000); levels; a floor slab on Tầng 2; a column at 1 / A
+  const m = { levels: [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Tầng 2', elevation: 3600 }], wallTypes: [], walls: [], doors: [], windows: [], rooms: [], columns: [{ id: 'C1', category: 'column', mark: 'C1', level: 'L1', topLevel: 'L2', x: 1000, y: 2000, w: 250, d: 250 }], slabs: [{ id: 'S2', category: 'slab', mark: 'S2', kind: 'floor', level: 'L2', offset: 0, thickness: 120, outline: [[1000, 2000], [7000, 2000], [7000, 7000], [1000, 7000]] }], stairs: [], railings: [], components: [], annotations: [],
+    grids: [{ id: 'g1', category: 'grid', label: '1', a: [1000, 0], b: [1000, 9000] }, { id: 'g2', category: 'grid', label: 'A', a: [0, 2000], b: [9000, 2000] }] } as unknown as Parameters<typeof readStructure>[1]
+  const s = readStructure(doc, m, ['1', 'A'])
+  const beam = s.beams.find((b) => !b.tie && b.mark === 'D2-1'), other = s.beams.find((b) => !b.tie && b.mark !== 'D2-1'), tie = s.beams.find((b) => b.tie), cap = s.footings[0]
+  check('structure: two plans found, levels from their titles (foundation → the ground floor, "SÀN TẦNG 2" → Tầng 2)', s.plans.length === 2 && s.plans.some((p) => p.kind === 'foundation' && p.level === 'L1') && s.plans.some((p) => p.kind === 'floor' && p.level === 'L2' && p.elevation === 3550), JSON.stringify(s.plans.map((p) => [p.kind, p.level, p.elevation])))
+  check('structure: placed on the model by grid 1 / A; beam D2-1 220×400 from its tag, its top 50 mm under the level (KC +3.550)', !!beam && beam.x === 1000 && beam.y === 2000 && beam.length === 6000 && beam.b === 220 && beam.h === 400 && beam.topOffset === -50, JSON.stringify(beam))
+  check('structure: an untagged beam takes h of the tagged ones of its width (flagged)', !!other && other.h === 400 && !!other.assumedH && other.y === 7000, JSON.stringify(other))
+  check('structure: pile cap M1 600×1350 with its 2 piles 250, top −0.950 / bottom −1.600; tie beam GM 250×450 at the caps\' top', s.footings.length === 1 && cap.mark === 'M1' && cap.w === 600 && cap.d === 1350 && cap.piles === 2 && cap.pileSize === 250 && cap.top === -950 && cap.bottom === -1600 && cap.x === 1000 && cap.y === 2000 && !!tie && tie.b === 250 && tie.h === 450 && tie.topOffset === -950, JSON.stringify({ cap, tie }))
+  const m2 = applyStructure(m, s)
+  const sl = m2.slabs[0]
+  check('structure: slab thickness h=150 and its opening taken onto the model', sl.thickness === 150 && sl.openings?.length === 1 && JSON.stringify(sl.openings[0]) === JSON.stringify([[4000, 3000], [5000, 3000], [5000, 4500], [4000, 4500]]) && s.warnings.length === 0, JSON.stringify({ sl, w: s.warnings }))
+  // the bill of quantities: the beam under the slab only, between the column faces
+  const W = autoEn.boq.words
+  const B = boq(m2, W)
+  const bv = B.find((r) => r.key === 'beam')?.total ?? 0
+  const exp = (0.22 * (0.4 - 0.15) * (6 - 0.125)) + (0.22 * (0.4 - 0.15) * 6)
+  check('structure: beam concrete = b × (h − slab) × clear span (minus half the column at 1 / A)', Math.abs(bv - exp) < 1e-6 && (B.find((r) => r.key === 'footing')?.total ?? 0) > 0.52 && (B.find((r) => r.key === 'piles:250')?.total ?? 0) === 2 && (B.find((r) => r.key === 'rebar:beam')?.total ?? 0) > 0, `${bv} vs ${exp}`)
+  const P = readPrices('Mã,Hạng mục,Đơn vị,Đơn giá\nbeam,Dầm,m³,"1.250.000"\n,Cột,m³,900000\n')
+  check('prices: a CSV list read by key or by item text ("1.250.000" thousands)', priceOf(P, B.find((r) => r.key === 'beam')!) === 1250000 && P.get('item:cột') === 900000, JSON.stringify([...P]))
+}
+
+/** An L stair with winders in its corner, and a spiral stair, as plans draw them. */
+function stairKindChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  let k = 0
+  const base = { color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer: 'CAU THANG' } as const
+  const L = (ax: number, ay: number, bx: number, by: number): Entity => ({ ...base, id: `l${++k}`, kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } })
+  // flight 1 along +x (y 0…1000), 8 treads x 0…1890; the corner square x 1890…2890; flight 2 along +y (x 1890…2890) from y 1000, 8 treads
+  const lPlan: Entity[] = []
+  for (let i = 0; i < 8; i++) lPlan.push(L(270 * i, 0, 270 * i, 1000))
+  for (let i = 0; i < 8; i++) lPlan.push(L(1890, 1000 + 270 * i, 2890, 1000 + 270 * i))
+  // winders: two slanted lines in the corner
+  lPlan.push(L(1890, 1000, 2890, 0), L(1890, 1000, 2400, 0))
+  const lf = findFlights(lPlan)
+  const rec = (flights: ReturnType<typeof findFlights>, extra: object = {}) => ({ flights, ...extra } as unknown as Parameters<typeof stairsFrom>[0][number]['rec'])
+  const levels = [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Tầng 2', elevation: 3000 }]
+  const diag: [number, number][] = [[2390, 500], [2145, 500]]
+  const picks = [{ rec: rec(lf, { stairDiagonals: diag }), levelName: 'Tầng 1', elevation: 0, roof: false }, { rec: rec(lf), levelName: 'Tầng 2', elevation: 3000, roof: false }]
+  const r = stairsFrom(picks, [[0, 0], [0, 0]], levels, [], new Map(), [])
+  const [f1, f2] = r.stairs
+  check('L stair: two flights at right angles, a square landing in the corner, winders noted', lf.length === 2 && r.stairs.length === 2 && r.landings.length === 1 && !!f1 && !!f2 && Math.abs(Math.abs(f1.angle - f2.angle) - 90) < 1e-6 && f2.baseOffset === f1.rise && r.notes.some((n) => n.startsWith('winders')), JSON.stringify({ st: r.stairs.map((x) => [x.x, x.y, x.angle, x.baseOffset, x.rise, x.risers]), ld: r.landings.map((x) => x.outline), notes: r.notes }))
+  // spiral: newel r 100, treads to r 1000, 12 lines over 270°
+  const sp: Entity[] = [{ ...base, id: 'c0', kind: 'circle', c: { x: 5000, y: 5000 }, r: 100 }, { ...base, id: 'c1', kind: 'circle', c: { x: 5000, y: 5000 }, r: 1000 }]
+  for (let i = 0; i < 12; i++) { const a = (i * (270 / 11) * Math.PI) / 180; sp.push(L(5000 + Math.cos(a) * 100, 5000 + Math.sin(a) * 100, 5000 + Math.cos(a) * 1000, 5000 + Math.sin(a) * 1000)) }
+  const sps = findSpirals(sp)
+  check('spiral: centre, radii, 12 tread lines over 270° found; no straight flight made of them', sps.length === 1 && Math.abs(sps[0].c[0] - 5000) < 1 && Math.abs(sps[0].r0 - 100) < 2 && Math.abs(sps[0].r1 - 1000) < 2 && sps[0].lines === 12 && Math.abs((Math.abs(sps[0].sweep) * 180) / Math.PI - 270) < 1, JSON.stringify(sps))
+  const rs = stairsFrom([{ rec: rec([], { spirals: sps }), levelName: 'Tầng 1', elevation: 0, roof: false }, { rec: rec([], { spirals: sps }), levelName: 'Tầng 2', elevation: 3000, roof: false }], [[0, 0], [0, 0]], levels, [], new Map(), [])
+  const ss = rs.stairs[0]
+  check('spiral: built as a spiral stair for the storey (risers from the storey), an outer rail rising with it', rs.stairs.length === 1 && !!ss.spiral && ss.risers === Math.ceil(3000 / 180) && rs.railings.length === 1 && rs.railings[0].z![rs.railings[0].z!.length - 1] === 3000, JSON.stringify({ ss, rail: rs.railings[0]?.pts.length }))
+}
+
+/** Roof plans: a hip roof with its slope in %, a gable one found by its ridge running end to end. */
+function roofChecks(check: (name: string, ok: boolean, extra?: string) => void) {
+  let k = 0
+  const base = (layer: string) => ({ color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer, id: `r${++k}` }) as const
+  const L = (layer: string, ax: number, ay: number, bx: number, by: number): Entity => ({ ...base(layer), kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } })
+  const R = (layer: string, x0: number, y0: number, x1: number, y1: number): Entity => ({ ...base(layer), kind: 'polyline', closed: true, pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] })
+  const Tx = (layer: string, x: number, y: number, value: string, height = 250): Entity => ({ ...base(layer), kind: 'text', p: { x, y }, height, value, rotation: 0, align: 'left' })
+  const grids = (ox: number) => [L('TRUC', ox, -1000, ox, 9000), Tx('TRUC', ox, 9300, '1', 350), L('TRUC', ox - 1000, 0, ox + 13000, 0), Tx('TRUC', ox + 13300, 0, 'A', 350)]
+  // 1: hip, 12 × 8 m eaves (500 mm past the walls), slope i = 35 %; 2: gable 12 × 8 m with its ridge drawn end to end
+  const ents: Entity[] = [
+    ...grids(0), R('MAI', -500, -500, 11500, 7500), Tx('MAI', 3000, 2000, 'MÁI DỐC i = 35%'), Tx('CHU', 3000, -3000, 'MẶT BẰNG MÁI', 400),
+    ...grids(40000), R('MAI', 39500, -500, 51500, 7500), L('MAI', 39500, 3500, 51500, 3500), Tx('MAI', 43000, 2000, 'độ dốc 30°'), Tx('CHU', 43000, -3000, 'MẶT BẰNG MÁI', 400),
+  ]
+  const doc = { id: 'r', name: 'r.dxf', entities: ents, layers: [], currentLayer: '0', underlay: null, blocks: [], dirty: false, createdAt: 0, savedAt: null, source: 'dxf-import' } as unknown as CadDocument
+  const m = { levels: [{ id: 'L1', name: 'Tầng 1', elevation: 0 }, { id: 'L2', name: 'Mái', elevation: 7000 }], wallTypes: [], walls: [], doors: [], windows: [], rooms: [], columns: [], slabs: [], stairs: [], railings: [], components: [], annotations: [],
+    grids: [{ id: 'g1', category: 'grid', label: '1', a: [0, -1000], b: [0, 9000] }, { id: 'g2', category: 'grid', label: 'A', a: [-1000, 0], b: [13000, 0] }] } as unknown as Parameters<typeof readRoofs>[1]
+  const rr = readRoofs(doc, m, ['1', 'A'])
+  const [hip, gable] = rr.roofs
+  check('roof slope words: "i = 35%", "độ dốc 30°"', Math.abs((parseSlope('MÁI DỐC i = 35%') ?? 0) - 19.29) < 0.01 && parseSlope('độ dốc 30°') === 30 && parseSlope('MẶT BẰNG MÁI') === null)
+  check('roof plans: a hip roof (slope written, no ridge end to end) and a gable one (its ridge drawn end to end), placed by grid 1 / A, eaves on the top level', rr.roofs.length === 2 && hip.kind === 'hip' && gable.kind === 'gable' && hip.level === 'L2' && JSON.stringify(hip.outline) === JSON.stringify([[-500, -500], [11500, -500], [11500, 7500], [-500, 7500]]) && JSON.stringify(gable.outline) === JSON.stringify(hip.outline) && rr.warnings.length === 0, JSON.stringify(rr))
+  // a flat roof with its drainage fall written: no pitched roof
+  const flat = readRoofs({ ...doc, entities: [...grids(0), { ...ents[4] }, Tx('MAI', 3000, 2000, 'SÀN MÁI BTCT, dốc thoát nước i = 2%'), ents[6]] } as CadDocument, m, ['1', 'A'])
+  check('roof: a drainage fall (i = 2%) is a flat roof, not a pitched one', flat.roofs.length === 0, JSON.stringify(flat))
+  const qh = roofQuantities(hip), qg = roofQuantities(gable)
+  check('roof quantities: covering = plan area / cos(slope); hip ridge L − W, 4 hips; gable ridge L, 2 gable walls', Math.abs(qh.area - 96 / Math.cos((hip.slope * Math.PI) / 180)) < 1e-6 && Math.abs(qh.ridge - 4) < 1e-9 && qh.hips > 0 && Math.abs(qg.ridge - 12) < 1e-9 && qg.hips === 0 && Math.abs(qg.gableWalls - 8 * 4 * Math.tan(Math.PI / 6)) < 1e-6, JSON.stringify({ qh, qg }))
+  const sc = bimExtras({ ...m, roofs: rr.roofs } as Parameters<typeof bimExtras>[0])
+  const hi = sc.items.find((x) => x.id === hip.id), gi = sc.items.find((x) => x.id === gable.id)
+  check('roof 3D: the gable mass (a prism), the hip one with its two ends cut', !!hi && hi.parts[0].k === 'prism' && hi.cuts?.length === 2 && !!gi && !gi.cuts)
 }

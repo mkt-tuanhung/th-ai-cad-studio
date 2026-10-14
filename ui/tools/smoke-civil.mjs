@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/civil', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/civil', { waitUntil: 'networkidle' })
 const firstRow = () => page.getByRole('table', { name: 'Earthwork Quantities' }).getByRole('row').nth(1).innerText()
 const section = () => page.getByRole('img', { name: /^Cross section/ }).first()
 const blank = () => page.locator('body').click({ position: { x: 1180, y: 128 } }) // empty header strip (the 3D tab is live now)

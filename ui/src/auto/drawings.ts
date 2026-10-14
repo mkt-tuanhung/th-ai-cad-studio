@@ -10,6 +10,7 @@ import { levelOf, typeOf, type BimModel } from '../bim/model'
 import { wallEnds, wallsOn } from '../bim/geometry'
 import { interiorPoint } from '../bim/fromCad'
 import { stairFlight } from '../bim/scene'
+import { roofFrame } from '../bim/roof'
 import { sta, type CivilModel, type DrawnSection } from '../civil/model'
 
 let seq = 0
@@ -100,6 +101,12 @@ export function planDocument(m: BimModel, levelId: string, title: string, cuts: 
   if (!flights.length) flights = m.stairs.filter((st) => st.topLevel === levelId)
   for (const st of flights) {
     const { n } = stairFlight(m, st)
+    if (st.spiral) {
+      const s = st.spiral, a0 = (s.a0 * Math.PI) / 180, da = (s.sweep * Math.PI) / 180 / n
+      out.push(C('A-STRS', { x: st.x, y: st.y }, s.r0), C('A-STRS', { x: st.x, y: st.y }, s.r1))
+      for (let i = 0; i <= n; i++) { const a = a0 + i * da; out.push(L('A-STRS', { x: st.x + Math.cos(a) * s.r0, y: st.y + Math.sin(a) * s.r0 }, { x: st.x + Math.cos(a) * s.r1, y: st.y + Math.sin(a) * s.r1 })) }
+      continue
+    }
     const t = (st.angle * Math.PI) / 180, u: Vec2 = { x: Math.cos(t), y: Math.sin(t) }, nn: Vec2 = { x: -u.y, y: u.x }
     const pt = (along: number, across: number): Vec2 => ({ x: st.x + u.x * along + nn.x * across, y: st.y + u.y * along + nn.y * across })
     const h = st.width / 2
@@ -294,4 +301,92 @@ export function tableDocuments(title: string, cols: TableCol[], rows: TableRow[]
     const d = doc(name, [lay('A-TABL', '#1f2937', 0.18), lay('A-ANNO-TEXT', '#1f2937', 0.25)], out)
     return { ...d, layouts: [{ id: 'layout1', name: 'A3', paper: 'A3', scale: 1 }] }
   })
+}
+
+/* ---------------- structure (from the structural drawings) ---------------- */
+
+const STRUCT_LAYERS = [lay('S-BEAM', '#111827', 0.35), lay('S-FOUND', '#111827', 0.5), lay('S-PILE', '#374151', 0.25), lay('S-COLS', '#111827', 0.35), lay('S-OPEN', '#6b7280', 0.18), lay('S-SLAB', '#6b7280', 0.18), lay('A-GRID', '#9aa1ab', 0.13, 'DashDot'), lay('A-ANNO-TEXT', '#1f2937', 0.25)]
+
+/** Foundation plan (`levelId` null) or the beam plan of a level: grids, columns, and the structure with its marks
+ *  — pile caps, piles (crossed squares), tie beams; or the beams (both faces, mark and size at mid-span), the
+ *  slab outline and its openings (crossed). */
+export function structurePlanDocument(m: BimModel, levelId: string | null, title: string): CadDocument {
+  const out: Entity[] = []
+  const v = (p: [number, number]): Vec2 => ({ x: p[0], y: p[1] })
+  const lowest = [...m.levels].sort((a, b) => a.elevation - b.elevation)[0]?.id
+  const beams = (m.beams ?? []).filter((b) => (levelId === null ? b.tie : !b.tie && b.level === levelId))
+  for (const b of beams) {
+    const t = (b.angle * Math.PI) / 180, u = { x: Math.cos(t), y: Math.sin(t) }, n = { x: -u.y * (b.b / 2), y: u.x * (b.b / 2) }
+    const a = { x: b.x, y: b.y }, e = { x: b.x + u.x * b.length, y: b.y + u.y * b.length }
+    out.push(L('S-BEAM', { x: a.x + n.x, y: a.y + n.y }, { x: e.x + n.x, y: e.y + n.y }), L('S-BEAM', { x: a.x - n.x, y: a.y - n.y }, { x: e.x - n.x, y: e.y - n.y }))
+    if (b.length > 1200) out.push(T('A-ANNO-TEXT', { x: (a.x + e.x) / 2 + n.x * 2.2, y: (a.y + e.y) / 2 + n.y * 2.2 }, 150, `${b.mark} ${b.b}x${b.h}`, 'center', Math.abs(u.y) > 0.7 ? Math.PI / 2 : 0))
+  }
+  if (levelId === null)
+    for (const f of m.footings ?? []) {
+      out.push(P('S-FOUND', [v([f.x - f.w / 2, f.y - f.d / 2]), v([f.x + f.w / 2, f.y - f.d / 2]), v([f.x + f.w / 2, f.y + f.d / 2]), v([f.x - f.w / 2, f.y + f.d / 2])], true))
+      out.push(T('A-ANNO-TEXT', { x: f.x, y: f.y + f.d / 2 + 120 }, 180, `${f.mark}${f.piles ? ` (${f.piles})` : ''}`, 'center'))
+      // the piles: evenly along the long side of the cap (their places are not kept, only their number)
+      const k = f.piles, s = f.pileSize ?? 250, along = f.w >= f.d
+      for (let i = 0; i < k; i++) {
+        const o = ((i + 0.5) / k - 0.5) * (along ? f.w : f.d)
+        const c = along ? { x: f.x + o, y: f.y } : { x: f.x, y: f.y + o }
+        const q = [v([c.x - s / 2, c.y - s / 2]), v([c.x + s / 2, c.y - s / 2]), v([c.x + s / 2, c.y + s / 2]), v([c.x - s / 2, c.y + s / 2])]
+        out.push(P('S-PILE', q, true), L('S-PILE', q[0], q[2]), L('S-PILE', q[1], q[3]))
+      }
+    }
+  else {
+    const sl = m.slabs.find((s) => s.level === levelId && s.kind !== 'ceiling' && !s.landing)
+    if (sl) {
+      out.push(P('S-SLAB', sl.outline.map(v), true))
+      for (const o of sl.openings ?? []) { const q = o.map(v); out.push(P('S-OPEN', q, true)); if (q.length === 4) out.push(L('S-OPEN', q[0], q[2]), L('S-OPEN', q[1], q[3])) }
+      out.push(T('A-ANNO-TEXT', { x: sl.outline[0][0] + 300, y: sl.outline[0][1] + 300 }, 180, `h=${sl.thickness}`))
+    }
+  }
+  // the columns standing on this level (foundation: those of the lowest level)
+  for (const c of m.columns.filter((c) => c.level === (levelId ?? lowest) || (levelId !== null && c.topLevel === levelId))) {
+    if (c.round) out.push(C('S-COLS', { x: c.x, y: c.y }, c.w / 2))
+    else out.push(P('S-COLS', [{ x: c.x - c.w / 2, y: c.y - c.d / 2 }, { x: c.x + c.w / 2, y: c.y - c.d / 2 }, { x: c.x + c.w / 2, y: c.y + c.d / 2 }, { x: c.x - c.w / 2, y: c.y + c.d / 2 }], true, true))
+  }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+  for (const e of out) for (const p of e.kind === 'line' ? [e.a, e.b] : e.kind === 'polyline' ? e.pts : []) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) }
+  if (!Number.isFinite(x0)) { x0 = 0; y0 = 0; x1 = 10000; y1 = 10000 }
+  for (const g of m.grids) {
+    const a = v(g.a), b = v(g.b)
+    out.push(L('A-GRID', a, b))
+    const d = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const end = { x: b.x + ((b.x - a.x) / d) * 450, y: b.y + ((b.y - a.y) / d) * 450 }
+    out.push(C('A-GRID', end, 400), T('A-GRID', { x: end.x, y: end.y - 120 }, 300, g.label, 'center'))
+  }
+  out.push(T('A-ANNO-TEXT', { x: (x0 + x1) / 2, y: y0 - 3200 }, 450, title.toUpperCase(), 'center'))
+  return doc(title, STRUCT_LAYERS, out)
+}
+
+/** Roof plan of the pitched roofs: the eaves, ridge and hips (or the gable ridge), the slope, grids. */
+export function roofPlanDocument(m: BimModel, title: string): CadDocument {
+  const out: Entity[] = []
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity
+  for (const r of m.roofs ?? []) {
+    const f = roofFrame(r)
+    const P2 = (along: number, across: number): Vec2 => ({ x: f.o[0] + f.u[0] * along + f.v[0] * across, y: f.o[1] + f.u[1] * along + f.v[1] * across })
+    const eaves = [P2(0, 0), P2(f.L, 0), P2(f.L, f.W), P2(0, f.W)]
+    out.push(P('A-ROOF', eaves, true))
+    eaves.forEach((p) => { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x) })
+    if (r.kind === 'gable') out.push(L('A-ROOF', P2(0, f.W / 2), P2(f.L, f.W / 2)))
+    else {
+      const a = P2(Math.min(f.W / 2, f.L / 2), f.W / 2), b = P2(Math.max(f.L - f.W / 2, f.L / 2), f.W / 2)
+      out.push(L('A-ROOF', a, b), L('A-ROOF', eaves[0], a), L('A-ROOF', eaves[3], a), L('A-ROOF', eaves[1], b), L('A-ROOF', eaves[2], b))
+    }
+    const pc = Math.round(f.tan * 100)
+    out.push(T('A-ANNO-TEXT', P2(f.L / 2, f.W / 4), 250, `i = ${pc}% (${r.slope.toFixed(0)}°)`, 'center'), T('A-ANNO-TEXT', P2(f.L / 2, (3 * f.W) / 4), 250, `i = ${pc}%`, 'center'))
+  }
+  if (!Number.isFinite(x0)) { x0 = 0; y0 = 0; x1 = 10000 }
+  for (const g of m.grids) {
+    const a = { x: g.a[0], y: g.a[1] }, b = { x: g.b[0], y: g.b[1] }
+    out.push(L('A-GRID', a, b))
+    const d = Math.hypot(b.x - a.x, b.y - a.y) || 1
+    const end = { x: b.x + ((b.x - a.x) / d) * 450, y: b.y + ((b.y - a.y) / d) * 450 }
+    out.push(C('A-GRID', end, 400), T('A-GRID', { x: end.x, y: end.y - 120 }, 300, g.label, 'center'))
+  }
+  out.push(T('A-ANNO-TEXT', { x: (x0 + x1) / 2, y: y0 - 3200 }, 450, title.toUpperCase(), 'center'))
+  return doc(title, [lay('A-ROOF', '#7c2d12', 0.35), lay('A-GRID', '#9aa1ab', 0.13, 'DashDot'), lay('A-ANNO-TEXT', '#1f2937', 0.25)], out)
 }

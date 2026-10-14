@@ -15,7 +15,7 @@ const step = async (name, fn) => {
 }
 const cadState = () => page.evaluate(() => { const s = window.__thcad.cad.getState(); return { tabs: s.tabs, active: s.docs[s.activeId]?.name } })
 
-await page.goto('http://127.0.0.1:5173/#/ai-studio', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/ai-studio', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad)
 
 await step('mockup state: sample session, Option 1 selected, Proposal Details 120 m²', async () => {

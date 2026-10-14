@@ -68,7 +68,7 @@ export function viewRequests(m: BimModel, w: ViewWords): DrawingReq[] {
  */
 export function stairSection(m: BimModel): { axis: 'x' | 'y'; at: number; face: Face } | null {
   const lv = (id: string) => m.levels.find((l) => l.id === id)?.elevation ?? 0
-  const first = [...m.stairs].sort((a, b) => lv(a.baseLevel) - lv(b.baseLevel) || (a.baseOffset ?? 0) - (b.baseOffset ?? 0))[0]
+  const first = [...m.stairs].filter((s) => !s.spiral).sort((a, b) => lv(a.baseLevel) - lv(b.baseLevel) || (a.baseOffset ?? 0) - (b.baseOffset ?? 0))[0]
   if (!first) return null
   const a = ((((first.angle % 180) + 180) % 180) + 0.5) | 0
   if (a !== 0 && a !== 90 && a !== 180) return null

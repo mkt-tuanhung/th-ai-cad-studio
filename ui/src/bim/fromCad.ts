@@ -367,6 +367,8 @@ export interface RecRoom {
   outline: P2[]
   /** m², computed from the outline (columns inside deducted). */
   area: number
+  /** crossed corner to corner (two diagonals): the way plans mark a double-height void */
+  crossed?: boolean
 }
 export type FurnKind =
   | 'sofa' | 'bed' | 'wardrobe' | 'tvCabinet' | 'island' | 'kitchen' | 'fridge' | 'dining' | 'desk' | 'nightstand' | 'coffeeTable'
@@ -411,6 +413,9 @@ export interface Recognition {
   grids: RecGrid[]
   /** stair flights on the stair layers inside the plan */
   flights: RecFlight[]
+  spirals?: RecSpiral[]
+  /** middles of slanted lines on the stair layers outside the flights (winder treads in a corner) */
+  stairDiagonals?: P2[]
   warnings: RecWarning[]
 }
 
@@ -1163,6 +1168,61 @@ export interface RecFlight {
  * a zig-zag across the flight is the break line of a cut flight. Stringers and landing edges (other lengths)
  * are left out by the length and end test.
  */
+
+/** A spiral stair drawn on a plan: tread lines radiating from a centre between an inner and an outer circle. */
+export interface RecSpiral {
+  c: P2
+  r0: number
+  r1: number
+  /** angle of the first tread line (rad) and the angle swept to the last one, signed (+: counter-clockwise up) */
+  a0: number
+  sweep: number
+  lines: number
+}
+
+/**
+ * Spiral stairs from the stair layers: ≥ 6 lines pointing at one centre (a line extended passes within 120 mm of
+ * it), all of them between two radii, the inner ≥ 80 mm (the newel) and the outer 500…2000 mm further out. The
+ * centre is a circle drawn on the layer (the newel or the outline). Up is counter-clockwise unless an arrow head
+ * (a 3-point polyline near the outer circle) sits nearer the first line than the last.
+ */
+export function findSpirals(ents: Entity[]): RecSpiral[] {
+  const circles = ents.filter((e): e is Extract<Entity, { kind: 'circle' }> => e.kind === 'circle')
+  const segs = ents.flatMap(segsOf).filter(([a, b]) => Math.hypot(b.x - a.x, b.y - a.y) >= 300)
+  const out: RecSpiral[] = []
+  for (const ci of circles) {
+    const c = ci.c
+    if (out.some((s) => Math.hypot(s.c[0] - c.x, s.c[1] - c.y) < 200)) continue
+    const rad: { a: number; r0: number; r1: number }[] = []
+    for (const [p, q] of segs) {
+      const L = Math.hypot(q.x - p.x, q.y - p.y)
+      const off = Math.abs((q.x - p.x) * (p.y - c.y) - (q.y - p.y) * (p.x - c.x)) / L
+      if (off > 120) continue
+      const rp = Math.hypot(p.x - c.x, p.y - c.y), rq = Math.hypot(q.x - c.x, q.y - c.y)
+      const far = rp > rq ? p : q
+      rad.push({ a: Math.atan2(far.y - c.y, far.x - c.x), r0: Math.min(rp, rq), r1: Math.max(rp, rq) })
+    }
+    if (rad.length < 6) continue
+    const r0 = median(rad.map((x) => x.r0)), r1 = median(rad.map((x) => x.r1))
+    const ok = rad.filter((x) => Math.abs(x.r0 - r0) < 150 && Math.abs(x.r1 - r1) < 150)
+    if (ok.length < 6 || r0 < 80 || r1 - r0 < 500 || r1 - r0 > 2000) continue
+    // the treads in angular order, starting after the widest gap (the open side of a part turn)
+    const as = [...new Set(ok.map((x) => Math.round(((x.a + 2 * Math.PI) % (2 * Math.PI)) * 1000) / 1000))].sort((x, y) => x - y)
+    let gi = 0, gap = -1
+    as.forEach((v, i) => { const g = (as[(i + 1) % as.length] - v + 2 * Math.PI) % (2 * Math.PI) || 2 * Math.PI; if (g > gap) { gap = g; gi = i } })
+    const a0 = as[(gi + 1) % as.length], last = as[gi]
+    let sweep = (last - a0 + 2 * Math.PI) % (2 * Math.PI)
+    // an arrow head near the outer circle nearer the first tread than the last: up runs clockwise
+    const heads = ents.filter((e): e is Extract<Entity, { kind: 'polyline' }> => e.kind === 'polyline' && !e.closed && e.pts.length === 3)
+    const angOf = (p: Vec2) => (Math.atan2(p.y - c.y, p.x - c.x) + 2 * Math.PI) % (2 * Math.PI)
+    const h = heads.find((e) => Math.abs(Math.hypot(e.pts[1].x - c.x, e.pts[1].y - c.y) - (r0 + r1) / 2) < (r1 - r0))
+    if (h) { const ha = angOf(h.pts[1]); const dA = (x: number, y: number) => Math.min(Math.abs(x - y), 2 * Math.PI - Math.abs(x - y)); if (dA(ha, a0) < dA(ha, last)) sweep = -sweep }
+    out.push({ c: [c.x, c.y], r0, r1, a0: sweep >= 0 ? a0 : last, sweep, lines: as.length })
+  }
+  return out
+}
+const median = (v: number[]) => { const s = [...v].sort((a, b) => a - b); return s[Math.floor(s.length / 2)] ?? 0 }
+
 export function findFlights(ents: Entity[]): RecFlight[] {
   const segs: Seg[] = ents.flatMap(segsOf)
   const len = ([a, b]: Seg) => Math.hypot(b.x - a.x, b.y - a.y)
@@ -1586,8 +1646,31 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
   if (unknownFurn) warnings.push({ code: 'unknownFurniture', n: unknownFurn })
   // stairs: the flights inside the building outline (the stair layers also hold symbols on other drawings)
   const stairEnts = near.filter((e) => roles[e.layer] === 'stair' && overlaps(boxOf(e), region.box, 0))
-  const flights = findFlights(stairEnts)
-  if (stairEnts.length && !flights.length) warnings.push({ code: 'stairsSkipped' })
+  const spirals = findSpirals(stairEnts)
+  // a spiral's radial treads are no straight flight
+  const flights = findFlights(stairEnts).filter((f) => !spirals.some((s) => Math.hypot(f.a[0] - s.c[0], f.a[1] - s.c[1]) < s.r1 + 200))
+  if (stairEnts.length && !flights.length && !spirals.length) warnings.push({ code: 'stairsSkipped' })
+  const stairDiagonals: P2[] = stairEnts.flatMap(segsOf).flatMap(([a, b]) => {
+    const L = Math.hypot(b.x - a.x, b.y - a.y)
+    const c = Math.abs(b.x - a.x) / (L || 1)
+    if (L < 300 || L > 2500 || c > 0.97 || c < 0.26) return []
+    const m: P2 = [(a.x + b.x) / 2, (a.y + b.y) / 2]
+    // not a break line across a flight
+    const inFlight = flights.some((f) => { const d: P2 = [f.dir[1], -f.dir[0]]; const s = (m[0] - f.a[0]) * d[0] + (m[1] - f.a[1]) * d[1], t = (m[0] - f.a[0]) * f.dir[0] + (m[1] - f.a[1]) * f.dir[1]; return Math.abs(s) < f.width / 2 + 50 && t > -100 && t < f.run + 100 })
+    return inFlight ? [] : [m]
+  })
+
+  // a room crossed corner to corner by two lines (any layer but walls): a void, as plans draw one
+  const diag = near.filter((e) => roles[e.layer] !== 'wall').flatMap(segsOf)
+  for (const r of rooms) {
+    const xs = r.outline.map((p) => p[0]), ys = r.outline.map((p) => p[1])
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys)
+    if (x1 - x0 < 800 || y1 - y0 < 800) continue
+    const tol = 250
+    const at = (p: Vec2, x: number, y: number) => Math.abs(p.x - x) <= tol && Math.abs(p.y - y) <= tol
+    const joins = (x: number, y: number, X: number, Y: number) => diag.some(([a, b]) => (at(a, x, y) && at(b, X, Y)) || (at(b, x, y) && at(a, X, Y)))
+    if (joins(x0, y0, x1, y1) && joins(x0, y1, x1, y0)) r.crossed = true
+  }
 
   // 10. grids: long lines on grid layers labelled by the nearest short text at one of their ends
   const grids: RecGrid[] = []
@@ -1612,5 +1695,5 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     }
   }
 
-  return { region, frame, walls, openings, columns, rooms, footprint, furniture, grids, flights, warnings }
+  return { region, frame, walls, openings, columns, rooms, footprint, furniture, grids, flights, spirals, stairDiagonals, warnings }
 }

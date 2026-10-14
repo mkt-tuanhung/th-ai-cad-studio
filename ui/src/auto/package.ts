@@ -22,8 +22,8 @@ import { cutList, type Cabinet } from '../interior/model'
 import { DEFAULT_NEST, layoutDxf, nest, piecesOf, type NestSettings } from '../cam/nesting'
 import { camSheet, type CamSettings } from '../cam/gcode'
 import { earthwork, interp, sta, type CivilModel } from '../civil/model'
-import { planDocument, profileDocument, sectionDocuments, tableDocuments, type RouteWords, type TableRow } from './drawings'
-import { boq, openingSchedule, type BoqWords } from '../bim/quantities'
+import { planDocument, profileDocument, roofPlanDocument, sectionDocuments, structurePlanDocument, tableDocuments, type RouteWords, type TableRow } from './drawings'
+import { boq, openingSchedule, priceOf, type BoqWords } from '../bim/quantities'
 import type { AutoResult } from './pipeline'
 
 export type OutFile =
@@ -48,6 +48,14 @@ export interface PackageText {
     heads: { no: string; item: string; unit: string; total: string }
     sched: { mark: string; kind: string; family: string; width: string; height: string; sill: string; levels: string; count: string }
     kinds: { door: string; window: string }
+    estimate: string
+    priceTemplate: string
+    foundationPlan: string
+    roofPlan: string
+    beamPlan: string // "{level}"
+    priceHeads: { key: string; price: string; amount: string }
+    /** a unit price list given with the drawings (BOQ key or item text → price) */
+    prices?: { file: string; map: Map<string, number> } | null
   }
 }
 
@@ -65,6 +73,15 @@ export function allCabinets(r: AutoResult): Cabinet[] {
   const ints = r.house?.interiors?.length ? r.house.interiors : r.house?.interior ? [{ level: '', build: r.house.interior }] : []
   const multi = ints.filter((x) => x.build.cabinets.length).length > 1
   return ints.flatMap(({ level, build }) => build.cabinets.map((c) => (multi ? { ...c, name: `${level} · ${c.name}` } : c)))
+}
+
+/** The share of earthwork done by machine (the rest by hand): 90 % as estimates usually take it, or the price
+ *  list's line "machineShare" (0.95 or 95). */
+export const MACHINE_SHARE = 0.9
+export function machineShare(prices?: Map<string, number>): number {
+  const v = prices?.get('machineShare')
+  if (v === undefined || !(v > 0)) return MACHINE_SHARE
+  return v > 1 ? Math.min(1, v / 100) : v
 }
 
 /** Every file of the package (in memory). `include` limits it to the parts the user kept. */
@@ -91,6 +108,7 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     const views = r.house.views?.views ?? []
     const cuts = views.flatMap((v) => (v.cut ? [v.cut] : []))
     for (const lv of m.levels) if (m.walls.some((w) => w.baseLevel === lv.id)) drawing(t.plan(lv.name), planDocument(m, lv.id, t.plan(lv.name), cuts), pages)
+    if (m.roofs?.length && t.boq) drawing(t.boq.roofPlan, roofPlanDocument(m, t.boq.roofPlan), pages)
     if (pages.length) out.push({ name: `${base} - ${t.plan('').replace(/\s*$/, '')}.pdf`, kind: 'pdf', pages })
     const vp: Page[] = []
     for (const v of views) drawing(v.title, v.doc, vp)
@@ -108,6 +126,30 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
       const bp: Page[] = []
       tableDocuments(B.title, [{ head: B.heads.no, w: 12, align: 'center' }, { head: B.heads.item, w: 110 }, { head: B.heads.unit, w: 18, align: 'center' }, ...lvs.map((l) => ({ head: l, w: 34, align: 'center' as const })), { head: B.heads.total, w: 38, align: 'center' }], tr).forEach((d, i, a) => drawing(a.length > 1 ? `${B.title} ${i + 1}` : B.title, d, bp))
       out.push({ name: `${base} - ${B.title}.pdf`, kind: 'pdf', pages: bp })
+      // unit prices: a template with every line to fill in; with a price list given, the estimate
+      const H = B.heads, PH = B.priceHeads
+      add(`${B.priceTemplate}.csv`, csv([[PH.key, H.item, H.unit, H.total, PH.price], ...rows.map((r) => [r.key, r.item, r.unit, q(r.total, r.unit), B.prices ? (priceOf(B.prices.map, r) ?? '') : ''])]))
+      if (B.prices && rows.some((r) => priceOf(B.prices!.map, r) !== undefined)) {
+        const P = B.prices.map
+        const money = (v: number) => Math.round(v).toLocaleString('vi-VN')
+        const priced = rows.map((r) => ({ r, p: priceOf(P, r) }))
+        const sum = priced.reduce((a, x) => a + (x.p !== undefined ? x.p * x.r.total : 0), 0)
+        add(`${B.estimate}.csv`, csv([[H.no, H.item, H.unit, H.total, PH.price, PH.amount], ...priced.map(({ r, p }, i) => [i + 1, r.item, r.unit, q(r.total, r.unit), p ?? '', p !== undefined ? Math.round(p * r.total) : '']), ['', B.words.all, '', '', '', Math.round(sum)]]))
+        const er: TableRow[] = []
+        let g2 = ''
+        priced.forEach(({ r, p }, i) => { if (r.group !== g2) { g2 = r.group; er.push({ group: g2 }) } er.push([String(i + 1), r.item, r.unit, q(r.total, r.unit), p !== undefined ? money(p) : '', p !== undefined ? money(p * r.total) : '']) })
+        er.push(['', B.words.all.toUpperCase(), '', '', '', money(sum)])
+        const ep: Page[] = []
+        tableDocuments(B.estimate, [{ head: H.no, w: 12, align: 'center' }, { head: H.item, w: 150 }, { head: H.unit, w: 18, align: 'center' }, { head: H.total, w: 40, align: 'center' }, { head: PH.price, w: 50, align: 'center' }, { head: PH.amount, w: 60, align: 'center' }], er).forEach((d, i, a) => drawing(a.length > 1 ? `${B.estimate} ${i + 1}` : B.estimate, d, ep))
+        out.push({ name: `${base} - ${B.estimate}.pdf`, kind: 'pdf', pages: ep })
+      }
+      // structural sheets: the foundation plan and a beam plan per level, from the structural drawings
+      if ((m.footings?.length ?? 0) || (m.beams?.length ?? 0)) {
+        const sp2: Page[] = []
+        if (m.footings?.length || m.beams?.some((b) => b.tie)) drawing(B.foundationPlan, structurePlanDocument(m, null, B.foundationPlan), sp2)
+        for (const lv of [...m.levels].sort((a, b) => a.elevation - b.elevation)) if (m.beams?.some((b) => !b.tie && b.level === lv.id)) { const ti = B.beamPlan.replace('{level}', lv.name); drawing(ti, structurePlanDocument(m, lv.id, ti), sp2) }
+        if (sp2.length) out.push({ name: `${base} - ${B.foundationPlan} + ${B.beamPlan.replace(' {level}', '')}.pdf`, kind: 'pdf', pages: sp2 })
+      }
       // door and window schedule sheet
       const S = B.sched
       const sp: Page[] = []
@@ -145,7 +187,15 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
       out.push({ name: `${base} - ${pre}${title}.dwg`, kind: 'dwg', doc })
       pages.push({ ...plotPage({ ...doc, name: `${base} — ${pre}${title}` }, 'A3', doc.layouts?.[0]?.scale ?? undefined), name: title })
     }
-    add('Earthwork.csv', csv([['From', 'To', 'Length (m)', 'Cut (m3)', 'Fill (m3)', 'Net (m3)'], ...earthwork(m).map((x) => [sta(x.from), sta(x.to), x.length.toFixed(2), x.cut.toFixed(2), x.fill.toFixed(2), x.net.toFixed(2)])]))
+    // by machine / by hand: the share estimates usually take (the price list's "machineShare" overrides it)
+    const ms = machineShare(t.boq?.prices?.map)
+    const ew = earthwork(m)
+    const tot = ew.reduce((a, x) => ({ cut: a.cut + x.cut, fill: a.fill + x.fill }), { cut: 0, fill: 0 })
+    add('Earthwork.csv', csv([
+      ['From', 'To', 'Length (m)', 'Cut (m3)', 'Fill (m3)', 'Net (m3)', `Cut by machine ${Math.round(ms * 100)}% (m3)`, `Cut by hand ${Math.round((1 - ms) * 100)}% (m3)`, `Fill by machine ${Math.round(ms * 100)}% (m3)`, `Fill by hand ${Math.round((1 - ms) * 100)}% (m3)`],
+      ...ew.map((x) => [sta(x.from), sta(x.to), x.length.toFixed(2), x.cut.toFixed(2), x.fill.toFixed(2), x.net.toFixed(2), (x.cut * ms).toFixed(2), (x.cut * (1 - ms)).toFixed(2), (x.fill * ms).toFixed(2), (x.fill * (1 - ms)).toFixed(2)]),
+      ['', 'Total', '', tot.cut.toFixed(2), tot.fill.toFixed(2), (tot.fill - tot.cut).toFixed(2), (tot.cut * ms).toFixed(2), (tot.cut * (1 - ms)).toFixed(2), (tot.fill * ms).toFixed(2), (tot.fill * (1 - ms)).toFixed(2)],
+    ]))
     add('Cross sections.csv', csv([['Stake', 'Station', 'Cut (m2)', 'Fill (m2)', 'Drawing cut (m2)', 'Drawing fill (m2)'], ...(m.sections ?? []).map((x) => [x.name, sta(x.station), x.cut.toFixed(3), x.fill.toFixed(3), x.drawn?.cut?.toFixed(2) ?? '', x.drawn?.fill?.toFixed(2) ?? ''])]))
     add('Long profile.csv', csv([['Station', 'Existing (m)', 'Design invert (m)'], ...m.invert.map(([s, z]) => [sta(s), m.ground?.length ? interp(m.ground, s).toFixed(3) : '', z.toFixed(3)])]))
     const pages: Page[] = []

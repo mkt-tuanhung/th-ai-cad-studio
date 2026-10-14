@@ -2,7 +2,7 @@
 import { chromium } from 'playwright'
 import assert from 'node:assert/strict'
 
-const URL = 'http://127.0.0.1:5173/'
+const URL = (process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/'
 const browser = await chromium.launch()
 const ctx = await browser.newContext({ viewport: { width: 1586, height: 992 } })
 ctx.setDefaultTimeout(5000)

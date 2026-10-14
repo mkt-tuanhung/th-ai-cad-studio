@@ -25,7 +25,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/civil', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/civil', { waitUntil: 'networkidle' })
 const civil = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.civil') ?? '{}').state?.doc)
 const summary = () => page.getByTestId('routefromcad-summary').innerText()
 

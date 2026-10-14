@@ -10,7 +10,7 @@ const samples = [
 ]
 const browser = await chromium.launch()
 const page = await browser.newPage()
-await page.goto('http://127.0.0.1:5173/'); await page.waitForTimeout(500)
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/'); await page.waitForTimeout(500)
 const css = `@import url('/node_modules/@fontsource/roboto/400.css');@import url('/node_modules/@fontsource/roboto/500.css');@import url('/node_modules/@fontsource/roboto/700.css');
 @import url('/node_modules/@fontsource/inter-tight/400.css');@import url('/node_modules/@fontsource/inter-tight/500.css');@import url('/node_modules/@fontsource/inter-tight/600.css');@import url('/node_modules/@fontsource/inter-tight/700.css');`
 const res = await page.evaluate(async ({ fonts, samples, css }) => {

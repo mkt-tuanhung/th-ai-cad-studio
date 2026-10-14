@@ -13,7 +13,7 @@ const browser = await chromium.launch()
 const shot = async (shotName, w, h, scale, file) => {
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: scale })
   const page = await ctx.newPage()
-  await page.goto(`http://127.0.0.1:5173/?splash=0#/brand?shot=${shotName}`)
+  await page.goto(`${process.env.THCAD_UI ?? 'http://127.0.0.1:5173'}/?splash=0#/brand?shot=${shotName}`)
   await page.waitForTimeout(2600) // entrance animations settle
   await page.screenshot({ path: file, clip: { x: 0, y: 0, width: w, height: h } })
   await ctx.close()

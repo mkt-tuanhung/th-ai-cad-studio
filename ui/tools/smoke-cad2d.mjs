@@ -23,7 +23,7 @@ const cmd = async (...lines) => {
 const log = () => page.getByRole('log').innerText()
 const vp = () => page.locator('[data-native-viewport-slot] > div')
 
-await page.goto('http://127.0.0.1:5173/#/cad2d', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/cad2d', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad)
 const seedCount = await count()
 
@@ -235,7 +235,7 @@ await step('AI Assist: a suggestion is sent to AI Studio (browser: honest “no 
   await page.waitForURL(/#\/ai-studio$/)
   await page.getByText('Which rooms in this drawing have the same size and shape? List them in groups.').first().waitFor()
   assert.ok(await page.getByText(/No local AI model is available here/).first().isVisible())
-  await page.goto('http://127.0.0.1:5173/#/cad2d')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/cad2d')
   await page.getByRole('heading', { name: 'AI Assist' }).waitFor()
   await page.getByRole('button', { name: 'Close', exact: true }).click()
   assert.equal(await page.getByRole('heading', { name: 'AI Assist' }).count(), 0)

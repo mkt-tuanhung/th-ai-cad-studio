@@ -19,7 +19,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/components', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/components', { waitUntil: 'networkidle' })
 const lib = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.library') ?? '{"state":{}}').state)
 const grid = () => page.locator('section[aria-label="Components Library"] article')
 const tile = (n) => page.getByRole('tab', { name: new RegExp(`^${n}`) })
@@ -123,7 +123,7 @@ await step('Insert into BIM: opens the BIM plan with the Component tool loaded w
   const st = await page.evaluate(() => { const s = window.__thcad.bim.getState(); return { pc: s.pendingComponent, tool: s.tool, view: s.view } })
   assert.deepEqual(st, { pc: { name: 'Office Desk', w: 1600, d: 700, h: 750, rot: 90, autoAlign: true }, tool: 'component', view: 'plan' })
   await page.evaluate(() => window.__thcad.bim.getState().set({ pendingComponent: null, tool: 'select' }))
-  await page.goto('http://127.0.0.1:5173/#/components')
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/components')
   await page.locator('article[aria-label="Office Desk"]').first().click()
 })
 
@@ -179,7 +179,7 @@ await step('clicking one line of the inserted block selects the whole block; the
 })
 
 await step('back in the library: Recently Used starts with it and References counts the instance', async () => {
-  await page.goto('http://127.0.0.1:5173/#/components', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/components', { waitUntil: 'networkidle' })
   const first = page.locator('section[aria-label="Recently Used"] article').first()
   assert.equal(await first.getAttribute('aria-label'), 'Office Desk')
   assert.match(await first.innerText(), /Used (just now|\d+ (seconds?|minutes?) ago)/)

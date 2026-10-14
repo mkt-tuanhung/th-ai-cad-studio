@@ -20,7 +20,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/mep', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/mep', { waitUntil: 'networkidle' })
 await page.waitForFunction(() => window.__thcad?.mep)
 const doc = () => page.evaluate(() => JSON.parse(JSON.stringify(window.__thcad.mep.getState().doc)))
 const plan = () => page.getByTestId('mep-plan')

@@ -23,7 +23,7 @@ await page.addInitScript(() => {
     sessionStorage.setItem('seeded', '1')
   }
 })
-await page.goto('http://127.0.0.1:5173/#/bim', { waitUntil: 'networkidle' })
+await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/bim', { waitUntil: 'networkidle' })
 const dlg = () => page.getByTestId('fromcad')
 const summary = () => page.getByTestId('fromcad-summary').innerText()
 const bim = () => page.evaluate(() => JSON.parse(localStorage.getItem('thcad.bim') ?? '{}').state?.model)
@@ -105,7 +105,7 @@ await step('Interior data replaced: rooms with outlines, furniture placed, cabin
   assert.equal(d.rooms.length, 5)
   assert.ok(d.items.every((i) => i.at?.length === i.qty), 'every item placed')
   assert.equal(d.cabinets.length, 4)
-  await page.goto('http://127.0.0.1:5173/#/interior', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/interior', { waitUntil: 'networkidle' })
   await page.getByRole('button', { name: /Cut List/ }).first().click()
   const t = await page.locator('body').innerText()
   assert.match(t, /Wardrobe/)
@@ -117,7 +117,7 @@ await step('Interior data replaced: rooms with outlines, furniture placed, cabin
 })
 
 await step('Undo restores the previous BIM model (one step)', async () => {
-  await page.goto('http://127.0.0.1:5173/#/bim', { waitUntil: 'networkidle' })
+  await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/bim', { waitUntil: 'networkidle' })
   await page.locator('body').click({ position: { x: 5, y: 500 } })
   await page.keyboard.press('Meta+z')
   await page.waitForTimeout(300)

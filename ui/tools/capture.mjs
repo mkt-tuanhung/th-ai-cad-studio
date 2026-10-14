@@ -12,7 +12,7 @@ page.on('pageerror', (e) => errors.push(String(e)))
 await page.addInitScript((l) => {
   localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: l, themePreference: 'light', learningExpanded: true }, version: 1 }))
 }, lang)
-await page.goto(`http://127.0.0.1:5173/#/${route}`, { waitUntil: 'networkidle' })
+await page.goto(`${process.env.THCAD_UI ?? 'http://127.0.0.1:5173'}/#/${route}`, { waitUntil: 'networkidle' })
 await page.evaluate(() => document.fonts.ready)
 if (hover) await page.hover(hover)
 await page.waitForTimeout(300)
