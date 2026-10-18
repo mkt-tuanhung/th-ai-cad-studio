@@ -80,6 +80,39 @@ TEST("BIM model JSON keeps engine placements and edits from the UI") {
   CHECK_NEAR(bim::wallVolume(*m, m->walls[0]), 9.8 * 3 * 0.25, 1e-9);
 }
 
+TEST("OCCT building keeps the level slab under a drawn balcony, drops it under drawn floor slabs (A10)") {
+  auto count = [](const bim::Model& m, double* l2Volume) {
+    occt::SceneView v;
+    if (!v.ok()) return -1;
+    v.addBuilding(m, false);
+    if (l2Volume) *l2Volume = v.volumeM3("slab:L2");
+    return v.visibleCount();
+  };
+  auto rect = [](const char* id, bim::Slab::Kind k, const char* lv, double x0, double y0, double x1, double y1) {
+    bim::Slab s;
+    s.id = id;
+    s.kind = k;
+    s.level = lv;
+    s.outline = {{x0, y0}, {x1, y0}, {x1, y1}, {x0, y1}};
+    return s;
+  };
+  const bim::Model villa = bim::villaRiverside();
+  double plain = 0, kept = 0;
+  const int base = count(villa, &plain);
+  if (base < 0) return;  // no OpenGL
+  CHECK_NEAR(plain, 14.0 * 10.0 * 0.2, 1e-6);
+  bim::Model balcony = villa;
+  balcony.slabs.push_back(rect("balcony", bim::Slab::Kind::Floor, "L2", 13800, 4000, 15800, 5000));
+  balcony.slabs.push_back(rect("wet", bim::Slab::Kind::Floor, "L2", 1000, 1000, 3000, 2000));
+  CHECK(count(balcony, &kept) == base);
+  // the drawn slabs are taken out of the default one: no doubled concrete (0.1 m² of the balcony + 2 m²)
+  CHECK_NEAR(kept, plain - (0.1 + 2.0) * 0.2, 1e-6);
+  bim::Model imported = villa;
+  for (const char* lv : {"L1", "L2", "L3"}) imported.slabs.push_back(rect(lv, bim::Slab::Kind::Floor, lv, -100, -100, 13900, 9900));
+  imported.slabs.push_back(rect("roof", bim::Slab::Kind::Roof, "RF", 1100, 1100, 12700, 8700));
+  CHECK(count(imported, nullptr) == base - 4);
+}
+
 TEST("OCCT hidden-line mode removes hidden edges (fewer dark pixels than wireframe)") {
   occt::OffscreenView v;
   v.setModel(bim::villaRiverside());

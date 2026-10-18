@@ -16,6 +16,7 @@
 #include <climits>
 #include <cstdlib>
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <mutex>
@@ -98,28 +99,40 @@ class LlamaRuntime final : public Runtime {
   }
 
   bool load(const std::string& p) override {
+    // genMu_ keeps generations off the model while it is swapped; mu_ is held only for the field updates
+    // (status() is polled from the GUI thread and must never wait for a multi-GB load)
     std::lock_guard gen(genMu_);
-    std::lock_guard lock(mu_);
-    if (ctx_) { llama_free(ctx_); ctx_ = nullptr; cached_.clear(); }
-    if (model_) { llama_model_free(model_); model_ = nullptr; }
-    path_ = p;
-    error_.clear();
-    if (!std::filesystem::exists(p)) { error_ = "model file not found"; return false; }
+    {
+      std::lock_guard lock(mu_);
+      if (ctx_) { llama_free(ctx_); ctx_ = nullptr; ctxSize_ = 0; cached_.clear(); }
+      if (model_) { llama_model_free(model_); model_ = nullptr; }
+      path_ = p;
+      error_.clear();
+      if (abort_) { error_ = "shutting down"; return false; }
+      if (!std::filesystem::exists(p)) { error_ = "model file not found"; return false; }
+    }
     llama_model_params mp = llama_model_default_params();
     // Settings → Performance → "Use GPU for AI inference" (THCAD_AI_GPU=0 keeps the model on the CPU)
     const char* gpu = std::getenv("THCAD_AI_GPU");
     mp.n_gpu_layers = gpu && std::string(gpu) == "0" ? 0 : -1;  // -1: offload everything (Metal / CUDA / Vulkan)
-    model_ = llama_model_load_from_file(p.c_str(), mp);
-    if (!model_) error_ = "failed to load GGUF";
+    mp.progress_callback = [](float, void* self) { return !static_cast<LlamaRuntime*>(self)->abort_.load(); };
+    mp.progress_callback_user_data = this;
+    llama_model* m = llama_model_load_from_file(p.c_str(), mp);
+    std::lock_guard lock(mu_);
+    model_ = m;
+    if (!model_) error_ = abort_ ? "shutting down" : "failed to load GGUF";
     return model_ != nullptr;
   }
+
+  void abort() override { abort_ = true; }
+  bool aborted() const override { return abort_; }
 
   std::string generate(const std::string& prompt, const GenerateOptions& opt,
                        const std::function<bool(const std::string&)>& onToken) override {
     // genMu_ serialises generations; mu_ only guards the status fields so status() never blocks
     // behind a running generation (the UI polls it).
     std::lock_guard gen(genMu_);
-    if (!model_) return {};
+    if (!model_ || abort_) return {};
     const llama_vocab* vocab = llama_model_get_vocab(model_);
 
     // chat template from the model (falls back to raw prompt)
@@ -150,6 +163,9 @@ class LlamaRuntime final : public Runtime {
       // headroom: a warm-up (prefill only) and the request that follows must fit the same context
       cp.n_ctx = std::max<uint32_t>(needed + 2048, 12288);
       cp.n_batch = 2048;
+      // a long prefill stops at the next graph node once the app shuts down (abort())
+      cp.abort_callback = [](void* self) { return static_cast<LlamaRuntime*>(self)->abort_.load(); };
+      cp.abort_callback_data = this;
       ctx_ = llama_init_from_model(model_, cp);
       ctxSize_ = ctx_ ? cp.n_ctx : 0;
       cached_.clear();
@@ -186,7 +202,7 @@ class LlamaRuntime final : public Runtime {
     std::string out;
     // prefill the new part of the prompt in batch-sized chunks
     bool ok = true;
-    for (size_t i = keep; i < tokens.size() && ok; i += 2048) {
+    for (size_t i = keep; i < tokens.size() && ok && !abort_; i += 2048) {
       const int32_t n = static_cast<int32_t>(std::min<size_t>(2048, tokens.size() - i));
       ok = llama_decode(ctx, llama_batch_get_one(tokens.data() + i, n)) == 0;
       if (ok) cached_.insert(cached_.end(), tokens.begin() + static_cast<std::ptrdiff_t>(i), tokens.begin() + static_cast<std::ptrdiff_t>(i + n));
@@ -194,7 +210,8 @@ class LlamaRuntime final : public Runtime {
     llama_token tok = 0;
     int produced = 0;
     double firstTokenAt = 0;
-    for (; ok && produced < opt.maxTokens; ++produced) {
+    if (abort_) ok = false;
+    for (; ok && produced < opt.maxTokens && !abort_; ++produced) {
       tok = llama_sampler_sample(smpl, ctx, -1);
       if (produced == 0) firstTokenAt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
       if (llama_vocab_is_eog(vocab, tok)) break;
@@ -223,6 +240,7 @@ class LlamaRuntime final : public Runtime {
  private:
   mutable std::mutex mu_;
   std::mutex genMu_;
+  std::atomic<bool> abort_{false};
   llama_model* model_ = nullptr;
   llama_context* ctx_ = nullptr;
   uint32_t ctxSize_ = 0;

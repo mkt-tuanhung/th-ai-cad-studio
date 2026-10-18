@@ -40,8 +40,21 @@ const QVector<ModelDownloader::Entry>& ModelDownloader::catalogue() {
 ModelDownloader::ModelDownloader(QObject* parent) : QObject(parent), nam_(new QNetworkAccessManager(this)) {}
 
 ModelDownloader::~ModelDownloader() {
+  // quitting mid-download: the .part stays for a resume. Nothing may run on `this` once it is gone:
+  //   - the transfer is aborted with its handlers disconnected first (abort() emits finished synchronously);
+  //   - the sha256 thread sees cancelled_ and stops within one 8 MB read, and is joined here; the results it
+  //     queued to `this` are dropped with the object (QObject removes its posted events).
   cancelled_ = true;
-  if (reply_) reply_->abort();
+  ++gen_;
+  if (reply_) {
+    reply_->disconnect(this);
+    reply_->abort();
+  }
+  if (verifyThread_) {
+    verifyThread_->wait();
+    delete verifyThread_;
+    verifyThread_ = nullptr;
+  }
 }
 
 QString ModelDownloader::partPath(int i) const { return dir_ + '/' + entry_->shards[i].name + QStringLiteral(".part"); }
@@ -108,7 +121,10 @@ QJsonObject ModelDownloader::start(const QString& id) {
   ++gen_;
   shard_ = 0;
   attempt_ = 0;
-  QTimer::singleShot(0, this, &ModelDownloader::fetchShard);
+  // a Cancel before this fires bumps gen_ and reports the cancel itself: the stale timer then does nothing
+  QTimer::singleShot(0, this, [this, gen = gen_] {
+    if (gen == gen_ && running_) fetchShard();
+  });
   return {{"ok", true}, {"dir", dir_}, {"bytes", static_cast<double>(entry_->total())}};
 }
 
@@ -118,11 +134,12 @@ void ModelDownloader::cancel() {
   // the .part stays for a resume; a running transfer / check reports the cancel itself
   if (reply_) return reply_->abort();
   if (verifying_) return;
-  ++gen_;  // waiting for a retry: that timer must not restart anything
+  ++gen_;  // waiting for the start or a retry: that timer must not restart anything
   fail(QStringLiteral("cancelled"));
 }
 
 void ModelDownloader::fetchShard() {
+  if (!running_ || reply_ || verifying_) return;  // never two transfers on the same .part
   if (cancelled_) return fail(QStringLiteral("cancelled"));
   if (shard_ >= entry_->shards.size()) return install();
   const Shard& s = entry_->shards[shard_];
@@ -242,6 +259,10 @@ void ModelDownloader::verifyShard() {
   const QString id = entry_->id;
   const qint64 total = entry_->total();
   verifying_ = true;
+  if (verifyThread_) {  // the previous shard's thread has finished (verifying_ was false): reap it
+    verifyThread_->wait();
+    delete verifyThread_;
+  }
   // sha256 of a multi-GB file takes seconds: off the GUI thread, progress every 64 MB
   QThread* t = QThread::create([this, path, want, before, id, total] {
     QFile f(path);
@@ -263,6 +284,7 @@ void ModelDownloader::verifyShard() {
     const bool match = ok && !cancelled_ && h.result().toHex() == want;
     QMetaObject::invokeMethod(this, [this, match, ok, path] {
       verifying_ = false;
+      if (!running_) return;
       if (cancelled_) return fail(QStringLiteral("cancelled"));
       if (!ok) return fail(QStringLiteral("cannot read ") + path);
       if (!match) {
@@ -273,7 +295,7 @@ void ModelDownloader::verifyShard() {
       fetchShard();
     }, Qt::QueuedConnection);
   });
-  connect(t, &QThread::finished, t, &QObject::deleteLater);
+  verifyThread_ = t;
   t->start();
 }
 

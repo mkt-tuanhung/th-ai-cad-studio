@@ -50,9 +50,29 @@ std::optional<Model> modelFromJson(const json::Value& v, const Model& placements
   openings("windows", Opening::Cat::Window, m.windows);
   if (const json::Array* a = arr(v, "rooms"))
     for (const auto& r : *a) m.rooms.push_back({s(r, "id"), s(r, "number"), s(r, "name"), s(r, "level"), n(r, "area")});
+  // [[x, y], …] (P2 in ui/src/bim/model.ts)
+  auto polygon = [](const json::Value* v) {
+    std::vector<P2> out;
+    if (const json::Array* a = v ? v->arr() : nullptr)
+      for (const auto& p : *a)
+        if (const json::Array* xy = p.arr(); xy && xy->size() >= 2 && (*xy)[0].num() && (*xy)[1].num()) out.push_back({*(*xy)[0].num(), *(*xy)[1].num()});
+    return out;
+  };
   if (const json::Array* a = arr(v, "slabs"))
-    for (const auto& sl : *a)
-      if (const std::string k = s(sl, "kind"); k == "floor" || k == "roof") m.slabLevels.push_back(s(sl, "level"));
+    for (const auto& sl : *a) {
+      Slab x;
+      x.id = s(sl, "id");
+      const std::string k = s(sl, "kind");
+      x.kind = k == "roof" ? Slab::Kind::Roof : k == "ceiling" ? Slab::Kind::Ceiling : Slab::Kind::Floor;
+      x.level = s(sl, "level");
+      x.offset = n(sl, "offset");
+      x.outline = polygon(sl.get("outline"));
+      if (const json::Array* holes = arr(sl, "openings"))
+        for (const auto& h : *holes) x.openings.push_back(polygon(&h));
+      const json::Value* landing = sl.get("landing");
+      x.landing = landing && landing->boolean() && *landing->boolean();
+      m.slabs.push_back(std::move(x));
+    }
   return m;
 }
 
