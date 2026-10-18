@@ -85,6 +85,13 @@ export interface Item {
   /** Per-part finishes (part → material); parts without an entry use `material`. */
   parts?: Record<string, PartFinish>
   src?: DimSource
+  /* ---- 3D asset library (v2.4) — optional, presentation only ---- */
+  /** Furniture kind of the CAD block it was built from (sofa, bed, dining, coffeeTable …): finer than `category`. */
+  kind?: string
+  /** Library asset shown for this item in renders (library/assets.ts); unset = the best match by category and size. */
+  asset?: string
+  /** Renders: keep the library model's own materials (default) or show it in this item's finish. */
+  assetFinish?: 'model' | 'item'
 }
 
 export interface Material {

@@ -7,6 +7,7 @@
  * they share (or on the corner of their walls) so storeys stack. The result replaces nothing by itself: the
  * caller commits it as ONE undoable edit after the user approved the preview.
  */
+import { orientItems } from '../interior/orient'
 import type { BimModel, Column, Component, GridLine, Level, Opening, Railing, Room, Slab, Stair, Wall, WallType } from './model'
 import type { Cabinet, Item, ItemCategory, Room as InteriorRoom } from '../interior/model'
 import { MATERIALS } from '../interior/model'
@@ -869,7 +870,7 @@ export function buildInterior(model: BimModel, levelId: string, furniture: RecFu
     const g = groups.get(key)
     if (g) { g.qty++; g.at!.push(at); continue }
     const material = mats.has(MATERIAL[cat]) ? MATERIAL[cat] : MATERIALS[0].name
-    const item: Item = { id: `cad-i${groups.size + 1}`, name: names.furniture[f.kind], category: cat, room, w: f.w, d: f.d, h: FURN_H[f.kind], material, qty: 1, status: 'placed', at: [at] }
+    const item: Item = { id: `cad-i${groups.size + 1}`, name: names.furniture[f.kind], category: cat, room, w: f.w, d: f.d, h: FURN_H[f.kind], material, qty: 1, status: 'placed', at: [at], kind: f.kind }
     if (spec) {
       const w = Math.max(f.w, f.d), d = Math.min(f.w, f.d), h = FURN_H[f.kind]
       const doors = spec.doorW ? Math.max(1, Math.min(12, Math.round(w / spec.doorW))) : 0
@@ -885,5 +886,6 @@ export function buildInterior(model: BimModel, levelId: string, furniture: RecFu
     }
     groups.set(key, item)
   }
-  return { rooms, items: [...groups.values()], cabinets, notCabinet, skipped }
+  // blocks do not say which side is their front: turn backwards pieces round (interior/orient.ts)
+  return { rooms, items: orientItems(rooms, [...groups.values()]), cabinets, notCabinet, skipped }
 }

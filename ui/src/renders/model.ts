@@ -12,6 +12,13 @@ export interface CameraView {
   fov: number
   /** Up vector (default +Z) — camera bookmarks keep it. */
   up?: [number, number, number]
+  /** Architectural camera (v2.4 auto views): level (vertical lines vertical) with a lens shift (fraction of the image). */
+  level?: boolean
+  shift?: [number, number]
+  /** Full-frame-equivalent focal length (mm) the view was made with. */
+  lensEq?: number
+  /** Room the view was made for. */
+  room?: string
 }
 
 export interface Camera {

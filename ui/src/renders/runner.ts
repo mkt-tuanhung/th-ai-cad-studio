@@ -12,6 +12,7 @@ import { useRenders } from '../state/renders'
 import { DEFAULT_FX, dims, isBlender, viewOf, type Camera, type Job, type PostFx, type RenderSettings } from './model'
 import { finalStatus, lightingOf, provenanceOf, type JobSnapshot } from './provenance'
 import { captureSnapshot, specFor, specRevision, type SceneSpec } from './snapshot'
+import { ensureLibrary } from '../library/assetService'
 
 interface Progress {
   id: string
@@ -73,6 +74,8 @@ async function snapshotJob(host: HostApi, id: string) {
   const job = st.doc.queue.find((j) => j.id === id)
   const cam = job && camOf(job)
   if (!job || !cam || job.snap) return
+  // the asset library's manifest (library models / PBR materials for the interior dressing)
+  await ensureLibrary(host)
   const v = viewOf(cam)
   const spec = specFor(v, st.layers)
   specs.set(id, spec)
@@ -149,7 +152,7 @@ export function buildJob(job: Job, engine: 'blender' | 'occt' = 'occt', note?: s
       camera: { eye: camera.eye, at: camera.at, up: camera.up, fov: camera.fov },
     },
     ...(engine === 'blender'
-      ? { blender: { glb: job.snap?.glb, lighting: lightingOf(settings), overrides: overrides ?? {}, ground: !!spec.ground, camera } }
+      ? { blender: { glb: job.snap?.glb, lighting: lightingOf(settings), overrides: overrides ?? {}, ground: !!spec.ground, camera: { ...camera, ...(v.shift ? { shift: v.shift } : {}), ...(v.level ? { level: true } : {}) }, ...(spec.dressing ? { dressing: spec.dressing } : {}) } }
       : {}),
     // exposure is applied by the renderer's tone mapping; the rest after rendering
     fx: { contrast: fx.contrast, saturation: fx.saturation, temperature: fx.temperature, vignette: fx.vignette },

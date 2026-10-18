@@ -188,7 +188,8 @@ void BlenderWorker::cancel() {
 
 void BlenderWorker::cleanup() {
   if (running() || dir_.isEmpty()) return;
-  QDir(dir_).removeRecursively();
+  // QA / debugging: THCAD_BLENDER_KEEP=1 keeps job.json (and the worker's PNG) to rerun Blender by hand
+  if (qEnvironmentVariable("THCAD_BLENDER_KEEP") != QStringLiteral("1")) QDir(dir_).removeRecursively();
   dir_.clear();
 }
 

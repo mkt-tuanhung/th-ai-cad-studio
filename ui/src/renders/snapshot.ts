@@ -7,8 +7,9 @@ import type { HostApi } from '../services/host'
 import type { Scene } from '../engine3d/scene'
 import { useBim } from '../state/bim'
 import { useInterior } from '../state/interior'
-import { interiorScene } from '../interior/scene'
 import { bimExtras, nativeBuildingModel } from '../bim/scene'
+import { useAssetLibrary } from '../library/assets'
+import { interiorRenderScene, renderDressing, type RenderDressing } from './interiorRender'
 import type { BimModel } from '../bim/model'
 import { bimGroup, interiorGroup, lensFromFov, sceneRevision, type JobSnapshot } from './provenance'
 import type { CameraView } from './model'
@@ -20,6 +21,8 @@ export interface SceneSpec {
   /** Exterior: the BIM model the native builder turns into walls with openings, glazing and floor slabs. */
   bimModel?: BimModel
   ground?: boolean
+  /** Interior renders: library models, finishes, PBR materials and HDRIs for Blender (renders/interiorRender.ts). */
+  dressing?: RenderDressing
 }
 
 export function bimKinds(m: BimModel) {
@@ -42,11 +45,21 @@ export function bimSpec(model: BimModel, layers: Record<string, boolean>): Scene
   return { sceneId: 'bim:villa-riverside', items, bimModel: arch ? nativeBuildingModel(model) : undefined, ground: layers.landscape !== false }
 }
 
-/** The interior scene (walls to the ceiling, furniture per layer) with material groups. */
+/**
+ * The interior scene with material groups: when the rooms come from the BIM model (the "1 lệnh" pipeline), the BIM
+ * building is the shell — walls with their windows / doors and glazing, the slab above as the ceiling (a double-height
+ * room sees the slab two storeys up) — plus the room floors and the furniture; otherwise walls to the ceiling.
+ * The dressing (library models, finishes, PBR materials, HDRIs) rides along for Blender.
+ */
 export function interiorSpec(doc: ReturnType<typeof useInterior.getState>['doc'], layers: Record<string, boolean>): SceneSpec {
-  const sc = interiorScene(doc, { fullWalls: true, furniture: layers.furniture !== false })
+  const bim = useBim.getState().model
+  const r = interiorRenderScene(doc, bim, layers.furniture !== false)
   const byId = new Map(doc.items.map((i) => [i.id, i]))
-  return { sceneId: 'interior:villa-riverside', items: sc.items.map((it) => ({ ...it, group: interiorGroup(it, byId.get(it.id)?.category, !!byId.get(it.id)?.cabinet) })) }
+  const items = r.items.map((it) => ({ ...it, group: interiorGroup(it, byId.get(it.id)?.category, !!byId.get(it.id)?.cabinet) }))
+  const dressing = renderDressing(doc, { items: r.items }, useAssetLibrary.getState().assets, { shell: !!r.bimModel, openTo: r.openTo })
+  if (!r.bimModel) return { sceneId: 'interior:villa-riverside', items, dressing }
+  const k = bimKinds(bim)
+  return { sceneId: 'interior:villa-riverside', items: [...items, ...r.extras.map((it) => ({ ...it, group: it.group ?? bimGroup(it.id, k) }))], bimModel: r.bimModel, dressing }
 }
 
 /** Scene spec of a camera's view from the current models. */
