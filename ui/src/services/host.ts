@@ -50,6 +50,11 @@ export interface HostApi {
   whisperStatus(): Promise<{ available: boolean; helper: string; model: string; modelBytes: number; device?: string; reason?: string }>
   voiceTranscribe(id: string, wavBase64: string, lang: string): Promise<void>
   whisperDownload(): Promise<void>
+  /** Reference photo → interior style: the local vision model (llama-mtmd-cli helper + Qwen2.5-VL in <models>/vision). */
+  visionStatus(): Promise<import('./vision').VisionStatus>
+  /** {id, images: base64 JPEG[], system, prompt, grammar, maxTokens} → started?; the answer arrives on 'visionResult'. */
+  visionAnalyze(taskJson: string): Promise<{ ok: boolean; id?: string; error?: string; code?: string }>
+  visionCancel(id: string): Promise<boolean>
   voiceWarmup(): Promise<void>
   /** Local AI model download (Settings): see services/modelDownload.ts. */
   modelDownloadState(): Promise<import('./modelDownload').ModelDownloadState>
@@ -109,7 +114,7 @@ export interface HostApi {
   dwgWriteTo(script: string, dir: string, name: string): Promise<{ ok: boolean; path?: string; bytes?: number; entities?: number; error?: string }>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress' | 'modelProgress' | 'libraryEvent', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress' | 'modelProgress' | 'libraryEvent' | 'visionResult', fn: (payload: unknown) => void): void
 }
 
 export interface BlenderInfo {

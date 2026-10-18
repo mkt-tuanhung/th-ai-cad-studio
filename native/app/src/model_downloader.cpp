@@ -33,6 +33,13 @@ const QVector<ModelDownloader::Entry>& ModelDownloader::catalogue() {
         {QStringLiteral("qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf"), 689872288ll, "539cf93f78e887edea1c04e2d7d8cdaca9d01dae9c9025bcb8accbe29df3d72a"}}},
       {QStringLiteral("qwen2.5-3b-instruct-q4_k_m"), QStringLiteral("Qwen2.5-3B Instruct (Q4_K_M)"), QStringLiteral("Qwen/Qwen2.5-3B-Instruct-GGUF"),
        {{QStringLiteral("qwen2.5-3b-instruct-q4_k_m.gguf"), 2104932768ll, "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d"}}},
+      // reference photo → interior style: Qwen2.5-VL-7B-Instruct (Apache-2.0) GGUF + its vision projector (mmproj),
+      // ggml-org's conversion pinned to commit 508edd0a; read by the llama-mtmd-cli helper, never loaded in-process
+      {QStringLiteral("qwen2.5-vl-7b-instruct-q4_k_m"), QStringLiteral("Qwen2.5-VL-7B Instruct (Q4_K_M) + mmproj — reads reference photos"),
+       QStringLiteral("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"),
+       {{QStringLiteral("Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf"), 4683072032ll, "9258bf05b12686d097ff3b6b18d968ab393649780aa2b3cd67fec43d50554392"},
+        {QStringLiteral("mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf"), 853119712ll, "2ddb555391bae966e412deab9e07b58afa18bcc06930ba0f1c78a3695ab9e506"}},
+       QStringLiteral("vision"), QStringLiteral("508edd0afaa66bb9e9f40587acc2184f02daf1f6"), QStringLiteral("vision")},
   };
   return c;
 }
@@ -76,17 +83,18 @@ QJsonObject ModelDownloader::state() const {
   for (const Entry& e : catalogue()) {
     bool installed = true;
     qint64 partial = 0;
+    const QString edir = e.subdir.isEmpty() ? dir : dir + '/' + e.subdir;
     for (const Shard& s : e.shards) {
-      const QFileInfo f(dir + '/' + s.name), p(dir + '/' + s.name + QStringLiteral(".part"));
+      const QFileInfo f(edir + '/' + s.name), p(edir + '/' + s.name + QStringLiteral(".part"));
       if (!(f.exists() && f.size() == s.size)) installed = false;
       partial += f.exists() && f.size() == s.size ? s.size : p.exists() ? std::min(p.size(), s.size) : 0;
     }
     const bool fits = e.total() <= budget;
-    if (fits && recommended.isEmpty()) recommended = e.id;  // the catalogue is ordered largest first
-    models.append(QJsonObject{{"id", e.id}, {"label", e.label}, {"bytes", static_cast<double>(e.total())}, {"installed", installed},
+    if (fits && recommended.isEmpty() && e.kind == QStringLiteral("text")) recommended = e.id;  // the catalogue is ordered largest first
+    models.append(QJsonObject{{"id", e.id}, {"label", e.label}, {"kind", e.kind}, {"bytes", static_cast<double>(e.total())}, {"installed", installed},
                               {"partialBytes", static_cast<double>(installed ? 0 : partial)}, {"fits", fits}});
   }
-  if (recommended.isEmpty()) recommended = catalogue().back().id;
+  if (recommended.isEmpty()) recommended = QStringLiteral("qwen2.5-3b-instruct-q4_k_m");
   return {{"dir", dir}, {"freeBytes", static_cast<double>(vol.bytesAvailable())}, {"ramBytes", static_cast<double>(ai::physicalMemoryBytes())},
           {"recommended", recommended}, {"running", running_}, {"current", running_ && entry_ ? entry_->id : QString()}, {"models", models}};
 }
@@ -99,6 +107,7 @@ QJsonObject ModelDownloader::start(const QString& id) {
   if (!entry_) return {{"ok", false}, {"error", QStringLiteral("unknown model ") + id}};
   // the folder the runtime reads now — the user's chosen models folder or the default one
   dir_ = QString::fromStdString(ai::modelsDir().string());
+  if (!dir_.isEmpty() && !entry_->subdir.isEmpty()) dir_ += '/' + entry_->subdir;
   if (dir_.isEmpty() || !QDir().mkpath(dir_)) return {{"ok", false}, {"error", QStringLiteral("cannot create the models folder ") + dir_}};
   {
     QFile probe(dir_ + QStringLiteral("/.write-test"));
@@ -160,7 +169,7 @@ void ModelDownloader::fetchShard() {
   writeError_.clear();
   statusChecked_ = false;
   const QString base = qEnvironmentVariable("THCAD_MODEL_MIRROR", QStringLiteral("https://huggingface.co"));  // QA: a local server
-  QNetworkRequest req(QUrl(base + '/' + entry_->repo + QStringLiteral("/resolve/main/") + s.name));
+  QNetworkRequest req(QUrl(base + '/' + entry_->repo + QStringLiteral("/resolve/") + (entry_->revision.isEmpty() ? QStringLiteral("main") : entry_->revision) + '/' + s.name));
   req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
   req.setTransferTimeout(60000);  // a stalled connection counts as a network error (then resumes)
   req.setHeader(QNetworkRequest::UserAgentHeader, QStringLiteral("MD-CAD-AI-STUDIO"));
@@ -308,7 +317,7 @@ void ModelDownloader::install() {
     if (!QFile::rename(part, fin)) return fail(QStringLiteral("cannot rename ") + part);
   }
   running_ = false;
-  emit progress({{"id", entry_->id}, {"phase", "installed"}, {"path", finalPath(0)}, {"dir", dir_}});
+  emit progress({{"id", entry_->id}, {"phase", "installed"}, {"path", finalPath(0)}, {"dir", dir_}, {"kind", entry_->kind}});
 }
 
 void ModelDownloader::fail(const QString& error, bool keepPart) {

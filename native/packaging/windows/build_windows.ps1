@@ -146,6 +146,38 @@ $Said = (Get-Content "$Build\whisper-out.txt" -Raw)
 Write-Host "   transcript (tiny model): $Said"
 if ($P.ExitCode -ne 0 -or -not $Said.Trim()) { throw "whisper-cli transcription failed (exit $($P.ExitCode))" }
 
+# 5c2) Reference photo → interior style: llama.cpp llama-mtmd-cli (MIT) as a separate program in vision\ with its own
+#      ggml / llama / mtmd DLLs (kept apart from the app's vcpkg llama.cpp); see third_party/llama-mtmd/README.md.
+#      Pinned source (tag b11429), Vulkan backend (any GPU vendor) + every CPU variant loaded at run time (GGML_BACKEND_DL):
+#      a PC without a Vulkan driver falls back to the CPU. No network code: never given a URL, built without curl.
+Write-Host "== Reference photo reader (llama.cpp llama-mtmd-cli, Vulkan + CPU)"
+$LSrc = Fetch "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b11429.tar.gz" "0487B2E58D0F87C50DEF234EBDA5DD8C1AB6C7AFBC440EBEF0080203110DB6D7"
+$LTmp = "$Build\llama-mtmd"
+Remove-Item -Recurse -Force $LTmp -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $LTmp | Out-Null
+python -c "import sys, tarfile; tarfile.open(sys.argv[1], 'r:gz').extractall(sys.argv[2])" $LSrc $LTmp; Check "llama.cpp source"
+cmake -S "$LTmp\llama.cpp-b11429" -B "$LTmp\build" -G Ninja -DCMAKE_BUILD_TYPE=Release `
+  -DBUILD_SHARED_LIBS=ON -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_NATIVE=OFF -DGGML_VULKAN=ON `
+  -DLLAMA_CURL=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_EXAMPLES=OFF `
+  "-DCMAKE_PREFIX_PATH=$VcpkgPrefix" "-DVulkan_INCLUDE_DIR=$VcpkgPrefix\include" "-DVulkan_LIBRARY=$VcpkgPrefix\lib\vulkan-1.lib" `
+  "-DVulkan_GLSLC_EXECUTABLE=$($Glslc.FullName)"; Check "llama-mtmd configure"
+cmake --build "$LTmp\build" --target llama-mtmd-cli; Check "llama-mtmd build"
+New-Item -ItemType Directory -Force "$Stage\vision", "$Stage\licenses\llama-mtmd" | Out-Null
+Copy-Item "$LTmp\build\bin\llama-mtmd-cli.exe" "$Stage\vision\"
+Get-ChildItem "$LTmp\build\bin\*.dll" | Copy-Item -Destination "$Stage\vision\"
+Get-ChildItem "$Stage\vision" | ForEach-Object { Write-Host "   $($_.Name)" }
+if (-not (Test-Path "$Stage\vision\ggml-vulkan.dll")) { throw "ggml-vulkan.dll was not built (llama-mtmd)" }
+if (-not (Test-Path "$Stage\vision\mtmd.dll")) { throw "mtmd.dll was not built" }
+Copy-Item "$LTmp\llama.cpp-b11429\LICENSE" "$Stage\licenses\llama-mtmd\LICENSE"
+Copy-Item "$Native\third_party\llama-mtmd\README.md" "$Stage\licenses\llama-mtmd\"
+# smoke-run from the staged folder (its own DLLs only): the loader, the CPU / Vulkan backends and the argument parser
+$P = Start-Process -FilePath "$Stage\vision\llama-mtmd-cli.exe" -ArgumentList "--help" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\mtmd-help.txt" -RedirectStandardError "$Build\mtmd-help-err.txt"
+if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "llama-mtmd-cli --help timed out" }
+if ($P.ExitCode -ne 0) { Get-Content "$Build\mtmd-help-err.txt" | Select-Object -Last 20 | Write-Host; throw "llama-mtmd-cli --help failed (exit $($P.ExitCode))" }
+$Help = (Get-Content "$Build\mtmd-help.txt" -Raw) + (Get-Content "$Build\mtmd-help-err.txt" -Raw)
+if ($Help -notmatch "mmproj") { throw "llama-mtmd-cli --help does not list --mmproj" }
+Write-Host "   llama-mtmd-cli runs"
+
 # 5d) guard: the staged app must be licence-enforced and start locked on a PC without a key
 $P = Start-Process -FilePath "$Stage\MD CAD AI STUDIO.exe" -ArgumentList "--licence-info" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\licence-info.txt"
 if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "--licence-info timed out" }

@@ -1,4 +1,5 @@
 import { spaceEn, spaceVi } from './interiorSpace'
+import { styleMatNamesVi } from './styleRef'
 
 export const interiorEn = {
   crumbs: { projects: 'Projects', project: 'Villa Riverside', discipline: 'Interior Design' },
@@ -419,6 +420,7 @@ export const interiorVi: typeof interiorEn = {
     'MFC 18 - Walnut': 'MFC 18 - Óc chó',
     'MFC 18 - Oak': 'MFC 18 - Sồi',
     'HDF 6 - White': 'HDF 6 - Trắng',
+    ...styleMatNamesVi,
   },
   cabinet: { title: 'Tủ tham số mới', name: 'Tên', width: 'Rộng (mm)', depth: 'Sâu (mm)', height: 'Cao (mm)', doors: 'Số cánh', shelves: 'Số đợt', add: 'Thêm tủ', cancel: 'Huỷ', defaultName: 'Tủ {n}' },
   plan: {

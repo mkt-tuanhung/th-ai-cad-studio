@@ -46,6 +46,17 @@ const TILE: Record<string, [number, number]> = {
   'MFC 18 - Walnut': [2800, 2070],
   'MFC 18 - Oak': [2800, 2070],
   'HDF 6 - White': [2440, 1220],
+  // reference-photo finishes (v2.4)
+  'Parquet - Herringbone Oak': [600, 100],
+  'Wood - White Oak': [2000, 190],
+  'Wood - Dark Stained': [2000, 180],
+  'Brick - Red': [230, 76],
+  'Tile - Large Grey': [1200, 600],
+  'Tile - Terracotta': [300, 300],
+  'Terrazzo': [600, 600],
+  'Marble - Beige': [1200, 600],
+  'Granite - Dark': [600, 600],
+  'Concrete - Grey': [2000, 2000],
 }
 
 export function materialSpec(name: string): MaterialSpec {

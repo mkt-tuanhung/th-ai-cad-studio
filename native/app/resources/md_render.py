@@ -356,8 +356,9 @@ class Interior:
             set_input(b, ('Sheen Roughness',), 0.4)
             b.inputs['Roughness'].default_value = 0.85
         if kind in ('wood', 'board'):
-            set_input(b, ('Coat Weight', 'Clearcoat'), 0.15)
-            set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.25)
+            # furniture: a satin lacquer; floors: an oiled / matt-varnished finish (a strong coat reads as a mirror)
+            set_input(b, ('Coat Weight', 'Clearcoat'), 0.05 if floor else 0.15)
+            set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.45 if floor else 0.25)
         if kind == 'stone':
             set_input(b, ('Coat Weight', 'Clearcoat'), 0.35)
             set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.08)
@@ -378,6 +379,8 @@ class Interior:
             bump.inputs['Strength'].default_value = 0.03
             nt.links.new(tex.outputs['Fac'], bump.inputs['Height'])
             nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+        elif kind == 'tile' and name.startswith('Brick'):
+            self.procedural_brick(nt, b, col, spec.get('tileMm') or [230, 76])
         elif kind == 'tile':
             self.procedural_tile(nt, b, col, spec.get('tileMm') or [600, 600])
         elif kind == 'stone':
@@ -429,6 +432,51 @@ class Interior:
         b.inputs['Roughness'].default_value = 0.22
         set_input(b, ('Coat Weight', 'Clearcoat'), 0.3)
         set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.08)
+
+    @staticmethod
+    def procedural_brick(nt, b, col, tile_mm):
+        """Exposed brick (reference-photo finish): running bond on walls along X or Y (u = x + y, v = z), light mortar."""
+        tc = nt.nodes.new('ShaderNodeTexCoord')
+        sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+        nt.links.new(tc.outputs['Object'], sep.inputs['Vector'])
+        add = nt.nodes.new('ShaderNodeMath')
+        add.operation = 'ADD'
+        nt.links.new(sep.outputs['X'], add.inputs[0])
+        nt.links.new(sep.outputs['Y'], add.inputs[1])
+        comb = nt.nodes.new('ShaderNodeCombineXYZ')
+        nt.links.new(add.outputs['Value'], comb.inputs['X'])
+        nt.links.new(sep.outputs['Z'], comb.inputs['Y'])
+        br = nt.nodes.new('ShaderNodeTexBrick')
+        br.offset = 0.5
+        br.squash = 1.0
+        br.inputs['Scale'].default_value = 1.0
+        br.inputs['Brick Width'].default_value = max(0.05, float(tile_mm[0]) / 1000.0)
+        br.inputs['Row Height'].default_value = max(0.02, float(tile_mm[1] or 76) / 1000.0)
+        br.inputs['Mortar Size'].default_value = 0.009
+        br.inputs['Mortar Smooth'].default_value = 0.3
+        br.inputs['Bias'].default_value = 0.0
+        # reclaimed brick: each brick a random mix of a pale tan and a deep red-brown (Blender varies it per brick)
+        br.inputs['Color1'].default_value = (min(1.0, col[0] * 1.6), min(1.0, col[1] * 2.6), min(1.0, col[2] * 3.2), 1)
+        br.inputs['Color2'].default_value = (col[0] * 0.62, col[1] * 0.55, col[2] * 0.55, 1)
+        br.inputs['Mortar'].default_value = (0.55, 0.52, 0.48, 1)
+        nt.links.new(comb.outputs['Vector'], br.inputs['Vector'])
+        nz = nt.nodes.new('ShaderNodeTexNoise')
+        nz.inputs['Scale'].default_value = 40.0
+        nz.inputs['Detail'].default_value = 8.0
+        nt.links.new(comb.outputs['Vector'], nz.inputs['Vector'])
+        mix = nt.nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        mix.blend_type = 'OVERLAY'
+        mix.inputs['Factor'].default_value = 0.35
+        nt.links.new(br.outputs['Color'], mix.inputs[6])
+        nt.links.new(nz.outputs['Color'], mix.inputs[7])
+        nt.links.new(mix.outputs[2], b.inputs['Base Color'])
+        bump = nt.nodes.new('ShaderNodeBump')
+        bump.inputs['Strength'].default_value = 0.6
+        bump.inputs['Distance'].default_value = 0.004
+        nt.links.new(br.outputs['Fac'], bump.inputs['Height'])
+        nt.links.new(bump.outputs['Normal'], b.inputs['Normal'])
+        b.inputs['Roughness'].default_value = 0.88
 
     @staticmethod
     def procedural_marble(nt, b, col):
@@ -618,9 +666,60 @@ class Interior:
             p.material_index = 0 if nz > 0.5 else 1 if nz < -0.5 else 2
 
     # ---------------------------------------------------------------- surfaces
+    def room_faces(self, obj, rooms, key, side):
+        """Shell faces looking into a room with its own finish take that finish (walls: vertical faces; ceilings: slab
+        undersides), so a restyled room shows its walls / ceiling while the rest of the building keeps the shell's."""
+        me = obj.data
+        mw = obj.matrix_world
+        mn = mw.to_3x3()
+        if side:
+            # a wall face may run on past the room (one long wall shared with the next room): cut the walls with
+            # vertical planes at the room's corners, square to its sides, so each piece lies along one room only
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            inv = mw.inverted()
+            for r in rooms:
+                pts = r['outline']
+                for i in range(len(pts)):
+                    a, b = pts[i], pts[(i + 1) % len(pts)]
+                    d = Vector(((b[0] - a[0]) / 1000.0, (b[1] - a[1]) / 1000.0, 0.0))
+                    if d.length < 1e-6:
+                        continue
+                    d.normalize()
+                    no = (inv.to_3x3() @ d).normalized()
+                    for p in (a, b):
+                        co = inv @ Vector((p[0] / 1000.0, p[1] / 1000.0, 0.0))
+                        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no)
+            bm.to_mesh(me)
+            bm.free()
+            me.update()
+        slots = {}
+        for p in me.polygons:
+            n = (mn @ p.normal).normalized()
+            if (side and abs(n.z) > 0.5) or (not side and n.z > -0.5):
+                continue
+            q = (mw @ p.center) + n * 0.08
+            # the face's height range (a tall wall may be one triangle reaching above the room: its centre can be too)
+            zs = [(mw @ me.vertices[v].co).z for v in p.vertices]
+            for r in rooms:
+                top = float(r.get('openTo') or r.get('ceiling') or 3000) / 1000.0
+                if (side and (min(zs) > top - 0.05 or max(zs) < 0.05)) or (not side and not (-0.05 <= q.z <= top + 0.05)):
+                    continue
+                if not inside(r['outline'], q.x * 1000.0, q.y * 1000.0):
+                    continue
+                name = r[key]
+                if name not in slots:
+                    me.materials.append(self.material(name))
+                    slots[name] = len(me.materials) - 1
+                p.material_index = slots[name]
+                self.stats['roomFaces'] = self.stats.get('roomFaces', 0) + 1
+                break
+
     def surfaces(self):
         surf = self.d.get('surfaces') or {}
         shell = self.d.get('shellFinish') or {}
+        own_wall = [r for r in self.rooms if r.get('wall') and r.get('wall') != shell.get('wall', 'Paint - Warm White')]
+        own_ceil = [r for r in self.rooms if r.get('ceilingFinish') and r.get('ceilingFinish') != shell.get('ceiling', 'Gypsum - White')]
         wall = self.material(shell.get('wall', 'Paint - Warm White'))
         ceiling = self.material(shell.get('ceiling', 'Gypsum - White'))
         concrete = self.material('Gypsum - White')
@@ -653,8 +752,12 @@ class Interior:
                 continue
             if grp in ('wall', 'wall-exterior', 'structure'):
                 self.assign(o, wall)
+                if own_wall:
+                    self.room_faces(o, own_wall, 'wall', True)
             elif grp in ('floor', 'ceiling', 'stair'):
                 self.assign_by_normal(o, floor_any, ceiling, concrete)
+                if own_ceil:
+                    self.room_faces(o, own_ceil, 'ceilingFinish', False)
             elif grp == 'metal':
                 self.assign(o, frame)
             elif grp == 'roof':

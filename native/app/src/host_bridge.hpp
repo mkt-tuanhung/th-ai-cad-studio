@@ -57,6 +57,13 @@ class HostBridge : public QObject {
   Q_INVOKABLE QJsonObject whisperStatus();
   /** Transcribes a 16 kHz mono WAV recorded by the page; result on 'voiceTranscript' {id, ok, text, ms, error?}. */
   Q_INVOKABLE void voiceTranscribe(const QString& id, const QString& wavBase64, const QString& lang);
+  /** Reference photo → interior style (Interior → AI): the local vision model (llama-mtmd-cli helper + Qwen2.5-VL in
+   *  <models>/vision): {available, helper, model, mmproj, modelBytes, device?, reason?}. */
+  Q_INVOKABLE QJsonObject visionStatus();
+  /** {id, images:[base64 JPEG/PNG, 1–5], system, prompt, grammar?, maxTokens?} → {ok, error?}; the answer arrives on
+   *  'visionResult' {id, ok, text, ms, device, error?, cancelled?}. Nothing leaves this computer. */
+  Q_INVOKABLE QJsonObject visionAnalyze(const QString& taskJson);
+  Q_INVOKABLE bool visionCancel(const QString& id);
   /** Settings → Download the Whisper model (user action); progress on 'whisperProgress'. */
   Q_INVOKABLE void whisperDownload();
   /** Local AI model download (Settings): what is installed / partly downloaded, free space, the model
@@ -193,6 +200,7 @@ class HostBridge : public QObject {
   void voiceText(const QJsonObject& result);
   void voiceTranscript(const QJsonObject& result);
   void whisperProgress(const QJsonObject& progress);
+  void visionResult(const QJsonObject& result);
   void modelProgress(const QJsonObject& progress);
   void documentChanged(const QJsonObject& document);
   void dwgResult(const QJsonObject& result);

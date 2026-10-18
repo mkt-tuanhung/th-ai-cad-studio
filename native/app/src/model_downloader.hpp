@@ -38,6 +38,12 @@ class ModelDownloader : public QObject {
   struct Entry {
     QString id, label, repo;
     QVector<Shard> shards;
+    /** Sub-folder of the models folder ("vision": the reference-photo model, kept out of the text-model list). */
+    QString subdir = {};
+    /** Pinned repository revision (commit); empty = main. */
+    QString revision = {};
+    /** "text" (the in-app runtime loads it) or "vision" (read by the llama-mtmd-cli helper). */
+    QString kind = QStringLiteral("text");
     qint64 total() const;
   };
   static const QVector<Entry>& catalogue();
@@ -45,7 +51,7 @@ class ModelDownloader : public QObject {
   explicit ModelDownloader(QObject* parent = nullptr);
   ~ModelDownloader() override;
 
-  /** {dir, freeBytes, ramBytes, recommended, running, models:[{id, label, bytes, installed, partialBytes,
+  /** {dir, freeBytes, ramBytes, recommended, running, models:[{id, label, kind, bytes, installed, partialBytes,
    *  fits}]} — what the Settings card shows (installed = every shard present with its exact size). */
   QJsonObject state() const;
   /** Starts (or resumes) a download; false + error when it cannot start (busy, unknown id, no space…). */
