@@ -28,6 +28,24 @@ jobs:
           ctest --test-dir build-core --output-on-failure
           if ($LASTEXITCODE) { throw "tests" }
 
+  # CNC safety + CAM unit tests (pure TypeScript, Node): a failed assertion ({ all: false }) fails the job
+  ui-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: CNC gate, panel CAM and part CAM unit tests
+        working-directory: ui
+        run: |
+          npm ci
+          UNIT=cnc node tools/test-cam.mjs run
+          UNIT=cam node tools/test-cam.mjs run
+          UNIT=partcam node tools/test-cam.mjs run
+
   build:
     runs-on: windows-2022
     timeout-minutes: 300
