@@ -209,7 +209,7 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
 }
 
 function packageFiles(r: AutoResult, cam: CamSetup, t: PackageText, include: PackageInclude): OutFile[] {
-  const base = r.file.replace(/\.(dwg|dxf)$/i, '')
+  const base = r.file.replace(/\.(dwg|dxf|png|jpe?g|webp|pdf)$/i, '')
   const out: OutFile[] = []
   const priceRows: BoqRow[] = []
   const add = (name: string, text: string) => out.push({ name: `${base} - ${name}`, kind: 'text', text: withBom(name, text) })

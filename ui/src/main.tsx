@@ -29,6 +29,11 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), cad: useCad }
   })
+  // v2.4 plan picture → BIM + Interior (tools/smoke-planimage.mjs, tools/measure-planimage.mjs)
+  Promise.all([import('./planimage/pipeline'), import('./planimage/scale'), import('./planimage/toModel'), import('./planimage/build'), import('./planimage/recognize')]).then(([pipeline, scale, toModel, build, recognize]) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), planImage: { pipeline, scale, toModel, build, recognize } }
+  })
 }
 if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
   import('./state/workspace').then(({ useWorkspace }) => {

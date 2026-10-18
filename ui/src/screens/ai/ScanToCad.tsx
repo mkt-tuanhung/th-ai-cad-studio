@@ -4,6 +4,7 @@ import { Modal } from '../../components/ui/Modal'
 import { ActionButton } from '../../components/ui/Button'
 import { useCad } from '../../state/cad'
 import { useRouter } from '../../state/router'
+import { useAutoRun } from '../../state/auto'
 import { toast } from '../../state/toast'
 import { createBlankDocument } from '../../cad/seed'
 import { importPdf, renderPdfPage, type PdfImport } from '../../cad/pdfImport'
@@ -191,6 +192,9 @@ export function ScanToCadModal({ file, onClose, jobId }: { file: File; onClose: 
     toast(fmt(t.openedVector, { name: d.name, n: vec.entities.length }), 'success')
   }
 
+  /** v2.4: the picture straight to the one-command dialog's plan review (walls, rooms → BIM + Interior). */
+  const to3d = () => { onClose(); useAutoRun.getState().show(undefined, [file], isPdf ? page : undefined) }
+
   return (
     <Modal
       title={fmt(t.title, { file: file.name })}
@@ -202,9 +206,13 @@ export function ScanToCadModal({ file, onClose, jobId }: { file: File; onClose: 
             <ActionButton disabled={(isPdf ? !res : !img) || needPage} onClick={() => (isPdf ? void pageUnderlay() : img && openUnderlay(img.src, img.w, img.h, 1))}>{t.openUnderlay}</ActionButton>
             <ActionButton disabled={(isPdf ? !res : !img) || !!step || needPage} onClick={() => void runVectorize()}>{t.vectorize}</ActionButton>
             <ActionButton variant="primary" disabled={!vec || needPage} onClick={() => void openVector()}>{t.openVector}</ActionButton>
+            <ActionButton disabled={(isPdf ? !res : !img) || needPage} onClick={to3d} data-testid="scan-to-3d">{T.planImage.scanTo3d}</ActionButton>
           </>
         ) : (
-          <ActionButton variant="primary" disabled={busy || !res || needPage} onClick={openVectors}>{t.open}</ActionButton>
+          <>
+            <ActionButton variant="primary" disabled={busy || !res || needPage} onClick={openVectors}>{t.open}</ActionButton>
+            <ActionButton disabled={busy || !res || needPage} onClick={to3d} data-testid="scan-to-3d">{T.planImage.scanTo3d}</ActionButton>
+          </>
         )
       }
     >

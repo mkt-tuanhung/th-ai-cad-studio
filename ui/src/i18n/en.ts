@@ -11,6 +11,7 @@ import { cncEn } from './ws/cnc'
 import { machlibEn } from './ws/machlib'
 import { platformEn } from './ws/platform'
 import { importCalEn } from './ws/importCal'
+import { planImageEn } from './ws/planImage'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
   app: {
@@ -541,6 +542,7 @@ export const en = {
   },
   auto: autoEn,
   importCal: importCalEn,
+  planImage: planImageEn,
   bim: {
     fromCad: fromCadEn,
     crumbs: { projects: 'Projects', project: 'Villa Riverside', discipline: 'Architecture' },

@@ -26,9 +26,11 @@ import { applyBim, applyCivil, applyInterior, applyMep, buildNames, checkBim, ch
 import { useAiStudio } from '../../state/aiStudio'
 import { beginApply, createJob, finishStep, isApplied, markApplied, readyForReview, restartCompute, startStep, stepFailed, type AiJob } from '../../ai/jobs'
 import { fabricationAllowed } from '../../cad/provenance'
+import { isPlanPicture } from '../../planimage/pipeline'
+import { PlanImageReview, type PlanBuilt } from './PlanImageReview'
 import s from './Auto.module.css'
 
-type Phase = 'pick' | 'run' | 'review' | 'write' | 'done' | 'error'
+type Phase = 'pick' | 'image' | 'run' | 'review' | 'write' | 'done' | 'error'
 type StepKey = 'read' | AutoStep | 'views'
 type Part = 'house' | 'interior' | 'route' | 'mep'
 const PARTS: Part[] = ['house', 'interior', 'route', 'mep']
@@ -57,6 +59,9 @@ export function AutoDialog() {
   const lang = useLang()
   const hide = useAutoRun((st) => st.hide)
   const jobId = useAutoRun((st) => st.jobId)
+  // v2.4: a floor-plan picture (PNG / JPG / WebP / PDF page) goes through the plan-image review first
+  const [image, setImage] = useState<{ file: File; page: number | null } | null>(null)
+  const imageDoc = useRef<CadDocument | null>(null)
   // v2.4: the run is an AI job with step checkpoints (persisted) — resumable after a restart, applied steps never twice
   const aiJob = useRef<AiJob | null>(null)
   const saveJob = (j: AiJob) => { aiJob.current = j; useAiStudio.getState().saveJob(j) }
@@ -107,7 +112,10 @@ export function AutoDialog() {
     }
   }
 
-  const start = async (doc: CadDocument | null, picked?: File[]) => {
+  const start = async (doc: CadDocument | null, picked?: File[], page?: number | null) => {
+    const pictureIn = !doc ? picked?.find((x) => isPlanPicture(x) && !/\.(dwg|dxf|csv)$/i.test(x.name)) : undefined
+    if (pictureIn) { setImage({ file: pictureIn, page: page ?? null }); setPhase('image'); return }
+    imageDoc.current = null
     started.current = Date.now()
     setPhase('run')
     setSteps({ read: 'run' })
@@ -174,6 +182,53 @@ export function AutoDialog() {
     }
   }
 
+  /** The plan picture was reviewed and approved for building: the same review / approval / package as a drawing. */
+  const fromPlan = async (b: PlanBuilt) => {
+    started.current = Date.now()
+    setOutcome(null); setError(null); setWritten(null); setDir(null); applied.current = new Set(); job.current = null
+    imageDoc.current = b.doc
+    setPhase('run')
+    setSteps({ read: 'done', house: 'done', build: 'run' })
+    setResumedApplied(0)
+    {
+      const file = b.res.file
+      const prev = jobId ? useAiStudio.getState().jobs.find((x) => x.id === jobId && x.status !== 'archived') : null
+      let j = prev ? restartCompute({ ...prev, input: { ...prev.input, file, files: [file] } }) : createJob({ preset: 'one-command', title: fmt(T.importCal.jobs.jobTitleAuto, { file }), steps: jobSteps(), input: { file, files: [file] } })
+      j = finishStep(startStep(j, 'read'), 'read', file)
+      saveJob(j)
+    }
+    try {
+      setSrcGate(b.gate)
+      setUnits({})
+      setPrices(null)
+      const host = await getHost()
+      setDesktop(!!host)
+      setAiOn(false)
+      let r: AutoResult = b.res
+      const seen: StepKey[] = ['read', 'house', 'build', 'check']
+      if (host && r.house) {
+        seen.push('views')
+        setSteps(Object.fromEntries(seen.map((k, i) => [k, i === seen.length - 1 ? 'run' : 'done'])))
+        const v = await houseViews(host, r.house.built.model, t.viewWords)
+        r = { ...r, house: { ...r.house, views: v }, ms: r.ms + v.ms }
+      }
+      setSteps(Object.fromEntries(STEPS.map((k) => [k, seen.includes(k) ? 'done' : 'skip'])))
+      if (aiJob.current) {
+        let j = aiJob.current
+        for (const k of STEPS) j = finishStep(j, k, undefined, seen.includes(k) ? 'done' : 'skipped')
+        saveJob({ ...readyForReview(j), pre: [`${t.kinds[r.kind]} — ${r.file}`] })
+      }
+      setRes(r)
+      setKeep({ house: !!r.house, interior: !!r.house?.interior, route: false, mep: false, files: true })
+      setPhase('review')
+    } catch (e) {
+      const w = why(e)
+      if (aiJob.current) saveJob({ ...aiJob.current, status: 'failed', error: w, updatedAt: Date.now() })
+      toast(fmt(T.bim.fromCad.openFailed, { name: b.res.file, why: w }), 'warning')
+      setPhase('image')
+    }
+  }
+
   // the model rules, run BEFORE the approval: what they would reject is said in the review and not applied
   const rejected = useMemo<Partial<Record<Part, string>>>(() => {
     if (!res) return {}
@@ -214,7 +269,7 @@ export function AutoDialog() {
   const files = pkg.files
   const cabinets = useMemo(() => (res ? allCabinets(res) : []), [res])
   // the CNC previews of the package (same code as the files written): sheets, oversize parts, release blockers
-  const cncInfo = useMemo(() => { try { return res && cabinets.length ? cncPreview(cabinets, camSetup, res.file.replace(/\.(dwg|dxf)$/i, '')).cnc : null } catch { return null } }, [res, cabinets, camSetup])
+  const cncInfo = useMemo(() => { try { return res && cabinets.length ? cncPreview(cabinets, camSetup, res.file.replace(/\.(dwg|dxf|png|jpe?g|webp|pdf)$/i, '')).cnc : null } catch { return null } }, [res, cabinets, camSetup])
   const nesting = cncInfo?.nest ?? null
 
   const summary = useMemo(() => {
@@ -246,6 +301,8 @@ export function AutoDialog() {
           warnings.push(fmt(t.cncBlockers, { list: cncInfo.blockers.join(', ') }))
         }
       } else house.push(t.noInterior)
+      const furnished = (res as { furnished?: string[] }).furnished
+      if (furnished?.length) house.push(fmt(T.planImage.furnished, { list: furnished.join(', ') }))
       const roofs = res.house.built.model.roofs ?? []
       if (roofs.length) house.push(fmt(t.roof, { n: roofs.length, kinds: roofs.map((r) => `${r.kind === 'hip' ? T.auto.roofKinds.hip : T.auto.roofKinds.gable} ${r.slope.toFixed(0)}°`).join(', '), area: n0(roofs.reduce((a, r) => a + roofQuantities(r).area, 0)) }))
       for (const x of res.house.inferred ?? []) warnings.push(fmt(t.elevInferred, { level: x.level, e: `${x.elevation >= 0 ? '+' : ''}${(x.elevation / 1000).toFixed(3)}`, how: t.elevHow[x.how] }))
@@ -364,6 +421,13 @@ export function AutoDialog() {
       await run('interior', keep.interior && !!res.house?.interior, () => applyInterior(res.house!.interior!, label))
       await run('route', keep.route && !!res.route, () => applyCivil(res.route!.model, label))
       await run('mep', keep.mep && !!res.mepModel, () => applyMep(res.mepModel!.model, label))
+      // a plan picture: its recognised plan (with the picture underneath and its provenance) opens in CAD 2D
+      if (imageDoc.current && o.applied.includes('house')) {
+        const d = imageDoc.current
+        imageDoc.current = null
+        useCad.getState().openDocument(d)
+        toast(fmt(T.planImage.cadRecord, { name: d.name, status: fabricationAllowed(d).ok ? T.planImage.statusCal : T.planImage.statusUncal }), 'info')
+      }
       setOutcome(o)
       refreshBackups()
       if (o.rejected.length) toast(o.applied.length ? fmt(t.result.partial, { name: res.file, ok: o.applied.map(partName).join(', '), bad: o.rejected.map((x) => partName(x.part)).join(', ') }) : fmt(t.result.none, { bad: o.rejected.map((x) => partName(x.part)).join(', ') }), 'warning')
@@ -389,7 +453,7 @@ export function AutoDialog() {
         if (!d) { setOutcome({ ...o, noFolder: true }); setTook(Date.now() - started.current); setPhase('done'); return }
       }
       const report = reportHtml(res, t.report, { ai: summary.ai, house: [...summary.files, ...summary.house, ...summary.mep], route: summary.route, checks: summary.checks, warnings: [...resultLines(o).map((x) => x.text), ...summary.warnings], files: out }, lang)
-      const zipName = `${res.file.replace(/\.(dwg|dxf)$/i, '')} - MD CAD AI STUDIO.zip`
+      const zipName = `${res.file.replace(/\.(dwg|dxf|png|jpe?g|webp|pdf)$/i, '')} - MD CAD AI STUDIO.zip`
       job.current = { files: out, report, host, dir: d, zipName }
       await write(job.current)
     } catch (e) {
@@ -415,6 +479,8 @@ export function AutoDialog() {
   // a file read from disk is not kept between sessions — the user selects it again
   const resumeJob = jobId ? useAiStudio.getState().jobs.find((x) => x.id === jobId) ?? null : null
   useEffect(() => {
+    const st = useAutoRun.getState()
+    if (st.files?.length && phase === 'pick') { void start(null, st.files, st.page); return }
     const d = resumeJob?.input.docId ? useCad.getState().docs[resumeJob.input.docId] : null
     if (d && phase === 'pick') void start(d)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -455,7 +521,8 @@ export function AutoDialog() {
               <FileUp size={28} strokeWidth={1.5} />
               <span>{t.drop}</span>
               <ActionButton variant="primary" onClick={() => input.current?.click()}>{t.choose}</ActionButton>
-              <input ref={input} type="file" hidden multiple accept=".dwg,.dxf,.csv" aria-label={t.choose} data-testid="auto-file" onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void start(null, fs); e.target.value = '' }} />
+              <span className={s.small} data-testid="auto-picture-hint">{T.planImage.pickHint}</span>
+              <input ref={input} type="file" hidden multiple accept=".dwg,.dxf,.csv,.png,.jpg,.jpeg,.webp,.pdf" aria-label={t.choose} data-testid="auto-file" onChange={(e) => { const fs = [...(e.target.files ?? [])]; if (fs.length) void start(null, fs); e.target.value = '' }} />
             </div>
             {docList.length > 0 && (
               <div className={s.open}>
@@ -466,7 +533,10 @@ export function AutoDialog() {
             {restoreBox}
           </>
         )}
-        {phase !== 'pick' && (
+        {phase === 'image' && image && (
+          <PlanImageReview key={image.file.name + image.file.size} file={image.file} page0={image.page} onCancel={() => { setImage(null); setPhase('pick') }} onBuilt={(b) => void fromPlan(b)} />
+        )}
+        {phase !== 'pick' && phase !== 'image' && (
           <ol className={s.steps} aria-label={t.found}>
             {STEPS.map((k) => <li key={k} className={steps[k] === 'skip' ? s.dim : undefined}>{icon(k)}{t.steps[k]}</li>)}
           </ol>

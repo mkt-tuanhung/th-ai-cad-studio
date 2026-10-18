@@ -1,0 +1,618 @@
+{
+ "villa_t1_150dpi.png": {
+  "corners": false,
+  "skew": 0,
+  "size": [
+   3507,
+   2480
+  ],
+  "corrected": [
+   3507,
+   2480
+  ],
+  "k": 16.933,
+  "kHow": "known sheet scale",
+  "kSuggested": null,
+  "words": 146,
+  "title": "MẶT BẰNG TẦNG 1. +0.000",
+  "level": "Tầng 1",
+  "walls": 21,
+  "curtain": 0,
+  "wallLenM": 101.17,
+  "thick": [
+   50,
+   100,
+   200,
+   220,
+   300
+  ],
+  "doors": 9,
+  "windows": 10,
+  "openings": 1,
+  "columns": 18,
+  "roomsFound": 15,
+  "rooms": [
+   {
+    "truth": "SẢNH ĐÓN",
+    "matched": true,
+    "found": "SẢNH ĐÓN",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 2.4,
+    "truthArea": 2.8,
+    "areaErrPct": -14.3
+   },
+   {
+    "truth": "TIỀN SẢNH + SẢNH THANG",
+    "matched": true,
+    "found": "ÊN SẢNH + CN THANG",
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 16.56,
+    "truthArea": 13.3,
+    "areaErrPct": 24.5
+   },
+   {
+    "truth": "P. KHÁCH THÔNG TẦNG",
+    "matched": true,
+    "found": "P. KHÁCH THÔNG TẦNG",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 28.35,
+    "truthArea": 25.42,
+    "areaErrPct": 11.5
+   },
+   {
+    "truth": "PHÒNG ĂN",
+    "matched": true,
+    "found": "BẾP + ĐẢO BẾP",
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 27.34,
+    "truthArea": 17.63,
+    "areaErrPct": 55.1
+   },
+   {
+    "truth": "BẾP + ĐẢO BẾP",
+    "matched": true,
+    "found": "BẾP + ĐẢO BẾP",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 27.34,
+    "truthArea": 16.81,
+    "areaErrPct": 62.6
+   },
+   {
+    "truth": "P. NGỦ KHÁCH",
+    "matched": true,
+    "found": "P. NGỦ KHÁCH",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 9.49,
+    "truthArea": 13.53,
+    "areaErrPct": -29.9
+   },
+   {
+    "truth": "WC P.NK",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 4.16,
+    "truthArea": 4.2,
+    "areaErrPct": -1
+   },
+   {
+    "truth": "WC KHÁCH",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 2.18,
+    "truthArea": 2.2,
+    "areaErrPct": -0.9
+   },
+   {
+    "truth": "THANG MÁY",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 3.25,
+    "truthArea": 3.24,
+    "areaErrPct": 0.3
+   },
+   {
+    "truth": "THANG BỘ",
+    "matched": true,
+    "found": "THANG BỘ",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 12.41,
+    "truthArea": 11.5,
+    "areaErrPct": 7.9
+   },
+   {
+    "truth": "HỘP KT",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 1.59,
+    "truthArea": 1.6,
+    "areaErrPct": -0.6
+   },
+   {
+    "truth": "KHO",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 3.05,
+    "truthArea": 4.8,
+    "areaErrPct": -36.5
+   },
+   {
+    "truth": "GIẶT / SÂN GIA CÔNG",
+    "matched": true,
+    "found": "GIẶT",
+    "nameOk": false,
+    "namePart": true,
+    "byPlace": true,
+    "area": 6.66,
+    "truthArea": 6.72,
+    "areaErrPct": -0.9
+   },
+   {
+    "truth": "P. ĐA NĂNG / GIÚP VIỆC",
+    "matched": true,
+    "found": "NĂNG VIỆC",
+    "nameOk": false,
+    "namePart": true,
+    "byPlace": true,
+    "area": 10.09,
+    "truthArea": 10.24,
+    "areaErrPct": -1.5
+   }
+  ],
+  "extraRooms": [
+   {
+    "name": null,
+    "area": 1.27
+   },
+   {
+    "name": null,
+    "area": 3.78
+   }
+  ],
+  "built": {
+   "levels": 2,
+   "walls": 21,
+   "doors": 10,
+   "windows": 10,
+   "rooms": 15,
+   "columns": 18,
+   "slabs": 2,
+   "components": 0,
+   "grids": 0,
+   "stairs": 0,
+   "railings": 0
+  },
+  "interiorRooms": 15,
+  "furnished": [
+   "BẾP + ĐẢO BẾP"
+  ],
+  "items": 6,
+  "cabinets": 5,
+  "notes": [
+   "otherClusters:10",
+   "gapsClosedVirtual:2",
+   "unnamedRooms:7",
+   "openingsNoSymbol:1"
+  ],
+  "summary": {
+   "ms": 7064,
+   "walls": "21 found / 22 truth",
+   "wallLenErrPct": 11.9,
+   "doors": "9 / 9",
+   "windows": "10 (+0 curtain) / 7 (+2 curtain)",
+   "roomsFound": "14 / 14",
+   "roomsNamed": "5 / 14 (+2 partly)",
+   "roomAreaErrPct": {
+    "median": 11.5,
+    "max": 62.6
+   }
+  }
+ },
+ "villa_t1_phone_SYNTHETIC.jpg": {
+  "corners": true,
+  "skew": 0,
+  "size": [
+   3200,
+   2400
+  ],
+  "corrected": [
+   2917,
+   2063
+  ],
+  "k": 20.396,
+  "kHow": "two points on the overall wall extent (simulated user calibration)",
+  "kSuggested": null,
+  "words": 108,
+  "title": "MẶT BẰNG. ÀNG 1",
+  "level": null,
+  "walls": 18,
+  "curtain": 0,
+  "wallLenM": 132.91,
+  "thick": [
+   100,
+   150,
+   200,
+   220,
+   300
+  ],
+  "doors": 5,
+  "windows": 28,
+  "openings": 0,
+  "columns": 3,
+  "roomsFound": 18,
+  "rooms": [
+   {
+    "truth": "SẢNH ĐÓN",
+    "matched": true,
+    "found": "SẢNH ĐÓN",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 2.43,
+    "truthArea": 2.8,
+    "areaErrPct": -13.2
+   },
+   {
+    "truth": "TIỀN SẢNH + SẢNH THANG",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 8.78,
+    "truthArea": 13.3,
+    "areaErrPct": -34
+   },
+   {
+    "truth": "P. KHÁCH THÔNG TẦNG",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 25.5,
+    "truthArea": 25.42,
+    "areaErrPct": 0.3
+   },
+   {
+    "truth": "PHÒNG ĂN",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 20.53,
+    "truthArea": 17.63,
+    "areaErrPct": 16.4
+   },
+   {
+    "truth": "BẾP + ĐẢO BẾP",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 13.12,
+    "truthArea": 16.81,
+    "areaErrPct": -22
+   },
+   {
+    "truth": "P. NGỦ KHÁCH",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 9.41,
+    "truthArea": 13.53,
+    "areaErrPct": -30.5
+   },
+   {
+    "truth": "WC P.NK",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 4.16,
+    "truthArea": 4.2,
+    "areaErrPct": -1
+   },
+   {
+    "truth": "WC KHÁCH",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 1.79,
+    "truthArea": 2.2,
+    "areaErrPct": -18.6
+   },
+   {
+    "truth": "THANG MÁY",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 3.29,
+    "truthArea": 3.24,
+    "areaErrPct": 1.5
+   },
+   {
+    "truth": "THANG BỘ",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 11.45,
+    "truthArea": 11.5,
+    "areaErrPct": -0.4
+   },
+   {
+    "truth": "HỘP KT",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 1.72,
+    "truthArea": 1.6,
+    "areaErrPct": 7.5
+   },
+   {
+    "truth": "KHO",
+    "matched": true,
+    "found": null,
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 4.81,
+    "truthArea": 4.8,
+    "areaErrPct": 0.2
+   },
+   {
+    "truth": "GIẶT / SÂN GIA CÔNG",
+    "matched": true,
+    "found": "TẦNG",
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 6.73,
+    "truthArea": 6.72,
+    "areaErrPct": 0.1
+   },
+   {
+    "truth": "P. ĐA NĂNG / GIÚP VIỆC",
+    "matched": true,
+    "found": "TIỀN NĂNG GIÚP VIỆC",
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 7.31,
+    "truthArea": 10.24,
+    "areaErrPct": -28.6
+   }
+  ],
+  "extraRooms": [
+   {
+    "name": null,
+    "area": 2.55
+   },
+   {
+    "name": null,
+    "area": 2.01
+   },
+   {
+    "name": null,
+    "area": 1.01
+   },
+   {
+    "name": null,
+    "area": 3.7
+   }
+  ],
+  "built": {
+   "levels": 2,
+   "walls": 18,
+   "doors": 5,
+   "windows": 28,
+   "rooms": 18,
+   "columns": 3,
+   "slabs": 2,
+   "components": 0,
+   "grids": 0,
+   "stairs": 0,
+   "railings": 0
+  },
+  "interiorRooms": 18,
+  "furnished": [],
+  "items": 0,
+  "cabinets": 0,
+  "notes": [
+   "otherClusters:12",
+   "gapsClosedVirtual:1",
+   "unnamedRooms:15",
+   "openingsNoSymbol:3"
+  ],
+  "summary": {
+   "ms": 7736,
+   "walls": "18 found / 22 truth",
+   "wallLenErrPct": 46.9,
+   "doors": "5 / 9",
+   "windows": "28 (+0 curtain) / 7 (+2 curtain)",
+   "roomsFound": "14 / 14",
+   "roomsNamed": "1 / 14 (+0 partly)",
+   "roomAreaErrPct": {
+    "median": 13.2,
+    "max": 34
+   }
+  }
+ },
+ "sketch_plan_SYNTHETIC.png": {
+  "corners": false,
+  "skew": 0,
+  "size": [
+   1000,
+   960
+  ],
+  "corrected": [
+   1000,
+   960
+  ],
+  "k": 12.5,
+  "kHow": "known sheet scale",
+  "kSuggested": null,
+  "words": 18,
+  "title": "MẶT BẰNG TẦNG 1",
+  "level": "Tầng 1",
+  "walls": 9,
+  "curtain": 0,
+  "wallLenM": 54.38,
+  "thick": [
+   110,
+   130,
+   180
+  ],
+  "doors": 6,
+  "windows": 4,
+  "openings": 0,
+  "columns": 0,
+  "roomsFound": 6,
+  "rooms": [
+   {
+    "truth": "P. KHÁCH",
+    "matched": true,
+    "found": "P. KHÁCH",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 18.67,
+    "truthArea": 18.5,
+    "areaErrPct": 0.9
+   },
+   {
+    "truth": "P. NGỦ 1",
+    "matched": true,
+    "found": "P. NGỦ 1",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 13.82,
+    "truthArea": 13.67,
+    "areaErrPct": 1.1
+   },
+   {
+    "truth": "BẾP",
+    "matched": true,
+    "found": "BẾP",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 10.97,
+    "truthArea": 10.84,
+    "areaErrPct": 1.2
+   },
+   {
+    "truth": "WC",
+    "matched": true,
+    "found": "WC",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 3.56,
+    "truthArea": 3.46,
+    "areaErrPct": 2.9
+   },
+   {
+    "truth": "KHO",
+    "matched": true,
+    "found": "HO",
+    "nameOk": false,
+    "namePart": false,
+    "byPlace": true,
+    "area": 3.49,
+    "truthArea": 3.4,
+    "areaErrPct": 2.6
+   },
+   {
+    "truth": "P. NGỦ 2",
+    "matched": true,
+    "found": "P. NGỦ 2",
+    "nameOk": true,
+    "namePart": false,
+    "byPlace": true,
+    "area": 7.12,
+    "truthArea": 7.01,
+    "areaErrPct": 1.6
+   }
+  ],
+  "extraRooms": [],
+  "built": {
+   "levels": 2,
+   "walls": 9,
+   "doors": 6,
+   "windows": 4,
+   "rooms": 6,
+   "columns": 0,
+   "slabs": 2,
+   "components": 0,
+   "grids": 0,
+   "stairs": 0,
+   "railings": 0
+  },
+  "interiorRooms": 6,
+  "furnished": [
+   "P. NGỦ 1",
+   "P. NGỦ 2",
+   "P. KHÁCH",
+   "BẾP"
+  ],
+  "items": 18,
+  "cabinets": 8,
+  "notes": [],
+  "summary": {
+   "ms": 1852,
+   "walls": "9 found / 9 truth",
+   "wallLenErrPct": 0.7,
+   "doors": "6 / 6",
+   "windows": "4 (+0 curtain) / 4 (+0 curtain)",
+   "roomsFound": "6 / 6",
+   "roomsNamed": "5 / 6 (+0 partly)",
+   "roomAreaErrPct": {
+    "median": 1.6,
+    "max": 2.9
+   }
+  }
+ }
+}

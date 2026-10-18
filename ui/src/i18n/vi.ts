@@ -12,6 +12,7 @@ import { cncVi } from './ws/cnc'
 import { machlibVi } from './ws/machlib'
 import { platformVi } from './ws/platform'
 import { importCalVi } from './ws/importCal'
+import { planImageVi } from './ws/planImage'
 
 export const vi: Messages = {
   app: {
@@ -543,6 +544,7 @@ export const vi: Messages = {
   },
   auto: autoVi,
   importCal: importCalVi,
+  planImage: planImageVi,
   bim: {
     fromCad: fromCadVi,
     crumbs: { projects: 'Dự án', project: 'Villa Riverside', discipline: 'Kiến trúc' },
