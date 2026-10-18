@@ -220,6 +220,9 @@ await step('Machine library: filter + detail card (confidence, reference note, s
   // back on "My machines" with the new profile, UNVERIFIED, and the job now uses it
   assert.match(await page.getByTestId('machines-dialog').innerText(), /MY_PANEL_SAW_1/)
   assert.match(await page.getByTestId('machine-gate').innerText(), /MACHINE_PROFILE_NOT_VERIFIED/)
+  // catalogues give no kerf: nothing is nested until the measured blade kerf is entered
+  await page.getByTestId('machines-dialog').getByLabel('Kerf (mm, measured)').first().fill('4.4')
+  await page.getByTestId('machine-save').click()
   await page.getByRole('dialog', { name: 'Machines & Tools' }).getByRole('button', { name: 'Close' }).click()
   assert.equal(await page.getByTestId('machine-select').inputValue(), 'MY_PANEL_SAW_1')
 })

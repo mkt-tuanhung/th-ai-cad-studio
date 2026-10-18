@@ -275,3 +275,24 @@ Chạy trong worktree, sau `git merge main`. Dev server riêng ở cổng 5287, 
   UNIT=machlib node tools/test-cam.mjs run
   ```
   rồi commit `ui/src/cam/library/data/*.ts`.
+
+## Dữ liệu thật đã nhập (2026-10-18)
+
+`ui/tools/import-machinelib.mjs` đọc thư mục nghiên cứu. Kết quả: **122 mẫu máy**, **12 loại bộ điều khiển**, **27 phụ kiện**, mỗi mục có nguồn và mức tin cậy. `UNIT=machlib` đạt 70/70 trên dữ liệu thật.
+
+- **Máy (122):**
+  - Châu Âu: Biesse, HOMAG, Weeke, SCM / Morbidelli / Gabbiani / Accord, Felder Format-4, Holz-Her, Masterwood, Busellato, IMA.
+  - Trung Quốc: KDT, Nanxing, Blue Elephant, iGOLDEN, BCAMCNC, STYLECNC, Remax, Excitech, Quick, Jinan SUDIAO.
+  - Đài Loan / Nhật: Anderson, Shoda, Heian.
+  - Đại lý tại Việt Nam: CabinetMaster / Quốc Duy / SEMAC, Đại Phúc Vinh (Woodmaster, Holztek), Việt Thành (MAS), Vinacomm, CNCMAN.
+  - Mẫu tham khảo chung: router 1325 / 1530 / 2130, router 4 công đoạn, máy khoan 6 mặt, máy cưa panel 3800.
+- **Bộ điều khiển (12):** Syntec, Weihong NcStudio, RichAuto, Mach3/4, FANUC, SINUMERIK 840D, OSAI, Beckhoff TwinCAT, LNC, LinuxCNC, GRBL, và nhóm "độc quyền". Thông tin lấy từ sổ tay lập trình; mục nào sổ tay không nói rõ thì ghi "not documented" và bắt người dùng tự nhập.
+- **Phụ kiện (27):**
+  - bản lề Blum CLIP top, Hettich Sensys, Häfele Metalla, Grass Tiomos, Salice;
+  - ray Blum TANDEMBOX / MOVENTO / TANDEM, Hettich Atira, Häfele Matrix;
+  - liên kết Minifix, Rastex, chốt gỗ, confirmat, chốt kệ;
+  - quy chuẩn hệ 32.
+
+**Lưu ý:**
+- Catalogue máy cưa panel không ghi bề dày mạch cưa (kerf). Khi chọn máy cưa từ thư viện, app **chưa xếp tấm** cho tới khi nhập kerf đo thực trong Máy & Dao.
+- Smoke `smoke-interior` đã cập nhật đúng thao tác này: chọn máy cưa, nhập kerf 4.4 rồi mới xem sơ đồ cắt. Kết quả 19/19.
