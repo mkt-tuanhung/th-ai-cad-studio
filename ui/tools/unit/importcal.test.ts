@@ -4,7 +4,7 @@ import { dimensionTexts, ocrReferences, parseDimensionText, solveScale, type Cal
 import { buildImport, buildSurvey, recalibrate, resurvey } from '../../src/cad/importReview'
 import { addSource, fabricationAllowed, reviewRequired, setReviewStatus } from '../../src/cad/provenance'
 import { surveyRoom, type SurveyInput } from '../../src/cad/survey'
-import { classifyWord } from '../../src/cad/vectorize'
+import { classifyWord, eraseBox, thin, trace } from '../../src/cad/vectorize'
 import { createBlankDocument } from '../../src/cad/seed'
 import { answer, createJob, openQuestions, recoverAfterRestart, resolveInterrupted, runJob, type AiJob, type StepHandlers } from '../../src/ai/jobs'
 import type { CadDocument, Entity } from '../../src/cad/types'
@@ -114,6 +114,32 @@ export function run() {
   }
 
   return { all: cases.every((c) => c.ok), passed: cases.filter((c) => c.ok).length, total: cases.length, failed: cases.filter((c) => !c.ok) }
+}
+
+/** Vectoriser geometry that calibration relies on: a dimension line between two crossing ticks keeps its length. */
+export function junctions() {
+  const w = 220, h = 100
+  const m = new Uint8Array(w * h)
+  const ink = (x0: number, y0: number, x1: number, y1: number) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) m[y * w + x] = 1 }
+  ink(8, 49, 192, 51) // dimension line 3 px thick, 12 px past the ticks
+  ink(19, 38, 21, 62) // tick at x = 20
+  ink(179, 38, 181, 62) // tick at x = 180
+  thin(m, w, h)
+  const chains = trace(m, w, h).map((c) => {
+    const pts = c.pts.map((i) => ({ x: i % w, y: Math.floor(i / w) }))
+    if (c.ends?.[0]) pts[0] = c.ends[0]
+    if (c.ends?.[1]) pts[pts.length - 1] = c.ends[1]
+    return { a: pts[0], b: pts[pts.length - 1], raw: [c.pts[0] % w, c.pts[c.pts.length - 1] % w] }
+  })
+  const long = chains.filter((c) => Math.abs(c.a.y - c.b.y) < 2).map((c) => Math.abs(c.b.x - c.a.x)).sort((a, b) => b - a)
+  // the piece between the ticks measures 160 px (±1)
+  const ok = long.some((L) => Math.abs(L - 160) <= 1)
+  // a word box over a line does not cut it
+  const m2 = new Uint8Array(w * h)
+  for (let x = 0; x < w; x++) m2[50 * w + x] = 1
+  eraseBox(m2, w, h, 60, 40, 90, 60)
+  const kept = m2[50 * w + 75] === 1
+  return { all: ok && kept, long, chains, kept }
 }
 
 /** Queue resume: a crash in the middle of an apply step, an app restart, then resume — every side effect once. */
