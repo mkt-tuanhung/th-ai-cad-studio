@@ -65,6 +65,8 @@ export interface Room {
   area: number // m²
   /** Boundary placed in plan (rooms of the original survey carry only their area). */
   outline?: P2[]
+  /** Inner boundaries (a core or shaft the room runs round): not part of the room; `area` is net of them. */
+  holes?: P2[][]
   /** A double-height void (no floor of its own: the slab is cut out under it). */
   void?: boolean
 }
@@ -421,6 +423,17 @@ export function runModelChecks(m: BimModel): CheckResult[] {
     if (wallHeight(m, w) <= 0) health.push({ elementId: w.id, message: `${w.mark}: top constraint is not above base` })
     if (w.length <= 0) health.push({ elementId: w.id, message: `${w.mark}: zero length` })
   }
+  // ids are unique across the model (3D items, IFC GlobalIds and selection go by them); levels stack upwards
+  const seen = new Map<string, string>()
+  const lists: [string, { id: string }[] | undefined][] = [['wall', m.walls], ['door', m.doors], ['window', m.windows], ['room', m.rooms], ['column', m.columns], ['slab', m.slabs], ['stair', m.stairs], ['railing', m.railings], ['component', m.components], ['grid', m.grids], ['annotation', m.annotations], ['beam', m.beams], ['footing', m.footings], ['roof', m.roofs]]
+  for (const [cat, xs] of lists)
+    for (const x of xs ?? []) {
+      const prev = seen.get(x.id)
+      if (prev) health.push({ elementId: x.id, message: `${x.id}: id used twice (${prev}, ${cat})` })
+      else seen.set(x.id, cat)
+    }
+  const lv = [...m.levels].sort((a, b) => a.elevation - b.elevation)
+  for (let i = 1; i < lv.length; i++) if (Math.abs(lv[i].elevation - lv[i - 1].elevation) < 1) health.push({ elementId: lv[i].id, message: `${lv[i - 1].name} / ${lv[i].name}: two levels at the same elevation (${lv[i].elevation})` })
   const clash: CheckResult['items'] = []
   const openings = [...m.doors, ...m.windows]
   for (const o of openings) {
