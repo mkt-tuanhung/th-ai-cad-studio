@@ -1,0 +1,24 @@
+samples: 18  (every 0.5 s)
+sockets seen: 0
+outbound (not loopback): 0
+bound to all interfaces (no remote end): 0
+[js:0] SELFTEST PASS engine reports OCCT + llama.cpp (:5)
+[js:0] SELFTEST PASS AI status is measured (source native, real memory) (:5)
+[js:0] SELFTEST PASS no model → not ready, not online (:5)
+[js:0] SELFTEST PASS cadExecute commits through the native command bus (:5)
+[js:0] SELFTEST PASS validation errors come back from C++ (:5)
+[js:0] SELFTEST PASS proposal does not change the drawing (:5)
+[js:0] SELFTEST PASS approve commits as one undo step (:5)
+[js:0] SELFTEST PASS undo reverts the approved proposal (:5)
+[js:0] SELFTEST PASS BIM quantities + OCCT net volume (:5)
+[js:0] SELFTEST PASS 3D scene: exact volumes (1 m³ boxes) (:5)
+[js:0] SELFTEST PASS 3D scene: boolean overlap 0.5 m³ (:5)
+[js:0] SELFTEST PASS 3D scene: offscreen frame (:5)
+[js:0] SELFTEST PASS 3D scene: pick at the centre hits a box (:5)
+[js:0] SELFTEST PASS renderer: path-traced image produced (:5)
+[js:0] SELFTEST PASS aiTask: grammar-constrained JSON from the local model (:5)
+[js:0] SELFTEST PASS DWG writer: AutoCAD 2000 file read back with 3 entities and the layer (:5)
+[js:0] SELFTEST PASS with a local model: AI returns a pending proposal and the drawing is unchanged (:5)
+[js:0] SELFTEST DONE OK (:88)
+[js:0] SELFTEST info {"aiBackend":"llama.cpp","commands":28,"dwgReader":"LibreDWG 0.14","engine":"0.1.0","nativeViewport":false,"occt":"7.9.3","platform":"macOS Sequoia (15.2) arm64"} (:3)
+[js:0] SELFTEST localAi {"backend":"llama.cpp","device":"Apple M1 Max (Metal)","error":"","modelName":"qwen2.5-7b-instruct-q4_k_m (qwen2 7B Q4_K - Medium)","modelPath":"/Users/mac/Library/Application Support/TH AI CAD Studio/models/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf","online":true,"ready":true,"responseSeconds":null,"source":"native","tokensPerSecond":null,"vramTotalGb":32,"vramUsedGb"
