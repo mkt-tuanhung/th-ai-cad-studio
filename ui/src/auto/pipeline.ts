@@ -26,7 +26,7 @@ import type { DrawingUnits } from '../cad/batch'
 import { DEFAULT_REC, findPlans, layerStats, norm, recognize, roofElevation, type LayerRole, type LayerStat, type PlanRegion, type Recognition } from '../bim/fromCad'
 import { DEFAULT_BUILD, buildBimModel, buildInterior, type BuildNames, type BuildResult, type InteriorBuild } from '../bim/fromCadBuild'
 import { runModelChecks, type CheckResult } from '../bim/model'
-import { civilRuleRole, findRoutes, volumes, type CivilRole, type Route } from '../civil/fromCad'
+import { civilRuleRole, findRoutes, routeHasDesign, volumes, type CivilRole, type Route } from '../civil/fromCad'
 import { buildCivilModel } from '../civil/fromCadBuild'
 import type { CivilModel } from '../civil/model'
 import { civilExcluded, suggestCivilRoles, suggestLayerRoles } from '../ai/layerRoles'
@@ -383,7 +383,9 @@ export async function runAuto(doc: CadDocument, opt: AutoOptions): Promise<AutoR
     return rs
   })
   if (routes.length) {
-    const chosen = [...routes].sort((a, b) => b.sections.length - a.sections.length)[0]
+    // a route with a design line first (one without can't be built: validateCivil refuses it in the review),
+    // then the one with the most sections
+    const chosen = [...routes].sort((a, b) => Number(routeHasDesign(b)) - Number(routeHasDesign(a)) || b.sections.length - a.sections.length)[0]
     route = { routes, chosen, model: buildCivilModel(opt.civilBase, chosen, doc.name), volume: volumes(chosen.sections), all: routes.map((x) => ({ name: x.name, model: buildCivilModel(opt.civilBase, x, doc.name), volume: volumes(x.sections) })) }
   }
   // MEP drawings of the project: devices and runs per level
