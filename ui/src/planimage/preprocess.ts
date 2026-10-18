@@ -19,7 +19,8 @@ export function inkOf(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number
   if (opt.denoise) g = median3(g)
   g = stretch(g)
   // Otsu on a white page with thin lines can sit high in the paper's noise: never above 200
-  const threshold = Math.min(200, otsuOf(g))
+  // nor below 165: a drawing with heavy black walls puts Otsu low, and its light thin lines (dimensions) would go
+  const threshold = Math.min(200, Math.max(165, otsuOf(g)))
   const ink = despeckle(inkMask(g, threshold), 4)
   // the picture's border (scanner edge, the paper's edge after a warp) is not ink
   for (let x = 0; x < w; x++) { ink.d[x] = 0; ink.d[(h - 1) * w + x] = 0 }

@@ -68,7 +68,7 @@ export function toRecognition({ graph: g, k }: ModelInput): Recognition {
     }
   }
   const columns: RecColumn[] = g.columns.map((c) => { const [x, y] = M([c.x, c.y]); return { x, y, w: Math.round(c.w * k), d: Math.round(c.d * k), round: false } })
-  const rooms: RecRoom[] = g.rooms.map((r) => {
+  const rooms: RecRoom[] = g.rooms.filter((r) => !r.skip).map((r) => {
     const outline = r.outline.map(M)
     // y flips: keep the outline counter-clockwise as drawn in CAD
     if (shoelace(outline) < 0) outline.reverse()
@@ -165,7 +165,7 @@ export function planRecord(inp: RecordInput): CadDocument {
   }
   for (const c of g.columns) ents.push({ ...base, id: id(), kind: 'polyline', layer: 'IMG-COLUMN', closed: true, filled: true, pts: [[c.x - c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y - c.d / 2], [c.x + c.w / 2, c.y + c.d / 2], [c.x - c.w / 2, c.y + c.d / 2]].map((p) => P(p as Pt)) })
   const th = 0.25 * g.pxPerM
-  for (const r of g.rooms) {
+  for (const r of g.rooms.filter((x) => !x.skip)) {
     ents.push({ ...base, id: id(), kind: 'polyline', layer: 'IMG-ROOM', pts: r.outline.map(P), closed: true })
     if (r.name) ents.push({ ...base, id: id(), kind: 'text', layer: 'IMG-TEXT', p: P([r.seed[0], r.seed[1] + th / 2]), height: th * k0, value: r.name, rotation: 0, align: 'center', src: { id: '', confidence: Math.min(1, r.nameConf) } })
   }

@@ -65,6 +65,8 @@ export interface PRoom {
   /** area written in the room ("13.53 m²"), m² */
   areaLabel: number | null
   conf: number
+  /** left out of the model by the user */
+  skip?: boolean
 }
 export interface PFlight { a: Pt; b: Pt; width: number; treads: number; going: number; conf: number }
 export interface PSeg { a: Pt; b: Pt }
@@ -342,8 +344,9 @@ export function roomLabel(lines: ReturnType<typeof textLines>): { name: string |
     if (!text || !isLabelWord(text)) continue
     // a name has words of the dictionary (one of 3+ letters, or two), or reads clearly
     // two-letter dictionary words (BÀ, LỆ, ĐI…) are easy false readings: they count only when read clearly
-    const lexW = words.filter((w) => isLexicon(w.text) && ((w.text.match(/\p{L}/gu) ?? []).length >= 3 || w.conf >= 70))
-    const lex = lexW.length >= 2 || lexW.some((w) => (w.text.match(/\p{L}/gu) ?? []).length >= 3)
+    const SHORT = /^(WC|KT)$/i
+    const lexW = words.filter((w) => isLexicon(w.text) && ((w.text.match(/\p{L}/gu) ?? []).length >= 3 || w.conf >= 70 || (SHORT.test(w.text) && w.conf >= 40)))
+    const lex = lexW.length >= 2 || lexW.some((w) => (w.text.match(/\p{L}/gu) ?? []).length >= 3 || /^WC$/i.test(w.text))
     if (!lex && (lexW.length || words.reduce((a, w) => a + w.conf, 0) / words.length < 80)) continue
     // a label is mostly letters (not a level "+0.000", not a stray dimension)
     const letters = (text.match(/[A-Za-zÀ-ỹĐđ]/g) ?? []).length
@@ -492,7 +495,9 @@ export function roomsFromWalls(g: PlanGraph, closers: { a: Pt; b: Pt; t: number 
  */
 function splitByNames(label: Int32Array, stats: CompStat[], w: number, h: number, ox: number, oy: number, g: PlanGraph) {
   const b = g.box
-  const lines = textLines(g.words).filter((l) => { const n = roomLabel([l]).name; const cx = (l.x0 + l.x1) / 2, cy = (l.y0 + l.y1) / 2; return !!n && !STAIR_WORD.test(norm(n)) && cx > b.x0 && cx < b.x1 && cy > b.y0 && cy < b.y1 })
+  // a seed is a real room name: a dictionary word of 3+ letters in it, not a stair's direction word
+  const strong = (n: string) => n.split(/\s+/).some((w) => isLexicon(w) && (w.match(/\p{L}/gu) ?? []).length >= 3 && !STAIR_WORD.test(norm(w)))
+  const lines = textLines(g.words).filter((l) => { const n = roomLabel([l]).name; const cx = (l.x0 + l.x1) / 2, cy = (l.y0 + l.y1) / 2; return !!n && strong(n) && !l.words.some((w) => STAIR_WORD.test(norm(w.text))) && cx > b.x0 && cx < b.x1 && cy > b.y0 && cy < b.y1 })
   if (lines.length < 2) return
   // room names are the plan's larger text (inside the plan): about as high as most of them, notes are smaller
   const hs = lines.map((l) => med(l.words.map((w) => w.y1 - w.y0))).sort((a, b) => a - b)
@@ -524,7 +529,8 @@ function splitByNames(label: Int32Array, stats: CompStat[], w: number, h: number
     }
     // seeds: one per distinct name position (names closer than 0.8 m are one room's label lines)
     const seeds: { x: number; y: number }[] = []
-    for (const p of inside) { const x = p.x - st.x0, y = p.y - st.y0; if (!seeds.some((q) => Math.hypot(q.x - x, q.y - y) < 0.8 * pxM)) seeds.push({ x, y }) }
+    // label lines closer than 1.5 m are one room's label (a name on two lines)
+    for (const p of inside) { const x = p.x - st.x0, y = p.y - st.y0; if (!seeds.some((q) => Math.hypot(q.x - x, q.y - y) < 1.5 * pxM)) seeds.push({ x, y }) }
     if (seeds.length < 2) continue
     const own = new Int32Array(W * H).fill(-1)
     const dist = new Float64Array(W * H).fill(Infinity)
@@ -554,6 +560,11 @@ function splitByNames(label: Int32Array, stats: CompStat[], w: number, h: number
           if (nd < dist[j]) { dist[j] = nd; own[j] = own[i]; buckets[nd % B].push(j); pending++ }
         }
       }
+    }
+    {
+      const areas = new Array(seeds.length).fill(0)
+      for (let i = 0; i < own.length; i++) if (own[i] >= 0) areas[own[i]]++
+      if (areas.some((a) => a < 2 * pxM * pxM)) continue
     }
     const seedOf = new Map(seeds.map((_, k) => [k, k]))
     // part 0 keeps the component's id, the others get new ones
@@ -657,7 +668,8 @@ export function recognizePlan(input: InkInput, opt: RecogOptions): PlanGraph {
   const lw = lineWidth(ink)
   // text pixels out of the line work (bold letters must not become walls)
   const noText = cloneMask(ink)
-  for (const w of words) if (w.conf >= 40 && w.y1 - w.y0 < 0.6 * pxM) fillRect(noText, w.x0 - 1, w.y0 - 1, w.x1 + 1, w.y1 + 1, 0)
+  // (only readings that look like text: letters / digits, read with some confidence, not a flat sliver over a line)
+  for (const w of words) if (w.conf >= 50 && /[\p{L}\p{N}]/u.test(w.text) && w.y1 - w.y0 >= 5 && w.y1 - w.y0 < 0.6 * pxM) fillRect(noText, w.x0 - 1, w.y0 - 1, w.x1 + 1, w.y1 + 1, 0)
 
   // ---- 1. bands
   const k = opt.kernel ?? Math.max(3, lw + 2, Math.min(15, Math.round(0.08 * pxM)))
@@ -714,6 +726,11 @@ export function recognizePlan(input: InkInput, opt: RecogOptions): PlanGraph {
       const cw = st.x1 - st.x0 + 1, cd = st.y1 - st.y0 + 1
       if (Math.max(cw, cd) > 3.2 * kc || Math.max(cw, cd) / Math.min(cw, cd) > 1.6) continue
       if (cw / pxM > 0.9 || cd / pxM > 0.9) continue
+      // a column is drawn as a filled square / rectangle — a round blob (a hand-drawn stroke's round end at a corner)
+      // is not one
+      if (st.area / (cw * cd) < 0.82) continue
+      // and wider than the walls it stands in (a thick wall's corner is not a column)
+      if (Math.min(cw, cd) < tMaxPx + 2) continue
       columns.push({ id: nid('C'), x: st.x0 + cw / 2, y: st.y0 + cd / 2, w: cw, d: cd, conf: st.area / (cw * cd) > 0.85 ? 0.85 : 0.6 })
     }
   }
