@@ -1,0 +1,126 @@
+{
+    "camera": {
+        "at": [
+            6900,
+            4900,
+            3800
+        ],
+        "eye": [
+            -7000,
+            -15500,
+            1700
+        ],
+        "fov": 50,
+        "lens": 25.73,
+        "up": [
+            0,
+            0,
+            1
+        ]
+    },
+    "cameraId": "cam1",
+    "cameraName": "Cam 01 - e2e Blender villa",
+    "engine": {
+        "blender": "5.2.2",
+        "device": "METAL GPU: Apple M1 Max (GPU - 24 cores)",
+        "name": "blender-cycles",
+        "offline": true,
+        "path": "/Applications/Blender.app/Contents/MacOS/Blender",
+        "process": "external (QProcess)",
+        "sandboxNetworkDenied": true
+    },
+    "enqueuedAt": "2026-10-18T06:44:46.335Z",
+    "fallback": null,
+    "feedsBom": false,
+    "feedsCnc": false,
+    "frame3d": "/private/tmp/claude-501/-Users-mac-Downloads-TH-AI-CAD-Studio-UI-Handoff-v1/aa7cf3d6-234f-4ab3-89a4-30970fddf811/scratchpad/cacheF/frames/frame-1792305886644-e0d134ab.png",
+    "image": {
+        "bytes": 90680,
+        "file": "Cam 01 - e2e Blender villa.png",
+        "format": "png",
+        "h": 270,
+        "sha256": "bf47f9d50d68bed750e7ca3b1cab77dd5a1f8d657d1a33816d8ddff76e49ae53",
+        "w": 480
+    },
+    "job": {
+        "id": "e2e-1792305886335-0",
+        "kind": "still",
+        "name": "Cam 01 - e2e Blender villa"
+    },
+    "label": "PRESENTATION ONLY - not for dimensions, BOM, quantities or CNC (MD CAD AI STUDIO)",
+    "labelVi": "CHỈ ĐỂ TRÌNH BÀY - không dùng cho kích thước, BOM, khối lượng hay CNC",
+    "materialOption": null,
+    "ms": 4138,
+    "params": {
+        "bounces": 8,
+        "camera": {
+            "at": [
+                6900,
+                4900,
+                3800
+            ],
+            "eye": [
+                -7000,
+                -15500,
+                1700
+            ],
+            "fov": 50,
+            "up": [
+                0,
+                0,
+                1
+            ]
+        },
+        "engine": "path",
+        "exposure": 0,
+        "h": 270,
+        "samples": 32,
+        "sky": "clear",
+        "sun": true,
+        "sunAzimuth": 320,
+        "sunElevation": 40,
+        "sunIntensity": 1.2,
+        "w": 480
+    },
+    "presentationOnly": true,
+    "renderedAt": "2026-10-18T06:44:50Z",
+    "requestedEngine": "blender",
+    "scene": {
+        "capturedAt": "2026-10-18T06:44:46.645Z",
+        "geometryHash": "c17355497ef96f42",
+        "glb": "/private/tmp/claude-501/-Users-mac-Downloads-TH-AI-CAD-Studio-UI-Handoff-v1/aa7cf3d6-234f-4ab3-89a4-30970fddf811/scratchpad/cacheF/scenes/scene-1792305886575-2be792af.glb",
+        "glbSha256": "c87b93fd5f3ba996ad14bb993366a51893dfcea28f49fec81df68fd6de0a3889",
+        "id": "bim:villa-riverside",
+        "nodes": 46,
+        "revision": "58d46b8ef034"
+    },
+    "schema": "md-cad-ai-studio/render-provenance@1",
+    "settings": {
+        "ai": {
+            "denoise": true,
+            "lighting": true,
+            "material": true,
+            "style": false
+        },
+        "bounces": 8,
+        "denoise": true,
+        "dpi": 300,
+        "engine": "Blender Cycles (local)",
+        "format": "png",
+        "fx": {
+            "contrast": 100,
+            "exposure": 0,
+            "saturation": 100,
+            "temperature": 0,
+            "vignette": 0
+        },
+        "hdri": "Outdoor - Clear Sky",
+        "quality": "High",
+        "resolution": "3840x2160",
+        "rotation": 120,
+        "samples": 32,
+        "sunDirection": 320,
+        "sunIntensity": 1.2,
+        "sunSky": true
+    }
+}

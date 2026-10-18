@@ -1,0 +1,130 @@
+{
+    "camera": {
+        "at": [
+            2000,
+            900,
+            900
+        ],
+        "eye": [
+            7350,
+            3450,
+            1600
+        ],
+        "fov": 68,
+        "lens": 17.79,
+        "up": [
+            0,
+            0,
+            1
+        ]
+    },
+    "cameraId": "cam3",
+    "cameraName": "Cam 03 - As designed",
+    "engine": {
+        "blender": "5.2.2",
+        "device": "METAL GPU: Apple M1 Max (GPU - 24 cores)",
+        "name": "blender-cycles",
+        "offline": true,
+        "path": "/Applications/Blender.app/Contents/MacOS/Blender",
+        "process": "external (QProcess)",
+        "sandboxNetworkDenied": true
+    },
+    "enqueuedAt": "2026-10-18T06:45:00.283Z",
+    "fallback": null,
+    "feedsBom": false,
+    "feedsCnc": false,
+    "frame3d": "/private/tmp/claude-501/-Users-mac-Downloads-TH-AI-CAD-Studio-UI-Handoff-v1/aa7cf3d6-234f-4ab3-89a4-30970fddf811/scratchpad/cacheF/frames/frame-1792305900340-297776e8.png",
+    "image": {
+        "bytes": 42632,
+        "file": "Cam 03 - As designed.png",
+        "format": "png",
+        "h": 180,
+        "sha256": "065aa2a091668efb63686f952fa4c44f4a921ac64154d4d6191390312e8f4ff8",
+        "w": 320
+    },
+    "job": {
+        "id": "job-1792305900283-0",
+        "kind": "still",
+        "name": "Cam 03 - As designed"
+    },
+    "label": "PRESENTATION ONLY - not for dimensions, BOM, quantities or CNC (MD CAD AI STUDIO)",
+    "labelVi": "CHỈ ĐỂ TRÌNH BÀY - không dùng cho kích thước, BOM, khối lượng hay CNC",
+    "materialOption": {
+        "key": "design",
+        "overrides": {
+        }
+    },
+    "ms": 3015,
+    "params": {
+        "bounces": 8,
+        "camera": {
+            "at": [
+                2000,
+                900,
+                900
+            ],
+            "eye": [
+                7350,
+                3450,
+                1600
+            ],
+            "fov": 68,
+            "up": [
+                0,
+                0,
+                1
+            ]
+        },
+        "engine": "path",
+        "exposure": 0,
+        "h": 180,
+        "samples": 16,
+        "sky": "clear",
+        "sun": true,
+        "sunAzimuth": 320,
+        "sunElevation": 40,
+        "sunIntensity": 1.2,
+        "w": 320
+    },
+    "presentationOnly": true,
+    "renderedAt": "2026-10-18T06:45:03Z",
+    "requestedEngine": "blender",
+    "scene": {
+        "capturedAt": "2026-10-18T06:45:00.341Z",
+        "geometryHash": "ec2de5585b110fe6",
+        "glb": "/private/tmp/claude-501/-Users-mac-Downloads-TH-AI-CAD-Studio-UI-Handoff-v1/aa7cf3d6-234f-4ab3-89a4-30970fddf811/scratchpad/cacheF/scenes/scene-1792305897391-6dc71da9.glb",
+        "glbSha256": "f268b88cd65b19849b43437dcdb2bd3d04fd3eae1a9b5c6ab9cb126dc4235ca5",
+        "id": "interior:villa-riverside",
+        "nodes": 30,
+        "revision": "04d8360aee88"
+    },
+    "schema": "md-cad-ai-studio/render-provenance@1",
+    "settings": {
+        "ai": {
+            "denoise": true,
+            "lighting": true,
+            "material": true,
+            "style": false
+        },
+        "bounces": 8,
+        "denoise": true,
+        "dpi": 300,
+        "engine": "Blender Cycles (local)",
+        "format": "png",
+        "fx": {
+            "contrast": 100,
+            "exposure": 0,
+            "saturation": 100,
+            "temperature": 0,
+            "vignette": 0
+        },
+        "hdri": "Outdoor - Clear Sky",
+        "quality": "High",
+        "resolution": "3840x2160",
+        "rotation": 120,
+        "samples": 16,
+        "sunDirection": 320,
+        "sunIntensity": 1.2,
+        "sunSky": true
+    }
+}
