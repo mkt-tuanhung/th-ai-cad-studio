@@ -14,6 +14,7 @@
 #include <QThread>
 
 #include <algorithm>
+#include <optional>
 #include <chrono>
 #include <QSysInfo>
 #include <QWidget>
@@ -459,10 +460,114 @@ QJsonObject HostBridge::scene3dLoadBim(const QString& key, const QString& modelJ
   return {{"ok", true}, {"items", n + static_cast<int>(extras.size())}, {"failures", failures}, {"ms", ms}};
 }
 
+// ---- v2.4 linked model: incremental BIM patch and the view-only commands --------------------------------------
+namespace {
+std::vector<std::string> jsonIds(const json::Value* a) {
+  std::vector<std::string> out;
+  if (a && a->arr())
+    for (const auto& x : *a->arr())
+      if (x.str()) out.push_back(*x.str());
+  return out;
+}
+/** {cmd:'tag', guids:{id:guid}} | {cmd:'itemInfo'} | {cmd:'alpha', items:{id:0…1}} | {cmd:'lowWalls', items:{id:z}} |
+ *  {cmd:'project', p:[x,y,z]} | {cmd:'walkc', forward, right, yaw, pitch, radius} | {cmd:'camFull'} |
+ *  {cmd:'setCamFull', eye, at, up, fov, ortho} | {cmd:'volume', ids} — handled here, else nullopt. */
+std::optional<QJsonObject> linkedSceneCommand(occt::SceneView* v, const QJsonObject& o) {
+  const QString cmd = o["cmd"].toString();
+  auto vec3 = [&](const char* k) {
+    const QJsonArray a = o[k].toArray();
+    return std::array<double, 3>{a.at(0).toDouble(), a.at(1).toDouble(), a.at(2).toDouble()};
+  };
+  auto pairs = [&](const char* k) {
+    std::vector<std::pair<std::string, double>> out;
+    const QJsonObject m = o[k].toObject();
+    for (auto it = m.begin(); it != m.end(); ++it) out.push_back({it.key().toStdString(), it.value().toDouble()});
+    return out;
+  };
+  if (cmd == "tag") {
+    std::vector<std::pair<std::string, std::string>> g;
+    const QJsonObject m = o["guids"].toObject();
+    for (auto it = m.begin(); it != m.end(); ++it) g.push_back({it.key().toStdString(), it.value().toString().toStdString()});
+    v->setGuids(g);
+    return QJsonObject{{"ok", true}, {"n", static_cast<int>(g.size())}};
+  }
+  if (cmd == "itemInfo") {
+    QJsonObject items;
+    for (const auto& i : v->itemInfo()) items[QString::fromStdString(i.id)] = QJsonObject{{"guid", QString::fromStdString(i.guid)}, {"owner", QString::fromStdString(i.owner)}, {"serial", static_cast<double>(i.serial)}, {"shape", QString::fromStdString(i.shape)}};
+    return QJsonObject{{"ok", true}, {"items", items}, {"built", static_cast<double>(v->builtCount())}};
+  }
+  if (cmd == "alpha") {
+    v->setViewAlpha(pairs("items"));
+    return QJsonObject{{"ok", true}};
+  }
+  if (cmd == "lowWalls") {
+    v->setLowWalls(pairs("items"));
+    return QJsonObject{{"ok", true}};
+  }
+  if (cmd == "project") {
+    const auto q = v->project(vec3("p"));
+    return QJsonObject{{"ok", true}, {"x", q[0]}, {"y", q[1]}, {"z", q[2]}};
+  }
+  if (cmd == "walkc") {
+    const std::string by = v->walkCollide(o["forward"].toDouble(), o["right"].toDouble(), o["yaw"].toDouble(), o["pitch"].toDouble(), o["radius"].toDouble(300));
+    const auto c = v->cameraFull();
+    return QJsonObject{{"ok", true}, {"blocked", QString::fromStdString(by)}, {"eye", QJsonArray{c[0], c[1], c[2]}}};
+  }
+  if (cmd == "camFull") {
+    const auto c = v->cameraFull();
+    return QJsonObject{{"ok", true}, {"eye", QJsonArray{c[0], c[1], c[2]}}, {"at", QJsonArray{c[3], c[4], c[5]}}, {"up", QJsonArray{c[6], c[7], c[8]}}, {"fov", c[9]}, {"ortho", c[10] > 0.5}};
+  }
+  if (cmd == "setCamFull") {
+    v->setCameraFull(vec3("eye"), vec3("at"), vec3("up"), o["fov"].toDouble(45), o["ortho"].toBool());
+    return QJsonObject{{"ok", true}};
+  }
+  if (cmd == "volume") {
+    QJsonObject vols;
+    for (const auto& x : o["ids"].toArray()) vols[x.toString()] = v->volumeM3(x.toString().toStdString());
+    return QJsonObject{{"ok", true}, {"volumes", vols}};
+  }
+  return std::nullopt;
+}
+}  // namespace
+
+QJsonObject HostBridge::scene3dPatch(const QString& key, const QString& upsertsJson, const QString& removeIdsJson) {
+  auto* v = scene(key);
+  if (!v) return {{"ok", false}, {"error", "no scene"}};
+  auto parsed = json::parse(upsertsJson.toStdString());
+  if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+  const json::Value& root = std::get<json::Value>(parsed);
+  auto pr = json::parse(removeIdsJson.isEmpty() ? std::string("[]") : removeIdsJson.toStdString());
+  if (auto* e = std::get_if<json::ParseError>(&pr)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+  const std::vector<std::string> remove = jsonIds(&std::get<json::Value>(pr));
+  std::optional<bim::Model> model;
+  if (const json::Value* mv = root.get("model"); mv && mv->obj()) {
+    std::string err;
+    model = bim::modelFromJson(*mv, bim::villaRiverside(), &err);
+    if (!model) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+  }
+  const std::vector<std::string> walls = jsonIds(root.get("walls"));
+  if (!walls.empty() && !model) return {{"ok", false}, {"error", "walls need the model"}};
+  if (const json::Value* g = root.get("guids"); g && g->obj()) {
+    std::vector<std::pair<std::string, std::string>> ids;
+    for (const auto& [k, val] : *g->obj())
+      if (val.str()) ids.push_back({k, *val.str()});
+    v->setGuids(ids);
+  }
+  const std::vector<occt::SceneItem> items = occt::sceneFromJson(root);
+  const json::Value* ls = root.get("levelSlabs");
+  const auto r = v->patchBuilding(model ? &*model : nullptr, walls, items, remove, ls && ls->boolean() && *ls->boolean());
+  QJsonArray rebuilt, removed;
+  for (const auto& id : r.rebuilt) rebuilt.append(QString::fromStdString(id));
+  for (const auto& id : r.removed) removed.append(QString::fromStdString(id));
+  return {{"ok", true}, {"rebuilt", rebuilt}, {"removed", removed}, {"items", r.items}, {"ms", r.ms}, {"built", static_cast<double>(v->builtCount())}};
+}
+// ----------------------------------------------------------------------------------------------------------------
+
 QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) {
   auto* v = scene(key);
   if (!v) return {{"ok", false}, {"error", "no scene"}};
   const QJsonObject o = QJsonDocument::fromJson(json.toUtf8()).object();
+  if (auto r = linkedSceneCommand(v, o)) return *r;
   const QString cmd = o["cmd"].toString();
   auto ids = [&](const char* k) {
     std::vector<std::string> out;
@@ -946,6 +1051,7 @@ QJsonObject HostBridge::scene3dFrame(const QString&, int, int, const QString&, c
 void HostBridge::scene3dCamera(const QString&, const QString&, double, double, double) {}
 QJsonObject HostBridge::scene3dCommand(const QString&, const QString&) { return {{"ok", false}}; }
 QJsonObject HostBridge::scene3dLoadBim(const QString&, const QString&, const QString&) { return {{"ok", false}}; }
+QJsonObject HostBridge::scene3dPatch(const QString&, const QString&, const QString&) { return {{"ok", false}, {"error", "no 3D engine in this build"}}; }
 QString HostBridge::scene3dPick(const QString&, int, int) { return {}; }
 double HostBridge::scene3dCommon(const QString&, const QString&, const QString&) { return -1; }
 QJsonArray HostBridge::scene3dOverlaps(const QString&) { return {}; }

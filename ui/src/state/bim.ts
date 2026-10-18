@@ -69,7 +69,7 @@ interface BimState {
   drawing: import('../bim/drawing2d').DrawingReq | null
   /** Project Browser → 3D view request (session only): an elevation (orthographic side view), a section
    *  (clip plane through the building centre), or a named 3D view. `n` makes repeated requests distinct. */
-  viewReq: { kind: 'elev' | 'section' | 'home' | 'sectionBox' | 'exterior'; face?: 'front' | 'back' | 'left' | 'right'; axis?: 'x' | 'y'; n: number } | null
+  viewReq: { kind: 'elev' | 'section' | 'home' | 'sectionBox' | 'exterior' | 'bookmark' | 'saveView'; face?: 'front' | 'back' | 'left' | 'right'; axis?: 'x' | 'y'; /** bookmark: its id */ id?: string; n: number } | null
   requestView: (r: Omit<NonNullable<BimState['viewReq']>, 'n'>) => void
 
   /** Validated, undoable model edit (ONE undo step): rooms / stairs recomputed, the model rules checked, element

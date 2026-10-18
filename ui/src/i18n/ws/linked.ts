@@ -51,7 +51,7 @@ export const linkedEn = {
   roof: { menu: 'Roof from perimeter…', title: 'Roof from perimeter', kind: 'Roof', hip: 'Hip (4 slopes)', gable: 'Gable (2 slopes)', slope: 'Slope (°)', overhang: 'Overhang (mm)', create: 'Create roof' },
   stair: { menu: 'L / U stair…', title: 'L / U stair', kind: 'Kind', L: 'L (quarter turn)', U: 'U (half turn)', turn: 'Turn', left: 'Left', right: 'Right', width: 'Width (mm)', length1: 'Flight 1 run (mm)', length2: 'Flight 2 run (mm)', landing: 'Landing depth (mm)', gap: 'Gap between flights (mm)', origin: 'Start x,y (mm)', angle: 'Direction (°)', create: 'Create stair' },
   view3d: {
-    modes: { section: '3D - Section View', exterior: '3D - Exterior', lowWalls: '3D - Low Walls', xray: '3D - See-through Walls', walk: '3D - Walkthrough' },
+    modes: { section: '3D - Section View', exterior: '3D - Exterior', lowWalls: '3D - Low Walls', xray: '3D - See-through', walk: '3D - Walkthrough' },
     lowWalls: 'Low walls: cut at {h} mm (view only)', xray: 'Walls facing you at {p} % (view only)', walk: 'Walkthrough · W A S D / arrows · drag to look',
     collideOn: 'Collision on', collideOff: 'Collision off', doorsOpen: 'Doors open', doorsClosed: 'Doors closed', off: 'Off',
     blocked: 'Blocked by {what}', focus: 'Room {name}: camera to the room, level {level}',
@@ -109,7 +109,7 @@ export const linkedVi: LinkedMessages = {
   roof: { menu: 'Mái theo chu vi…', title: 'Mái theo chu vi tường', kind: 'Kiểu mái', hip: 'Mái 4 mái', gable: 'Mái 2 mái', slope: 'Độ dốc (°)', overhang: 'Vươn mái (mm)', create: 'Tạo mái' },
   stair: { menu: 'Thang L / U…', title: 'Cầu thang L / U', kind: 'Kiểu', L: 'Chữ L (rẽ 90°)', U: 'Chữ U (quay 180°)', turn: 'Rẽ', left: 'Trái', right: 'Phải', width: 'Rộng vế (mm)', length1: 'Dài vế 1 (mm)', length2: 'Dài vế 2 (mm)', landing: 'Sâu chiếu nghỉ (mm)', gap: 'Khe giữa hai vế (mm)', origin: 'Điểm đầu x,y (mm)', angle: 'Hướng (°)', create: 'Tạo thang' },
   view3d: {
-    modes: { section: '3D - Mặt cắt tầng', exterior: '3D - Bên ngoài', lowWalls: '3D - Tường thấp', xray: '3D - Tường trong suốt', walk: '3D - Đi bộ trong nhà' },
+    modes: { section: '3D - Mặt cắt tầng', exterior: '3D - Bên ngoài', lowWalls: '3D - Tường thấp', xray: '3D - Xuyên tường', walk: '3D - Đi bộ' },
     lowWalls: 'Tường thấp: cắt ở {h} mm (chỉ hiển thị)', xray: 'Tường phía trước còn {p} % (chỉ hiển thị)', walk: 'Đi bộ · W A S D / phím mũi tên · kéo để nhìn',
     collideOn: 'Va chạm: bật', collideOff: 'Va chạm: tắt', doorsOpen: 'Cửa mở', doorsClosed: 'Cửa đóng', off: 'Tắt',
     blocked: 'Bị chặn bởi {what}', focus: 'Phòng {name}: camera tới phòng, tầng {level}',

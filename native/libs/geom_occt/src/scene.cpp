@@ -324,6 +324,11 @@ struct SceneView::Impl {
     TopoDS_Shape shape;
     Handle(AIS_Shape) ais;
     double volume = -1;
+    // v2.4 linked model: element guid, the item that owns this one (a wall owns its window panes), build number,
+    // signature of a default level slab, the view-only low-wall clip plane
+    std::string guid, owner, sig;
+    unsigned long long serial = 0;
+    Handle(Graphic3d_ClipPlane) low;
   };
   std::map<std::string, Entry> items;
   std::string mode = "shaded", selected;
@@ -333,6 +338,61 @@ struct SceneView::Impl {
   bool ok = false, fitted = false;
   std::vector<Handle(Graphic3d_ClipPlane)> clips;
   std::vector<std::string> errors;
+  // v2.4 linked model: build counter, view-only opacity and low-wall cut heights
+  unsigned long long nextSerial = 1;
+  std::map<std::string, double> viewAlpha, lowCut;
+
+  /** Shows an entry under `id` (replacing one there) with a fresh build number. */
+  void put(const std::string& id, Entry&& e) {
+    if (auto it = items.find(id); it != items.end()) {
+      ctx->Remove(it->second.ais, false);
+      items.erase(it);
+    }
+    e.serial = nextSerial++;
+    if (auto g = guids.find(id); g != guids.end()) e.guid = g->second;
+    ctx->Display(e.ais, AIS_Shaded, -1, false);
+    applyLow(id, e);
+    items[id] = std::move(e);
+  }
+  /** Removes an entry and every entry it owns. */
+  void erase(const std::string& id, std::vector<std::string>* removed = nullptr) {
+    for (auto it = items.begin(); it != items.end();) {
+      if (it->first == id || it->second.owner == id) {
+        ctx->Remove(it->second.ais, false);
+        if (removed) removed->push_back(it->first);
+        it = items.erase(it);
+      } else ++it;
+    }
+  }
+  void applyLow(const std::string& id, Entry& e) {
+    if (!e.low.IsNull()) {
+      e.ais->RemoveClipPlane(e.low);
+      e.low.Nullify();
+    }
+    auto c = lowCut.find(id);
+    if (c == lowCut.end()) return;
+    // keep z <= cut: -z + cut >= 0
+    e.low = new Graphic3d_ClipPlane(gp_Pln(0, 0, -1, c->second));
+    e.low->SetCapping(true);
+    e.low->SetCappingColor(Quantity_Color(0.62, 0.6, 0.57, Quantity_TOC_RGB));
+    e.ais->AddClipPlane(e.low);
+  }
+  std::map<std::string, std::string> guids;
+  /** A building wall: its solid with the openings cut, placed on its centre line, and a 20 mm pane in each window. */
+  bool addWall(const bim::Model& m, const bim::Wall& w);
+  /** Default level slabs: spanning the exterior (≥ 200 mm) walls that start or end on a level without a drawn slab. */
+  std::map<std::string, std::array<double, 6>> levelSlabs(const bim::Model& m) const;
+  void addSlab(const std::string& lv, const std::array<double, 6>& b);
+  Entry entry(const std::string& id, const TopoDS_Shape& s, std::array<double, 3> rgb, const char* mat) const {
+    Entry e;
+    e.item.id = id;
+    e.item.rgb = rgb;
+    e.item.mat = mat;
+    if (std::string(mat) == "glass") e.item.transparency = 0.6;
+    e.shape = s;
+    e.ais = new AIS_Shape(s);
+    return e;
+  }
   // final render state
   Handle(Standard_Transient) fbo;
   RenderParams rp;
@@ -348,7 +408,8 @@ struct SceneView::Impl {
       if (highlighted.count(id)) c = Quantity_Color(0.9, 0.22, 0.25, Quantity_TOC_RGB);
       if (id == selected) c = Quantity_Color(0.12, 0.6, 0.63, Quantity_TOC_RGB);
       e.ais->SetColor(c);
-      e.ais->SetTransparency(wire ? 0 : e.item.transparency);
+      const auto va = viewAlpha.find(id);  // see-through walls (view only)
+      e.ais->SetTransparency(wire ? 0 : va != viewAlpha.end() ? std::clamp(1.0 - va->second, 0.0, 0.95) : e.item.transparency);
       ctx->SetDisplayMode(e.ais, wire ? AIS_WireFrame : AIS_Shaded, false);
     }
     ctx->UpdateCurrentViewer();
@@ -392,6 +453,7 @@ int SceneView::setItems(const std::vector<SceneItem>& items) {
   const auto t0 = std::chrono::steady_clock::now();
   for (auto& [id, e] : d->items) d->ctx->Remove(e.ais, false);
   d->items.clear();
+  d->guids.clear();
   d->errors.clear();
   int failures = 0;
   for (const auto& it : items) {
@@ -407,70 +469,240 @@ int SceneView::setItems(const std::vector<SceneItem>& items) {
     if (!it.parts.empty() && it.parts.front().kind == Prim::Kind::Mesh) {
       e.ais->Attributes()->SetFaceBoundaryDraw(false);
     }
-    d->ctx->Display(e.ais, AIS_Shaded, -1, false);
-    d->items[it.id] = std::move(e);
+    d->put(it.id, std::move(e));
   }
   d->applyStyle();
   d->buildMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   return failures;
 }
 
-int SceneView::addBuilding(const bim::Model& m, bool ground) {
-  auto add = [&](const std::string& id, const TopoDS_Shape& s, std::array<double, 3> rgb, const char* mat) {
-    if (s.IsNull()) return;
-    Impl::Entry e;
-    e.item.id = id;
-    e.item.rgb = rgb;
-    e.item.mat = mat;
-    if (std::string(mat) == "glass") e.item.transparency = 0.6;
-    e.shape = s;
-    e.ais = new AIS_Shape(s);
-    d->ctx->Display(e.ais, AIS_Shaded, -1, false);
-    d->items[id] = std::move(e);
-  };
+bool SceneView::Impl::addWall(const bim::Model& m, const bim::Wall& w) {
+  const bim::WallType* t = m.type(w.typeId);
+  const bim::Level* base = m.level(w.baseLevel);
+  const double th = t ? t->thickness : 200;
+  gp_Trsf center, rot, move;
+  center.SetTranslation(gp_Vec(0, -th / 2, 0));
+  rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DZ()), w.angleDeg * kPiScene / 180);
+  move.SetTranslation(gp_Vec(w.x, w.y, (base ? base->elevation : 0) + w.baseOffset));
+  const gp_Trsf place = move * rot * center;
+  Solid s = wallWithOpenings(m, w);
+  if (s.isNull()) return false;
+  const bool ext = th >= 200;
+  put(w.id, entry(w.id, BRepBuilderAPI_Transform(s.impl->shape, place, true).Shape(), ext ? std::array<double, 3>{0.88, 0.87, 0.84} : std::array<double, 3>{0.93, 0.93, 0.92}, "matte"));
+  // glazing: a 20 mm pane in the middle of each window opening
+  for (const auto& o : m.windows)
+    if (o.hostWall == w.id) {
+      TopoDS_Shape pane = BRepPrimAPI_MakeBox(gp_Pnt(o.offset, th / 2 - 10, o.sill), o.width, 20, o.height).Shape();
+      Entry g = entry("glass:" + o.id, BRepBuilderAPI_Transform(pane, place, true).Shape(), {0.55, 0.7, 0.78}, "glass");
+      g.owner = w.id;
+      put("glass:" + o.id, std::move(g));
+    }
+  return true;
+}
+
+std::map<std::string, std::array<double, 6>> SceneView::Impl::levelSlabs(const bim::Model& m) const {
   struct Box2 { double x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18; };
   std::map<std::string, Box2> spans;  // level id → plan extent of the walls that start or end there
-  int n = 0;
   for (const auto& w : m.walls) {
     const bim::WallType* t = m.type(w.typeId);
-    const bim::Level* base = m.level(w.baseLevel);
-    const double th = t ? t->thickness : 200;
-    gp_Trsf center, rot, move;
-    center.SetTranslation(gp_Vec(0, -th / 2, 0));
-    rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp::DZ()), w.angleDeg * kPiScene / 180);
-    move.SetTranslation(gp_Vec(w.x, w.y, (base ? base->elevation : 0) + w.baseOffset));
-    const gp_Trsf place = move * rot * center;
-    Solid s = wallWithOpenings(m, w);
-    if (s.isNull()) continue;
-    const bool ext = th >= 200;
-    add(w.id, BRepBuilderAPI_Transform(s.impl->shape, place, true).Shape(), ext ? std::array<double, 3>{0.88, 0.87, 0.84} : std::array<double, 3>{0.93, 0.93, 0.92}, "matte");
-    ++n;
-    // glazing: a 20 mm pane in the middle of each window opening
-    for (const auto& o : m.windows)
-      if (o.hostWall == w.id) {
-        TopoDS_Shape pane = BRepPrimAPI_MakeBox(gp_Pnt(o.offset, th / 2 - 10, o.sill), o.width, 20, o.height).Shape();
-        add("glass:" + o.id, BRepBuilderAPI_Transform(pane, place, true).Shape(), {0.55, 0.7, 0.78}, "glass");
-      }
+    // the walls the builder makes (see wallWithOpenings / wallSolid)
+    if (!t || t->thickness <= 0 || w.length <= 0 || bim::wallHeight(m, w) <= 0) continue;
+    if (t->thickness < 200) continue;
     const double a = w.angleDeg * kPiScene / 180;
     const double ex = w.x + std::cos(a) * w.length, ey = w.y + std::sin(a) * w.length;
-    if (ext)
-      for (const std::string& lv : {w.baseLevel, w.topLevel}) {
-        Box2& b = spans[lv];
-        b.x0 = std::min({b.x0, w.x, ex}), b.x1 = std::max({b.x1, w.x, ex});
-        b.y0 = std::min({b.y0, w.y, ey}), b.y1 = std::max({b.y1, w.y, ey});
-      }
+    for (const std::string& lv : {w.baseLevel, w.topLevel}) {
+      Box2& b = spans[lv];
+      b.x0 = std::min({b.x0, w.x, ex}), b.x1 = std::max({b.x1, w.x, ex});
+      b.y0 = std::min({b.y0, w.y, ey}), b.y1 = std::max({b.y1, w.y, ey});
+    }
   }
+  std::map<std::string, std::array<double, 6>> out;
   for (const auto& [lv, b] : spans) {
     const bim::Level* l = m.level(lv);
     if (!l || b.x1 <= b.x0) continue;
     if (std::find(m.slabLevels.begin(), m.slabLevels.end(), lv) != m.slabLevels.end()) continue;  // drawn slab there
     // slab top at the level, outer face of the 200 mm exterior walls
-    add("slab:" + lv, BRepPrimAPI_MakeBox(gp_Pnt(b.x0 - 100, b.y0 - 100, l->elevation - 200), b.x1 - b.x0 + 200, b.y1 - b.y0 + 200, 200).Shape(), {0.8, 0.79, 0.77}, "matte");
+    out[lv] = {b.x0 - 100, b.y0 - 100, l->elevation - 200, b.x1 - b.x0 + 200, b.y1 - b.y0 + 200, 200};
   }
-  if (ground) add("ground", BRepPrimAPI_MakeBox(gp_Pnt(-40000, -40000, -350), 94000, 90000, 200).Shape(), {0.5, 0.56, 0.42}, "matte");
+  return out;
+}
+
+void SceneView::Impl::addSlab(const std::string& lv, const std::array<double, 6>& b) {
+  Entry e = entry("slab:" + lv, BRepPrimAPI_MakeBox(gp_Pnt(b[0], b[1], b[2]), b[3], b[4], b[5]).Shape(), {0.8, 0.79, 0.77}, "matte");
+  char sig[160];
+  std::snprintf(sig, sizeof sig, "%.3f %.3f %.3f %.3f %.3f %.3f", b[0], b[1], b[2], b[3], b[4], b[5]);
+  e.sig = sig;
+  put("slab:" + lv, std::move(e));
+}
+
+int SceneView::addBuilding(const bim::Model& m, bool ground) {
+  int n = 0;
+  for (const auto& w : m.walls) n += d->addWall(m, w) ? 1 : 0;
+  for (const auto& [lv, b] : d->levelSlabs(m)) d->addSlab(lv, b);
+  if (ground) d->put("ground", d->entry("ground", BRepPrimAPI_MakeBox(gp_Pnt(-40000, -40000, -350), 94000, 90000, 200).Shape(), {0.5, 0.56, 0.42}, "matte"));
   d->applyStyle();
   return n;
 }
+
+// ---- v2.4 linked model: incremental BIM updates and view-only states ------------------------------------------
+
+SceneView::PatchResult SceneView::patchBuilding(const bim::Model* m, const std::vector<std::string>& walls, const std::vector<SceneItem>& items, const std::vector<std::string>& remove, bool levelSlabs) {
+  const auto t0 = std::chrono::steady_clock::now();
+  PatchResult r;
+  for (const auto& id : remove) d->erase(id, &r.removed);
+  for (const auto& id : walls) {
+    d->erase(id, &r.removed);
+    const bim::Wall* w = m ? m->wall(id) : nullptr;
+    if (!w) continue;
+    if (d->addWall(*m, *w)) {
+      r.rebuilt.push_back(id);
+      for (const auto& [k, e] : d->items)
+        if (e.owner == id) r.rebuilt.push_back(k);
+    }
+  }
+  for (const auto& it : items) {
+    bool failed = false;
+    TopoDS_Shape s = buildItem(it, &failed, &d->errors);
+    d->erase(it.id, &r.removed);
+    if (s.IsNull()) continue;
+    Impl::Entry e;
+    e.item = it;
+    e.shape = s;
+    e.ais = new AIS_Shape(s);
+    if (!it.parts.empty() && it.parts.front().kind == Prim::Kind::Mesh) e.ais->Attributes()->SetFaceBoundaryDraw(false);
+    d->put(it.id, std::move(e));
+    r.rebuilt.push_back(it.id);
+  }
+  if (levelSlabs && m) {
+    const auto want = d->levelSlabs(*m);
+    std::vector<std::string> gone;
+    for (const auto& [id, e] : d->items)
+      if (id.rfind("slab:", 0) == 0 && !want.count(id.substr(5))) gone.push_back(id);
+    for (const auto& id : gone) d->erase(id, &r.removed);
+    for (const auto& [lv, b] : want) {
+      char sig[160];
+      std::snprintf(sig, sizeof sig, "%.3f %.3f %.3f %.3f %.3f %.3f", b[0], b[1], b[2], b[3], b[4], b[5]);
+      auto it = d->items.find("slab:" + lv);
+      if (it != d->items.end() && it->second.sig == sig) continue;  // same extent: keep the solid
+      d->addSlab(lv, b);
+      r.rebuilt.push_back("slab:" + lv);
+    }
+  }
+  // what was rebuilt is not "removed"
+  r.removed.erase(std::remove_if(r.removed.begin(), r.removed.end(), [&](const std::string& id) { return d->items.count(id) > 0; }), r.removed.end());
+  d->applyStyle();
+  r.items = static_cast<int>(d->items.size());
+  r.ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+  d->buildMs = r.ms;
+  return r;
+}
+
+void SceneView::setGuids(const std::vector<std::pair<std::string, std::string>>& idGuid) {
+  for (const auto& [id, g] : idGuid) {
+    d->guids[id] = g;
+    if (auto it = d->items.find(id); it != d->items.end()) it->second.guid = g;
+  }
+}
+
+std::vector<SceneView::ItemInfo> SceneView::itemInfo() const {
+  std::vector<ItemInfo> out;
+  for (const auto& [id, e] : d->items) {
+    char addr[32];
+    std::snprintf(addr, sizeof addr, "%p", static_cast<const void*>(e.shape.TShape().get()));
+    out.push_back({id, e.guid, e.owner, addr, e.serial});
+  }
+  return out;
+}
+unsigned long long SceneView::builtCount() const { return d->nextSerial - 1; }
+
+void SceneView::setViewAlpha(const std::vector<std::pair<std::string, double>>& alpha) {
+  d->viewAlpha.clear();
+  for (const auto& [id, a] : alpha) d->viewAlpha[id] = a;
+  d->applyStyle();
+}
+
+void SceneView::setLowWalls(const std::vector<std::pair<std::string, double>>& cutZ) {
+  d->lowCut.clear();
+  for (const auto& [id, z] : cutZ) d->lowCut[id] = z;
+  for (auto& [id, e] : d->items) d->applyLow(id, e);
+  d->ctx->UpdateCurrentViewer();
+  d->view->Update();
+}
+
+std::array<double, 3> SceneView::project(const std::array<double, 3>& p) const {
+  const gp_Pnt q = d->view->Camera()->Project(gp_Pnt(p[0], p[1], p[2]));
+  return {(q.X() + 1) / 2 * d->w, (1 - q.Y()) / 2 * d->h, q.Z()};
+}
+
+std::string SceneView::walkCollide(double forward, double right, double yawDeg, double pitchDeg, double radius) {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  if (cam->ProjectionType() != Graphic3d_Camera::Projection_Perspective) cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective);
+  gp_Pnt eye = cam->Eye();
+  const double yaw = yawDeg * M_PI / 180, pitch = pitchDeg * M_PI / 180;
+  gp_Vec v(cam->Direction());
+  v.Rotate(gp_Ax1(gp::Origin(), gp::DZ()), yaw);
+  const gp_Dir rightDir = gp_Dir(gp_Vec(v).Crossed(gp_Vec(gp::DZ())));
+  v.Rotate(gp_Ax1(gp::Origin(), rightDir), pitch);
+  v.SetZ(std::clamp(v.Z(), -0.95, 0.95));
+  const gp_Dir nd(v);
+  const gp_Dir horiz(nd.X(), nd.Y(), 0);
+  gp_Vec move = gp_Vec(horiz) * forward + gp_Vec(rightDir) * right;
+  std::string blocker;
+  const double want = move.Magnitude();
+  if (want > 1e-6) {
+    const gp_Dir md(move);
+    double allowed = want;
+    // rays at eye height and at knee height (1 m lower) along the move
+    for (const double dz : {0.0, -1000.0}) {
+      const gp_Lin ray(eye.Translated(gp_Vec(0, 0, dz)), md);
+      for (const auto& [id, e] : d->items) {
+        if (id == "ground" || id.rfind("glass:", 0) == 0 || e.item.transparency >= 0.9 || !d->ctx->IsDisplayed(e.ais)) continue;
+        Bnd_Box box;
+        BRepBndLib::Add(e.shape, box);
+        box.Enlarge(radius);
+        if (box.IsOut(ray)) continue;
+        IntCurvesFace_ShapeIntersector isect;
+        isect.Load(e.shape, 1e-3);
+        isect.Perform(ray, 0.0, want + radius);
+        if (!isect.IsDone()) continue;
+        for (int i = 1; i <= isect.NbPnt(); ++i) {
+          const double t = isect.WParameter(i) - radius;
+          if (t < allowed) {
+            allowed = std::max(0.0, t);
+            blocker = id;
+          }
+        }
+      }
+    }
+    move = gp_Vec(md) * allowed;
+  }
+  eye.Translate(move);
+  cam->SetEye(eye);
+  cam->SetCenter(eye.Translated(gp_Vec(nd) * 1000));
+  cam->SetUp(gp::DZ());
+  d->view->AutoZFit();
+  return blocker;
+}
+
+void SceneView::setCameraFull(const std::array<double, 3>& eye, const std::array<double, 3>& at, const std::array<double, 3>& up, double fovDeg, bool ortho) {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  cam->SetProjectionType(ortho ? Graphic3d_Camera::Projection_Orthographic : Graphic3d_Camera::Projection_Perspective);
+  cam->SetEye(gp_Pnt(eye[0], eye[1], eye[2]));
+  cam->SetCenter(gp_Pnt(at[0], at[1], at[2]));
+  const double n = std::sqrt(up[0] * up[0] + up[1] * up[1] + up[2] * up[2]);
+  cam->SetUp(n > 1e-9 ? gp_Dir(up[0], up[1], up[2]) : gp::DZ());
+  cam->SetFOVy(fovDeg);
+  d->fitted = true;
+  d->view->AutoZFit();
+}
+
+std::array<double, 11> SceneView::cameraFull() const {
+  const Handle(Graphic3d_Camera)& cam = d->view->Camera();
+  const gp_Pnt e = cam->Eye(), c = cam->Center();
+  const gp_Dir u = cam->Up();
+  return {e.X(), e.Y(), e.Z(), c.X(), c.Y(), c.Z(), u.X(), u.Y(), u.Z(), cam->FOVy(), cam->IsOrthographic() ? 1.0 : 0.0};
+}
+// ---------------------------------------------------------------------------------------------------------------
 
 void SceneView::setMode(const std::string& mode) {
   d->mode = mode;
@@ -785,6 +1017,7 @@ std::string SceneView::pick(int x, int y) const {
   double bestT = std::numeric_limits<double>::max();
   for (const auto& [id, e] : d->items) {
     if (e.item.transparency >= 0.9 || !d->ctx->IsDisplayed(e.ais)) continue;
+    if (auto va = d->viewAlpha.find(id); va != d->viewAlpha.end() && va->second <= 0.5) continue;  // see-through walls
     Bnd_Box box;
     BRepBndLib::Add(e.shape, box);
     if (box.IsOut(ray)) continue;

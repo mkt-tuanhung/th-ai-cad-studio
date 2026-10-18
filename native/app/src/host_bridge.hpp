@@ -96,6 +96,11 @@ class HostBridge : public QObject {
   /** Scene `key` = the BIM building (walls with openings and glazing, floor slabs) plus `extrasJson`
    *  ({items:[…]} as scene3dLoad: columns, stairs, roofs… built from primitives): {ok, items, failures, ms}. */
   Q_INVOKABLE QJsonObject scene3dLoadBim(const QString& key, const QString& modelJson, const QString& extrasJson);
+  /** v2.4 incremental update of a BIM scene: replaces only the solids of `upsertsJson` = {model (the native
+   *  building model, needed for walls), walls: [ids to rebuild with their openings and panes], items: [primitive
+   *  items as scene3dLoad], levelSlabs: bool, guids: {id: guid}} and removes `removeIdsJson` = [ids]. Everything else
+   *  keeps its solid. → {ok, rebuilt: [ids], removed: [ids], items, ms, built (solids built so far)}. */
+  Q_INVOKABLE QJsonObject scene3dPatch(const QString& key, const QString& upsertsJson, const QString& removeIdsJson);
   /** Item id under device pixel (x, y) of the last frame ("" if none). */
   Q_INVOKABLE QString scene3dPick(const QString& key, int x, int y);
   /** Boolean common volume of two items in m³ (0 = no overlap, −1 = unknown). */
