@@ -458,3 +458,10 @@
   border-bottom: 1px dashed #edf0f3;
   margin-bottom: 3px;
 }
+
+.doorLinks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}

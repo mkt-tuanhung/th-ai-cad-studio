@@ -1,0 +1,20 @@
+PASS  opens like the mockup: 7 group tiles, category tree, Modern Sofa 3-Seater selected with 2D Preview
+PASS  tile counts are real: groups add up to All Components and match the grid
+PASS  category tree filters the grid (Families › Doors) and its search narrows the tree
+PASS  search + filter chips + Reset
+PASS  sort by Name is alphabetical, reverse button flips it, list view shows rows
+PASS  star toggles a favourite and persists
+PASS  selecting a card fills the panel; Details / Version History / References tabs work
+PASS  Insertion Options are locked until Edit; rotation persists
+PASS  Insert into BIM: opens the BIM plan with the Component tool loaded with the desk (1600 × 700 × 750, auto-align)
+PASS  Associated Files downloads a real DXF of the component
+PASS  Insert → CAD 2D INSERT at a typed point: block on its layer, rotated 90°, logged
+PASS  clicking one line of the inserted block selects the whole block; the Blocks tab lists it
+PASS  back in the library: Recently Used starts with it and References counts the instance
+PASS  Upload Component (DXF) adds a real, selectable, insertable item
+PASS  Team Shared lists shared items; AI Recommended suggests components from the project (rule-based, labelled)
+PASS  materials are not insertable (button disabled with reason)
+PASS  export catalogue (… menu) downloads JSON of every component
+PASS  VI: labels, tags and kinds are translated
+
+18/18 passed

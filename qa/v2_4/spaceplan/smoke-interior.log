@@ -1,0 +1,15 @@
+PASS  opens like the mockup: Design tab, Living Room active, AI Assistant panel, 6 furniture rows, DEMO render badge
+PASS  Room Information is computed from the room outline (28.6 m², 22.8 m) and follows the room picker
+PASS  selecting a row opens Properties; quantity edit is validated (0 rejected), applied, and undoable with ⌘Z
+PASS  Japandi style preset re-materials the living room (rule-based) and ⌘Z restores it
+PASS  Cut List derives panels from the cabinets; resizing the TV Cabinet updates the top/bottom length
+PASS  Cabinet Parametric adds a cabinet with its cut list; impossible sizes keep Add disabled
+PASS  Room Quantities: Living Room floor 28.61, perimeter 22.80, gross walls 68.40
+PASS  Materials tab assigns a material to the selected item
+PASS  View all lists every item; display mode Wireframe applies
+PASS  Export → Cut list CSV downloads real rows
+PASS  ribbon + header: Cut List tool opens the tab, Drawings goes to CAD 2D
+PASS  VI: workspace, tabs, rooms and default brief are translated
+PASS  Cut list → Nesting & CNC: real sheets, verified programs, G-code ZIP download
+
+13/13 passed

@@ -1,0 +1,19 @@
+PASS  the plan inset opens the model plan: 9 rooms with areas, every furniture item drawn
+PASS  Dimension: living room width snaps to the corners → 7,670
+PASS  Tag: clicking the sofa tags it with its name and size
+PASS  select picks a room in the plan (Properties shows it)
+PASS  Ceiling and Finish plans; 3D view returns
+PASS  Space Planning tab: view modes 2D Floorplan / 3D Live / Walkthrough / Render / Production and five sub-panels
+PASS  V24-025 library: search "dining chair" → Dining Chair 480 × 520 × 900; Place puts the real size in the scene (3D bounds = catalog)
+PASS  drag from the library onto the plan: a bookshelf dropped near the living-room wall snaps back to it
+PASS  move by drag in the plan (one undo step); a locked item does not move
+PASS  V24-026 replace in place keeps the transform, takes the new size; V24-027 per-part finish changes appearance only
+PASS  SP29 checks: a chair placed on the dining table is reported with the measured overlap; a fix applies in one undo step
+PASS  V24-031 layouts need a door: Master Bedroom without a door → "needs input"; a door of unknown width still needs input
+PASS  V24-029/030: three scored options; preview shows one in the plan; reject leaves the drawing intact; apply is one undo step
+PASS  SP33 cabinet wall elevation of the kitchen wall: dimensioned A3 drawing, opens in CAD 2D
+PASS  V24-037 room item schedule: one row per item, counts = scene instances, sizes measured from 3D; CSV export
+PASS  V24-028 finish plan draws each floor finish at its real texture tile (600 × 600 tile, 1800 × 180 oak)
+PASS  AI Assistant → Generate points to the rule-based layouts; VI labels
+
+17/17 passed

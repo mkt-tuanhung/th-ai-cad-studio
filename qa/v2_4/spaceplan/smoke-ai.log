@@ -1,0 +1,22 @@
+PASS mockup state: sample session, Option 1 selected, Proposal Details 120 m²
+PASS Preview in chat selects Option 2 (no rendered preview → honest empty state)
+PASS preview viewport zoom buttons change the view
+PASS Side by Side Comparison shows two previews
+PASS Preview Changes → Structured Actions list for Option 1
+PASS Approve & Apply asks for confirmation, opens the proposal in CAD 2D
+PASS Undo in the studio closes the applied drawing
+PASS Reject Option 3 marks it rejected and disables approve
+PASS Geometry Doctor runs local checks on the open drawing (3 findings)
+PASS sending a message gets an honest "runtime not integrated" reply, no fabricated answer
+PASS New Chat clears; menu re-opens the sample session; persisted across reload
+PASS suggestion chip fills the composer
+PASS VI translates studio chrome
+PASS task presets: 7 presets with stages / needs / uncertainties and an honest status (layout + 3 options available: Interior → Space Planning → Layouts)
+PASS preset Image/PDF → CAD as a job: unscaled open → job “Needs you” (calibration, nothing guessed); calibrated in CAD 2D → ready; Approve archives
+PASS V24-031 room-layout inputs: a measured room whose door has no width → job “Needs you” with the question (no default width); 900 typed → inputs complete
+PASS V24-032 one command (preset CAD → 3D) as a job: compute checkpoints, approval, each model applied once with its idempotency key
+INFO resume: BIM undo steps 0 → 0 (skipped), Interior 0 → 1
+PASS V24-032 restart after a crash between “BIM applied” and “Interior applied” → resumes at the checkpoint: BIM skipped (not applied twice), Interior applied once
+PASS V24-032 restart while a step was “applying” → “Needs you: was it applied?”; answered yes → nothing applied again
+PASS VI: presets in Vietnamese (Ảnh/PDF -> CAD, Bố trí phòng tự động “Dùng được”)
+PASS no console errors

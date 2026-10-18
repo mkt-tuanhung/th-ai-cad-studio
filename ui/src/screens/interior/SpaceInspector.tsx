@@ -158,10 +158,12 @@ export function RoomDoors({ r }: { r: Room }) {
           <button type="button" className={w.link} onClick={() => up(t.remove, (ds) => ds.filter((x) => x.id !== dr.id))}><Trash2 size={11} /> {t.remove}</button>
         </div>
       ))}
-      <button type="button" className={w.link} onClick={() => up(t.add, (ds) => [...ds, { id: newId('door'), wall: 0, at: 300 }])}>+ {t.add}</button>
-      {fromBim.length > 0 && (
-        <button type="button" className={w.link} data-testid="doors-from-bim" onClick={() => up(fmt(t.fromBim, { n: fromBim.length }), (ds) => [...ds, ...fromBim])}>+ {fmt(t.fromBim, { n: fromBim.length })}</button>
-      )}
+      <div className={s.doorLinks}>
+        <button type="button" className={w.link} onClick={() => up(t.add, (ds) => [...ds, { id: newId('door'), wall: 0, at: 300 }])}>+ {t.add}</button>
+        {fromBim.length > 0 && (
+          <button type="button" className={w.link} data-testid="doors-from-bim" onClick={() => up(fmt(t.fromBim, { n: fromBim.length }), (ds) => [...ds, ...fromBim])}>+ {fmt(t.fromBim, { n: fromBim.length })}</button>
+        )}
+      </div>
     </Section>
   )
 }
