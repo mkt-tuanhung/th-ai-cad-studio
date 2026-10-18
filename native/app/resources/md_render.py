@@ -532,6 +532,28 @@ class Interior:
                 nt.links.new(nm.outputs['Normal'], b.inputs['Normal'])
         return True
 
+    def shade_material(self):
+        """Lamp shade: linen that glows warm from the bulb inside (translucent + a little emission)."""
+        if 'shade' in self.mats:
+            return self.mats['shade']
+        mat = bpy.data.materials.new('md:lamp-shade')
+        mat.use_nodes = True
+        nt = mat.node_tree
+        for n in list(nt.nodes):
+            nt.nodes.remove(n)
+        out = nt.nodes.new('ShaderNodeOutputMaterial')
+        tr = nt.nodes.new('ShaderNodeBsdfTranslucent')
+        tr.inputs['Color'].default_value = (1.0, 0.85, 0.65, 1)
+        em = nt.nodes.new('ShaderNodeEmission')
+        em.inputs['Color'].default_value = (1.0, 0.78, 0.5, 1)
+        em.inputs['Strength'].default_value = 2.5
+        add = nt.nodes.new('ShaderNodeAddShader')
+        nt.links.new(tr.outputs['BSDF'], add.inputs[0])
+        nt.links.new(em.outputs['Emission'], add.inputs[1])
+        nt.links.new(add.outputs['Shader'], out.inputs['Surface'])
+        self.mats['shade'] = mat
+        return mat
+
     def glass_material(self):
         if 'glass' in self.mats:
             return self.mats['glass']
@@ -849,7 +871,10 @@ class Interior:
             if r > 0.01 and p['shape'] != 'cyl':
                 o.modifiers.new('subd', 'SUBSURF').levels = 1
             bpy.ops.object.shade_smooth() if r > 0.01 else None
-            self.assign(o, self.material(p.get('material', 'Wood - Oak')))
+            m = self.material(p.get('material', 'Wood - Oak'))
+            if it.get('glow') and p.get('name') == 'shade':
+                m = self.shade_material()
+            self.assign(o, m)
             o.parent = root
         root.location = place
         root.rotation_euler = (0, 0, rot)
@@ -863,6 +888,16 @@ class Interior:
             for at in it.get('at') or []:
                 place = Vector((at['x'] / 1000.0, at['y'] / 1000.0, float(at.get('z', 0)) / 1000.0))
                 rot = math.radians(float(at.get('rot', 0)))
+                if it.get('glow'):
+                    # a warm lamp inside the shade (bedside lamps): the shade lights up, the room gets a pool of light
+                    g = it['glow']
+                    data = bpy.data.lights.new('MD lamp', 'POINT')
+                    data.energy = float(g.get('watts', 15))
+                    data.color = (1.0, 0.72, 0.45)
+                    data.shadow_soft_size = 0.06
+                    lo = bpy.data.objects.new('MD lamp', data)
+                    lo.location = place + Vector((0, 0, float(g.get('z', 300)) / 1000.0))
+                    bpy.context.scene.collection.objects.link(lo)
                 if it.get('kind') == 'composed':
                     self.composed(it, place, rot)
                     self.stats['composed'] += 1

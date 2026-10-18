@@ -88,7 +88,8 @@ export const PRESETS: Preset[] = [
         P('rbox', 0, -50, 0, w, d - 100, base, TAUPE, 'frame', 25),
         P('rbox', 0, d / 2 - 50, 0, w + 60, 100, head, TAUPE, 'headboard', 35),
         P('rbox', 0, -50, base, w - 60, md - 40, mat, LIN, 'mattress', 60),
-        P('rbox', 0, -d / 2 + 5 + md * 0.31, base + mat - 60, w - 20, md * 0.62, 110, FAB, 'duvet', 50),
+        P('rbox', 0, -d / 2 + 5 + md * 0.31, base + mat - 60, w - 20, md * 0.62, 110, LIN, 'duvet', 50),
+        P('rbox', 0, -d / 2 + 5 + 230, base + mat + 40, w + 10, 460, 40, 'Fabric - Olive', 'throw', 18),
         P('rbox', -w / 4 + 10, d / 2 - 100 - 260, base + mat - 10, w / 2 - 150, 380, 150, LIN, 'pillow L', 70),
         P('rbox', w / 4 - 10, d / 2 - 100 - 260, base + mat - 10, w / 2 - 150, 380, 150, LIN, 'pillow R', 70),
       ]

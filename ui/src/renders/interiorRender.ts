@@ -100,6 +100,8 @@ export interface DressItem {
   keepModel: boolean
   /** Presentation staging (TV, rug, table decor): renders only, not in the model. */
   prop?: boolean
+  /** A warm lamp glowing in the piece (bedside lamps): height above its base (mm) and power (W). */
+  glow?: { z: number; watts: number }
 }
 
 export interface RenderDressing {
@@ -237,7 +239,22 @@ export function stagingProps(placed: ReturnType<typeof itemPlacements>, assets: 
         if (lamp?.dims)
           out.push({ item: `${item.id}#pendants`, name: lamp.nameVi, hide: [], asset: lamp.id, kind: 'model', file: `${lamp.dir}/${lamp.files.main}`, dims: lamp.dims, box: { ...lamp.dims }, at: [-1, 1].map((sx) => ({ ...p, ...local(p, (sx * Math.max(b.w, b.d)) / 4, 0), z: 0 })), hang: room.ceilingHeight, finish: 'Metal - Brass', keepModel: true, prop: true })
       }
-    if (kind === 'nightstand') for (const p of at) decor(item, p, ['ceramic_vase_04', 'potted_plant_04'], k++)
+    if (kind === 'nightstand')
+      for (const p of at) {
+        // a bedside lamp (ceramic base, linen shade, warm light) and a small vase beside it
+        const z = tops.get(item.id) ?? (item.elev ?? 0) + item.h
+        const c = local(p, -Math.min(90, b.w / 5), Math.min(60, b.d / 6))
+        out.push({
+          item: `${item.id}#lamp${k++}`, name: 'Bedside lamp', hide: [], asset: 'preset-lamp', kind: 'composed',
+          parts: [
+            { shape: 'cyl', x: 0, y: 0, z: 0, w: 130, d: 130, h: 230, material: 'Gypsum - White', name: 'base' },
+            { shape: 'cyl', x: 0, y: 0, z: 230, w: 12, d: 12, h: 60, material: 'Metal - Brass', name: 'stem' },
+            { shape: 'cyl', x: 0, y: 0, z: 280, w: 280, d: 280, h: 210, material: 'Fabric - Linen', name: 'shade' },
+          ],
+          box: { w: 280, d: 280, h: 490 }, at: [{ x: c.x, y: c.y, rot: p.rot, z }], finish: 'Fabric - Linen', keepModel: true, prop: true, glow: { z: 360, watts: 18 },
+        })
+        decor(item, { ...p, ...local(p, Math.min(120, b.w / 4), -Math.min(40, b.d / 8)) }, ['ceramic_vase_04', 'potted_plant_04'], k++)
+      }
     if (item.category === 'beds' && !rugRooms.has(room.id))
       for (const p of at) {
         const w = Math.min(3000, b.w + 1000), d = Math.min(2400, b.d * 0.62 + 600)
