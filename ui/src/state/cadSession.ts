@@ -81,7 +81,7 @@ interface SessionState {
 }
 
 /** UI hooks registered by the CAD screen (zoom, file dialogs, export). */
-export const cadUi: { zoomExtents?: () => void; openFile?: () => void; exportDxf?: () => void; plot?: () => void } = {}
+export const cadUi: { zoomExtents?: () => void; openFile?: () => void; exportDxf?: () => void; plot?: () => void; calibrate?: () => void; surveyRoom?: () => void; review?: () => void } = {}
 /**
  * Block waiting to be placed by INSERT (set by the Components library). Entities are in block
  * coordinates, already offset to the chosen insertion point and rotated.
@@ -532,6 +532,13 @@ export const useCadSession = create<SessionState>()((set, get) => {
           return cadUi.exportDxf?.()
         case 'PLOT':
           return cadUi.plot?.()
+        // v2.4 import calibration / measured room / review list (dialogs of the CAD 2D screen)
+        case 'CALIBRATE':
+          return cadUi.calibrate?.()
+        case 'SURVEYROOM':
+          return cadUi.surveyRoom?.()
+        case 'IMPORTREVIEW':
+          return cadUi.review?.()
         default:
           return print(fmt(t().cmd.native, { c: spec.name }), 'error')
       }

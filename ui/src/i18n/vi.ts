@@ -6,6 +6,7 @@ import { mechVi } from './ws/mechanical'
 import { rendersVi } from './ws/renders'
 import { fromCadVi } from './ws/fromCad'
 import { autoVi } from './ws/auto'
+import { importCalVi } from './ws/importCal'
 
 export const vi: Messages = {
   app: {
@@ -536,6 +537,7 @@ export const vi: Messages = {
     },
   },
   auto: autoVi,
+  importCal: importCalVi,
   bim: {
     fromCad: fromCadVi,
     crumbs: { projects: 'Dự án', project: 'Villa Riverside', discipline: 'Kiến trúc' },

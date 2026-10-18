@@ -27,6 +27,9 @@ import { RightPanel } from './RightPanel'
 import { AiAssistPanel } from './AiAssistPanel'
 import { CommandPanel, type CommandPanelHandle } from './CommandPanel'
 import { StatusBar, StatusRight } from './StatusBar'
+import { ReviewDialog } from './ReviewDialog'
+import { CalibrateDialog } from './CalibrateDialog'
+import { SurveyRoomDialog } from './SurveyRoomDialog'
 import s from './Cad2DScreen.module.css'
 
 const isTyping = (el: EventTarget | null) =>
@@ -43,6 +46,10 @@ export function Cad2DScreen() {
   const cmdRef = useRef<CommandPanelHandle>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [saveAsOpen, setSaveAsOpen] = useState(false)
+  // v2.4: review list (REVIEW REQUIRED), scale calibration of an import, measured room
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [calibrate, setCalibrate] = useState<{ sourceId: string | null } | null>(null)
+  const [surveyOpen, setSurveyOpen] = useState(false)
 
   const say = (text: string, tone?: 'error' | 'info') => cad.print(text, tone)
 
@@ -189,6 +196,9 @@ export function Cad2DScreen() {
     cadUi.openFile = () => fileInput.current?.click()
     cadUi.exportDxf = () => exportDxf()
     cadUi.plot = () => void exportPlot('pdf')
+    cadUi.review = () => setReviewOpen(true)
+    cadUi.calibrate = () => setCalibrate({ sourceId: null })
+    cadUi.surveyRoom = () => setSurveyOpen(true)
   })
 
   // AutoCAD-style keyboard: typing goes to the command line; F-keys toggle drafting aids.
@@ -289,7 +299,7 @@ export function Cad2DScreen() {
         <ToolPalette />
       </div>
       <div className={s.canvas}>
-        <CanvasCard onPlot={(id) => void exportPlot('pdf', id)} />
+        <CanvasCard onPlot={(id) => void exportPlot('pdf', id)} onReview={() => setReviewOpen(true)} />
       </div>
       <div className={s.side}>
         <div className={s.props}>
@@ -312,6 +322,9 @@ export function Cad2DScreen() {
       </div>
 
       <input ref={fileInput} type="file" accept=".dxf,.dwg" multiple hidden onChange={(e) => openFiles(e.target.files)} />
+      {reviewOpen && doc && <ReviewDialog onClose={() => setReviewOpen(false)} onCalibrate={(sourceId) => { setReviewOpen(false); setCalibrate({ sourceId }) }} onSurvey={() => { setReviewOpen(false); setSurveyOpen(true) }} />}
+      {calibrate && doc && <CalibrateDialog sourceId={calibrate.sourceId} onClose={() => setCalibrate(null)} />}
+      {surveyOpen && <SurveyRoomDialog onClose={() => setSurveyOpen(false)} />}
       {saveAsOpen && doc && (
         <SaveAsModal
           initial={doc.name}

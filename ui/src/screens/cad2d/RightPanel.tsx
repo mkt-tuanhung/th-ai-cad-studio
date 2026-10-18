@@ -7,6 +7,9 @@ import type { Entity } from '../../cad/types'
 import { toast } from '../../state/toast'
 import { useRouter } from '../../state/router'
 import s from './RightPanel.module.css'
+import { entitySource } from '../../cad/provenance'
+import { sourceLine } from './ReviewDialog'
+import { cadUi } from '../../state/cadSession'
 
 const TABS: RightTab[] = ['properties', 'layers', 'blocks', 'references']
 /** Tab widths reproduce the mockup's label centres (1266 / 1344 / 1412 / 1494). */
@@ -181,6 +184,26 @@ function PropertiesTab() {
             <ChevronsUpDown size={14} strokeWidth={1.8} />
           </label>
         </Row>
+        {(() => {
+          // v2.4 provenance of the selection (only shown for imported / surveyed entities)
+          const I = T.importCal
+          const ids = new Set(sel.map((e) => e.src?.id ?? ''))
+          if (!sel.length || !sel.some((e) => e.src)) return null
+          const one = ids.size === 1 ? entitySource(doc, sel[0]) : null
+          const text = !one
+            ? t.varies
+            : [
+                `${I.review.kinds[one.kind]} ${one.file}${one.page ? ` p.${one.page}` : ''}`,
+                one.status === 'unscaled' || one.entity.unscaled ? I.prop.unscaled : one.status === 'measured' ? fmt(I.prop.measured, { tol: one.tolerance ?? 0 }) : I.prop.calibrated,
+                sel.length === 1 && one.entity.confidence !== undefined ? fmt(I.prop.conf, { c: Math.round(one.entity.confidence * 100) }) : '',
+                sel.some((e) => e.src?.reviewRequired) ? I.prop.review : '',
+              ].filter(Boolean).join(' · ')
+          return (
+            <Row label={I.prop.source}>
+              <div className={`${s.field} ${s.readonly}`} title={text} data-testid="prop-source" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</div>
+            </Row>
+          )
+        })()}
       </Section>
       <div className={s.rule} />
       <Section title={t.view}>
@@ -286,18 +309,34 @@ function LayersTab() {
 }
 
 function ReferencesTab() {
-  const t = useT().cad.panel
+  const T = useT()
+  const t = T.cad.panel
   const doc = useCad((st) => st.activeDoc())
-  if (!doc?.underlay) return <p className={s.empty}>{t.noRefs}</p>
-  const u = doc.underlay
+  const sources = Object.values(doc?.provenance?.sources ?? {})
+  if (!doc?.underlay && !sources.length) return <p className={s.empty}>{t.noRefs}</p>
+  const u = doc!.underlay
   return (
-    <button type="button" className={s.ref} onClick={() => toast(t.imageNote)}>
-      <ImageIcon size={18} strokeWidth={1.6} />
-      <span>
-        <strong>{u.name}</strong>
-        <small>{fmt(t.imageRef, { w: u.natW, h: u.natH })}</small>
-        <small>{t.imageNote}</small>
-      </span>
-    </button>
+    <>
+      {u && (
+        <button type="button" className={s.ref} onClick={() => toast(t.imageNote)}>
+          <ImageIcon size={18} strokeWidth={1.6} />
+          <span>
+            <strong>{u.name}</strong>
+            <small>{fmt(t.imageRef, { w: u.natW, h: u.natH })}</small>
+            <small>{t.imageNote}</small>
+          </span>
+        </button>
+      )}
+      {/* v2.4: where the imported / surveyed geometry came from, its calibration and status */}
+      {sources.map((x) => (
+        <button key={x.id} type="button" className={s.ref} data-testid="ref-source" onClick={() => cadUi.review?.()}>
+          <ImageIcon size={18} strokeWidth={1.6} />
+          <span>
+            <strong>{x.file}</strong>
+            <small>{sourceLine(T.importCal, x)}</small>
+          </span>
+        </button>
+      ))}
+    </>
   )
 }

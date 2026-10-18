@@ -200,4 +200,13 @@ export async function runJob(job: AiJob, h: StepHandlers): Promise<AiJob> {
   return j
 }
 
+/** A resumed run recomputes its pure steps (their results are not persisted); apply steps keep their state. */
+export function restartCompute(j: AiJob): AiJob {
+  return touch(j, { status: 'in-progress', steps: j.steps.map((s) => (s.kind === 'compute' ? { ...s, status: 'pending' as const, note: undefined } : s)) })
+}
+/** One step failed (the job goes on — e.g. one model rejected by its validation while the others apply). */
+export function stepFailed(j: AiJob, id: string, note: string): AiJob {
+  return setStep(j, id, { status: 'failed', note })
+}
+
 export const STATUS_ORDER: JobStatus[] = ['needs-user', 'in-progress', 'queued', 'ready-for-review', 'failed', 'archived']
