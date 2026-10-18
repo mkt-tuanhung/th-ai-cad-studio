@@ -158,6 +158,13 @@ export function familyPost(spec: FamilySpec): Post {
       g.tools.forEach((t, i) => {
         if (i > 0) L.push(spindleOff, `G0 Z${f3(ir.clearZ)}`)
         const th = t.head_id ?? null
+        const fixed = combine && !atc && g.tools.length > 1
+        if (fixed && i === 0) {
+          // fixed tools on selected heads: one check stop at the start lists every head's tool
+          const msg = `CHECK TOOLS: ${g.tools.map((x) => `T${x.n} ${x.name} ON ${x.head_id ?? '?'}`).join('; ')}, ZERO Z, THEN START`
+          if (pause) L.push(cm(msg) ? `${pause} ${cm(msg)}` : pause)
+          else push(cm(msg))
+        }
         if (combine && th && th !== head) {
           L.push(sel.get(th)!.join(' '))
           push(cm(`head ${th} selected by the profile's spindle-select codes`))
@@ -165,14 +172,7 @@ export function familyPost(spec: FamilySpec): Post {
         }
         const tlo = (z: number) => (g43 ? `G0 G43 H${t.n} Z${f3(z)}` : `G0 Z${f3(z)}`)
         if (atc) L.push(`T${t.n} M6`, ...(cm(t.name) ? [cm(t.name)!] : []))
-        else if (combine && g.tools.length > 1) {
-          // fixed tools on selected heads: one check stop at the start lists every head's tool
-          if (i === 0) {
-            const msg = `CHECK TOOLS: ${g.tools.map((x) => `T${x.n} ${x.name} ON ${x.head_id ?? '?'}`).join('; ')}, ZERO Z, THEN START`
-            if (pause) L.push(cm(msg) ? `${pause} ${cm(msg)}` : pause)
-            else push(cm(msg))
-          }
-        } else {
+        else if (!fixed) {
           const msg = `LOAD T${t.n} ${t.name}${th ? ` ON ${th}` : ''}, ${g43 ? `SET TOOL LENGTH H${t.n}` : 'ZERO Z ON THE BOARD TOP'}, THEN START`
           if (pause) L.push(cm(msg) ? `${pause} ${cm(msg)}` : pause)
           else push(cm(msg))

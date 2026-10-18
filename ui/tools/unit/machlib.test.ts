@@ -95,6 +95,27 @@ function familyMachine(fam: ControllerFamilyId, opts: { atc?: boolean; postId?: 
   }
 }
 
+/** Facts for the QA report: library counts, panel-saw summary, hardware holes, Weihong select program head. */
+export function qaFacts() {
+  const ps = templateToProfile(templateById('generic-panel-saw-3800')!, { profileId: 'TEST-SAW' }).profile
+  const cS = cncOf(measured(ps), CABINETS)
+  const saw = cS.saw!
+  const HW: Cabinet = { ...KITCHEN, hardware: { hinge: 'generic-hinge-35-system32', boringDistance: 4, hingeEndDistance: 100, slide: 'generic-slide-system32', slideRows: [100, 300] } }
+  const plan = hardwarePlan(HW, { shelfPins: true })
+  const wh0 = familyMachine('WEIHONG_NCSTUDIO', { atc: false })
+  const head = (id: string, t: MachineTool) => ({ ...newHead(1, 'ROUTER_SPINDLE'), head_id: id, offset_mm: { x: 0, y: 0, z: 0 }, offset_calibrated: true, activation_mapping_verified: true, tools: [t] })
+  const wh: MachineProfile = { ...wh0, heads: [head('HEAD_1', tool('EM8', 'END_MILL', 8, 1)), head('HEAD_2', tool('DR5', 'DRILL', 5, 2)), head('HEAD_3', tool('FO35', 'FORSTNER', 35, 3))] }
+  const whSel: MachineProfile = { ...wh, controller: { ...wh.controller, supported_codes: [...wh.controller.supported_codes, 'M51', 'M52', 'M53'] }, ext: { ...wh.ext, spindle_select: [{ head_id: 'HEAD_1', codes: ['M51'] }, { head_id: 'HEAD_2', codes: ['M52'] }, { head_id: 'HEAD_3', codes: ['M53'] }] } }
+  const w = cncOf(whSel).sheets.find((s) => s.programs[0]?.text.includes('M52'))?.programs[0].text ?? ''
+  return {
+    library: LIBRARY.origin,
+    saw: { patterns: saw.patterns.length, sheets: saw.sheets, cuts: saw.patterns.reduce((a, p) => a + p.cuts.length, 0), unplaced: saw.unplaced.map((p) => `${p.label} ${p.l}×${p.w}`), verify: verifyAll(saw, { kerf: 4.4, trim: 10, grained: DEFAULT_NEST.grained }).length, firstCuts: cS.sawFiles![1].text.split('\r\n').slice(0, 8) },
+    hardware: plan.holes.map((h) => `${h.part}${h.piece ? `#${h.piece}` : ''} ${h.purpose} x=${h.x} y=${h.y} Ø${h.d}×${h.depth}`),
+    weihongHead: w.split('\n').filter((l) => /^M5[123]|^M0|^\(CHECK|^G21|^S\d/.test(l)).slice(0, 8),
+    weihongBlocked: cncOf(wh).blockers.filter((b) => b.includes('SPINDLE_SELECT')),
+  }
+}
+
 /** Program heads per family post (for the QA report). */
 export function samples() {
   const out: Record<string, string> = {}
