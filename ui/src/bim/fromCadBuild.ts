@@ -17,9 +17,60 @@ import { wallEnds } from './geometry'
 export interface PlanPick {
   rec: Recognition
   levelName: string
-  elevation: number
+  /** mm; null: not written — inferred from the other plans by the storey order (inferElevations) */
+  elevation: number | null
   /** Roof plan: its walls are parapets (parapetH high) and its footprint is the roof deck. */
   roof: boolean
+  /** Storey order from the title (PlanRegion.order: basement 0, ground 1, mezzanine 1.5, floor n, attic 98, roof 99) */
+  order?: number | null
+}
+
+/**
+ * Elevations of a storey stack where some are not written: by the storey order from the titles, between the two
+ * nearest written storeys (in proportion to the order), else below / above them by the typical storey height (the
+ * median of the written ones per storey, else `storeyH`); the attic and the roof over the top storey; a plan with
+ * neither elevation nor order above the plans before it. `inferred` marks the computed ones.
+ * Problems (codes "code:what"): sameElevation:A|B (two storeys at one elevation), orderElevation:A|B (storey A is
+ * numbered under B but written above it).
+ */
+export function inferElevations(items: { elevation: number | null; order?: number | null; roof?: boolean; name?: string }[], storeyH = DEFAULT_BUILD.storeyH): { elevations: number[]; inferred: boolean[]; problems: string[] } {
+  const el: (number | null)[] = items.map((x) => (x.elevation === null || x.elevation === undefined || !Number.isFinite(x.elevation) ? null : x.elevation))
+  const ord = items.map((x) => (x.roof ? (x.order ?? 99) : (x.order ?? null)))
+  const regular = (o: number | null): o is number => o !== null && o < 90
+  const known = items.map((_, i) => i).filter((i) => el[i] !== null)
+  // typical storey: written elevations of numbered storeys per storey
+  const ko = known.filter((i) => regular(ord[i])).sort((a, b) => ord[a]! - ord[b]!)
+  const steps: number[] = []
+  for (let k = 1; k < ko.length; k++) { const dO = ord[ko[k]]! - ord[ko[k - 1]]!, dE = el[ko[k]]! - el[ko[k - 1]]!; if (dO > 0 && dE > 0) steps.push(dE / dO) }
+  steps.sort((a, b) => a - b)
+  const typ = steps.length ? steps[Math.floor(steps.length / 2)] : storeyH
+  const out = [...el]
+  for (let i = 0; i < items.length; i++) {
+    if (out[i] !== null || !regular(ord[i])) continue
+    const o = ord[i]!
+    const lo = ko.filter((k) => ord[k]! < o).pop(), hi = ko.find((k) => ord[k]! > o)
+    if (lo !== undefined && hi !== undefined) out[i] = el[lo]! + ((el[hi]! - el[lo]!) * (o - ord[lo]!)) / (ord[hi]! - ord[lo]!)
+    else if (lo !== undefined) out[i] = el[lo]! + (o - ord[lo]!) * typ
+    else if (hi !== undefined) out[i] = el[hi]! - (ord[hi]! - o) * typ
+  }
+  // numbered storeys with no written elevation anywhere: ground floor (order 1) at ±0.000
+  if (!known.length) for (let i = 0; i < items.length; i++) if (out[i] === null && regular(ord[i])) out[i] = (ord[i]! - 1) * typ
+  // attic / roof (order ≥ 90) over the highest storey, the attic first; then plans with nothing written, in turn
+  const topOf = () => Math.max(...out.filter((v): v is number => v !== null), -Infinity)
+  const upper = items.map((_, i) => i).filter((i) => out[i] === null && ord[i] !== null).sort((a, b) => ord[a]! - ord[b]!)
+  for (const i of upper) { const t = topOf(); out[i] = Number.isFinite(t) ? t + typ : 0 }
+  for (let i = 0; i < items.length; i++) if (out[i] === null) { const t = topOf(); out[i] = Number.isFinite(t) ? t + typ : 0 }
+  const elevations = out.map((v) => Math.round(v!))
+  const inferred = el.map((v) => v === null)
+  // the stack: no two storeys at one elevation, the storey numbers rising with it
+  const problems: string[] = []
+  const name = (i: number) => items[i].name ?? `#${i + 1}`
+  const idx = items.map((_, i) => i).sort((a, b) => elevations[a] - elevations[b])
+  for (let k = 1; k < idx.length; k++) if (Math.abs(elevations[idx[k]] - elevations[idx[k - 1]]) < 1) problems.push(`sameElevation:${name(idx[k - 1])}|${name(idx[k])}`)
+  for (let a = 0; a < items.length; a++)
+    for (let b = 0; b < items.length; b++)
+      if (ord[a] !== null && ord[b] !== null && ord[a]! < ord[b]! && elevations[a] > elevations[b] + 1) problems.push(`orderElevation:${name(a)}|${name(b)}`)
+  return { elevations, inferred, problems }
 }
 
 export interface BuildOptions {
@@ -101,14 +152,24 @@ export interface BuildResult {
   /** things built in a simplified way (winders as a landing…), "code:detail" */
   notes: string[]
   counts: { levels: number; walls: number; doors: number; windows: number; rooms: number; columns: number; slabs: number; components: number; grids: number; stairs: number; railings: number }
+  /** the picks in build order with their elevations (inferred ones filled in): picks[i] → model.levels[i], align.origins[i] */
+  picks: (PlanPick & { elevation: number })[]
+  /** the storey stack is wrong (inferElevations: sameElevation:A|B, orderElevation:A|B) — the model must not be
+   *  accepted as it is: two storeys at one elevation leave walls with no height */
+  problems: string[]
 }
 
 export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: BuildNames): BuildResult {
-  const sorted = [...picks].sort((a, b) => a.elevation - b.elevation)
+  // elevations not written are inferred from the storey order; the stack is checked
+  const inf = inferElevations(picks.map((p) => ({ elevation: p.elevation, order: p.order ?? null, roof: p.roof, name: p.levelName })), opt.storeyH)
+  const sorted = picks.map((p, i) => ({ p: { ...p, elevation: inf.elevations[i] }, i }))
+    .sort((a, b) => a.p.elevation - b.p.elevation || (a.p.order ?? 50) - (b.p.order ?? 50) || a.i - b.i).map((x) => x.p)
   const align = alignPlans(sorted.map((p) => p.rec))
   const levels: Level[] = sorted.map((p, i) => ({ id: `L${i + 1}`, name: p.levelName, elevation: Math.round(p.elevation) }))
   const top = sorted[sorted.length - 1]
   if (top && !top.roof) levels.push({ id: `L${levels.length + 1}`, name: names.roofLevel, elevation: Math.round(top.elevation + opt.storeyH) })
+  const notes: string[] = picks.flatMap((p, i) => (inf.inferred[i] ? [`elevationInferred:${p.levelName} ${inf.elevations[i] >= 0 ? '+' : ''}${(inf.elevations[i] / 1000).toFixed(3)}`] : []))
+  notes.push(...inf.problems)
 
   const types = new Map<string, WallType>()
   const typeFor = (t: number, ext: boolean, curtain: boolean) => {
@@ -175,7 +236,7 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     p.rec.rooms.forEach((r, k) => {
       const num = r.number ?? `${li + 1}${String(k + 1).padStart(2, '0')}`
       if (!r.name) unnamed.add(`room-${lv.id}-${k + 1}`)
-      rooms.push({ id: `room-${lv.id}-${k + 1}`, category: 'room', number: num, name: r.name ?? names.room(k + 1), level: lv.id, area: r.area, outline: r.outline.map(T), ...(r.crossed ? { void: true } : {}) })
+      rooms.push({ id: `room-${lv.id}-${k + 1}`, category: 'room', number: num, name: r.name ?? names.room(k + 1), level: lv.id, area: r.area, outline: r.outline.map(T), ...(r.holes?.length ? { holes: r.holes.map((h) => h.map(T)) } : {}), ...(r.crossed ? { void: true } : {}) })
     })
     if (!p.roof && above)
       for (const c of p.rec.columns) {
@@ -198,11 +259,13 @@ export function buildBimModel(picks: PlanPick[], opt: BuildOptions, names: Build
     slabs.push({ id: `S${slabs.length + 1}`, category: 'slab', mark: `S${slabs.length + 1}`, kind: 'roof', level: levels[levels.length - 1].id, offset: 0, thickness: opt.slabT, outline: top.rec.footprint.map((q) => [r1(q[0] - ox), r1(q[1] - oy)] as P2) })
   }
   const edges = balconiesAndVoids(levels, rooms, walls, types, slabs, opt.slabT, names.voidRoom ?? 'Void', unnamed, [...doors, ...windows], names.balconyRoom ?? 'Balcony')
-  const { stairs, landings, railings: stairRails, notes } = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
+  const st = stairsFrom(sorted, align.origins, levels, walls, types, slabs)
+  const { stairs, landings, railings: stairRails } = st
+  notes.push(...st.notes)
   for (const sl of [...edges.slabs, ...landings]) slabs.push({ ...sl, id: sl.landing ? sl.id : `S${slabs.length + 1}`, mark: sl.landing ? sl.mark : `S${slabs.length + 1}` })
   const railings = [...stairRails, ...edges.railings].map((r, i) => ({ ...r, id: `railing-${i + 1}`, mark: `RL${i + 1}` }))
   const model: BimModel = { levels, wallTypes: [...types.values()], walls, doors, windows, rooms, columns, slabs, stairs, railings, components, grids, annotations: [] }
-  return { model, align, notes, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length, railings: railings.length } }
+  return { model, align, notes, picks: sorted, problems: inf.problems, counts: { levels: levels.length, walls: walls.length, doors: doors.length, windows: windows.length, rooms: rooms.length, columns: columns.length, slabs: slabs.length, components: components.length, grids: grids.length, stairs: stairs.length, railings: railings.length } }
 }
 
 /* ---------------- balconies, double-height voids ---------------- */
@@ -640,38 +703,94 @@ export function stairsFrom(sorted: PlanPick[], origins: P2[], levels: Level[], w
   return { stairs, landings, railings, notes }
 }
 
-/** Two models side by side: the imported levels become extra levels (renamed if their elevation is taken). */
+/**
+ * Two models side by side ("Add to the current model"): every element list of the imported model is added — walls,
+ * doors, windows, rooms, columns, slabs (landings, openings), stairs, railings, components, grids, annotations, beams,
+ * footings, roofs — the reinforcement details too when the current model has none. Its levels join the current ones
+ * (the one at the same elevation is shared, the others are added, renamed if their id is taken); wall types of the
+ * same id and make are shared, a different one is renamed. An element whose id is taken gets a new one, and every
+ * reference follows (door / window → host wall, wall → type, element → level, tag → target).
+ */
 export function mergeModels(base: BimModel, add: BimModel): BimModel {
-  const used = new Set(base.levels.map((l) => l.id))
+  // ids already in the model, all lists together (3D items and IFC GlobalIds go by them)
+  const taken = new Set<string>()
+  const lists = (m: BimModel): { id: string }[][] => [m.walls, m.doors, m.windows, m.rooms, m.columns, m.slabs, m.stairs, m.railings, m.components, m.grids, m.annotations, m.beams ?? [], m.footings ?? [], m.roofs ?? []]
+  for (const xs of lists(base)) for (const x of xs) taken.add(x.id)
+  const fresh = (id: string) => {
+    if (!taken.has(id)) { taken.add(id); return id }
+    let k = 2
+    while (taken.has(`${id}-${k}`)) k++
+    taken.add(`${id}-${k}`)
+    return `${id}-${k}`
+  }
+  // levels
+  const usedLv = new Set(base.levels.map((l) => l.id))
   const lmap = new Map<string, string>()
   const levels = [...base.levels]
   for (const l of add.levels) {
     const same = base.levels.find((b) => Math.abs(b.elevation - l.elevation) < 1)
     if (same) { lmap.set(l.id, same.id); continue }
     let id = l.id, k = 1
-    while (used.has(id)) id = `${l.id}-${++k}`
-    used.add(id)
+    while (usedLv.has(id)) id = `${l.id}-${++k}`
+    usedLv.add(id)
     lmap.set(l.id, id)
     levels.push({ ...l, id })
   }
   levels.sort((a, b) => a.elevation - b.elevation)
-  const pre = `cad${Date.now().toString(36)}-`
   const L = (id: string) => lmap.get(id) ?? id
-  const typeIds = new Set(base.wallTypes.map((t) => t.id))
-  const wallTypes = [...base.wallTypes, ...add.wallTypes.filter((t) => !typeIds.has(t.id))]
-  const W = (id: string) => pre + id
+  // wall types: the same id and make shared, another make under a new id
+  const tmap = new Map<string, string>()
+  const wallTypes = [...base.wallTypes]
+  const sameType = (a: BimModel['wallTypes'][number], b: BimModel['wallTypes'][number]) => a.family === b.family && a.thickness === b.thickness && a.structure === b.structure && a.name === b.name
+  for (const t of add.wallTypes) {
+    const b = wallTypes.find((x) => x.id === t.id)
+    if (b && sameType(b, t)) { tmap.set(t.id, t.id); continue }
+    let id = t.id, k = 2
+    while (wallTypes.some((x) => x.id === id)) id = `${t.id}-${k++}`
+    tmap.set(t.id, id)
+    wallTypes.push({ ...t, id })
+  }
+  // element ids: new ones where taken, per list (a reference names an element of one list)
+  const remap = <T extends { id: string }>(xs: T[] | undefined) => { const map = new Map<string, string>(); const out = (xs ?? []).map((x) => { const id = fresh(x.id); map.set(x.id, id); return { ...x, id } }); return { out, map } }
+  const relabel = <T extends { id: string; mark?: string }>(x: T, old: string) => (x.mark === old ? { ...x, mark: x.id } : x)
+  const W = remap(add.walls)
+  const walls = W.out.map((w, i) => relabel({ ...w, typeId: tmap.get(w.typeId) ?? w.typeId, baseLevel: L(w.baseLevel), topLevel: L(w.topLevel) }, add.walls[i].id))
+  const host = (id: string) => W.map.get(id) ?? id
+  const D = remap(add.doors), Wn = remap(add.windows)
+  const doors = D.out.map((o) => ({ ...o, hostWall: host(o.hostWall) }))
+  const windows = Wn.out.map((o) => ({ ...o, hostWall: host(o.hostWall) }))
+  const Rm = remap(add.rooms), C = remap(add.columns), S = remap(add.slabs), St = remap(add.stairs), Rl = remap(add.railings), Cp = remap(add.components)
+  const Bm = remap(add.beams), F = remap(add.footings), Rf = remap(add.roofs), An = remap(add.annotations)
+  // grids: the current ones kept; the imported ones not already there (same label and line) added
+  const sameGrid = (a: BimModel['grids'][number], b: BimModel['grids'][number]) => a.label === b.label && Math.hypot(a.a[0] - b.a[0], a.a[1] - b.a[1]) < 1 && Math.hypot(a.b[0] - b.b[0], a.b[1] - b.b[1]) < 1
+  const newGrids = add.grids.filter((g) => !base.grids.some((b) => sameGrid(b, g)))
+  const G = remap(newGrids)
+  // a tag names an element of any list
+  const target = (id: string | undefined) => {
+    if (id === undefined) return id
+    for (const mp of [W.map, D.map, Wn.map, Rm.map, C.map, S.map, St.map, Rl.map, Cp.map, G.map, Bm.map, F.map, Rf.map]) { const v = mp.get(id); if (v) return v }
+    return id
+  }
+  const has = (xs: unknown[] | undefined) => !!xs && xs.length > 0
   return {
     ...base,
     levels,
     wallTypes,
-    walls: [...base.walls, ...add.walls.map((w) => ({ ...w, id: W(w.id), baseLevel: L(w.baseLevel), topLevel: L(w.topLevel) }))],
-    doors: [...base.doors, ...add.doors.map((o) => ({ ...o, id: pre + o.id, hostWall: W(o.hostWall) }))],
-    windows: [...base.windows, ...add.windows.map((o) => ({ ...o, id: pre + o.id, hostWall: W(o.hostWall) }))],
-    rooms: [...base.rooms, ...add.rooms.map((r) => ({ ...r, id: pre + r.id, level: L(r.level) }))],
-    columns: [...base.columns, ...add.columns.map((c) => ({ ...c, id: pre + c.id, level: L(c.level), topLevel: L(c.topLevel) }))],
-    slabs: [...base.slabs, ...add.slabs.map((s) => ({ ...s, id: pre + s.id, level: L(s.level) }))],
-    components: [...base.components, ...add.components.map((c) => ({ ...c, id: pre + c.id, level: L(c.level) }))],
-    grids: base.grids.length ? base.grids : add.grids,
+    walls: [...base.walls, ...walls],
+    doors: [...base.doors, ...doors],
+    windows: [...base.windows, ...windows],
+    rooms: [...base.rooms, ...Rm.out.map((r) => ({ ...r, level: L(r.level) }))],
+    columns: [...base.columns, ...C.out.map((c, i) => relabel({ ...c, level: L(c.level), topLevel: L(c.topLevel) }, add.columns[i].id))],
+    slabs: [...base.slabs, ...S.out.map((s, i) => relabel({ ...s, level: L(s.level) }, add.slabs[i].id))],
+    stairs: [...base.stairs, ...St.out.map((s) => ({ ...s, baseLevel: L(s.baseLevel), topLevel: L(s.topLevel) }))],
+    railings: [...base.railings, ...Rl.out.map((r) => ({ ...r, level: L(r.level) }))],
+    components: [...base.components, ...Cp.out.map((c, i) => relabel({ ...c, level: L(c.level) }, add.components[i].id))],
+    grids: [...base.grids, ...G.out],
+    annotations: [...base.annotations, ...An.out.map((a) => ({ ...a, level: L(a.level), target: target(a.target) }))],
+    ...(has(base.beams) || has(add.beams) ? { beams: [...(base.beams ?? []), ...Bm.out.map((b) => ({ ...b, level: L(b.level) }))] } : {}),
+    ...(has(base.footings) || has(add.footings) ? { footings: [...(base.footings ?? []), ...F.out.map((f) => ({ ...f, level: L(f.level) }))] } : {}),
+    ...(has(base.roofs) || has(add.roofs) ? { roofs: [...(base.roofs ?? []), ...Rf.out.map((r) => ({ ...r, level: L(r.level) }))] } : {}),
+    ...(base.rebar || add.rebar ? { rebar: base.rebar ?? add.rebar } : {}),
   }
 }
 

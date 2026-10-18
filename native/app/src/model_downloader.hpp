@@ -23,6 +23,7 @@
 
 class QNetworkAccessManager;
 class QNetworkReply;
+class QThread;
 
 namespace thcad::app {
 
@@ -76,6 +77,8 @@ class ModelDownloader : public QObject {
   bool running_ = false;
   std::atomic<bool> cancelled_{false};
   bool verifying_ = false;
+  /** The sha256 thread of the current shard (owned: the destructor stops and joins it before `this` goes). */
+  QThread* verifyThread_ = nullptr;
   int gen_ = 0;  // bumps on every start / cancel: stale timers and threads of an earlier run do nothing
   bool statusChecked_ = false;
   QFile out_;

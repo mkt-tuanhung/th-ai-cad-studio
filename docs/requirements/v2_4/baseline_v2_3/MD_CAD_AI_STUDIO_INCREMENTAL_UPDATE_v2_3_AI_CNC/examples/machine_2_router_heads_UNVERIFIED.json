@@ -1,0 +1,115 @@
+{
+  "schema_version": "2.2.0",
+  "profile_id": "DEMO_2_HEADS_NOT_FOR_MACHINE",
+  "revision": 1,
+  "status": "DRAFT",
+  "machine_type": "CNC_ROUTER",
+  "manufacturer": null,
+  "machine_model": null,
+  "serial_reference": null,
+  "controller": {
+    "name": null,
+    "model": null,
+    "firmware": null,
+    "manual_reference": null,
+    "supported_codes": []
+  },
+  "axes": [
+    "X",
+    "Y",
+    "Z"
+  ],
+  "work_envelope_mm": {
+    "x": null,
+    "y": null,
+    "z": null
+  },
+  "origin": {
+    "stock_corner": null,
+    "z_reference": null,
+    "work_offset": null,
+    "home_calibrated": false
+  },
+  "heads": [
+    {
+      "head_id": "HEAD_1",
+      "type": "ROUTER_SPINDLE",
+      "offset_mm": {
+        "x": null,
+        "y": null,
+        "z": null
+      },
+      "offset_calibrated": false,
+      "activation_mapping_verified": false,
+      "kinematics_group": "UNKNOWN_SHARED_GANTRY",
+      "tools": [
+        {
+          "tool_id": "TOOL_1",
+          "kind": "UNASSIGNED",
+          "diameter_mm": null,
+          "actual_calibrated": false
+        }
+      ],
+      "supported_operations": [
+        "PROFILE",
+        "POCKET",
+        "SLOT"
+      ],
+      "simultaneous_qualified": false
+    },
+    {
+      "head_id": "HEAD_2",
+      "type": "ROUTER_SPINDLE",
+      "offset_mm": {
+        "x": null,
+        "y": null,
+        "z": null
+      },
+      "offset_calibrated": false,
+      "activation_mapping_verified": false,
+      "kinematics_group": "UNKNOWN_SHARED_GANTRY",
+      "tools": [
+        {
+          "tool_id": "TOOL_2",
+          "kind": "UNASSIGNED",
+          "diameter_mm": null,
+          "actual_calibrated": false
+        }
+      ],
+      "supported_operations": [
+        "PROFILE",
+        "POCKET",
+        "SLOT"
+      ],
+      "simultaneous_qualified": false
+    }
+  ],
+  "motion_policy": "SEQUENTIAL_ONLY",
+  "atc": {
+    "supported": false,
+    "magazine_slots": 0
+  },
+  "fixtures": {
+    "bed_type": null,
+    "vacuum_zones": [],
+    "clamp_no_go_shapes": [],
+    "safe_clearance_mm": null
+  },
+  "postprocessor": {
+    "id": null,
+    "version": null,
+    "sha256": null,
+    "approved_for_controller": false
+  },
+  "qualification": {
+    "parser_pass": false,
+    "post_backplot_pass": false,
+    "air_cut_pass": false,
+    "first_article_pass": false,
+    "operator_signed": false,
+    "engineer_signed": false,
+    "qualified_at": null,
+    "evidence_refs": []
+  },
+  "production_export_allowed": false
+}

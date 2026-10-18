@@ -6,6 +6,7 @@ import { rendersEn } from './ws/renders'
 import { render24En } from './ws/render24'
 import { fromCadEn } from './ws/fromCad'
 import { autoEn } from './ws/auto'
+import { importCalEn } from './ws/importCal'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
   app: {
@@ -535,6 +536,7 @@ export const en = {
     },
   },
   auto: autoEn,
+  importCal: importCalEn,
   bim: {
     fromCad: fromCadEn,
     crumbs: { projects: 'Projects', project: 'Villa Riverside', discipline: 'Architecture' },

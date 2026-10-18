@@ -12,6 +12,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QThread>
+#include <utility>
 
 #include <algorithm>
 #include <chrono>
@@ -80,14 +81,25 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
   connect(downloader_, &ModelDownloader::progress, this, [this](const QJsonObject& p) {
     if (p.value("phase").toString() != QStringLiteral("installed")) return emit modelProgress(p);
     modelInstalling_ = true;
-    // verified and in place: load it now and ask a one-word question, so "ready" means the app can call it
+    // verified and in place: load it now and ask a one-word question, so "ready" means the app can call it.
+    // Loading maps 2–5 GB (and uploads it to the GPU): on a worker, never the GUI thread. The runtime holds its
+    // generation lock while the model is swapped, so a running aiTask finishes first and none runs on a
+    // half-loaded model; status() stays responsive (ready = false until the new model is in).
     const QString id = p.value("id").toString(), path = p.value("path").toString();
     emit modelProgress({{"id", id}, {"phase", "load"}});
-    if (!runtime_->load(path.toStdString()))
-      return emit modelProgress({{"id", id}, {"done", true}, {"ok", false}, {"loaded", false}, {"path", path},
-                                 {"error", QStringLiteral("downloaded and verified, but the AI runtime could not load it: ") + QString::fromStdString(runtime_->status().error)}});
-    emit modelProgress({{"id", id}, {"phase", "test"}});
-    QThread* t = QThread::create([this, id, path] {
+    modelLoading_ = true;
+    runWorker([this, id, path] {
+      const bool loaded = runtime_->load(path.toStdString());
+      modelLoading_ = false;
+      if (!loaded) {
+        const QString err = QString::fromStdString(runtime_->status().error);
+        QMetaObject::invokeMethod(this, [this, id, path, err] {
+          emit modelProgress({{"id", id}, {"done", true}, {"ok", false}, {"loaded", false}, {"path", path},
+                              {"error", QStringLiteral("downloaded and verified, but the AI runtime could not load it: ") + err}});
+        }, Qt::QueuedConnection);
+        return;
+      }
+      QMetaObject::invokeMethod(this, [this, id] { emit modelProgress({{"id", id}, {"phase", "test"}}); }, Qt::QueuedConnection);
       ai::GenerateOptions opt;
       opt.maxTokens = 8;
       opt.temperature = 0;
@@ -103,13 +115,32 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
         emit modelProgress(r);
       }, Qt::QueuedConnection);
     });
-    connect(t, &QThread::finished, t, &QObject::deleteLater);
-    t->start();
   });
   if (const std::string model = ai::discoverModel(); !model.empty()) runtime_->load(model);
 }
 
-HostBridge::~HostBridge() = default;  // offscreen_ complete type via offscreen.hpp
+HostBridge::~HostBridge() {
+  // Quitting with work in flight (a model check, load, test question or AI task): stop it and join every
+  // thread before the runtime, the queues and `this` go. Results they queued to `this` are dropped with it.
+  delete downloader_;  // joins its sha256 thread
+  downloader_ = nullptr;
+  runtime_->abort();   // a load stops at its next progress tick, a generation at its next token / graph node
+  const QList<QThread*> workers = std::exchange(workers_, {});
+  for (QThread* t : workers) {
+    t->wait();
+    delete t;
+  }
+}  // offscreen_ complete type via offscreen.hpp
+
+void HostBridge::runWorker(std::function<void()> fn) {
+  QThread* t = QThread::create(std::move(fn));
+  workers_.append(t);
+  connect(t, &QThread::finished, this, [this, t] {
+    workers_.removeOne(t);
+    t->deleteLater();
+  });
+  t->start();
+}
 
 bool HostBridge::nativeViewport() const { return viewport_ != nullptr; }
 
@@ -154,7 +185,7 @@ bool HostBridge::loadModel(const QString& path) { return runtime_->load(path.toS
 void HostBridge::aiRequest(const QString& request) {
   // Generation runs off the UI thread; the resulting proposal is filed on the UI thread.
   const Document snapshot = bus_->document();
-  QThread* t = QThread::create([this, request, snapshot] {
+  runWorker([this, request, snapshot] {
     const ai::RuntimeStatus st = runtime_->status();
     // Generation + validation against a private queue on the snapshot; the proposal is re-filed on
     // the UI thread against the live document (and re-validated again at approval time).
@@ -181,8 +212,6 @@ void HostBridge::aiRequest(const QString& request) {
       emit aiResult(r);
     }, Qt::QueuedConnection);
   });
-  connect(t, &QThread::finished, t, &QObject::deleteLater);
-  t->start();
 }
 
 QJsonObject HostBridge::voiceAvailability(const QString& locale) {
@@ -231,8 +260,9 @@ void HostBridge::voiceTranscribe(const QString& id, const QString& wavBase64, co
 bool HostBridge::aiTask(const QString& taskJson) {
   const QJsonObject task = QJsonDocument::fromJson(taskJson.toUtf8()).object();
   const QString id = task.value("id").toString();
-  if (!runtime_->status().ready) return false;
-  QThread* t = QThread::create([this, task, id] {
+  // no model, or a downloaded one is being swapped in (the UI falls back as with no model)
+  if (modelLoading_ || !runtime_->status().ready) return false;
+  runWorker([this, task, id] {
     ai::GenerateOptions opt;
     opt.system = task.value("system").toString().toStdString();
     opt.grammar = task.value("grammar").toString().toStdString();
@@ -251,8 +281,6 @@ bool HostBridge::aiTask(const QString& taskJson) {
       emit aiTaskResult(r);
     }, Qt::QueuedConnection);
   });
-  connect(t, &QThread::finished, t, &QObject::deleteLater);
-  t->start();
   return true;
 }
 

@@ -64,4 +64,9 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), aiStudio: useAiStudio }
   })
+  // v2.4 manufacturing gate of a CAD 2D document (import calibration / review)
+  import('./cad/provenance').then(({ fabricationAllowed }) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), fabricationAllowed }
+  })
 }

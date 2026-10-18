@@ -11,6 +11,7 @@
  * as plain geometry / text, and a poor scan gives broken lines. The result is a starting point to correct.
  */
 import type { Entity, Vec2 } from './types'
+import { OCR_CONFIDENT } from './importReview'
 
 export interface VectorizeOptions {
   mmPerPx: number
@@ -32,6 +33,8 @@ export interface VectorizeResult {
   threshold: number
   ms: number
   words: { text: string; conf: number }[]
+  /** Words kept for review (confidence below OCR_CONFIDENT), on layer SCAN-TEXT-REVIEW. */
+  review: { text: string; conf: number }[]
 }
 
 const MAX_SIDE = 5000
@@ -86,7 +89,7 @@ export function thin(m: Uint8Array, w: number, h: number) {
 const N8 = (w: number) => [-w - 1, -w, -w + 1, 1, w + 1, w, w - 1, -1]
 
 /** Skeleton → pixel chains between end points / junctions, plus closed loops. */
-export function trace(m: Uint8Array, w: number, h: number): { pts: number[]; closed: boolean }[] {
+export function trace(m: Uint8Array, w: number, h: number): { pts: number[]; closed: boolean; ends?: [Vec2 | null, Vec2 | null] }[] {
   const off = N8(w)
   // node = end point or junction by the crossing number (0→1 transitions around the pixel): staircase
   // pixels of a diagonal have three neighbours but are not junctions
@@ -99,21 +102,32 @@ export function trace(m: Uint8Array, w: number, h: number): { pts: number[]; clo
   const isNode = new Uint8Array(m.length)
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; if (m[i] && crossings(i) !== 2) isNode[i] = 1 }
   const used = new Uint8Array(m.length) // non-node pixels already in a chain
-  const chains: { pts: number[]; closed: boolean }[] = []
+  const chains: { pts: number[]; closed: boolean; ends?: [Vec2 | null, Vec2 | null] }[] = []
   const walk = (start: number, first: number) => {
     const pts = [start, first]
     let prev = start, cur = first
     while (!isNode[cur]) {
       used[cur] = 1
       let next = -1
+      // a pixel that also touches the previous one belongs to another branch at a crossing (going straight on
+      // is preferred): taken only when there is no other way
+      let side = -1
+      const px = prev % w, py = (prev - px) / w
       for (const o of off) {
         const j = cur + o
         if (j === start && pts.length > 3) { next = j; break } // back at the start: a closed loop
-        if (m[j] && j !== prev && (isNode[j] || !used[j]) && !(pts.length > 2 && j === pts[pts.length - 3])) { next = j; if (isNode[j]) break }
+        if (m[j] && j !== prev && (isNode[j] || !used[j]) && !(pts.length > 2 && j === pts[pts.length - 3])) {
+          if (isNode[j]) { next = j; break }
+          const jx = j % w, jy = (j - jx) / w
+          if (Math.abs(jx - px) <= 1 && Math.abs(jy - py) <= 1) side = j
+          else next = j
+        }
       }
+      if (next < 0) next = side
       if (next < 0) break
-      // staircase pixels next to both this pixel and the next one are part of this chain too
-      for (const o of off) { const j = cur + o; if (m[j] && !isNode[j] && j !== next && Math.abs((j % w) - (next % w)) <= 1 && Math.abs(Math.floor(j / w) - Math.floor(next / w)) <= 1) used[j] = 1 }
+      // staircase pixels next to both this pixel and the next one are part of this chain too — not when the next
+      // one is a junction: the pixels around a junction are the first pixels of its other branches
+      if (!isNode[next]) for (const o of off) { const j = cur + o; if (m[j] && !isNode[j] && j !== next && Math.abs((j % w) - (next % w)) <= 1 && Math.abs(Math.floor(j / w) - Math.floor(next / w)) <= 1) used[j] = 1 }
       pts.push(next)
       prev = cur
       cur = next
@@ -140,7 +154,36 @@ export function trace(m: Uint8Array, w: number, h: number): { pts: number[]; clo
     const pts = walk(i, next)
     if (pts.length >= 8) chains.push({ pts, closed: pts[pts.length - 1] === i })
   }
-  return chains
+  // junction clusters (node pixels ≤ 2 px apart): a chain ending at one ends at the cluster's centre — a line
+  // meeting a cross / tick / corner keeps its full length instead of stopping a pixel or two short
+  const label = new Int32Array(m.length).fill(-1)
+  const cent: Vec2[] = []
+  for (let i = 0; i < m.length; i++) {
+    if (!isNode[i] || label[i] >= 0) continue
+    const id = cent.length
+    const st = [i]
+    label[i] = id
+    let sx = 0, sy = 0, n = 0
+    while (st.length) {
+      const k = st.pop()!
+      sx += k % w; sy += Math.floor(k / w); n++
+      // nodes up to 2 px apart are one junction (thinning leaves a crossing as a small group of node pixels)
+      const kx = k % w, ky = (k - kx) / w
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const x = kx + dx, y = ky + dy
+        if (x < 0 || y < 0 || x >= w || y >= h) continue
+        const j = y * w + x
+        if (isNode[j] && label[j] < 0) { label[j] = id; st.push(j) }
+      }
+    }
+    cent.push({ x: sx / n, y: sy / n })
+  }
+  for (const ch of chains) {
+    if (ch.closed) continue
+    const a = ch.pts[0], b = ch.pts[ch.pts.length - 1]
+    ;(ch as { ends?: [Vec2 | null, Vec2 | null] }).ends = [isNode[a] ? cent[label[a]] : null, isNode[b] ? cent[label[b]] : null]
+  }
+  return chains as { pts: number[]; closed: boolean; ends?: [Vec2 | null, Vec2 | null] }[]
 }
 
 /** Ramer–Douglas–Peucker. */
@@ -247,6 +290,29 @@ function despeckle(m: Uint8Array, w: number, h: number, min: number) {
 
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
+/**
+ * Clears a recognised word's box from the line image — except rows / columns of ink that run straight through the
+ * whole box and go on outside it on both sides: those are lines (a dimension line, a wall) the word box overlaps,
+ * and cutting them would break the line in two (v2.4: dimension lines must keep their true length).
+ */
+export function eraseBox(m: Uint8Array, w: number, h: number, bx0: number, by0: number, bx1: number, by1: number) {
+  const x0 = Math.max(0, bx0), y0 = Math.max(0, by0), x1 = Math.min(w - 1, bx1), y1 = Math.min(h - 1, by1)
+  const keepRow = new Uint8Array(y1 - y0 + 1), keepCol = new Uint8Array(x1 - x0 + 1)
+  for (let y = y0; y <= y1; y++) {
+    if (x0 < 2 || x1 > w - 3 || !m[y * w + x0 - 2] || !m[y * w + x1 + 2]) continue
+    let full = true
+    for (let x = x0; x <= x1 && full; x++) full = !!m[y * w + x]
+    if (full) keepRow[y - y0] = 1
+  }
+  for (let x = x0; x <= x1; x++) {
+    if (y0 < 2 || y1 > h - 3 || !m[(y0 - 2) * w + x] || !m[(y1 + 2) * w + x]) continue
+    let full = true
+    for (let y = y0; y <= y1 && full; y++) full = !!m[y * w + x]
+    if (full) keepCol[x - x0] = 1
+  }
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (!keepRow[y - y0] && !keepCol[x - x0]) m[y * w + x] = 0
+}
+
 export async function vectorize(source: CanvasImageSource & { width: number; height: number }, opts: VectorizeOptions): Promise<VectorizeResult> {
   const t0 = performance.now()
   const k = Math.min(1, MAX_SIDE / Math.max(source.width, source.height))
@@ -275,6 +341,7 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
   const entities: Entity[] = []
   const counts = { lines: 0, polylines: 0, circles: 0, texts: 0 }
   const words: { text: string; conf: number }[] = []
+  const review: { text: string; conf: number }[] = []
   let allWords: VectorizeResult['allWords']
   let n = 0
   const W = (x: number, y: number): Vec2 => ({ x: x * mm, y: (h - y) * mm })
@@ -318,12 +385,22 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
       const text = wd.text.trim()
       const { x0, y0, x1, y1 } = wd.bbox
       const bh = y1 - y0
-      // real words: confident, letter-sized, not a long thin run (that is a line)
-      if (!text || wd.confidence < 65 || bh < 6 || bh > h * 0.12 || x1 - x0 > w * 0.6 || !/[\p{L}\p{N}]/u.test(text)) continue
-      words.push({ text, conf: Math.round(wd.confidence) })
-      entities.push({ ...base, id: `scan${++n}`, kind: 'text', layer: 'SCAN-TEXT', p: W(x0, y1), height: bh * mm * 0.72, value: text, rotation: 0, align: 'left' })
+      const cls = classifyWord(text, wd.confidence, wd.bbox, w, h)
+      if (cls === 'drop') continue
+      const conf = Math.round(wd.confidence)
+      // v2.4: an uncertain reading is kept for review (own layer, confidence on the entity), never silently dropped;
+      // its pixels stay in the line image (it may be part of the drawing, not text)
+      const src = { id: '', confidence: conf / 100, bbox: { x0: x0 * mm, y0: (h - y1) * mm, x1: x1 * mm, y1: (h - y0) * mm } }
+      if (cls === 'review') {
+        review.push({ text, conf })
+        entities.push({ ...base, id: `scan${++n}`, kind: 'text', layer: 'SCAN-TEXT-REVIEW', p: W(x0, y1), height: bh * mm * 0.72, value: text, rotation: 0, align: 'left', src: { ...src, reviewRequired: true } })
+        counts.texts++
+        continue
+      }
+      words.push({ text, conf })
+      entities.push({ ...base, id: `scan${++n}`, kind: 'text', layer: 'SCAN-TEXT', p: W(x0, y1), height: bh * mm * 0.72, value: text, rotation: 0, align: 'left', src })
       counts.texts++
-      for (let y = Math.max(0, y0 - 1); y <= Math.min(h - 1, y1 + 1); y++) for (let x = Math.max(0, x0 - 1); x <= Math.min(w - 1, x1 + 1); x++) m[y * w + x] = 0
+      eraseBox(m, w, h, x0 - 1, y0 - 1, x1 + 1, y1 + 1)
     }
   }
 
@@ -335,6 +412,8 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
   await tick()
   for (const ch of trace(m, w, h)) {
     let pts = ch.pts.map((i) => ({ x: i % w, y: Math.floor(i / w) }))
+    if (ch.ends?.[0]) pts[0] = ch.ends[0]
+    if (ch.ends?.[1]) pts[pts.length - 1] = ch.ends[1]
     if (pts.length < 4 && !ch.closed) {
       const L = Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].y - pts[0].y)
       if (L < 3) continue
@@ -365,5 +444,16 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
       counts.polylines++
     }
   }
-  return { entities, counts, w, h, threshold, ms: Math.round(performance.now() - t0), words, allWords }
+  return { entities, counts, w, h, threshold, ms: Math.round(performance.now() - t0), words, review, allWords }
+}
+
+/**
+ * What to do with an OCR word: 'keep' (confident text), 'review' (letter-sized text read with confidence below
+ * OCR_CONFIDENT — kept, flagged for the user), 'drop' (not text: empty, no letter / digit, too small, taller
+ * than 12 % of the page or wider than 60 % — a line or a frame).
+ */
+export function classifyWord(text: string, confidence: number, bbox: { x0: number; y0: number; x1: number; y1: number }, w: number, h: number): 'keep' | 'review' | 'drop' {
+  const bh = bbox.y1 - bbox.y0
+  if (!text.trim() || bh < 6 || bh > h * 0.12 || bbox.x1 - bbox.x0 > w * 0.6 || !/[\p{L}\p{N}]/u.test(text)) return 'drop'
+  return confidence < OCR_CONFIDENT ? 'review' : 'keep'
 }

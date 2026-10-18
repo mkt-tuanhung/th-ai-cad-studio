@@ -432,8 +432,6 @@ int SceneView::addBuilding(const bim::Model& m, bool ground) {
     d->ctx->Display(e.ais, AIS_Shaded, -1, false);
     d->items[id] = std::move(e);
   };
-  struct Box2 { double x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18; };
-  std::map<std::string, Box2> spans;  // level id → plan extent of the walls that start or end there
   int n = 0;
   for (const auto& w : m.walls) {
     const bim::WallType* t = m.type(w.typeId);
@@ -455,21 +453,41 @@ int SceneView::addBuilding(const bim::Model& m, bool ground) {
         TopoDS_Shape pane = BRepPrimAPI_MakeBox(gp_Pnt(o.offset, th / 2 - 10, o.sill), o.width, 20, o.height).Shape();
         add("glass:" + o.id, BRepBuilderAPI_Transform(pane, place, true).Shape(), {0.55, 0.7, 0.78}, "glass", "glass");
       }
-    const double a = w.angleDeg * kPiScene / 180;
-    const double ex = w.x + std::cos(a) * w.length, ey = w.y + std::sin(a) * w.length;
-    if (ext)
-      for (const std::string& lv : {w.baseLevel, w.topLevel}) {
-        Box2& b = spans[lv];
-        b.x0 = std::min({b.x0, w.x, ex}), b.x1 = std::max({b.x1, w.x, ex});
-        b.y0 = std::min({b.y0, w.y, ey}), b.y1 = std::max({b.y1, w.y, ey});
-      }
   }
-  for (const auto& [lv, b] : spans) {
+  // a default floor / roof slab spanning each level's exterior walls, unless the drawn slabs make that floor
+  // (an imported plan); a balcony, a landing or a part slab does not replace it
+  for (const auto& [lv, b] : bim::levelWallSpans(m)) {
     const bim::Level* l = m.level(lv);
-    if (!l || b.x1 <= b.x0) continue;
-    if (std::find(m.slabLevels.begin(), m.slabLevels.end(), lv) != m.slabLevels.end()) continue;  // drawn slab there
+    if (!l || b[2] <= b[0]) continue;
     // slab top at the level, outer face of the 200 mm exterior walls
-    add("slab:" + lv, BRepPrimAPI_MakeBox(gp_Pnt(b.x0 - 100, b.y0 - 100, l->elevation - 200), b.x1 - b.x0 + 200, b.y1 - b.y0 + 200, 200).Shape(), {0.8, 0.79, 0.77}, "matte", "floor");
+    const std::array<double, 4> box{b[0] - 100, b[1] - 100, b[2] + 100, b[3] + 100};
+    if (!bim::defaultSlabNeeded(m, lv, box)) continue;
+    // the drawn slabs on this level that lie inside it are taken out of it (no doubled concrete, no
+    // coplanar faces fighting in the view, one outline in sections)
+    SceneItem slab;
+    Prim p;
+    p.f.o = {box[0], box[1], l->elevation - 200};
+    p.s = {box[2] - box[0], box[3] - box[1], 200};
+    slab.parts.push_back(p);
+    for (const bim::Slab& ds : m.slabs) {
+      if (ds.level != lv || ds.kind == bim::Slab::Kind::Ceiling || ds.landing || ds.outline.size() < 3) continue;
+      if (bim::drawnSlabArea(bim::Model{.slabs = {ds}}, lv, box) <= 0) continue;
+      Prim c;
+      c.kind = Prim::Kind::Prism;
+      c.f.o = {0, 0, l->elevation - 210};
+      c.pts = ds.outline;
+      c.s = {220, 0, 0};
+      slab.cuts.push_back(c);
+    }
+    bool failed = false;
+    TopoDS_Shape shape;
+    try {
+      shape = buildItem(slab, &failed);
+    } catch (...) {
+      failed = true;
+    }
+    if (failed || shape.IsNull()) shape = BRepPrimAPI_MakeBox(gp_Pnt(box[0], box[1], l->elevation - 200), box[2] - box[0], box[3] - box[1], 200).Shape();
+    add("slab:" + lv, shape, {0.8, 0.79, 0.77}, "matte", "floor");
   }
   if (ground) add("ground", BRepPrimAPI_MakeBox(gp_Pnt(-40000, -40000, -350), 94000, 90000, 200).Shape(), {0.5, 0.56, 0.42}, "matte", "ground");
   d->applyStyle();
