@@ -19,6 +19,7 @@ import { InteriorBottom } from './InteriorBottom'
 import { InteriorRight } from './InteriorRight'
 import { CabinetDialog } from './CabinetDialog'
 import { NestingDialog } from './NestingDialog'
+import { StyleDialog } from './StyleFromPhoto'
 import { FromCadDialog } from '../bim/FromCadDialog'
 import { useKeyActions } from '../../platform/useKeyActions'
 import { getHost } from '../../services/host'
@@ -166,6 +167,7 @@ export function InteriorScreen() {
       </div>
       {cabOpen && <CabinetDialog onClose={() => setCabOpen(false)} />}
       {st.nestingOpen && <NestingDialog onClose={() => st.set({ nestingOpen: false })} />}
+      {st.styleDlg && <StyleDialog />}
       {fromCad && <FromCadDialog interior onClose={() => setFromCad(false)} />}
     </div>
   )

@@ -4,13 +4,14 @@ import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useInterior, type InteriorRight as Tab } from '../../state/interior'
 import { DemoTag, NumField, PRow, PSelect, PanelTabs, Section, Select, wsStyles as w } from '../../components/workspace/Workspace'
-import { MATERIALS, PRESETS, area, cutList, cutTotals, dimsLabel, perimeter, type Cabinet, type Item, type ItemCategory, type Room } from '../../interior/model'
+import { MATERIALS, PRESETS, area, cutList, cutTotals, dimsLabel, perimeter, type Cabinet, type Item, type ItemCategory, type Material, type Room } from '../../interior/model'
 import { AiResult, useAiAssist } from '../../components/ai/AiAssist'
 import { interiorAi } from '../../ai/disciplines/interior'
 import { ItemSpaceSections, RoomDoors } from './SpaceInspector'
 import { resizeItem } from '../../interior/layout'
 import { commit } from './spaceKit'
 import { HardwareDialog } from './HardwareDialog'
+import { dragHasFiles, imageFilesOf, startStyleReading, StylePanel, useVisionStatus } from './StyleFromPhoto'
 import s from './Interior.module.css'
 
 const n1 = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 })
@@ -178,7 +179,7 @@ function RoomProps({ r }: { r: Room }) {
   const { edit } = useInterior()
   const { rn, mn } = useNames()
   const up = (label: string, patch: Partial<Room>) => report(edit(`${r.name}: ${label}`, (d) => ({ ...d, rooms: d.rooms.map((x) => (x.id === r.id ? { ...x, ...patch } : x)) })), t)
-  const fin = (k: 'floorFinish' | 'wallFinish' | 'ceilingFinish', kinds: string[]) => (
+  const fin = (k: 'floorFinish' | 'wallFinish' | 'ceilingFinish', kinds: Material['kind'][]) => (
     <PSelect label={p[k]} value={r[k]} onChange={(v) => up(p[k], { [k]: v } as Partial<Room>)} options={MATERIALS.filter((m) => kinds.includes(m.kind)).map((m) => ({ value: m.name, label: mn(m.name) }))} />
   )
   return (
@@ -197,8 +198,8 @@ function RoomProps({ r }: { r: Room }) {
       </Section>
       <Section title={p.finish}>
         <PRow label={p.floorFinish}>{fin('floorFinish', ['tile', 'wood', 'stone'])}</PRow>
-        <PRow label={p.wallFinish}>{fin('wallFinish', ['paint', 'tile', 'wood'])}</PRow>
-        <PRow label={p.ceilingFinish}>{fin('ceilingFinish', ['gypsum', 'paint', 'wood'])}</PRow>
+        <PRow label={p.wallFinish}>{fin('wallFinish', ['paint', 'tile', 'wood', 'stone'])}</PRow>
+        <PRow label={p.ceilingFinish}>{fin('ceilingFinish', ['gypsum', 'paint', 'wood', 'stone'])}</PRow>
       </Section>
       <RoomDoors r={r} />
     </>
@@ -245,9 +246,14 @@ function AiTab() {
   const T = useT()
   const t = T.interior
   const a = t.aiPanel
-  const { doc, room, styles, prompt, appliedPreset, edit, set } = useInterior()
+  const { doc, room, styles, prompt, appliedPreset, styleRef, edit, set } = useInterior()
   const { rn, mn } = useNames()
   const [sub, setSub] = useState<'suggestions' | 'generate' | 'modify'>('suggestions')
+  // reference photo → style: the real block replaces the DEMO cards in the desktop app (local model, or the basic
+  // analysis without it) and once photos were read; the browser preview keeps the mockup cards (photos can be dropped)
+  const vision = useVisionStatus()
+  const realStyle = !!styleRef || vision !== null
+  const [dropOn, setDropOn] = useState(false)
   const [sent, setSent] = useState(false)
   // desktop: the brief goes to the local model, which proposes changes to approve (see components/ai)
   const ai = useAiAssist(interiorAi, doc, (label, next) => edit(label, () => next))
@@ -315,21 +321,45 @@ function AiTab() {
         )}
       </div>
 
-      <section className={s.sugg}>
-        <header>
-          <Sparkles size={16} strokeWidth={1.6} />
-          <b>{a.suggestions}</b>
-          <DemoTag />
-          <button type="button" className={w.link} onClick={() => toast(a.presetNote)}>{a.viewAll}</button>
-        </header>
-        {PRESETS.map((p) => (
-          <figure key={p.key} className={s.suggCard}>
-            <img src={p.image} alt={a.presets[p.key]} draggable={false} />
-            <figcaption>{a.presets[p.key]}</figcaption>
-            <button type="button" onClick={() => applyPreset(p.key)}>{appliedPreset === p.key ? a.applied : a.apply}</button>
-          </figure>
-        ))}
-        <img className={s.suggMore} src="/assets/v2/interior/sugg-third.png" alt="" draggable={false} />
+      <section
+        className={s.sugg}
+        data-testid="ai-suggestions"
+        style={dropOn ? { outline: '2px dashed #1a8a8c', outlineOffset: -2 } : undefined}
+        onDragOver={(e) => {
+          if (!dragHasFiles(e)) return
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+          setDropOn(true)
+        }}
+        onDragLeave={() => setDropOn(false)}
+        onDrop={(e) => {
+          setDropOn(false)
+          const f = imageFilesOf(e)
+          if (!f.length) return
+          e.preventDefault()
+          void startStyleReading(f, r.id)
+        }}
+      >
+        {realStyle ? (
+          <StylePanel vision={vision} />
+        ) : (
+          <>
+            <header>
+              <Sparkles size={16} strokeWidth={1.6} />
+              <b>{a.suggestions}</b>
+              <DemoTag />
+              <button type="button" className={w.link} onClick={() => toast(a.presetNote)}>{a.viewAll}</button>
+            </header>
+            {PRESETS.map((p) => (
+              <figure key={p.key} className={s.suggCard}>
+                <img src={p.image} alt={a.presets[p.key]} draggable={false} />
+                <figcaption>{a.presets[p.key]}</figcaption>
+                <button type="button" onClick={() => applyPreset(p.key)}>{appliedPreset === p.key ? a.applied : a.apply}</button>
+              </figure>
+            ))}
+            <img className={s.suggMore} src="/assets/v2/interior/sugg-third.png" alt="" draggable={false} />
+          </>
+        )}
       </section>
 
       <section className={s.roomInfo}>

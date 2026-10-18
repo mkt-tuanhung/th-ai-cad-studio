@@ -11,6 +11,7 @@ import { materialSpec } from '../../interior/materials'
 import { checkClearance } from '../../interior/clearance'
 import { wallFaces } from '../../interior/geom'
 import { commit, rulesOf } from './spaceKit'
+import { dragHasFiles, imageFilesOf, startStyleReading } from './StyleFromPhoto'
 import s from './InteriorPlan.module.css'
 
 type P2 = [number, number]
@@ -161,6 +162,16 @@ export function InteriorPlan() {
     return [e.clientX - r.left, e.clientY - r.top]
   }
   const drop = (e: React.DragEvent) => {
+    // reference photos dropped on a room: read its style (Interior → AI → "Phong cách từ ảnh mẫu")
+    const photos = imageFilesOf(e)
+    if (photos.length && view) {
+      e.preventDefault()
+      const [x, y] = local(e)
+      const p = W(x, y)
+      const room = st.doc.rooms.find((r) => inRoom(r, p)) ?? st.doc.rooms.find((r) => r.id === st.room)
+      if (room) void startStyleReading(photos, room.id)
+      return
+    }
     const key = e.dataTransfer.getData(ASSET)
     const a = assetByKey(key)
     if (!a || !view) return
@@ -302,7 +313,7 @@ export function InteriorPlan() {
       data-view={view ? `${view.cx},${view.cy},${view.k}` : ''}
       data-preview={preview ? preview.label : undefined}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(ASSET)) {
+        if (e.dataTransfer.types.includes(ASSET) || dragHasFiles(e)) {
           e.preventDefault()
           e.dataTransfer.dropEffect = 'copy'
         }

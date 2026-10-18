@@ -24,6 +24,23 @@ export interface SpacePreview {
   doc: InteriorDoc
 }
 
+/** Reference photos → style (v2.4, AI panel): the photos, the reading and its result for one room (not persisted —
+ *  photos stay in memory only). */
+export interface StyleSession {
+  room: string
+  images: import('../services/vision').RefImage[]
+  status: 'reading' | 'done' | 'error'
+  /** Basic (no model) or model reading under way. */
+  withModel?: boolean
+  analysis?: import('../interior/styleRef').StyleAnalysis
+  raw?: string
+  modelError?: string
+  device?: string
+  error?: string
+  started: number
+}
+export type StyleStep = 'analysis' | 'options' | 'render'
+
 /** Plan views of the interior: furniture layout (floor), reflected ceiling, finishes. */
 export type InteriorPlan = 'floor' | 'ceiling' | 'finish'
 
@@ -85,6 +102,10 @@ interface InteriorState extends Undoable<InteriorDoc> {
   inst: number
   /** Option / proposal being previewed (plan + 3D show it; nothing is applied). */
   preview: SpacePreview | null
+  /* ---- reference photo → style (not persisted) ---- */
+  styleRef: StyleSession | null
+  /** The style dialog, open at this step. */
+  styleDlg: StyleStep | null
 
   edit: (label: string, fn: (d: InteriorDoc) => InteriorDoc) => string | null
   undo: () => string | null
@@ -161,6 +182,8 @@ export const useInterior = create<InteriorState>()(
       spTab: 'library',
       inst: 0,
       preview: null,
+      styleRef: null,
+      styleDlg: null,
       ...undoableActions<InteriorDoc, InteriorState>(get, set, validateInterior),
       set: (p) => set(p),
       reset: () => set({ doc: initialDoc(), undoStack: [], redoStack: [], sel: null, appliedPreset: null, preview: null, inst: 0 }),

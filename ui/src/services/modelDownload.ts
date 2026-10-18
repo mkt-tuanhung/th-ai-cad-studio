@@ -5,6 +5,8 @@ import { getHost } from './host'
 export interface CatalogueModel {
   id: string
   label: string
+  /** text = the in-app AI model; vision = the reference-photo model (read by the llama-mtmd-cli helper). */
+  kind?: 'text' | 'vision'
   bytes: number
   installed: boolean
   /** Bytes already on disk from an interrupted download (resumes from there). */

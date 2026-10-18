@@ -5,6 +5,7 @@ import { mechEn } from './ws/mechanical'
 import { rendersEn } from './ws/renders'
 import { render24En } from './ws/render24'
 import { assetLibEn } from './ws/assetLib'
+import { styleRefEn } from './ws/styleRef'
 import { fromCadEn } from './ws/fromCad'
 import { autoEn } from './ws/auto'
 import { cncEn } from './ws/cnc'
@@ -1089,6 +1090,7 @@ export const en = {
   renders: rendersEn,
   render24: render24En,
   assetLib: assetLibEn,
+  styleRef: styleRefEn,
   components: {
     title: 'Components Library',
     subtitle: 'Shared design assets for all disciplines. Search, browse and use high-quality components, blocks and families.',

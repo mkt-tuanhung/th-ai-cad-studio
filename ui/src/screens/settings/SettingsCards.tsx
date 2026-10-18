@@ -13,6 +13,7 @@ import { collisionText } from '../../platform/profileState'
 import { openCheatsheet, openHistory } from '../../platform/ui'
 import ps from '../../platform/Platform.module.css'
 import { getHost } from '../../services/host'
+import type { VisionStatus } from '../../services/vision'
 import { onModelDownloadDone, useModelDownload } from '../../services/modelDownload'
 import { clearCaches, formatGb, type SystemStatus } from '../../services/system'
 import { formatAngle, formatArea, formatLength } from '../../lib/units'
@@ -144,8 +145,8 @@ export function AiModelCard(p: CardProps) {
       : [{ value: '', label: A.none }]
   const dl = useModelDownload()
   // the download block sits in the card while there is no model, or while a download runs / just ended;
-  // once the AI is ready it stays one click away in Manage Models
-  const showDownload = !demo && (!sys!.ai.ready || !!dl.progress || !!dl.result)
+  // once the AI is ready it stays one click away in Manage Models (the photo-reading model has its own block there)
+  const showDownload = !demo && (!sys!.ai.ready || (!!dl.progress && !isVisionId(dl.progress.id)) || (!!dl.result && !isVisionId(dl.result.id)))
   const used = sys?.ai.vramUsedGb ?? 0
   const total = sys?.ai.vramTotalGb ?? 0
   const pct = total ? Math.round((used / total) * 100) : 0
@@ -179,6 +180,7 @@ export function AiModelCard(p: CardProps) {
           <p className={s.modalPath}>{folderPath('modelsDir', p.draft.modelsDir, sys)}</p>
           {!demo && <ModelDownload onDone={p.refresh} />}
           <SpeechModel />
+          <VisionModel />
           <InteriorLibrary />
           <ul className={s.modelList}>
             {models.map((m) => (
@@ -205,14 +207,20 @@ export function AiModelCard(p: CardProps) {
 function ModelDownload({ onDone }: { onDone: () => void }) {
   const D = useT().settings.ai.dl
   const T = useT().platform
-  const { state, progress, result, refresh, start, cancel } = useModelDownload()
+  const dl = useModelDownload()
+  const { refresh, start, cancel } = dl
+  // the text models only: the photo-reading model is downloaded from its own block (VisionModel)
+  const progress = dl.progress && !isVisionId(dl.progress.id) ? dl.progress : null
+  const result = dl.result && !isVisionId(dl.result.id) ? dl.result : null
+  const otherBusy = !!dl.progress && !progress
+  const state = dl.state && { ...dl.state, models: dl.state.models.filter((m) => m.kind !== 'vision') }
   const [pick, setPick] = useState<string | null>(null)
   useEffect(() => {
     void refresh()
     return onModelDownloadDone(() => onDone())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  if (!state) return null
+  if (!state || !state.models.length) return null
   const chosen = state.models.find((m) => m.id === (pick ?? progress?.id ?? state.recommended)) ?? state.models[0]
   const busy = !!progress
   const left = chosen.bytes - chosen.partialBytes
@@ -273,12 +281,81 @@ function ModelDownload({ onDone }: { onDone: () => void }) {
           <ActionButton onClick={() => void cancel()} disabled={progress?.phase === 'load' || progress?.phase === 'test'}>{D.pause}</ActionButton>
         ) : (
           !chosen.installed && (
-            <ActionButton variant="primary" onClick={() => void start(chosen.id)}>
+            <ActionButton variant="primary" disabled={otherBusy} onClick={() => void start(chosen.id)}>
               {chosen.partialBytes > 0 ? fmt(D.resume, { size: formatGb(left) }) : fmt(D.download, { size: formatGb(chosen.bytes) })}
             </ActionButton>
           )
         )}
       </div>
+    </div>
+  )
+}
+
+const isVisionId = (id?: string) => !!id && /-vl-/i.test(id)
+
+/**
+ * Photo-reading model (Interior → AI → "Phong cách từ ảnh mẫu"): Qwen2.5-VL-7B + its projector, read by the llama-mtmd-cli
+ * helper. Same host downloader as the AI model (free space, resume, sha256, atomic install into <models>/vision).
+ */
+function VisionModel() {
+  const V = useT().styleRef.settings
+  const D = useT().settings.ai.dl
+  const { state, progress, result, refresh, start, cancel } = useModelDownload()
+  const [st, setSt] = useState<VisionStatus | null | 'browser'>(null)
+  const load = async () => {
+    const h = await getHost()
+    setSt(h ? await h.visionStatus() : 'browser')
+  }
+  useEffect(() => {
+    void load()
+    void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    if (result && isVisionId(result.id)) void load()
+  }, [result])
+  const m = state?.models.find((x) => x.kind === 'vision')
+  const mine = progress && isVisionId(progress.id) ? progress : null
+  const pct = (a = 0, b = 1) => Math.max(0, Math.min(100, Math.floor((a / b) * 100)))
+  let line = ''
+  let bar: number | null = null
+  if (mine?.phase === 'download') {
+    bar = pct(mine.received, mine.total ?? m?.bytes)
+    line = fmt(D.downloading, { got: formatGb(mine.received ?? 0), total: formatGb(mine.total ?? m?.bytes ?? 0) })
+    if ((mine.shards ?? 1) > 1) line += ' · ' + fmt(D.part, { n: mine.shard ?? 1, of: mine.shards ?? 1 })
+  } else if (mine?.phase === 'verify') {
+    bar = pct(mine.received, mine.total)
+    line = fmt(D.verifying, { pct: bar })
+  } else if (mine?.phase === 'retry') line = fmt(D.retry, { why: mine.error ?? '', s: mine.inSeconds ?? 0, n: mine.attempt ?? 1 })
+  const ready = st && st !== 'browser' && st.available
+  return (
+    <div className={s.speech} data-testid="vision-model">
+      <b>{V.title}</b>
+      <p>{V.text}</p>
+      <p data-testid="vision-status">
+        {st === 'browser' ? V.browser : !st ? '…' : st.available ? fmt(V.ready, { model: st.model, mmproj: st.mmproj, size: formatGb(st.modelBytes) }) : !st.helper ? V.noHelper : fmt(V.missing, { size: formatGb(m?.bytes ?? 0) })}
+      </p>
+      {ready && (st as VisionStatus).device && <p>{fmt(V.readyDevice, { device: (st as VisionStatus).device! })}</p>}
+      {mine && (
+        <div className={s.dlProgress} data-testid="vision-progress">
+          <span className={s.bar}><span style={{ width: `${bar ?? 100}%` }} className={bar === null ? s.dlPulse : ''} /></span>
+          <span>{line}</span>
+        </div>
+      )}
+      {!mine && result && isVisionId(result.id) && (
+        <p className={result.ok ? s.dlOk : s.dlErr} data-testid="vision-result">{result.ok ? V.done : result.cancelled ? fmt(D.paused, { got: formatGb(m?.partialBytes ?? 0) }) : fmt(D.failed, { why: hostError(result.error, useSettings.getState().language) })}</p>
+      )}
+      {st && st !== 'browser' && !st.available && m && !m.installed && (
+        <div className={s.dlActions}>
+          {mine ? (
+            <ActionButton onClick={() => void cancel()}>{D.pause}</ActionButton>
+          ) : (
+            <ActionButton variant="primary" disabled={!!progress} onClick={() => void start(m.id)} data-testid="vision-download">
+              {m.partialBytes > 0 ? fmt(D.resume, { size: formatGb(m.bytes - m.partialBytes) }) : fmt(D.download, { size: formatGb(m.bytes) })}
+            </ActionButton>
+          )}
+        </div>
+      )}
     </div>
   )
 }
