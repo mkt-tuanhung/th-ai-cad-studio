@@ -1,6 +1,7 @@
 #include "thcad/bim/model.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <tuple>
 
 namespace thcad::bim {
@@ -82,6 +83,79 @@ double wallArea(const Model& m, const Wall& w) { return w.length * wallHeight(m,
 double wallVolume(const Model& m, const Wall& w) {
   const WallType* t = m.type(w.typeId);
   return wallArea(m, w) * (t ? t->thickness : 0) / 1000;
+}
+
+std::map<std::string, std::array<double, 4>> levelWallSpans(const Model& m) {
+  constexpr double kPi = 3.14159265358979323846;
+  std::map<std::string, std::array<double, 4>> spans;
+  for (const Wall& w : m.walls) {
+    const WallType* t = m.type(w.typeId);
+    if ((t ? t->thickness : 200) < 200) continue;  // exterior walls only
+    const double a = w.angleDeg * kPi / 180;
+    const double ex = w.x + std::cos(a) * w.length, ey = w.y + std::sin(a) * w.length;
+    for (const std::string& lv : {w.baseLevel, w.topLevel}) {
+      auto [it, fresh] = spans.try_emplace(lv, std::array<double, 4>{1e18, 1e18, -1e18, -1e18});
+      std::array<double, 4>& b = it->second;
+      b[0] = std::min({b[0], w.x, ex}), b[2] = std::max({b[2], w.x, ex});
+      b[1] = std::min({b[1], w.y, ey}), b[3] = std::max({b[3], w.y, ey});
+    }
+  }
+  return spans;
+}
+
+namespace {
+/** |area| (mm²) of a closed polygon clipped to an axis-aligned box (Sutherland–Hodgman: the box is convex). */
+double clippedArea(std::vector<P2> poly, const std::array<double, 4>& box) {
+  for (int edge = 0; edge < 4 && poly.size() >= 3; ++edge) {
+    const int axis = edge % 2;          // 0: x, 1: y
+    const bool lower = edge < 2;        // keep ≥ box[axis] (lower bound) or ≤ box[axis + 2] (upper bound)
+    const double lim = lower ? box[axis] : box[axis + 2];
+    auto inside = [&](const P2& p) { return lower ? p[axis] >= lim : p[axis] <= lim; };
+    std::vector<P2> out;
+    for (size_t i = 0; i < poly.size(); ++i) {
+      const P2 &a = poly[i], &b = poly[(i + 1) % poly.size()];
+      const bool ia = inside(a), ib = inside(b);
+      if (ia) out.push_back(a);
+      if (ia != ib) {
+        const double t = (lim - a[axis]) / (b[axis] - a[axis]);
+        out.push_back({a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])});
+      }
+    }
+    poly = std::move(out);
+  }
+  if (poly.size() < 3) return 0;
+  double s = 0;
+  for (size_t i = 0; i < poly.size(); ++i) {
+    const P2 &a = poly[i], &b = poly[(i + 1) % poly.size()];
+    s += a[0] * b[1] - b[0] * a[1];
+  }
+  return std::abs(s) / 2;
+}
+}  // namespace
+
+double drawnSlabArea(const Model& m, const std::string& level, const std::array<double, 4>& box) {
+  double area = 0;
+  for (const Slab& s : m.slabs) {
+    if (s.level != level || s.kind == Slab::Kind::Ceiling || s.landing) continue;
+    if (std::abs(s.offset) > 1000) continue;  // a slab part way up the storey is not this level's floor
+    double a = clippedArea(s.outline, box);
+    for (const auto& hole : s.openings) a -= clippedArea(hole, box);
+    area += std::max(0.0, a);
+  }
+  return area;
+}
+
+bool defaultSlabNeeded(const Model& m, const std::string& level, const std::array<double, 4>& box) {
+  const double boxArea = std::max(0.0, box[2] - box[0]) * std::max(0.0, box[3] - box[1]);
+  if (boxArea <= 0) return false;
+  const double drawn = drawnSlabArea(m, level, box);
+  if (drawn <= 0) return true;
+  if (drawn >= 0.65 * boxArea) return false;
+  // an L-shaped or courtyard plan: its real floor is well under the box; the rooms tell how big it is
+  double rooms = 0;
+  for (const Room& r : m.rooms)
+    if (r.level == level) rooms += r.area * 1e6;
+  return !(rooms > 0 && drawn >= 0.9 * rooms && drawn >= 0.4 * boxArea);
 }
 
 std::vector<CheckResult> runModelChecks(const Model& m) {

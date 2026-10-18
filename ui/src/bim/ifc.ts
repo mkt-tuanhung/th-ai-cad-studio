@@ -4,29 +4,24 @@
  * Project → Site → Building → one IfcBuildingStorey per level. Walls are extruded rectangles on their
  * placement line; each door / window cuts its host through an IfcOpeningElement (IfcRelVoidsElement) and
  * fills it (IfcRelFillsElement). Slabs / roofs are extruded outlines (IfcSlab FLOOR / ROOF), ceilings are
- * IfcCovering CEILING, columns, stairs (one extrusion per step), railings, furniture, curtain walls and rooms
- * (IfcSpace) follow. Materials go through IfcRelAssociatesMaterial, quantities through IfcElementQuantity.
+ * IfcCovering CEILING, columns, stairs (the flight's section — steps on the waist slab — swept across its width),
+ * railings, furniture, curtain walls and rooms (IfcSpace, a core as a void) follow. Materials go through
+ * IfcRelAssociatesMaterial, quantities through IfcElementQuantity.
  * Units: millimetre, m², m³, radian. GlobalIds come from each element's guid (identity v3: the UUID compressed to
- * 22 characters), so an element keeps its GlobalId across edits and exports; elements without one (older data) fall
- * back to a hash of their id. Arc walls are revolved wall sections, sloped walls their side profile extruded across
- * the thickness (v2.4).
+ * 22 characters), so an element keeps its GlobalId across edits and exports; elements without one (older data) use
+ * a hash of their id as before. A key used twice (two elements of one id / guid) gets a counted variant, so no
+ * GlobalId repeats in a file. Arc walls are revolved wall sections, sloped walls their side profile extruded across
+ * the thickness, L / U stairs their flights and landing (v2.4).
  */
 import { levelOf, typeOf, wallArea, wallHeight, wallVolume, type BimModel, type Identity, type P2 } from './model'
 import { polyArea } from './geometry'
-import { stairFlight, stairGeometry, wedge } from './scene'
+import { stairFlight, stairGeometry, stairProfile, wedge } from './scene'
 import { roofFrame, roofQuantities } from './roof'
 import { ifcGlobalId, isUuid } from './identity'
 import { arcOf, heightsOf, pointAt, wallRun } from './walls'
 import { roomFigures } from './rooms'
 
 const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'
-
-/** GlobalId of an element: from its guid; `role` derives the related objects (its opening, its void relation…)
- *  from the same guid. Without a guid: the hash of `prefix:id` as before. */
-export function elementGid(e: Identity & { id: string }, prefix: string, role = ''): string {
-  if (e.guid && isUuid(e.guid)) return role ? ifcGuid(`${role}:${e.guid}`) : ifcGlobalId(e.guid)
-  return ifcGuid(`${role || prefix}:${e.id}`)
-}
 
 /** 22-character IFC GlobalId from a string (FNV-1a based 128-bit hash, base-64 IFC alphabet). */
 export function ifcGuid(seed: string): string {
@@ -83,6 +78,29 @@ export interface IfcResult {
 export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcResult {
   const w = new Writer()
   const counts: Record<string, number> = {}
+  // GlobalIds unique in the file even when two elements share an id (models read from several drawings): the n-th
+  // use of a key gets "#n" — still stable from one export to the next
+  const keyUses = new Map<string, number>()
+  const guid = (key: string) => {
+    const n = (keyUses.get(key) ?? 0) + 1
+    keyUses.set(key, n)
+    return ifcGuid(n === 1 ? key : `${key}#${n}`)
+  }
+  /** GlobalId of an element from its guid (the UUID itself; `role` derives its opening / void / fill relations from
+   *  it); without a guid, or a guid already used in this file, the id hash with the counted variant. */
+  const usedGid = new Set<string>()
+  const gid = (e: Identity & { id: string }, prefix: string, role = '') => {
+    if (e.guid && isUuid(e.guid)) {
+      const g = role ? guid(`${role}:${e.guid}`) : ifcGlobalId(e.guid)
+      if (!usedGid.has(g)) {
+        usedGid.add(g)
+        return g
+      }
+    }
+    const g = guid(`${role || prefix}:${e.id}`)
+    usedGid.add(g)
+    return g
+  }
   const count = (k: string) => (counts[k] = (counts[k] ?? 0) + 1)
   const pt3 = (x: number, y: number, z: number) => w.add(`IFCCARTESIANPOINT((${num(x)},${num(y)},${num(z)}))`)
   const pt2 = (x: number, y: number) => w.add(`IFCCARTESIANPOINT((${num(x)},${num(y)}))`)
@@ -106,23 +124,23 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     w.add('IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.)'),
     w.add('IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.)'),
   ].join(',')}))`)
-  const project = w.add(`IFCPROJECT('${ifcGuid('project:' + name)}',$,${stepString(name)},$,$,$,$,(${ctx}),${units})`)
+  const project = w.add(`IFCPROJECT('${guid('project:' + name)}',$,${stepString(name)},$,$,$,$,(${ctx}),${units})`)
 
   const sitePl = place(null, [0, 0, 0])
-  const site = w.add(`IFCSITE('${ifcGuid('site')}',$,'Site',$,$,${sitePl},$,$,.ELEMENT.,$,$,$,$,$)`)
+  const site = w.add(`IFCSITE('${guid('site')}',$,'Site',$,$,${sitePl},$,$,.ELEMENT.,$,$,$,$,$)`)
   const bldPl = place(sitePl, [0, 0, 0])
-  const building = w.add(`IFCBUILDING('${ifcGuid('building')}',$,${stepString(name)},$,$,${bldPl},$,$,.ELEMENT.,$,$,$)`)
-  w.add(`IFCRELAGGREGATES('${ifcGuid('agg:project')}',$,$,$,${project},(${site}))`)
-  w.add(`IFCRELAGGREGATES('${ifcGuid('agg:site')}',$,$,$,${site},(${building}))`)
+  const building = w.add(`IFCBUILDING('${guid('building')}',$,${stepString(name)},$,$,${bldPl},$,$,.ELEMENT.,$,$,$)`)
+  w.add(`IFCRELAGGREGATES('${guid('agg:project')}',$,$,$,${project},(${site}))`)
+  w.add(`IFCRELAGGREGATES('${guid('agg:site')}',$,$,$,${site},(${building}))`)
 
   const levels = [...m.levels].sort((a, b) => a.elevation - b.elevation)
   const storey: Record<string, { ref: string; pl: string; items: string[]; spaces: string[] }> = {}
   for (const l of levels) {
     const pl = place(bldPl, [0, 0, l.elevation])
-    storey[l.id] = { ref: w.add(`IFCBUILDINGSTOREY('${elementGid(l, 'level')}',$,${stepString(l.name)},$,$,${pl},$,$,.ELEMENT.,${num(l.elevation)})`), pl, items: [], spaces: [] }
+    storey[l.id] = { ref: w.add(`IFCBUILDINGSTOREY('${gid(l, 'level')}',$,${stepString(l.name)},$,$,${pl},$,$,.ELEMENT.,${num(l.elevation)})`), pl, items: [], spaces: [] }
     count('IfcBuildingStorey')
   }
-  w.add(`IFCRELAGGREGATES('${ifcGuid('agg:building')}',$,$,$,${building},(${levels.map((l) => storey[l.id].ref).join(',')}))`)
+  w.add(`IFCRELAGGREGATES('${guid('agg:building')}',$,$,$,${building},(${levels.map((l) => storey[l.id].ref).join(',')}))`)
   const st = (id: string) => storey[id] ?? storey[levels[0].id]
   const elev = (id: string) => levelOf(m, id)?.elevation ?? 0
 
@@ -141,8 +159,8 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
   }
   const quantities = (el: string, id: string, qs: [string, 'Length' | 'Area' | 'Volume', number][]) => {
     const q = qs.map(([n, k, v]) => w.add(`IFCQUANTITY${k.toUpperCase()}(${stepString(n)},$,$,${num(v)},$)`))
-    const eq = w.add(`IFCELEMENTQUANTITY('${ifcGuid('qto:' + id)}',$,'BaseQuantities',$,$,(${q.join(',')}))`)
-    w.add(`IFCRELDEFINESBYPROPERTIES('${ifcGuid('qrel:' + id)}',$,$,$,(${el}),${eq})`)
+    const eq = w.add(`IFCELEMENTQUANTITY('${guid('qto:' + id)}',$,'BaseQuantities',$,$,(${q.join(',')}))`)
+    w.add(`IFCRELDEFINESBYPROPERTIES('${guid('qrel:' + id)}',$,$,$,(${el}),${eq})`)
   }
 
   // walls (+ curtain walls), with their openings, doors and windows
@@ -157,23 +175,22 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     const hs = heightsOf(m, wall)
     let solid: string
     if (arc) {
-      // the wall section (t × h) revolved about the arc centre (in the wall's placement: start at the origin, x along the chord)
+      // the wall section (t × mean height) revolved about the arc centre, in the wall's placement (start at the origin,
+      // x along the chord): profile in the XY plane of a position with x = the radial direction at the sweep start, y up
       const a = ((wall.angle ?? 0) * Math.PI) / 180, ca = Math.cos(-a), sa = Math.sin(-a)
       const cx = arc.c[0] - (wall.x ?? 0), cy = arc.c[1] - (wall.y ?? 0)
       const lc: [number, number] = [cx * ca - cy * sa, cx * sa + cy * ca]
       const start = (arc.sweep >= 0 ? arc.a0 : arc.a0 + arc.sweep) - a
       const sx = Math.cos(start), sy = Math.sin(start)
-      // profile in the XZ plane of a placement at the start of the sweep: x = radius, extruded section revolved about local Z
-      const prof = w.add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${ax2(arc.r, (hs.mean) / 2)},${num(t)},${num(hs.mean)})`)
+      const prof = w.add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${ax2(arc.r, hs.mean / 2)},${num(t)},${num(hs.mean)})`)
       const axis = w.add(`IFCAXIS1PLACEMENT(${pt3(0, 0, 0)},${dir3(0, 1, 0)})`)
       solid = w.add(`IFCREVOLVEDAREASOLID(${prof},${ax3([lc[0], lc[1], 0], [sy, -sx, 0], [sx, sy, 0])},${axis},${num(Math.abs(arc.sweep))})`)
     } else if (Math.abs(hs.h1 - hs.h0) > 0.5) {
       // sloped top: the side profile (along x, up) extruded across the thickness
-      const prof = poly([[0, 0], [wall.length, 0], [wall.length, hs.h1], [0, hs.h0]])
-      solid = extrude(prof, t, [0, t / 2, 0], [0, -1, 0], [1, 0, 0])
+      solid = extrude(poly([[0, 0], [wall.length, 0], [wall.length, hs.h1], [0, hs.h0]]), t, [0, t / 2, 0], [0, -1, 0], [1, 0, 0])
     } else solid = extrude(rect(wall.length / 2, 0, wall.length, t), h)
     const curtain = ty?.family === 'Curtain Wall'
-    const el = w.add(`${curtain ? 'IFCCURTAINWALL' : 'IFCWALL'}('${elementGid(wall, 'wall')}',$,${stepString(`${ty?.name ?? 'Wall'}:${wall.mark}`)},${stepString(wall.description ?? ty?.description)},${stepString(ty?.name)},${pl},${shape([solid])},${stepString(wall.mark)},${curtain ? '.NOTDEFINED.' : '.STANDARD.'})`)
+    const el = w.add(`${curtain ? 'IFCCURTAINWALL' : 'IFCWALL'}('${gid(wall, 'wall')}',$,${stepString(`${ty?.name ?? 'Wall'}:${wall.mark}`)},${stepString(wall.description ?? ty?.description)},${stepString(ty?.name)},${pl},${shape([solid])},${stepString(wall.mark)},${curtain ? '.NOTDEFINED.' : '.STANDARD.'})`)
     count(curtain ? 'IfcCurtainWall' : 'IfcWall')
     S.items.push(el)
     material(ty?.structure ?? 'Concrete', el)
@@ -186,19 +203,18 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
         const { p, t: tg } = pointAt(wall, o.offset + o.width / 2)
         const a = ((wall.angle ?? 0) * Math.PI) / 180, ca = Math.cos(-a), sa = Math.sin(-a)
         const dx = p[0] - (wall.x ?? 0), dy = p[1] - (wall.y ?? 0)
-        const ta = (Math.atan2(tg[1], tg[0]) - a) * 180 / Math.PI
-        opl = place(pl, [dx * ca - dy * sa, dx * sa + dy * ca, o.sill], ta)
+        opl = place(pl, [dx * ca - dy * sa, dx * sa + dy * ca, o.sill], ((Math.atan2(tg[1], tg[0]) - a) * 180) / Math.PI)
       } else opl = place(pl, [o.offset + o.width / 2, 0, o.sill])
-      const op = w.add(`IFCOPENINGELEMENT('${elementGid(o, 'opening', 'opening')}',$,${stepString('Opening ' + (o.mark || o.id))},$,$,${opl},${shape([extrude(rect(0, 0, o.width, t + 40), o.height)])},$,.OPENING.)`)
-      w.add(`IFCRELVOIDSELEMENT('${elementGid(o, 'void', 'void')}',$,$,$,${el},${op})`)
+      const op = w.add(`IFCOPENINGELEMENT('${gid(o, 'opening', 'opening')}',$,${stepString('Opening ' + (o.mark || o.id))},$,$,${opl},${shape([extrude(rect(0, 0, o.width, t + 40), o.height)])},$,.OPENING.)`)
+      w.add(`IFCRELVOIDSELEMENT('${gid(o, 'void', 'void')}',$,$,$,${el},${op})`)
       count('IfcOpeningElement')
       const fpl = place(opl, [0, 0, 0])
       const leaf = extrude(rect(0, 0, o.width, o.category === 'door' ? 50 : 30), o.height)
       const fill =
         o.category === 'door'
-          ? w.add(`IFCDOOR('${elementGid(o, 'door')}',$,${stepString(`${o.family}:${o.type}:${o.mark}`)},$,${stepString(o.type)},${fpl},${shape([leaf])},${stepString(o.mark)},${num(o.height)},${num(o.width)},.DOOR.,.SINGLE_SWING_LEFT.,$)`)
-          : w.add(`IFCWINDOW('${elementGid(o, 'window')}',$,${stepString(`${o.family}:${o.type}:${o.mark}`)},$,${stepString(o.type)},${fpl},${shape([leaf])},${stepString(o.mark)},${num(o.height)},${num(o.width)},.WINDOW.,.SINGLE_PANEL.,$)`)
-      w.add(`IFCRELFILLSELEMENT('${elementGid(o, 'fill', 'fill')}',$,$,$,${op},${fill})`)
+          ? w.add(`IFCDOOR('${gid(o, 'door')}',$,${stepString(`${o.family}:${o.type}:${o.mark}`)},$,${stepString(o.type)},${fpl},${shape([leaf])},${stepString(o.mark)},${num(o.height)},${num(o.width)},.DOOR.,.SINGLE_SWING_LEFT.,$)`)
+          : w.add(`IFCWINDOW('${gid(o, 'window')}',$,${stepString(`${o.family}:${o.type}:${o.mark}`)},$,${stepString(o.type)},${fpl},${shape([leaf])},${stepString(o.mark)},${num(o.height)},${num(o.width)},.WINDOW.,.SINGLE_PANEL.,$)`)
+      w.add(`IFCRELFILLSELEMENT('${gid(o, 'fill', 'fill')}',$,$,$,${op},${fill})`)
       count(o.category === 'door' ? 'IfcDoor' : 'IfcWindow')
       S.items.push(fill)
     }
@@ -213,8 +229,8 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     const shp = shape([extrude(holes.length ? polyWithVoids(s.outline, holes) : poly(s.outline), s.thickness)])
     const el =
       s.kind === 'ceiling'
-        ? w.add(`IFCCOVERING('${elementGid(s, 'slab')}',$,${stepString('Ceiling:' + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},.CEILING.)`)
-        : w.add(`IFCSLAB('${elementGid(s, 'slab')}',$,${stepString((s.kind === 'roof' ? 'Roof:' : 'Floor:') + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},${s.kind === 'roof' ? '.ROOF.' : s.landing ? '.LANDING.' : '.FLOOR.'})`)
+        ? w.add(`IFCCOVERING('${gid(s, 'slab')}',$,${stepString('Ceiling:' + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},.CEILING.)`)
+        : w.add(`IFCSLAB('${gid(s, 'slab')}',$,${stepString((s.kind === 'roof' ? 'Roof:' : 'Floor:') + s.mark)},$,$,${pl},${shp},${stepString(s.mark)},${s.kind === 'roof' ? '.ROOF.' : s.landing ? '.LANDING.' : '.FLOOR.'})`)
     count(s.kind === 'ceiling' ? 'IfcCovering' : 'IfcSlab')
     S.items.push(el)
     material(s.kind === 'ceiling' ? 'Gypsum board' : 'Concrete - C30', el)
@@ -226,7 +242,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     const S = st(b.level)
     // the section hangs from the beam's top: profile centred on the axis, extruded along it
     const t = (b.angle * Math.PI) / 180
-    const el = w.add(`IFCBEAM('${elementGid(b, 'beam')}',$,${stepString((b.tie ? 'Tie beam:' : 'Beam:') + b.mark)},$,$,${place(S.pl, [b.x, b.y, b.topOffset - b.h / 2])},${shape([extrude(rect(0, 0, b.h, b.b), b.length, [0, 0, 0], [Math.cos(t), Math.sin(t), 0], [0, 0, 1])])},${stepString(b.mark)},.BEAM.)`)
+    const el = w.add(`IFCBEAM('${gid(b, 'beam')}',$,${stepString((b.tie ? 'Tie beam:' : 'Beam:') + b.mark)},$,$,${place(S.pl, [b.x, b.y, b.topOffset - b.h / 2])},${shape([extrude(rect(0, 0, b.h, b.b), b.length, [0, 0, 0], [Math.cos(t), Math.sin(t), 0], [0, 0, 1])])},${stepString(b.mark)},.BEAM.)`)
     count('IfcBeam')
     S.items.push(el)
     material('Concrete - C30', el)
@@ -246,7 +262,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
         solid = w.add(`IFCBOOLEANCLIPPINGRESULT(.DIFFERENCE.,${solid},${w.add(`IFCHALFSPACESOLID(${plane},.F.)`)})`)
       }
     }
-    const el = w.add(`IFCROOF('${elementGid(r, 'roof')}',$,${stepString('Roof:' + r.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape([solid], r.kind === 'hip' ? 'Clipping' : 'SweptSolid')},${stepString(r.mark)},${r.kind === 'hip' ? '.HIP_ROOF.' : '.GABLE_ROOF.'})`)
+    const el = w.add(`IFCROOF('${gid(r, 'roof')}',$,${stepString('Roof:' + r.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape([solid], r.kind === 'hip' ? 'Clipping' : 'SweptSolid')},${stepString(r.mark)},${r.kind === 'hip' ? '.HIP_ROOF.' : '.GABLE_ROOF.'})`)
     count('IfcRoof')
     S.items.push(el)
     material('Roof tiles', el)
@@ -254,7 +270,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
   }
   for (const f of m.footings ?? []) {
     const S = st(f.level)
-    const el = w.add(`IFCFOOTING('${elementGid(f, 'footing')}',$,${stepString('Pile cap:' + f.mark)},$,$,${place(S.pl, [f.x, f.y, f.bottom])},${shape([extrude(rect(0, 0, f.w, f.d), f.top - f.bottom)])},${stepString(f.mark)},.PILE_CAP.)`)
+    const el = w.add(`IFCFOOTING('${gid(f, 'footing')}',$,${stepString('Pile cap:' + f.mark)},$,$,${place(S.pl, [f.x, f.y, f.bottom])},${shape([extrude(rect(0, 0, f.w, f.d), f.top - f.bottom)])},${stepString(f.mark)},.PILE_CAP.)`)
     count('IfcFooting')
     S.items.push(el)
     material('Concrete - C30', el)
@@ -266,7 +282,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     if (h <= 0) continue
     const S = st(c.level)
     const prof = c.round ? w.add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${ax2(0, 0)},${num(c.w / 2)})`) : rect(0, 0, c.w, c.d)
-    const el = w.add(`IFCCOLUMN('${elementGid(c, 'column')}',$,${stepString('Column:' + c.mark)},$,$,${place(S.pl, [c.x, c.y, 0])},${shape([extrude(prof, h)])},${stepString(c.mark)},.COLUMN.)`)
+    const el = w.add(`IFCCOLUMN('${gid(c, 'column')}',$,${stepString('Column:' + c.mark)},$,$,${place(S.pl, [c.x, c.y, 0])},${shape([extrude(prof, h)])},${stepString(c.mark)},.COLUMN.)`)
     count('IfcColumn')
     S.items.push(el)
     material('Concrete - C30', el)
@@ -278,30 +294,32 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     if (s.spiral) {
       const sp = s.spiral, a0 = (sp.a0 * Math.PI) / 180, da = (sp.sweep * Math.PI) / 180 / n
       const steps = Array.from({ length: n }, (_, i) => extrude(poly(wedge(s.x, s.y, sp.r0, sp.r1, a0 + i * da, a0 + (i + 1) * da)), 60, [0, 0, (i + 1) * riser - 60 + (s.baseOffset ?? 0)]))
-      const el = w.add(`IFCSTAIR('${elementGid(s, 'stair')}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(steps)},${stepString(s.mark)},.SPIRAL_STAIR.)`)
+      const el = w.add(`IFCSTAIR('${gid(s, 'stair')}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(steps)},${stepString(s.mark)},.SPIRAL_STAIR.)`)
       count('IfcStair')
       S.items.push(el)
       material('Concrete - C30', el)
       continue
     }
     if (s.run) {
-      // L / U stair: each flight's steps (world plan, from the storey) and the landing
+      // L / U stair: each flight's section swept across its width, and the landing (world plan, from the storey)
       const g = stairGeometry(m, s)
       const items: string[] = []
       for (const f of g.flights) {
-        const go = f.length / f.n, t2 = (f.angle * Math.PI) / 180, ux = Math.cos(t2), uy = Math.sin(t2)
-        for (let i = 0; i < f.n; i++) items.push(extrude(rect(0, 0, go, f.width), (i + 1) * f.riser, [f.x + ux * (i + 0.5) * go, f.y + uy * (i + 0.5) * go, f.z - elev(s.baseLevel)], [0, 0, 1], [ux, uy, 0]))
+        const t2 = (f.angle * Math.PI) / 180, ux = Math.cos(t2), uy = Math.sin(t2)
+        // position: x along the run, z across it (to the right), so the profile's y is up
+        items.push(extrude(poly(stairProfile({ length: f.length } as typeof s, f.n, f.riser)), f.width, [f.x - uy * (f.width / 2), f.y + ux * (f.width / 2), f.z - elev(s.baseLevel)], [uy, -ux, 0], [ux, uy, 0]))
       }
       for (const l of g.landings) items.push(extrude(poly(l.pts), 150, [0, 0, l.z - 150 - elev(s.baseLevel)]))
-      const el = w.add(`IFCSTAIR('${elementGid(s, 'stair')}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(items)},${stepString(s.mark)},${s.run.kind === 'L' ? '.QUARTER_TURN_STAIR.' : '.HALF_TURN_STAIR.'})`)
+      const el = w.add(`IFCSTAIR('${gid(s, 'stair')}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(items)},${stepString(s.mark)},${s.run.kind === 'L' ? '.QUARTER_TURN_STAIR.' : '.HALF_TURN_STAIR.'})`)
       count('IfcStair')
       S.items.push(el)
       material('Concrete - C30', el)
       continue
     }
-    const going = s.length / n
-    const steps = Array.from({ length: n }, (_, i) => extrude(rect((i + 0.5) * going, 0, going, s.width), (i + 1) * riser))
-    const el = w.add(`IFCSTAIR('${elementGid(s, 'stair')}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [s.x, s.y, s.baseOffset ?? 0], s.angle)},${shape(steps)},${stepString(s.mark)},.STRAIGHT_RUN_STAIR.)`)
+    // the flight's section (steps on the waist slab, src/bim/scene.ts stairProfile) in the vertical plane of the run,
+    // swept across its width: profile x along the run, y up (position: z = −y across, x = the run)
+    const solid = extrude(poly(stairProfile(s, n, riser)), s.width, [0, s.width / 2, 0], [0, -1, 0], [1, 0, 0])
+    const el = w.add(`IFCSTAIR('${gid(s, 'stair')}',$,${stepString('Stair:' + s.mark)},$,$,${place(S.pl, [s.x, s.y, s.baseOffset ?? 0], s.angle)},${shape([solid])},${stepString(s.mark)},.STRAIGHT_RUN_STAIR.)`)
     count('IfcStair')
     S.items.push(el)
     material('Concrete - C30', el)
@@ -323,7 +341,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
       const k = Math.max(1, Math.ceil(L / 1200))
       for (let j = i === 0 ? 0 : 1; j <= k; j++) items.push(extrude(w.add(`IFCCIRCLEPROFILEDEF(.AREA.,$,${ax2(0, 0)},20.)`), r.height - 50, [a[0] + ((b[0] - a[0]) * j) / k, a[1] + ((b[1] - a[1]) * j) / k, za + ((zb - za) * j) / k]))
     }
-    const el = w.add(`IFCRAILING('${elementGid(r, 'railing')}',$,${stepString('Railing:' + r.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(items)},${stepString(r.mark)},.GUARDRAIL.)`)
+    const el = w.add(`IFCRAILING('${gid(r, 'railing')}',$,${stepString('Railing:' + r.mark)},$,$,${place(S.pl, [0, 0, 0])},${shape(items)},${stepString(r.mark)},.GUARDRAIL.)`)
     count('IfcRailing')
     S.items.push(el)
     material('Steel', el)
@@ -331,7 +349,7 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
 
   for (const c of m.components) {
     const S = st(c.level)
-    const el = w.add(`IFCFURNITURE('${elementGid(c, 'component')}',$,${stepString(c.name + ':' + c.mark)},$,${stepString(c.name)},${place(S.pl, [c.x, c.y, 0], c.rot)},${shape([extrude(rect(0, 0, c.w, c.d), c.h)])},${stepString(c.mark)},.NOTDEFINED.)`)
+    const el = w.add(`IFCFURNITURE('${gid(c, 'component')}',$,${stepString(c.name + ':' + c.mark)},$,${stepString(c.name)},${place(S.pl, [c.x, c.y, 0], c.rot)},${shape([extrude(rect(0, 0, c.w, c.d), c.h)])},${stepString(c.mark)},.NOTDEFINED.)`)
     count('IfcFurniture')
     S.items.push(el)
   }
@@ -340,8 +358,10 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
     const S = st(r.level)
     const next = levels.find((l) => l.elevation > elev(r.level))
     const h = next ? next.elevation - elev(r.level) : 3000
-    const shp = r.outline && r.outline.length > 2 ? shape([extrude(poly(r.outline), h)]) : '$'
-    const el = w.add(`IFCSPACE('${elementGid(r, 'room')}',$,${stepString(r.number)},$,$,${place(S.pl, [0, 0, 0])},${shp},${stepString(r.name)},.ELEMENT.,.INTERNAL.,$)`)
+    // a room round a core: the core is a void of its space
+    const holes = (r.holes ?? []).filter((o) => o.length >= 3)
+    const shp = r.outline && r.outline.length > 2 ? shape([extrude(holes.length ? polyWithVoids(r.outline, holes) : poly(r.outline), h)]) : '$'
+    const el = w.add(`IFCSPACE('${gid(r, 'room')}',$,${stepString(r.number)},$,$,${place(S.pl, [0, 0, 0])},${shp},${stepString(r.name)},.ELEMENT.,.INTERNAL.,$)`)
     count('IfcSpace')
     S.spaces.push(el)
     const fig = roomFigures(m, r)
@@ -350,10 +370,10 @@ export function toIfc(m: BimModel, name = 'Villa Riverside', author = ''): IfcRe
 
   for (const l of levels) {
     const S = storey[l.id]
-    if (S.items.length) w.add(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${ifcGuid('contain:' + l.id)}',$,$,$,(${S.items.join(',')}),${S.ref})`)
-    if (S.spaces.length) w.add(`IFCRELAGGREGATES('${ifcGuid('spaces:' + l.id)}',$,$,$,${S.ref},(${S.spaces.join(',')}))`)
+    if (S.items.length) w.add(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${guid('contain:' + l.id)}',$,$,$,(${S.items.join(',')}),${S.ref})`)
+    if (S.spaces.length) w.add(`IFCRELAGGREGATES('${guid('spaces:' + l.id)}',$,$,$,${S.ref},(${S.spaces.join(',')}))`)
   }
-  for (const [nm, els] of Object.entries(matRel)) w.add(`IFCRELASSOCIATESMATERIAL('${ifcGuid('mat:' + nm)}',$,$,$,(${els.join(',')}),${materials[nm]})`)
+  for (const [nm, els] of Object.entries(matRel)) w.add(`IFCRELASSOCIATESMATERIAL('${guid('mat:' + nm)}',$,$,$,(${els.join(',')}),${materials[nm]})`)
 
   const now = new Date().toISOString().slice(0, 19)
   const text = [

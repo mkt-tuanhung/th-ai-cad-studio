@@ -21,9 +21,9 @@ import { wallsCsv, levelOf } from '../bim/model'
 import { cutList, type Cabinet } from '../interior/model'
 import { DEFAULT_NEST, layoutDxf, nest, piecesOf, type NestSettings } from '../cam/nesting'
 import { camSheet, type CamSettings } from '../cam/gcode'
-import { earthwork, interp, sta, type CivilModel } from '../civil/model'
+import { earthwork, interp, sta, type CivilModel, type DrawnSection } from '../civil/model'
 import { planDocument, profileDocument, roofPlanDocument, sectionDocuments, structurePlanDocument, tableDocuments, type RouteWords, type TableRow } from './drawings'
-import { boq, openingSchedule, priceOf, type BoqRow, type BoqWords } from '../bim/quantities'
+import { boq, openingSchedule, priceOf, UNASSIGNED, type BoqRow, type BoqWords, type PriceBad } from '../bim/quantities'
 import type { MepResult } from './mep'
 import type { AutoResult } from './pipeline'
 
@@ -67,12 +67,35 @@ export interface PackageText {
     beamPlan: string // "{level}"
     priceHeads: { key: string; price: string; amount: string }
     params: { pileLength: string; machineShare: string }
-    /** a unit price list given with the drawings (BOQ key or item text → price) */
-    prices?: { file: string; map: Map<string, number> } | null
+    /** a unit price list given with the drawings (BOQ key or item text → price; rows it could not read) */
+    prices?: { file: string; map: Map<string, number>; bad?: PriceBad[] } | null
   }
 }
 
-const csv = (rows: (string | number)[][]) => rows.map((r) => r.map((c) => (/[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : String(c))).join(',')).join('\n') + '\n'
+const csv = (rows: (string | number)[][]) => rows.map((r) => r.map((c) => (/[",;\r\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : String(c))).join(',')).join('\n') + '\n'
+/** UTF-8 byte order mark: Excel on Windows reads a CSV without it in the ANSI code page (Vietnamese garbled). */
+export const BOM = '﻿'
+const withBom = (name: string, text: string) => (/\.csv$/i.test(name) && !text.startsWith(BOM) ? BOM + text : text)
+
+/** A file name every system accepts: no \ / : * ? " < > | or control characters ("1/A" → "1-A"), no trailing
+ *  dots / spaces, not empty. */
+export function safeFileName(name: string): string {
+  // eslint-disable-next-line no-control-regex
+  const s = name.replace(/[\\/]+/g, '-').replace(/[:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '')
+  return s || '_'
+}
+
+/** Names made unique (case-insensitive, as Windows and macOS compare them): "a.csv", "a (2).csv"… */
+export function uniqueNames<T extends { name: string }>(files: T[]): T[] {
+  const seen = new Set<string>()
+  return files.map((f) => {
+    let name = f.name
+    const dot = name.lastIndexOf('.'), stem = dot > 0 ? name.slice(0, dot) : name, ext = dot > 0 ? name.slice(dot) : ''
+    for (let k = 2; seen.has(name.toLowerCase()); k++) name = `${stem} (${k})${ext}`
+    seen.add(name.toLowerCase())
+    return name === f.name ? f : { ...f, name }
+  })
+}
 
 export interface CamSetup {
   nest: NestSettings
@@ -88,8 +111,8 @@ export function allCabinets(r: AutoResult): Cabinet[] {
   return ints.flatMap(({ level, build }) => build.cabinets.map((c) => (multi ? { ...c, name: `${level} · ${c.name}` } : c)))
 }
 
-/** The share of earthwork done by machine (the rest by hand): 90 % as estimates usually take it, or the price
- *  list's line "machineShare" (0.95 or 95). */
+/** The share of earthwork done by machine (the rest by hand) when the drawing gives none: 90 % as estimates usually
+ *  take it, or the price list's line "machineShare" (0.95, 95 or "95%"). */
 export const MACHINE_SHARE = 0.9
 export function machineShare(prices?: Map<string, number>): number {
   const v = prices?.get('machineShare')
@@ -97,12 +120,76 @@ export function machineShare(prices?: Map<string, number>): number {
   return v > 1 ? Math.min(1, v / 100) : v
 }
 
-/** Every file of the package (in memory). `include` limits it to the parts the user kept. */
-export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, include: { house: boolean; interior: boolean; route: boolean }): OutFile[] {
+export type SplitSource = 'drawing' | 'prices' | 'default'
+export interface SplitRow { from: number; to: number; length: number; cut: number; fill: number; net: number; cutM: number; cutH: number; fillM: number; fillH: number; source: SplitSource }
+export interface EarthSplit { rows: SplitRow[]; total: { cut: number; fill: number; cutM: number; cutH: number; fillM: number; fillH: number }; source: SplitSource | 'mixed' }
+
+const numIn = (o: unknown, keys: string[]): number | undefined => {
+  if (!o || typeof o !== 'object') return undefined
+  for (const k of keys) { const v = (o as Record<string, unknown>)[k]; if (typeof v === 'number' && Number.isFinite(v) && v >= 0) return v }
+  return undefined
+}
+/** The designer's machine / hand split of a section (or of the route), read defensively: machine and hand areas or
+ *  volumes (cutMachine + cutManual, fillMachine + fillManual…), or a share (cutMachineShare / machineShare, 0.9 or 90). */
+function splitOf(o: unknown, what: 'cut' | 'fill'): { m: number; h: number } | null {
+  if (!o || typeof o !== 'object') return null
+  const src = o as Record<string, unknown>
+  const C = what === 'cut' ? 'Cut' : 'Fill'
+  for (const x of [src, src.drawn, src.split, src.earthSplit, src.designerSplit]) {
+    const m = numIn(x, [`${what}Machine`, `${what}ByMachine`, `machine${C}`])
+    const h = numIn(x, [`${what}Manual`, `${what}Hand`, `${what}ByHand`, `manual${C}`, `hand${C}`])
+    if (m !== undefined && h !== undefined && m + h > 0) return { m, h }
+    const sh = numIn(x, [`${what}MachineShare`, 'machineShare'])
+    if (sh !== undefined) { const f = sh > 1 ? sh / 100 : sh; if (f <= 1) return { m: f, h: 1 - f } }
+  }
+  return null
+}
+
+/**
+ * Earthwork by machine and by hand, per row of the earthwork table: the designer's split read from the drawing
+ * where the sections (or the route) carry one, else the price list's "machineShare", else 90 / 10. Each row says
+ * which it used.
+ */
+export function earthSplit(m: CivilModel, prices?: Map<string, number>): EarthSplit {
+  const ew = earthwork(m)
+  const secs: DrawnSection[] = [...(m.sections ?? [])].sort((a, b) => a.station - b.station)
+  const fallback: SplitSource = (prices?.get('machineShare') ?? 0) > 0 ? 'prices' : 'default'
+  const ms = machineShare(prices)
+  const route = splitOf(m, 'cut') || splitOf(m, 'fill') ? m : (m as unknown as { params?: unknown }).params
+  const share = (from: number, to: number, what: 'cut' | 'fill'): { f: number; source: SplitSource } => {
+    let near = secs.filter((x) => x.station >= from - 1e-6 && x.station <= to + 1e-6)
+    if (!near.length) near = [secs.filter((x) => x.station < from).at(-1), secs.find((x) => x.station > to)].filter((x): x is DrawnSection => !!x)
+    let sm = 0, sh = 0
+    for (const x of near) { const p = splitOf(x, what); if (p) { sm += p.m; sh += p.h } }
+    if (sm + sh > 0) return { f: sm / (sm + sh), source: 'drawing' }
+    const rt = splitOf(route, what)
+    if (rt) return { f: rt.m / (rt.m + rt.h), source: 'drawing' }
+    return { f: ms, source: fallback }
+  }
+  const rows = ew.map((x): SplitRow => {
+    const c = share(x.from, x.to, 'cut'), f = share(x.from, x.to, 'fill')
+    const source: SplitSource = c.source === 'drawing' || f.source === 'drawing' ? 'drawing' : c.source
+    return { ...x, cutM: x.cut * c.f, cutH: x.cut * (1 - c.f), fillM: x.fill * f.f, fillH: x.fill * (1 - f.f), source }
+  })
+  const total = rows.reduce((a, x) => ({ cut: a.cut + x.cut, fill: a.fill + x.fill, cutM: a.cutM + x.cutM, cutH: a.cutH + x.cutH, fillM: a.fillM + x.fillM, fillH: a.fillH + x.fillH }), { cut: 0, fill: 0, cutM: 0, cutH: 0, fillM: 0, fillH: 0 })
+  const kinds = [...new Set(rows.map((x) => x.source))]
+  return { rows, total, source: kinds.length === 1 ? kinds[0] : kinds.length ? 'mixed' : fallback }
+}
+
+/** Which parts of the result go in the package (the parts the user kept and the model rules accepted). */
+export interface PackageInclude { house: boolean; interior: boolean; route: boolean; mep?: boolean }
+
+/** Every file of the package (in memory). `include` limits it to the parts the user kept. File names are made
+ *  safe for every system ("1/A" → "1-A") and unique. */
+export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, include: PackageInclude): OutFile[] {
+  return uniqueNames(packageFiles(r, cam, t, include).map((f) => ({ ...f, name: safeFileName(f.name) })))
+}
+
+function packageFiles(r: AutoResult, cam: CamSetup, t: PackageText, include: PackageInclude): OutFile[] {
   const base = r.file.replace(/\.(dwg|dxf)$/i, '')
   const out: OutFile[] = []
   const priceRows: BoqRow[] = []
-  const add = (name: string, text: string) => out.push({ name: `${base} - ${name}`, kind: 'text', text })
+  const add = (name: string, text: string) => out.push({ name: `${base} - ${name}`, kind: 'text', text: withBom(name, text) })
   const drawing = (title: string, doc: CadDocument, pages: Page[]) => {
     out.push({ name: `${base} - ${title}.dxf`, kind: 'text', text: toDxf2000(doc) })
     out.push({ name: `${base} - ${title}.dwg`, kind: 'dwg', doc })
@@ -132,7 +219,10 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
       // bill of quantities: CSV (every level a column) and the table sheets
       const pl = B.prices?.map.get('pileLength')
       const rows = boq(m, B.words, { ...(pl ? { pileLength: pl } : {}) })
-      const lvs = [...m.levels].sort((a, b) => a.elevation - b.elevation).map((l) => l.name).filter((n) => rows.some((r) => r.byLevel[n]))
+      // every level with a quantity, then the column of quantities on no level of the model: the columns add up
+      const un = B.words.unassigned ?? UNASSIGNED
+      const lvs = [...new Set([...m.levels].sort((a, b) => a.elevation - b.elevation).map((l) => l.name))].filter((n) => n !== un && rows.some((r) => r.byLevel[n]))
+      if (rows.some((r) => r.byLevel[un])) lvs.push(un)
       const q = (v: number, unit: string) => (v ? (unit === B.words.units.pcs ? String(Math.round(v)) : v.toFixed(2)) : '')
       add(`${B.title}.csv`, csv([[B.heads.no, B.heads.item, B.heads.unit, ...lvs, B.heads.total], ...rows.map((r, i) => [i + 1, r.item, r.unit, ...lvs.map((l) => q(r.byLevel[l] ?? 0, r.unit)), q(r.total, r.unit)])]))
       const tr: TableRow[] = []
@@ -177,23 +267,24 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
   if (r.route && include.route) {
     // every route of the drawing; with several, each file is named after its route
     const all = r.route.all?.length ? r.route.all : [{ name: r.route.model.alignment.name, model: r.route.model, volume: r.route.volume }]
-    for (const rt of all) routeFiles(rt.model, all.length > 1 ? `${rt.name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()} - ` : '')
+    for (const rt of all) routeFiles(rt.model, all.length > 1 ? `${safeFileName(rt.name)} - ` : '')
   }
   function routeFiles(m: CivilModel, pre: string) {
-    const add = (name: string, text: string) => out.push({ name: `${base} - ${pre}${name}`, kind: 'text', text })
+    const add = (name: string, text: string) => out.push({ name: `${base} - ${pre}${name}`, kind: 'text', text: withBom(name, text) })
     const drawing = (title: string, doc: CadDocument, pages: Page[]) => {
       out.push({ name: `${base} - ${pre}${title}.dxf`, kind: 'text', text: toDxf2000(doc) })
       out.push({ name: `${base} - ${pre}${title}.dwg`, kind: 'dwg', doc })
       pages.push({ ...plotPage({ ...doc, name: `${base} — ${pre}${title}` }, 'A3', doc.layouts?.[0]?.scale ?? undefined), name: title })
     }
-    // by machine / by hand: the share estimates usually take (the price list's "machineShare" overrides it)
-    const ms = machineShare(t.boq?.prices?.map)
-    const ew = earthwork(m)
-    const tot = ew.reduce((a, x) => ({ cut: a.cut + x.cut, fill: a.fill + x.fill }), { cut: 0, fill: 0 })
+    // by machine / by hand: the designer's split read from the drawing, else the price list's "machineShare", else 90 / 10
+    const sp = earthSplit(m, t.boq?.prices?.map)
+    const SRC: Record<SplitSource, string> = { drawing: 'drawing (designer)', prices: 'price list machineShare', default: 'usual 90/10' }
+    const pct = (x: number, y: number) => (x + y > 0 ? ((x / (x + y)) * 100).toFixed(1) : '')
+    const tot = sp.total
     add('Earthwork.csv', csv([
-      ['From', 'To', 'Length (m)', 'Cut (m3)', 'Fill (m3)', 'Net (m3)', `Cut by machine ${Math.round(ms * 100)}% (m3)`, `Cut by hand ${Math.round((1 - ms) * 100)}% (m3)`, `Fill by machine ${Math.round(ms * 100)}% (m3)`, `Fill by hand ${Math.round((1 - ms) * 100)}% (m3)`],
-      ...ew.map((x) => [sta(x.from), sta(x.to), x.length.toFixed(2), x.cut.toFixed(2), x.fill.toFixed(2), x.net.toFixed(2), (x.cut * ms).toFixed(2), (x.cut * (1 - ms)).toFixed(2), (x.fill * ms).toFixed(2), (x.fill * (1 - ms)).toFixed(2)]),
-      ['', 'Total', '', tot.cut.toFixed(2), tot.fill.toFixed(2), (tot.fill - tot.cut).toFixed(2), (tot.cut * ms).toFixed(2), (tot.cut * (1 - ms)).toFixed(2), (tot.fill * ms).toFixed(2), (tot.fill * (1 - ms)).toFixed(2)],
+      ['From', 'To', 'Length (m)', 'Cut (m3)', 'Fill (m3)', 'Net (m3)', 'Cut by machine (m3)', 'Cut by hand (m3)', 'Fill by machine (m3)', 'Fill by hand (m3)', 'Cut by machine (%)', 'Fill by machine (%)', 'Machine / hand split from'],
+      ...sp.rows.map((x) => [sta(x.from), sta(x.to), x.length.toFixed(2), x.cut.toFixed(2), x.fill.toFixed(2), x.net.toFixed(2), x.cutM.toFixed(2), x.cutH.toFixed(2), x.fillM.toFixed(2), x.fillH.toFixed(2), pct(x.cutM, x.cutH), pct(x.fillM, x.fillH), SRC[x.source]]),
+      ['', 'Total', '', tot.cut.toFixed(2), tot.fill.toFixed(2), (tot.fill - tot.cut).toFixed(2), tot.cutM.toFixed(2), tot.cutH.toFixed(2), tot.fillM.toFixed(2), tot.fillH.toFixed(2), pct(tot.cutM, tot.cutH), pct(tot.fillM, tot.fillH), sp.source === 'mixed' ? 'mixed (see the rows)' : SRC[sp.source]],
     ]))
     add('Cross sections.csv', csv([['Stake', 'Station', 'Cut (m2)', 'Fill (m2)', 'Drawing cut (m2)', 'Drawing fill (m2)'], ...(m.sections ?? []).map((x) => [x.name, sta(x.station), x.cut.toFixed(3), x.fill.toFixed(3), x.drawn?.cut?.toFixed(2) ?? '', x.drawn?.fill?.toFixed(2) ?? ''])]))
     add('Long profile.csv', csv([['Station', 'Existing (m)', 'Design invert (m)'], ...m.invert.map(([s, z]) => [sta(s), m.ground?.length ? interp(m.ground, s).toFixed(3) : '', z.toFixed(3)])]))
@@ -203,7 +294,7 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     out.push({ name: `${base} - ${pre}${t.profile} + ${t.sections}.pdf`, kind: 'pdf', pages })
   }
   // MEP drawings: devices counted, wiring and pipes measured (src/auto/mep.ts)
-  if (r.mep?.length && t.mep && t.boq) {
+  if (r.mep?.length && t.mep && t.boq && include.mep !== false) {
     const M = t.mep, B = t.boq
     const mrows = mepBoqRows(r.mep, M, B.words.units)
     const lvs = [...new Set(mrows.flatMap((x) => Object.keys(x.byLevel)))]
@@ -274,7 +365,7 @@ export interface Written {
 export async function writePackage(files: OutFile[], report: string, host: HostApi | null, dir: string | null, zipName: string, onFile?: (n: number) => void): Promise<Written[]> {
   const res: Written[] = []
   if (host && dir) {
-    const all: OutFile[] = [...files, { name: zipName.replace(/\.zip$/, ' - Report.html'), kind: 'text', text: report }]
+    const all: OutFile[] = uniqueNames([...files, { name: safeFileName(zipName.replace(/\.zip$/, ' - Report.html')), kind: 'text' as const, text: report }])
     for (const f of all) {
       let r: { ok: boolean; bytes?: number; error?: string; path?: string }
       if (f.kind === 'text') r = await host.writeFileTo(dir, f.name, toBase64(new TextEncoder().encode(f.text)))
@@ -295,13 +386,14 @@ export async function writePackage(files: OutFile[], report: string, host: HostA
     else res.push({ name: f.name, ok: false, error: 'desktop-only' })
   }
   texts.push({ name: 'Report.html', text: report })
-  const bytes = zip(texts)
+  // every name safe and once in the ZIP (sheet names may repeat across the PDFs)
+  const bytes = zip(uniqueNames(texts.map((x) => ({ ...x, name: safeFileName(x.name) }))))
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/zip' }))
   const a = document.createElement('a')
   a.href = url
-  a.download = zipName
+  a.download = safeFileName(zipName)
   a.click()
   setTimeout(() => URL.revokeObjectURL(url), 2000)
-  res.unshift({ name: zipName, ok: true, bytes: bytes.length })
+  res.unshift({ name: safeFileName(zipName), ok: true, bytes: bytes.length })
   return res
 }

@@ -76,6 +76,8 @@ await step('AI suggestion needs the desktop app (button disabled in the browser,
 await step('Interior option: rooms, furniture and cabinets of Tầng 1 for the cut list', async () => {
   await page.getByTestId('fromcad-interior').check()
   assert.match(await summary(), /Interior: 5 rooms · 9 furniture items · 4 cabinets for the cut list/)
+  // replacing says so, with the backup (restore from this dialog or the one-command dialog)
+  assert.match(await page.getByTestId('fromcad-replace-note').innerText(), /Replaces the current model \(BIM model\) — it is backed up first/)
 })
 
 await step('Approve & build: one BIM edit — levels, walls with openings, exact room areas, slabs; the 3D view is opened', async () => {

@@ -11,9 +11,12 @@
 #include "thcad/core/command_bus.hpp"
 #include "thcad/core/proposal.hpp"
 
+#include <atomic>
+#include <functional>
 #include <map>
 #include <QString>
 
+class QThread;
 namespace thcad::occt { class OffscreenView; class SceneView; }
 namespace thcad::app { class VideoWriter; class SpeechInput; }
 #include <QImage>
@@ -175,6 +178,11 @@ class HostBridge : public QObject {
   DwgReader* dwg_;
   ModelDownloader* downloader_;
   bool modelInstalling_ = false;  // between 'installed' and the final event (load + test question)
+  std::atomic<bool> modelLoading_{false};  // a downloaded model is being loaded on a worker thread
+  /** AI worker threads (generation, model load + test question): owned, so ~HostBridge can stop the runtime
+   *  and join them before runtime_ and the queues they use are destroyed. GUI thread only. */
+  QList<QThread*> workers_;
+  void runWorker(std::function<void()> fn);
   QJsonObject modelLast_;         // the last final event, for the UI to catch up after a missed signal
   std::unique_ptr<ai::Runtime> runtime_;
   std::unique_ptr<CommandBus> bus_;

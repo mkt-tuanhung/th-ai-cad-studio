@@ -380,9 +380,16 @@ struct SceneView::Impl {
   std::map<std::string, std::string> guids;
   /** A building wall: its solid with the openings cut, placed on its centre line, and a 20 mm pane in each window. */
   bool addWall(const bim::Model& m, const bim::Wall& w);
-  /** Default level slabs: spanning the exterior (≥ 200 mm) walls that start or end on a level without a drawn slab. */
-  std::map<std::string, std::array<double, 6>> levelSlabs(const bim::Model& m) const;
-  void addSlab(const std::string& lv, const std::array<double, 6>& b);
+  /** Default level slab of a level: its box (x y z dx dy dz), the item (box less the drawn slabs inside it) and a
+   *  signature of both (an unchanged signature = the slab is kept as it is by a patch). */
+  struct SlabSpec {
+    std::array<double, 6> box{};
+    SceneItem item;
+    std::string sig;
+  };
+  /** Default level slabs: spanning the exterior walls of each level the drawn slabs do not cover. */
+  std::map<std::string, SlabSpec> levelSlabs(const bim::Model& m) const;
+  void addSlab(const std::string& lv, const SlabSpec& sp);
   Entry entry(const std::string& id, const TopoDS_Shape& s, std::array<double, 3> rgb, const char* mat) const {
     Entry e;
     e.item.id = id;
@@ -500,41 +507,61 @@ bool SceneView::Impl::addWall(const bim::Model& m, const bim::Wall& w) {
   return true;
 }
 
-std::map<std::string, std::array<double, 6>> SceneView::Impl::levelSlabs(const bim::Model& m) const {
-  struct Box2 { double x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e18; };
-  std::map<std::string, Box2> spans;  // level id → plan extent of the walls that start or end there
-  for (const auto& w : m.walls) {
-    const bim::WallType* t = m.type(w.typeId);
-    // the walls the builder makes (see wallWithOpenings / wallSolid)
-    if (!t || t->thickness <= 0 || w.length <= 0 || bim::wallHeight(m, w) <= 0) continue;
-    if (t->thickness < 200) continue;
-    const double a = w.angleDeg * kPiScene / 180;
-    const double ex = w.x + std::cos(a) * w.length, ey = w.y + std::sin(a) * w.length;
-    for (const std::string& lv : {w.baseLevel, w.topLevel}) {
-      Box2& b = spans[lv];
-      b.x0 = std::min({b.x0, w.x, ex}), b.x1 = std::max({b.x1, w.x, ex});
-      b.y0 = std::min({b.y0, w.y, ey}), b.y1 = std::max({b.y1, w.y, ey});
-    }
-  }
-  std::map<std::string, std::array<double, 6>> out;
-  for (const auto& [lv, b] : spans) {
+std::map<std::string, SceneView::Impl::SlabSpec> SceneView::Impl::levelSlabs(const bim::Model& m) const {
+  // a default floor / roof slab spanning each level's exterior walls, unless the drawn slabs make that floor
+  // (an imported plan); a balcony, a landing or a part slab does not replace it
+  std::map<std::string, SlabSpec> out;
+  for (const auto& [lv, b] : bim::levelWallSpans(m)) {
     const bim::Level* l = m.level(lv);
-    if (!l || b.x1 <= b.x0) continue;
-    if (std::find(m.slabLevels.begin(), m.slabLevels.end(), lv) != m.slabLevels.end()) continue;  // drawn slab there
+    if (!l || b[2] <= b[0]) continue;
     // slab top at the level, outer face of the 200 mm exterior walls
-    out[lv] = {b.x0 - 100, b.y0 - 100, l->elevation - 200, b.x1 - b.x0 + 200, b.y1 - b.y0 + 200, 200};
+    const std::array<double, 4> box{b[0] - 100, b[1] - 100, b[2] + 100, b[3] + 100};
+    if (!bim::defaultSlabNeeded(m, lv, box)) continue;
+    // the drawn slabs on this level that lie inside it are taken out of it (no doubled concrete, no
+    // coplanar faces fighting in the view, one outline in sections)
+    SlabSpec sp;
+    sp.box = {box[0], box[1], l->elevation - 200, box[2] - box[0], box[3] - box[1], 200};
+    Prim p;
+    p.f.o = {box[0], box[1], l->elevation - 200};
+    p.s = {box[2] - box[0], box[3] - box[1], 200};
+    sp.item.parts.push_back(p);
+    char sig[200];
+    std::snprintf(sig, sizeof sig, "%.3f %.3f %.3f %.3f %.3f", box[0], box[1], box[2], box[3], l->elevation);
+    sp.sig = sig;
+    for (const bim::Slab& ds : m.slabs) {
+      if (ds.level != lv || ds.kind == bim::Slab::Kind::Ceiling || ds.landing || ds.outline.size() < 3) continue;
+      if (bim::drawnSlabArea(bim::Model{.slabs = {ds}}, lv, box) <= 0) continue;
+      Prim c;
+      c.kind = Prim::Kind::Prism;
+      c.f.o = {0, 0, l->elevation - 210};
+      c.pts = ds.outline;
+      c.s = {220, 0, 0};
+      sp.item.cuts.push_back(c);
+      for (const auto& q : ds.outline) {
+        std::snprintf(sig, sizeof sig, " %.3f,%.3f", q[0], q[1]);
+        sp.sig += sig;
+      }
+      sp.sig += ";";
+    }
+    out[lv] = std::move(sp);
   }
   return out;
 }
 
-void SceneView::Impl::addSlab(const std::string& lv, const std::array<double, 6>& b) {
-  Entry e = entry("slab:" + lv, BRepPrimAPI_MakeBox(gp_Pnt(b[0], b[1], b[2]), b[3], b[4], b[5]).Shape(), {0.8, 0.79, 0.77}, "matte");
-  char sig[160];
-  std::snprintf(sig, sizeof sig, "%.3f %.3f %.3f %.3f %.3f %.3f", b[0], b[1], b[2], b[3], b[4], b[5]);
-  e.sig = sig;
+void SceneView::Impl::addSlab(const std::string& lv, const SlabSpec& sp) {
+  bool failed = false;
+  TopoDS_Shape shape;
+  try {
+    shape = buildItem(sp.item, &failed);
+  } catch (...) {
+    failed = true;
+  }
+  const auto& b = sp.box;
+  if (failed || shape.IsNull()) shape = BRepPrimAPI_MakeBox(gp_Pnt(b[0], b[1], b[2]), b[3], b[4], b[5]).Shape();
+  Entry e = entry("slab:" + lv, shape, {0.8, 0.79, 0.77}, "matte");
+  e.sig = sp.sig;
   put("slab:" + lv, std::move(e));
 }
-
 int SceneView::addBuilding(const bim::Model& m, bool ground) {
   int n = 0;
   for (const auto& w : m.walls) n += d->addWall(m, w) ? 1 : 0;
@@ -579,12 +606,10 @@ SceneView::PatchResult SceneView::patchBuilding(const bim::Model* m, const std::
     for (const auto& [id, e] : d->items)
       if (id.rfind("slab:", 0) == 0 && !want.count(id.substr(5))) gone.push_back(id);
     for (const auto& id : gone) d->erase(id, &r.removed);
-    for (const auto& [lv, b] : want) {
-      char sig[160];
-      std::snprintf(sig, sizeof sig, "%.3f %.3f %.3f %.3f %.3f %.3f", b[0], b[1], b[2], b[3], b[4], b[5]);
+    for (const auto& [lv, sp] : want) {
       auto it = d->items.find("slab:" + lv);
-      if (it != d->items.end() && it->second.sig == sig) continue;  // same extent: keep the solid
-      d->addSlab(lv, b);
+      if (it != d->items.end() && it->second.sig == sp.sig) continue;  // same extent: keep the solid
+      d->addSlab(lv, sp);
       r.rebuilt.push_back("slab:" + lv);
     }
   }

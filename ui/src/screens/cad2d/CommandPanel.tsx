@@ -4,7 +4,9 @@ import { AnchoredMenu } from '../../components/ui/AnchoredMenu'
 import { bboxOf, unionBBox } from '../../cad/geometry'
 import { fmt, useT } from '../../i18n'
 import { useCad, type BottomTab } from '../../state/cad'
-import { useCadSession } from '../../state/cadSession'
+import { cadUi, useCadSession } from '../../state/cadSession'
+import { openReview } from '../../cad/provenance'
+import { itemText } from './ReviewDialog'
 import { toast } from '../../state/toast'
 import { sendToAiStudio } from '../../state/aiStudio'
 import { runChecks } from '../../cad/checks'
@@ -27,6 +29,8 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
   const input = useRef<HTMLInputElement>(null)
   const logRef = useRef<HTMLDivElement>(null)
   const findings = useMemo(() => (doc ? runChecks(doc) : []), [doc])
+  // v2.4: open review items of an imported / surveyed drawing are listed with the findings
+  const review = useMemo(() => (doc ? openReview(doc) : []), [doc])
 
   useImperativeHandle(ref, () => ({
     focus: (initial) => {
@@ -50,7 +54,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
 
   const tabs: { k: BottomTab; label: string }[] = [
     { k: 'command', label: t.tab },
-    { k: 'detected', label: fmt(t.detected, { n: findings.length }) },
+    { k: 'detected', label: fmt(t.detected, { n: findings.length + review.length }) },
     { k: 'ai', label: t.aiTab },
   ]
 
@@ -139,7 +143,7 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
 
       {bottomTab === 'detected' && (
         <ul className={`${s.list} scroll-y`}>
-          {findings.length === 0 && <li className={s.none}>{T.cad.detected.none}</li>}
+          {findings.length + review.length === 0 && <li className={s.none}>{T.cad.detected.none}</li>}
           {findings.map((f) => (
             <li key={f.id}>
               <button
@@ -160,6 +164,15 @@ export const CommandPanel = forwardRef<CommandPanelHandle>(function CommandPanel
                     : T.cad.detected.zero}
                 </span>
                 <em>{T.cad.detected.zoomTo}</em>
+              </button>
+            </li>
+          ))}
+          {doc && review.map((it) => (
+            <li key={it.id}>
+              <button type="button" className={s.finding} data-testid="detected-review" onClick={() => { if (it.entityId) setSelection([it.entityId]); cadUi.review?.() }}>
+                <TriangleAlert size={15} strokeWidth={1.8} />
+                <span>{fmt(T.importCal.review.detected, { text: itemText(T.importCal, it, doc.provenance?.sources[it.sourceId]) })}</span>
+                <em>{T.importCal.review.open}</em>
               </button>
             </li>
           ))}

@@ -1,0 +1,204 @@
+{
+  "name": "MD CAD AI STUDIO",
+  "type": "UPDATE_ONLY_DESIGN_SPEC_NOT_RUNNING_PRODUCT",
+  "based_on": "v2.2 CNC machine-aware update package",
+  "new_acceptance_cases": 103,
+  "existing_v2_2_cnc_cases": 82,
+  "files": [
+    {
+      "relative_path": "00_READ_THIS_FIRST_v2_3.md",
+      "size_bytes": 3466,
+      "sha256": "34dbe121b5755e4c9eea0dd212162d10dc1dab66846226d81c01470fdd6dbd12"
+    },
+    {
+      "relative_path": "00_UPDATE_ONLY_READ_FIRST.md",
+      "size_bytes": 7669,
+      "sha256": "5184bf988f95b9d5eb5e0a863ba178684dc9c8f125caa9afd1328019fa6b4c00"
+    },
+    {
+      "relative_path": "PACKAGE_MANIFEST.json",
+      "size_bytes": 827,
+      "sha256": "d74063642d1268ee39644a449b77fb313e2d41fd916d23b47b5bc716a091221f"
+    },
+    {
+      "relative_path": "README_START_HERE.md",
+      "size_bytes": 2586,
+      "sha256": "00e1a98fc5ca7908b9933470e2b2d9a1e9d51c92d289b7e7bc8bde6933038751"
+    },
+    {
+      "relative_path": "README_v2_2_CNC.md",
+      "size_bytes": 2311,
+      "sha256": "02e389b29d3a196b594a29451b1642fc64143048cb4531b6f7c7c00aa8c9e856"
+    },
+    {
+      "relative_path": "docs/01_PRODUCT_VISION_AND_PRIORITY_LOCK.md",
+      "size_bytes": 5358,
+      "sha256": "1f8e4ec863a7d68ac63e67b8ab1c9c6deb8c600123cf34b69e1595343bbf73e3"
+    },
+    {
+      "relative_path": "docs/02_MANUAL_PARITY_MASTER_REQUIREMENTS.md",
+      "size_bytes": 6698,
+      "sha256": "4c02f1d816685a4ee3fe45af139225188e696824ff1a2934e51334e947fab01d"
+    },
+    {
+      "relative_path": "docs/03_AUTONOMOUS_DESIGN_FACTORY_ARCHITECTURE.md",
+      "size_bytes": 5842,
+      "sha256": "afb0ad2b45ffe2f9d4d68963cf121ff134364f93a56ec5b9d8c9a03478e76741"
+    },
+    {
+      "relative_path": "docs/04_CLAUDE_NEW_MANDATE.md",
+      "size_bytes": 5154,
+      "sha256": "5f7c6616d8a648142674c20237b04132fb3505cb651cdf153525fd6878e9b7f2"
+    },
+    {
+      "relative_path": "docs/05_CHANGE_CONTROL_AND_REGRESSION.md",
+      "size_bytes": 1617,
+      "sha256": "e9d8a47bbb1325121441613d91166b55b0a73630aff914e25359bbb4225ba860"
+    },
+    {
+      "relative_path": "docs/06_CNC_MACHINE_AWARE_MANUFACTURING_MASTER_SPEC.md",
+      "size_bytes": 15056,
+      "sha256": "add898d574f417345f689880a2eda03b094c30766795cfa2e625a35828874715"
+    },
+    {
+      "relative_path": "docs/07_MACHINE_SELECTION_UX_AND_ARCHITECTURE_DELTA.md",
+      "size_bytes": 4260,
+      "sha256": "1c534494fea1a2131f60e0b9ffd8f30f43dce36a8df08339f5fa68f26815db41"
+    },
+    {
+      "relative_path": "docs/08_CLAUDE_CNC_UPDATE_ONLY_MANDATE.md",
+      "size_bytes": 4440,
+      "sha256": "2d26ef05d202b63baf0ad0a148f2f2139ab33bc964c2a4a99e59c2eab0c4cf66"
+    },
+    {
+      "relative_path": "docs/09_MACHINE_COMMISSIONING_AND_QC.md",
+      "size_bytes": 4298,
+      "sha256": "a33e6cbc2fef0be28c9d408dc70cbf5e1536448e40894d574e5eb759f2005830"
+    },
+    {
+      "relative_path": "docs/10_END_TO_END_AI_TO_CNC_P0.md",
+      "size_bytes": 8214,
+      "sha256": "502dd031e17b1a506d018383697a476c31458b6a5d3fe504b3c40c99cbe2e150"
+    },
+    {
+      "relative_path": "docs/11_CLAUDE_AUTONOMOUS_PRODUCTION_UPDATE_ONLY_PROMPT.md",
+      "size_bytes": 4746,
+      "sha256": "9d523e4105c59c14fed690e20c980017ef942bd693c3c431685646fdcf64433d"
+    },
+    {
+      "relative_path": "docs/12_IMAGE_PDF_TO_EDITABLE_CAD.md",
+      "size_bytes": 2921,
+      "sha256": "1e7414dafef5cec6bbc6c9b90ee7d45a72f338a7a3963d52d3c25f7025e3f068"
+    },
+    {
+      "relative_path": "docs/13_CAD2D_TO_PARAMETRIC_3D.md",
+      "size_bytes": 2782,
+      "sha256": "e655faec4e0afb179890e156b0bbc722a3ab47c9a7004192d1c651c1228e2ce3"
+    },
+    {
+      "relative_path": "docs/14_FREE_LOCAL_INTEGRATIONS.md",
+      "size_bytes": 4306,
+      "sha256": "9647f86f68affd6b1f10462606bc0a188f25863c1c42adfea506752341f73ea3"
+    },
+    {
+      "relative_path": "docs/15_P0_ROADMAP_AND_EVIDENCE.md",
+      "size_bytes": 3837,
+      "sha256": "67e1f170fa064c2f3cc1b5678c54f6e1c4077e5f580f020f9a2b056b177495d4"
+    },
+    {
+      "relative_path": "examples/example_unverified_cabinet_NO_NC.json",
+      "size_bytes": 675,
+      "sha256": "9c27ed40b656ea93ffd1e340e181bb2478cd92d7e39591c9bf4511b5262277de"
+    },
+    {
+      "relative_path": "examples/machine_1_router_heads_UNVERIFIED.json",
+      "size_bytes": 1858,
+      "sha256": "ef98eef776e35b4abf5fe78b3057408eb9ae9e759b6695b31e6571e53c7602bb"
+    },
+    {
+      "relative_path": "examples/machine_2_router_heads_UNVERIFIED.json",
+      "size_bytes": 2453,
+      "sha256": "1225456ac444bc9ff7e032b382a998a5ae5c355cd56e24f69ca9e0481bf10951"
+    },
+    {
+      "relative_path": "examples/machine_2_saw_blades_UNVERIFIED.json",
+      "size_bytes": 2372,
+      "sha256": "2559344618438392c5dae65a4e55a43aaba74e24f079415c9b4833b53b98694f"
+    },
+    {
+      "relative_path": "examples/machine_3_router_heads_UNVERIFIED.json",
+      "size_bytes": 3048,
+      "sha256": "fe011b300e94b1d1489bf4526b6bf11676e8690d781545f764c25cd65328df34"
+    },
+    {
+      "relative_path": "examples/manufacturing_job_UNVERIFIED.json",
+      "size_bytes": 744,
+      "sha256": "6513bf3e6d0cdcc2de51bb53c97565aaca6958ea32e08d3d96585f9fcb27ebef"
+    },
+    {
+      "relative_path": "qa/AI_TO_CAD_TO_CNC_ACCEPTANCE_v2_3.csv",
+      "size_bytes": 14750,
+      "sha256": "23d2f9f7df0fcbcd36097729a973231a025bc84bbfdef91f4ef7a9f5fd0fdc58"
+    },
+    {
+      "relative_path": "qa/AUTONOMY_ACCEPTANCE_SEED.csv",
+      "size_bytes": 3310,
+      "sha256": "8d4500cc185f0a784af0a5ad20ae63fefcc22eb998079f69396e18b2ac994a3b"
+    },
+    {
+      "relative_path": "qa/CNC_MULTI_MACHINE_ACCEPTANCE_TESTS.csv",
+      "size_bytes": 14571,
+      "sha256": "7e1c6cbdb17d58983f880ed2d95e4a515b0aa441f7375cf45d9df1b97e86dfe8"
+    },
+    {
+      "relative_path": "qa/CNC_UPDATE_GAP_AUDIT_TEMPLATE.csv",
+      "size_bytes": 789,
+      "sha256": "5e482bdc6994376d7639cd32be657576b03d2fae294d5be55ddb4dcdb7af26b7"
+    },
+    {
+      "relative_path": "qa/FEATURE_COMPATIBILITY_SEED.csv",
+      "size_bytes": 12466,
+      "sha256": "4b6ad51938c1c80c952575656a76ca930adab2f799c3cfe154c0dd09c7487ede"
+    },
+    {
+      "relative_path": "qa/IMPLEMENTATION_DELTA_AUDIT_v2_3.csv",
+      "size_bytes": 1248,
+      "sha256": "830c751278a59e975d2c64f1cc1f202b7d92287b47a39113b8febe991ec4c5c4"
+    },
+    {
+      "relative_path": "qa/UPDATE_GAP_AUDIT_TEMPLATE.csv",
+      "size_bytes": 715,
+      "sha256": "6b619b69856e5286315e8941e946a6c1123927460528d8a849dd2ea7be01e1d0"
+    },
+    {
+      "relative_path": "qa/reference_release_gate.py",
+      "size_bytes": 3743,
+      "sha256": "27d53b1791958ea3104aecb81aa6eaa9c5db0c30b792ab5a865b448f0b9c02de"
+    },
+    {
+      "relative_path": "qa/test_cnc_reference_gate.py",
+      "size_bytes": 1162,
+      "sha256": "390f6ba08230ca71824366532526c05d18c0309ea1d6550c677515de1bee9bc6"
+    },
+    {
+      "relative_path": "schemas/machine_profile.schema.json",
+      "size_bytes": 10247,
+      "sha256": "bb8bd0c02cdfcef6abb8c6b402d855c6bb57bd323cd11ee1743ab76463d287cb"
+    },
+    {
+      "relative_path": "schemas/manufacturing_job.schema.json",
+      "size_bytes": 3509,
+      "sha256": "9c4ccdd2ddd5a0f2420c686ad6d8145eb9886f74d0e47883aacc3f2ee5e96c26"
+    },
+    {
+      "relative_path": "ui/MD_CAD_CNC_MACHINE_SELECTOR_DEMO.html",
+      "size_bytes": 19930,
+      "sha256": "63a5aec01ec93872334bebc930acdd9487e5345bcbdfa68e8b03ad8be26ec2c7"
+    },
+    {
+      "relative_path": "ui/MD_CAD_CNC_MACHINE_SELECTOR_PREVIEW.png",
+      "size_bytes": 236461,
+      "sha256": "18422958a4d1d30d6b1e58cad7dd99fce301bcd10979f88e847594221f5fcfe0"
+    }
+  ]
+}

@@ -48,6 +48,8 @@ export function validateCivil(m: CivilModel): string | null {
   if (!(p.manningN >= 0.009 && p.manningN <= 0.05)) return "Manning's n"
   if (!(p.discharge > 0 && p.discharge <= 500)) return 'Design discharge'
   if (!(p.slopeMin > 0 && p.slopeMin < p.slopeMax && p.slopeMax <= 0.05)) return 'Design Slope'
+  // a route without a design line has no invert: nothing to grade, no cut / fill (never invented)
+  if (!(m.invert.length >= 2) || m.invert.some((p) => !Number.isFinite(p[0]) || !Number.isFinite(p[1]))) return 'Design invert'
   for (let i = 1; i < m.invert.length; i++) if (!(m.invert[i][0] > m.invert[i - 1][0])) return 'Profile stations'
   if (!(m.alignment.end - m.alignment.start >= 20)) return 'Alignment length'
   return null

@@ -30,16 +30,25 @@ export function stairFlight(m: BimModel, st: BimModel['stairs'][number]) {
   return { z, ...stairRisers(m, st.baseLevel, st.topLevel) }
 }
 
-/** The side profile of a flight (local x along the run, y up): the steps on top, a sloping waist slab of
- *  150 mm under them, meeting the floor in front and ending under the top tread. */
-export function stairProfile(st: BimModel['stairs'][number], n: number, riser: number): [number, number][] {
+/** Waist slab of a concrete flight (mm), measured square to its pitch. */
+export const STAIR_WAIST = 150
+
+/** The side profile of a flight (local x along the run, y up): the steps on top of a sloping waist slab `waist` thick
+ *  measured square to the pitch line through the step roots (the inner corners, where a tread meets the riser above
+ *  it); the soffit meets the floor in front of the first riser and is cut square to the floor under the top
+ *  (where the flight joins the landing / floor slab). A flight too short for the slab to rise off the floor is solid
+ *  down to it. Its area × the width is the flight's concrete. */
+export function stairProfile(st: BimModel['stairs'][number], n: number, riser: number, waist = STAIR_WAIST): [number, number][] {
   const going = st.length / n, H = n * riser
-  const waist = 150 / Math.cos(Math.atan2(riser, going))
+  // the soffit: the root line y = (riser / going) x lowered by the waist measured square to it
+  const k = riser / going, drop = waist * Math.hypot(1, k)
   const prof: [number, number][] = [[0, 0]]
   for (let i = 0; i < n; i++) prof.push([i * going, (i + 1) * riser], [(i + 1) * going, (i + 1) * riser])
-  const xs = Math.min(st.length / 2, Math.max(0, (waist - riser) / (riser / going)))
-  prof.push([st.length, Math.max(H - 120, Math.min(H - 1, riser + H - waist))])
-  if (xs > 1) prof.push([xs, 0])
+  const xs = drop / k
+  if (xs < st.length - 1) {
+    prof.push([st.length, H - drop])
+    if (xs > 1) prof.push([xs, 0])
+  } else prof.push([st.length, 0])
   return prof.filter((q, i, a) => i === 0 || q[0] !== a[i - 1][0] || q[1] !== a[i - 1][1])
 }
 

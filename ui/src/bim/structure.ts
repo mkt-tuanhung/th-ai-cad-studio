@@ -5,7 +5,10 @@
  *    (S-PILE, CỌC), slab outlines (S-SLAB, SÀN), slab openings (S-OPEN, LỖ), grids (S-GRID, TRỤC);
  *  - each structural plan: the entities of those layers grouped by place, its title under it ("MẶT BẰNG MÓNG …",
  *    "MẶT BẰNG KẾT CẤU SÀN TẦNG 2 (MẶT SÀN KC +3.850)") — the level by its name, else by the elevation written;
- *  - it is placed on the model by the grid intersection the model was aligned on (grid 1 / A);
+ *  - it is placed on the model by the grid intersection the model was aligned on (grid 1 / A), turned by the angle
+ *    between its grids and the model's (a drawing at an angle, squared like the architectural plans: planToModel);
+ *  - elevations written ("ĐỈNH ĐÀI −0.950") are from ±0.000: stored from the element's level;
+ *  - element ids continue those already in the model (several structural drawings are applied in turn);
  *  - a beam: two parallel lines 100…500 mm apart along each other (the width b); its size "D2-1 220x300" from the
  *    nearest tag along it (b × h); without a tag, h of the plan's tagged beams of that width (flagged);
  *  - a pile cap: a closed outline on a foundation layer, its tag "M3 (2 cọc)", the pile squares inside it; its top
@@ -16,7 +19,7 @@
  */
 import type { CadDocument, Entity, Vec2 } from '../cad/types'
 import type { Beam, BimModel, Footing, P2, RebarSpec } from './model'
-import { boxOf, norm, parseElevation, parseSize, segsOf, type Box } from './fromCad'
+import { boxOf, isRoofPlanTitle, norm, parseElevation, parseSize, scaleDoc, segsOf, unitScaleOf, type Box } from './fromCad'
 
 export type StructRole = 'beam' | 'tie' | 'found' | 'pile' | 'slab' | 'open' | 'grid' | 'text' | 'ignore'
 
@@ -87,6 +90,51 @@ export const cross = (g: { a: P2; b: P2 }, h: { a: P2; b: P2 }): P2 | null => {
   return [g.a[0] + d1[0] * t, g.a[1] + d1[1] * t]
 }
 
+/** Direction of a grid line (radians, modulo 180°: −90°…90°). */
+const lineAngle = (g: { a: P2; b: P2 }) => { let t = Math.atan2(g.b[1] - g.a[1], g.b[0] - g.a[0]); while (t <= -Math.PI / 2) t += Math.PI; while (t > Math.PI / 2) t -= Math.PI; return t }
+const wrap = (t: number) => { while (t <= -Math.PI) t += 2 * Math.PI; while (t > Math.PI) t -= 2 * Math.PI; return t }
+
+/**
+ * The transform of a plan (structural, roof) onto the model: the plan's alignment grid intersection onto the model's,
+ * turned by the angle between the plan's grid lines and the model's — the same turn the architectural plans got when
+ * they were squared (a drawing at an angle), so beams, caps, openings and roofs land where the walls are. Grid lines
+ * have no direction, so of the two turns 180° apart the one bringing the plan's other grids (2, B…) onto the model's
+ * wins (the smaller turn when no other grid is shared). `skew`: the two grid directions disagree by over 1°.
+ */
+export function planToModel(grids: { label: string; a: P2; b: P2 }[], m: BimModel, alignGrid: [string, string] | null): { T: (p: P2) => P2; angle: number; skew: boolean } | null {
+  if (!alignGrid) return null
+  const mg = (lab: string) => m.grids.find((g) => g.label === lab)
+  const pg = (lab: string) => grids.find((g) => g.label === lab)
+  const [mv, mh, gv, gh] = [mg(alignGrid[0]), mg(alignGrid[1]), pg(alignGrid[0]), pg(alignGrid[1])]
+  if (!mv || !mh || !gv || !gh) return null
+  const modelO = cross(mv, mh), planO = cross(gv, gh)
+  if (!modelO || !planO) return null
+  const th = wrap(lineAngle(mv) - lineAngle(gv))
+  const thH = wrap(lineAngle(mh) - lineAngle(gh))
+  const dd = Math.abs(wrap(2 * (th - thH))) / 2
+  const make = (t: number) => {
+    const c = Math.abs(t) < 1e-12 ? 1 : Math.cos(t), s = Math.abs(t) < 1e-12 ? 0 : Math.sin(t)
+    return (p: P2): P2 => { const x = p[0] - planO[0], y = p[1] - planO[1]; return [modelO[0] + x * c - y * s, modelO[1] + x * s + y * c] }
+  }
+  // the turn in −90°…90°, or the one 180° from it
+  const t0 = Math.abs(th) > Math.PI / 2 ? wrap(th + Math.PI) : th
+  const cands = [t0, wrap(t0 + Math.PI)]
+  const others = grids.filter((g) => g.label !== alignGrid[0] && g.label !== alignGrid[1] && mg(g.label))
+  let best = 0
+  if (others.length) {
+    const miss = cands.map((t) => {
+      const T = make(t)
+      return others.reduce((a, g) => {
+        const q = mg(g.label)!, p = T([(g.a[0] + g.b[0]) / 2, (g.a[1] + g.b[1]) / 2])
+        const dx = q.b[0] - q.a[0], dy = q.b[1] - q.a[1], L = Math.hypot(dx, dy) || 1
+        return a + Math.abs((p[0] - q.a[0]) * dy - (p[1] - q.a[1]) * dx) / L
+      }, 0)
+    })
+    best = miss[1] < miss[0] - 1 ? 1 : 0
+  }
+  return { T: make(cands[best]), angle: cands[best], skew: dd > Math.PI / 180 }
+}
+
 /** Pairs of parallel lines 100…500 mm apart overlapping along each other: centre line, width, extent. */
 function pairs(segs: [Vec2, Vec2][]): { a: P2; b: P2; w: number }[] {
   type S = { ux: number; uy: number; c: number; s0: number; s1: number; used: boolean }
@@ -133,6 +181,12 @@ export function readStructure(doc: CadDocument, m: BimModel, alignGrid: [string,
   const warnings: string[] = []
   const role = new Map<string, StructRole>()
   const R = (layer: string) => { let r = role.get(layer); if (!r) { r = structRole(layer); role.set(layer, r) } return r }
+  // a drawing in metres / centimetres (no INSUNITS): beams 0.22 wide → read in millimetres
+  const k = unitScaleOf(doc.entities.filter((e) => { const r = R(e.layer); return r === 'beam' || r === 'tie' }))
+  if (k !== 1) { doc = scaleDoc(doc, k); warnings.push(`unitsScaled:${k}`) }
+  // element ids not already in the model: the structure of several drawings is applied one after the other
+  const taken = new Set<string>([...(m.beams ?? []), ...(m.footings ?? [])].map((x) => x.id))
+  const newId = (prefix: string) => { let n = 1; while (taken.has(`${prefix}-${n}`)) n++; taken.add(`${prefix}-${n}`); return n }
   const texts = doc.entities.filter((e): e is Txt => e.kind === 'text')
   const allText = texts.map((t) => ({ t, n: norm(t.value) }))
   // 1. plans: structural entities grouped by place (within 3 m of each other)
@@ -155,6 +209,7 @@ export function readStructure(doc: CadDocument, m: BimModel, alignGrid: [string,
   const mg = (lab: string) => m.grids.find((g) => g.label === lab)
   const modelO = alignGrid && mg(alignGrid[0]) && mg(alignGrid[1]) ? cross(mg(alignGrid[0])!, mg(alignGrid[1])!) : null
   if (!modelO) warnings.push('noGrid')
+  const absToLevel = (v: number | null, lvEl: number) => (v === null ? null : v - lvEl)
   // pile-cap levels written anywhere in the drawing
   const topCap = allText.find((x) => /DINH DAI/.test(x.n))
   const botCap = allText.find((x) => /DAY DAI/.test(x.n))
@@ -173,18 +228,19 @@ export function readStructure(doc: CadDocument, m: BimModel, alignGrid: [string,
     else {
       const tn = /TANG\s*(\d+)/.exec(title.n)
       const byName = tn ? m.levels.find((l) => new RegExp(`\\b${tn[1]}\\b`).test(norm(l.name)) && /TANG|LEVEL|FLOOR/.test(norm(l.name))) : undefined
-      const roof = /\bMAI\b|ROOF/.test(title.n) ? sortedLv[sortedLv.length - 1] : undefined
+      const roof = isRoofPlanTitle(title.t.value) ? sortedLv[sortedLv.length - 1] : undefined
       const byEl = el !== null ? sortedLv.find((l) => Math.abs(l.elevation - el) < 400) : undefined
       level = (byName ?? roof ?? byEl ?? lvByName(title.n))?.id ?? null
     }
     plans.push({ kind, title: title.t.value, box: g.box, level, elevation: el })
     if (!level) { warnings.push(`noLevel:${title.t.value}`); continue }
-    // 2. placement on the model by the alignment grid
+    // 2. placement on the model by the alignment grid: moved and turned (a plan drawn at an angle is squared like the
+    //    architectural plans were)
     const grids = gridsIn(doc.entities.filter((e) => R(e.layer) === 'grid'), texts.filter((t) => R(t.layer) === 'grid' || R(t.layer) === 'text'), g.box)
-    const gv = alignGrid ? grids.find((x) => x.label === alignGrid[0]) : undefined, gh = alignGrid ? grids.find((x) => x.label === alignGrid[1]) : undefined
-    const planO = gv && gh ? cross(gv, gh) : null
-    if (!planO || !modelO) { warnings.push(`noPlace:${title.t.value}`); continue }
-    const T = (p: P2): P2 => [r1(p[0] - planO[0] + modelO[0]), r1(p[1] - planO[1] + modelO[1])]
+    const pm = modelO ? planToModel(grids, m, alignGrid) : null
+    if (!pm) { warnings.push(`noPlace:${title.t.value}`); continue }
+    if (pm.skew) warnings.push(`gridSkew:${title.t.value}`)
+    const T = (p: P2): P2 => { const q = pm.T(p); return [r1(q[0]), r1(q[1])] }
     const lvEl = m.levels.find((l) => l.id === level)!.elevation
     const tags = texts.filter((t) => inBox(t.p, g.box, 1500) && parseSize(t.value))
     const segsOfRole = (r: StructRole) => g.ents.filter((e) => R(e.layer) === r).flatMap(segsOf)
@@ -207,7 +263,7 @@ export function readStructure(doc: CadDocument, m: BimModel, alignGrid: [string,
         if (!h) { missing++; continue }
         const a = T(p.a), b = T(p.b)
         const L = Math.hypot(b[0] - a[0], b[1] - a[1])
-        const n = out.beams.length + 1
+        const n = newId('beam')
         out.beams.push({ id: `beam-${n}`, category: 'beam', mark: tag?.mark || (tie ? `GM${n}` : `B${n}`), level: level!, topOffset: 0, x: a[0], y: a[1], angle: Math.round((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI * 1000) / 1000, length: r1(L), b: tag?.b ?? p.w, h, ...(tie ? { tie: true } : {}), ...(tag ? {} : { assumedH: true }) })
       }
       if (missing) warnings.push(`beamNoSize:${missing}`)
@@ -223,24 +279,30 @@ export function readStructure(doc: CadDocument, m: BimModel, alignGrid: [string,
       const th = texts.map((t) => (inBox(t.p, g.box, 500) ? /\bh\s*=\s*(\d{2,3})\b/i.exec(t.value) : null)).find(Boolean)
       out.slabs.push({ level, openings, thickness: th ? Number(th[1]) : null })
     } else {
-      const capTop = topCap ? parseElevation(topCap.t.value) : null, capBot = botCap ? parseElevation(botCap.t.value) : null
+      // "ĐỈNH ĐÀI −0.950" / "ĐÁY ĐÀI −1.600" are elevations (from ±0.000): the caps' top and bottom from their level
+      const capTop = absToLevel(topCap ? parseElevation(topCap.t.value) : null, lvEl), capBot = absToLevel(botCap ? parseElevation(botCap.t.value) : null, lvEl)
       const H = capTop !== null && capBot !== null ? capTop - capBot : capH ? Number(capH[1]) : null
       const top = capTop ?? (capBot !== null && H ? capBot + H : null)
       if (top === null || H === null) warnings.push('capLevels')
-      const piles = g.ents.filter((e): e is Extract<Entity, { kind: 'polyline' }> => R(e.layer) === 'pile' && e.kind === 'polyline' && e.closed)
+      if (top !== null && top > 0) warnings.push(`capAboveLevel:${r1(top)}`)
+      // caps and piles in the model frame (a plan drawn at an angle: their sides square to the model's grids)
+      const mbox = (e: Extract<Entity, { kind: 'polyline' }>) => { const q = e.pts.map((p) => pm.T([p.x, p.y])); return { x0: Math.min(...q.map((v) => v[0])), y0: Math.min(...q.map((v) => v[1])), x1: Math.max(...q.map((v) => v[0])), y1: Math.max(...q.map((v) => v[1])) } }
+      const piles = g.ents.filter((e): e is Extract<Entity, { kind: 'polyline' }> => R(e.layer) === 'pile' && e.kind === 'polyline' && e.closed).map(mbox)
       for (const e of g.ents) {
         if (R(e.layer) !== 'found' || e.kind !== 'polyline' || !e.closed || e.pts.length < 4) continue
-        const b = boxOf(e)
+        const b = mbox(e)
         const w = b.x1 - b.x0, d = b.y1 - b.y0
         if (w < 300 || d < 300) continue
-        const inside = piles.filter((p) => { const pb = boxOf(p); return pb.x0 >= b.x0 - 5 && pb.x1 <= b.x1 + 5 && pb.y0 >= b.y0 - 5 && pb.y1 <= b.y1 + 5 })
-        const tag = allText.find(({ t, n }) => /^M[A-Z]*\d/.test(n) && inBox(t.p, b, 400))
+        const inside = piles.filter((pb) => pb.x0 >= b.x0 - 5 && pb.x1 <= b.x1 + 5 && pb.y0 >= b.y0 - 5 && pb.y1 <= b.y1 + 5)
+        const db = boxOf(e)
+        const tag = allText.find(({ t, n }) => /^M[A-Z]*\d/.test(n) && inBox(t.p, db, 400))
         // the pile number the tag writes ("M3 (2 cọc)") against the piles drawn in the cap
         const said = tag ? /\b(\d+) COC\b/.exec(tag.n) : null
         if (said && Number(said[1]) !== inside.length) warnings.push(`piles:${tag!.t.value}:${inside.length}`)
-        const [cx, cy] = T([(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2])
-        const pb = inside[0] ? boxOf(inside[0]) : null
-        out.footings.push({ id: `footing-${out.footings.length + 1}`, category: 'footing', mark: tag ? tag.t.value.replace(/\s*\(.*$/, '').trim() : `M${out.footings.length + 1}`, level, x: cx, y: cy, w: r1(w), d: r1(d), top: top ?? -500, bottom: top !== null && H !== null ? top - H : (top ?? -500) - 600, piles: inside.length, ...(pb ? { pileSize: Math.round(Math.min(pb.x1 - pb.x0, pb.y1 - pb.y0)) } : {}) })
+        const [cx, cy] = [r1((b.x0 + b.x1) / 2), r1((b.y0 + b.y1) / 2)]
+        const pb = inside[0] ?? null
+        const n = newId('footing')
+        out.footings.push({ id: `footing-${n}`, category: 'footing', mark: tag ? tag.t.value.replace(/\s*\(.*$/, '').trim() : `M${n}`, level, x: cx, y: cy, w: r1(w), d: r1(d), top: top ?? -500, bottom: top !== null && H !== null ? top - H : (top ?? -500) - 600, piles: inside.length, ...(pb ? { pileSize: Math.round(Math.min(pb.x1 - pb.x0, pb.y1 - pb.y0)) } : {}) })
       }
       // tie beams: their top at the caps' top
       const first = out.beams.length
@@ -266,7 +328,16 @@ export function applyStructure(m: BimModel, s: StructResult): BimModel {
     const add = x.openings.filter((o) => !(sl.openings ?? []).some((e) => ov(o, e) > 0.5 * Math.min(area(o), area(e))))
     return { ...sl, ...(x.thickness ? { thickness: x.thickness } : {}), ...(add.length ? { openings: [...(sl.openings ?? []), ...add] } : {}) }
   })
-  return { ...m, slabs, beams: [...(m.beams ?? []), ...s.beams], footings: [...(m.footings ?? []), ...s.footings], ...(s.rebar ? { rebar: s.rebar } : {}) }
+  // ids unique in the model even when the result was read against another model (each structure file applied in turn)
+  const taken = new Set<string>([...(m.beams ?? []), ...(m.footings ?? [])].map((x) => x.id))
+  const fresh = <T extends { id: string }>(x: T, prefix: string): T => {
+    if (!taken.has(x.id)) { taken.add(x.id); return x }
+    let n = 1
+    while (taken.has(`${prefix}-${n}`)) n++
+    taken.add(`${prefix}-${n}`)
+    return { ...x, id: `${prefix}-${n}` }
+  }
+  return { ...m, slabs, beams: [...(m.beams ?? []), ...s.beams.map((b) => fresh(b, 'beam'))], footings: [...(m.footings ?? []), ...s.footings.map((f) => fresh(f, 'footing'))], ...(s.rebar ? { rebar: s.rebar } : {}) }
 }
 
 /* ---------------- reinforcement from the typical details ---------------- */

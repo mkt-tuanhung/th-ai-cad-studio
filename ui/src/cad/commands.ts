@@ -60,6 +60,11 @@ export const COMMANDS: CommandSpec[] = [
   { name: 'OPEN', aliases: [], status: 'prototype' },
   { name: 'DXFOUT', aliases: ['EXPORT'], status: 'prototype' },
   { name: 'PLOT', aliases: ['PRINT'], status: 'prototype' },
+  // v2.4: scale calibration of an imported drawing, measured room (survey), review list (no short aliases:
+  // they must not shadow AutoCAD ones like CAL)
+  { name: 'CALIBRATE', aliases: [], status: 'prototype' },
+  { name: 'SURVEYROOM', aliases: [], status: 'prototype' },
+  { name: 'IMPORTREVIEW', aliases: [], status: 'prototype' },
 ]
 
 export function resolveCommand(input: string): CommandSpec | null {

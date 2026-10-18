@@ -1,0 +1,29 @@
+{
+  "_note": "EXAMPLE ONLY - UNVERIFIED / NOT FOR MACHINE USE",
+  "project_id": "EXAMPLE-KITCHEN-01",
+  "survey_status": "UNVERIFIED",
+  "units": "mm",
+  "sample_part": {
+    "part_id": "PANEL-DEMO-001",
+    "nominal_mm": {
+      "length": 800,
+      "width": 600,
+      "thickness": 18
+    },
+    "material": "DEMO_MDF",
+    "thickness_measured": null,
+    "grain_axis": "L",
+    "edge_band": {
+      "L1": "unknown",
+      "L2": "unknown",
+      "W1": "unknown",
+      "W2": "unknown"
+    },
+    "face_a": "up",
+    "operations": []
+  },
+  "machine_profile_id": null,
+  "controller_postprocessor_id": null,
+  "production_release_allowed": false,
+  "generated_gcode": null
+}

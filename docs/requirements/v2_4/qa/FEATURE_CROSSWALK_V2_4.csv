@@ -1,0 +1,65 @@
+﻿feature_id,domain,requested_feature,reference_or_origin,priority,minimum_acceptance,repo_audit_status,source_file,test_evidence,notes
+SP01,Planning,Live 2D/3D single document,SpacePlanner 3D view,P0,2D wall edit updates same-ID 3D mesh and undo,NOT_AUDITED,,,Do not label implemented without code+tests
+SP02,Planning,Room rectangle/L/U/polygon/round templates,SpacePlanner Rooms,P0,Room dimensions mm and topology closure,NOT_AUDITED,,,Do not label implemented without code+tests
+SP03,Planning,Curved / sloped / varying-height walls,SpacePlanner Walls,P1,Arc radius and end heights persist,NOT_AUDITED,,,Do not label implemented without code+tests
+SP04,Planning,Precise numeric wall lengths / unit input,SpacePlanner Dimensions,P0,typed 4200mm measured to tolerance,NOT_AUDITED,,,Do not label implemented without code+tests
+SP05,Planning,Grid OSNAP angle lock and face dims,SpacePlanner Grid & Snapping,P0,"OSNAP uses exact geometry, not pixels",NOT_AUDITED,,,Do not label implemented without code+tests
+SP06,Planning,Door/window hosted opening & swing,SpacePlanner Doors & Windows,P0,opening maintains host relation,NOT_AUDITED,,,Do not label implemented without code+tests
+SP07,Planning,Stair generator straight L/U and landing,SpacePlanner Stairs,P1,valid level links and stair consistency,NOT_AUDITED,,,Do not label implemented without code+tests
+SP08,Planning,Multi level and split level,SpacePlanner Floors & Levels,P0,level elevation correct in 3D,NOT_AUDITED,,,Do not label implemented without code+tests
+SP09,Planning,Automatic roof types / balcony/terrace,SpacePlanner Roofs & Slabs,P1,roof and slabs react to wall changes,NOT_AUDITED,,,Do not label implemented without code+tests
+SP10,Planning,"Room names, automatic areas/schedules",SpacePlanner Areas,P0,net area agrees with geometry,NOT_AUDITED,,,Do not label implemented without code+tests
+SP11,Planning,Basic electrical placement/legend,SpacePlanner Electrical Plans,P1,wires and symbol legend linked,NOT_AUDITED,,,Do not label implemented without code+tests
+SP12,Planning,Photo as calibrated underlay,SpacePlanner Import,P0,unknown scale blocked for manufacture,NOT_AUDITED,,,Do not label implemented without code+tests
+SP13,AI Import,Photo/PDF -> editable semantic CAD,MD proposed advanced beyond docs,P0,not just raster and marks uncertainties,NOT_AUDITED,,,Do not label implemented without code+tests
+SP14,AI Import,Measured room from surveyed inputs,MD proposed,P0,"survey provenance, tolerance and review",NOT_AUDITED,,,Do not label implemented without code+tests
+SP15,3D,Incremental live 3D tessellation,SpacePlanner 3D,P0,localized edit avoids full rebuild,NOT_AUDITED,,,Do not label implemented without code+tests
+SP16,3D,Orbit pan zoom fit view cube,SpacePlanner 3D,P0,mouse and trackpad profiles work,NOT_AUDITED,,,Do not label implemented without code+tests
+SP17,3D,Top front side isometric presets,SpacePlanner 3D,P0,camera deterministic and saveable,NOT_AUDITED,,,Do not label implemented without code+tests
+SP18,3D,Walkthrough eye-level camera,SpacePlanner Walk mode,P0,collision with doors/furniture configurable,NOT_AUDITED,,,Do not label implemented without code+tests
+SP19,3D,See through cutaway low wall/section plane,SpacePlanner 3D,P0,geometry not mutated by view cutaway,NOT_AUDITED,,,Do not label implemented without code+tests
+SP20,3D,Room focus navigation and minimap,SpacePlanner 3D,P1,focus target and level filter,NOT_AUDITED,,,Do not label implemented without code+tests
+SP21,3D,3D select direct edit on semantic entities,SpacePlanner 3D,P0,3D edits update 2D commands,NOT_AUDITED,,,Do not label implemented without code+tests
+SP22,3D,Door open/close only for view,SpacePlanner 3D,P1,export remains consistent deterministic,NOT_AUDITED,,,Do not label implemented without code+tests
+SP23,Assets,Real-size furniture catalog search/filter,SpacePlanner Furniture,P0,dimension and origin preserved,NOT_AUDITED,,,Do not label implemented without code+tests
+SP24,Assets,Replace furniture maintaining location,SpacePlanner Furniture,P0,position/rotation preserved,NOT_AUDITED,,,Do not label implemented without code+tests
+SP25,Assets,Resize elevation and lock furniture,SpacePlanner Furniture,P0,bounds/host rules validate,NOT_AUDITED,,,Do not label implemented without code+tests
+SP26,Assets,Per-part material/finish,SpacePlanner Furniture,P0,material IDs and scale persist,NOT_AUDITED,,,Do not label implemented without code+tests
+SP27,Assets,Finish material texture scale/grain,SpacePlanner Finishes,P0,physical texture scale in mm,NOT_AUDITED,,,Do not label implemented without code+tests
+SP28,AI Design,Automatic space layout 3 options,MD AI extension,P0,3 validated proposals plus reject/apply,NOT_AUDITED,,,Do not label implemented without code+tests
+SP29,AI Design,Clearance/collision intelligent fixes,MD AI extension,P0,confidence + deterministic measurement checks,NOT_AUDITED,,,Do not label implemented without code+tests
+SP30,AI Design,Task queue checkpoints/restart,MD AI extension,P0,resume without duplication or data loss,NOT_AUDITED,,,Do not label implemented without code+tests
+SP31,Drawings,Elevation auto from geometry,SpacePlanner Elevations,P0,openings correct and update,NOT_AUDITED,,,Do not label implemented without code+tests
+SP32,Drawings,Section auto from plan,SpacePlanner Sections,P0,levels cut and aligned dimensions,NOT_AUDITED,,,Do not label implemented without code+tests
+SP33,Drawings,Wall elevation for cabinetry,SpacePlanner Wall View,P0,cabinet install view stable,NOT_AUDITED,,,Do not label implemented without code+tests
+SP34,Drawings,PDF sheets A4-A0 true scale,SpacePlanner Export,P0,test plotted ruler in mm,NOT_AUDITED,,,Do not label implemented without code+tests
+SP35,Drawings,Dimension layer print controls,SpacePlanner Export,P0,individual dimensions visible/filterable,NOT_AUDITED,,,Do not label implemented without code+tests
+SP36,Drawings,Schedules: room area furniture electrical,SpacePlanner Export,P1,table quantities match model,NOT_AUDITED,,,Do not label implemented without code+tests
+SP37,Exports,DXF 1:1 real CAD line/arc/polyline,SpacePlanner DXF,P0,roundtrip separate geometry checks,NOT_AUDITED,,,Do not label implemented without code+tests
+SP38,Exports,GLB model with materials,SpacePlanner GLB,P0,scene and scale compare,NOT_AUDITED,,,Do not label implemented without code+tests
+SP39,Exports,SVG PNG JSON project exchange,SpacePlanner Exports,P1,lossless relevant metadata where expected,NOT_AUDITED,,,Do not label implemented without code+tests
+SP40,Render,Realtime 3D appearance presets,SpacePlanner Day/Golden/Night,P0,no geometry change,NOT_AUDITED,,,Do not label implemented without code+tests
+SP41,Render,Save camera bookmark and scene revision,SpacePlanner Saved Views,P0,restore exact camera settings,NOT_AUDITED,,,Do not label implemented without code+tests
+SP42,Render,Offline photoreal still from 3D scene,SpacePlanner Realistic Render; local implementation,P0,actual Blender image file and scene ID,NOT_AUDITED,,,Do not label implemented without code+tests
+SP43,Render,"Render queue, background job, cancel",SpacePlanner Render,P0,UI responsiveness queue integrity,NOT_AUDITED,,,Do not label implemented without code+tests
+SP44,Render,4K quality and realistic output settings,SpacePlanner Render,P1,resolution and failure handling,NOT_AUDITED,,,Do not label implemented without code+tests
+SP45,Render,Preview to render comparison slider,SpacePlanner Comparison,P1,same camera image alignment,NOT_AUDITED,,,Do not label implemented without code+tests
+SP46,Render,Material variations from same model,MD enhancement,P1,distinct options preserve geometry,NOT_AUDITED,,,Do not label implemented without code+tests
+SP47,Render,Local concept image AI with disclaimer,MD enhancement,P2,never feeds CAD measurement,NOT_AUDITED,,,Do not label implemented without code+tests
+SP48,Productivity,Command search for tools/resources,SpacePlanner Search,P1,contexts and CAD shortcuts preserved,NOT_AUDITED,,,Do not label implemented without code+tests
+SP49,Productivity,Template project gallery,SpacePlanner Templates,P1,real drawings editable and versioned,NOT_AUDITED,,,Do not label implemented without code+tests
+SP50,Productivity,Version history and local project snapshot,SpacePlanner Save,P0,restore version with model/render provenance,NOT_AUDITED,,,Do not label implemented without code+tests
+SP51,Productivity,VI/EN interface and AI prompts,MD agreed,P0,both locales cover new UI,NOT_AUDITED,,,Do not label implemented without code+tests
+SP52,Manufacturing,Cabinet parametric part decomposition,MD v2.3 retained,P0,each part L/W/T millimeters and ID,NOT_AUDITED,,,Do not label implemented without code+tests
+SP53,Manufacturing,Grain direction and edge banding,MD v2.3 retained,P0,cut vs finished sizes verified,NOT_AUDITED,,,Do not label implemented without code+tests
+SP54,Manufacturing,Hardware patterns + drill program,MD v2.3 retained,P0,holes map to face and datum,NOT_AUDITED,,,Do not label implemented without code+tests
+SP55,Manufacturing,Machine selection 1/2/3 head saw/ATC,MD v2.3 retained,P0,capability/offset/controller verified,NOT_AUDITED,,,Do not label implemented without code+tests
+SP56,Manufacturing,Nesting respecting sheets/clamps/grain,MD v2.3 retained,P0,physically valid sheet arrangement,NOT_AUDITED,,,Do not label implemented without code+tests
+SP57,Manufacturing,CAM toolpaths and machine post,MD v2.3 retained,P0,controller parse and simulation pass,NOT_AUDITED,,,Do not label implemented without code+tests
+SP58,Manufacturing,STALENESS propagation design->NC,MD v2.4 strict,P0,update cabinet dims invalidates NC,NOT_AUDITED,,,Do not label implemented without code+tests
+SP59,Manufacturing,Production NC locked until commissioning,MD v2.3 retained,P0,UNVERIFIED profile cannot release,NOT_AUDITED,,,Do not label implemented without code+tests
+SP60,Manufacturing,Operator first-article QC,MD v2.3 retained,P0,signed QC records required,NOT_AUDITED,,,Do not label implemented without code+tests
+SP61,Platform,CAD/SketchUp/3dsMax keyboard modes,MD agreed,P0,no silent shortcut collision,NOT_AUDITED,,,Do not label implemented without code+tests
+SP62,Platform,Local AI inference on Apple Silicon,MD agreed,P0,network disabled inference,NOT_AUDITED,,,Do not label implemented without code+tests
+SP63,Platform,Offline render worker process,MD new,P0,"no cloud, no API credits",NOT_AUDITED,,,Do not label implemented without code+tests
+SP64,Platform,Plugin/component licensing manifest,MD production,P0,approved distribution licenses,NOT_AUDITED,,,Do not label implemented without code+tests
