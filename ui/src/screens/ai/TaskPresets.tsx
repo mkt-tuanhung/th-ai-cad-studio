@@ -14,7 +14,7 @@ import { PRESETS, type PresetDef } from '../../ai/presets'
 import { answer, createJob, needUser, openQuestions, readyForReview, resolveInterrupted, STATUS_ORDER, type AiJob, type JobQuestion } from '../../ai/jobs'
 import { approveJob, checkLayoutInputs, rejectJob, saveJob, uncalibrated, undoLast } from '../../ai/jobActions'
 import { AUTO_STEPS } from '../auto/AutoDialog'
-import { fabricationAllowed } from '../../cad/provenance'
+import { fabricationAllowed, openReview } from '../../cad/provenance'
 import { resurvey } from '../../cad/importReview'
 import { measurementWords } from '../cad2d/ReviewDialog'
 import type { Messages } from '../../i18n/en'
@@ -68,7 +68,7 @@ export function TaskPresetsDialog({ tab: initial, onClose, onStartScan }: { tab:
       const d = docs[j.input.docId]
       if (d && !uncalibrated(d).length) {
         let k = answer(j, q.key, true)
-        if (j.preset === 'scan' && !openQuestions(k).length) k = readyForReview(k)
+        if (j.preset === 'scan' && !openQuestions(k).length) k = readyForReview(k, [fmt(J.postScan, { name: d.name, n: d.entities.length, cal: J.calYes, items: openReview(d).length })])
         if (j.preset === 'layout') k = checkLayoutInputs(d, j.title, k, (n, b) => fmt(J.layoutPost, { n, blocked: b ? J.layoutBlocked : '' }))
         saveJob(k)
       }

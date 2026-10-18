@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { ActionButton } from '../../components/ui/Button'
-import { fmtK, solveScale, type CalRef } from '../../cad/calibration'
+import { solveScale, type CalRef } from '../../cad/calibration'
 import type { Vec2 } from '../../cad/types'
 import s from './Calibration.module.css'
 
@@ -140,4 +140,3 @@ export function CalibrationRefs({ refs, onRemove, candidates, onUse, unit, perUn
   )
 }
 
-export { fmtK }

@@ -38,7 +38,10 @@ export function solveScale(refs: Pick<CalRef, 'id' | 'measured' | 'refDistance'>
   const ok = refs.filter((r) => r.measured > 1e-9 && r.refDistance > 0 && Number.isFinite(r.measured) && Number.isFinite(r.refDistance))
   if (!ok.length) return null
   let mt = 0, mm = 0
-  for (const r of ok) (mt += r.measured * r.refDistance), (mm += r.measured * r.measured)
+  for (const r of ok) {
+    mt += r.measured * r.refDistance
+    mm += r.measured * r.measured
+  }
   const k = mt / mm
   const perRef = ok.map((r) => {
     const fitted = k * r.measured
