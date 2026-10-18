@@ -145,20 +145,58 @@ await step('VI: workspace, tabs, rooms and default brief are translated', async 
   await page.getByRole('radio', { name: 'EN', exact: true }).click()
 })
 
-await step('Cut list → Nesting & CNC: real sheets, verified programs, G-code ZIP download', async () => {
+/** Names in a ZIP (central directory). */
+const zipNames = (buf) => {
+  const out = []
+  for (let i = 0; i + 46 < buf.length; i++) if (buf.readUInt32LE(i) === 0x02014b50) { const n = buf.readUInt16LE(i + 28); out.push(buf.slice(i + 46, i + 46 + n).toString('utf8')); i += 45 + n }
+  return out
+}
+
+await step('Cut list → Nesting & CNC: machine first, then real sheets, simulated (preview) programs, preview ZIP; production blocked', async () => {
   await page.getByRole('tab', { name: 'Cut List (Production)' }).click()
   assert.match(await page.locator('[class*=cutSum]').innerText(), /Sheets \(nested, 2440 × 1830\): MFC 18 - Walnut × \d+/)
   await page.getByTestId('open-nesting').click()
   const d = page.getByTestId('nesting-dialog')
   await d.waitFor()
+  // no machine profile yet: nesting / CAM wait for one, nothing can be exported
+  assert.match(await page.getByTestId('nesting-no-machine').innerText(), /Choose the machine first/)
+  assert.equal(await page.getByTestId('export-preview').count(), 0)
+  await page.getByTestId('machine-select').selectOption('DEMO_1_HEADS_NOT_FOR_MACHINE')
   assert.match(await page.getByTestId('nesting-summary').innerText(), /\d+ parts on \d+ sheets/)
-  assert.match(await d.innerText(), /\d+ part\(s\) larger than the stock/)
-  assert.ok((await d.innerText()).includes('✓') && !(await d.innerText()).includes('✗'))
-  const [dl] = await Promise.all([page.waitForEvent('download'), d.getByRole('button', { name: /G-code \(ZIP\)/ }).click()])
+  const text = await d.innerText()
+  assert.match(text, /\d+ part\(s\) larger than the stock/)
+  const chips = await d.locator('[class*=cncRow]').innerText()
+  assert.ok(chips.includes('✓') && !chips.includes('✗'), chips)
+  assert.ok(!/verified ✓|verified:/.test(text), 'the old "verified" wording is gone')
+  assert.match(await page.getByTestId('not-for-machine').innerText(), /NOT FOR MACHINE: this profile is UNVERIFIED/)
+  assert.match(await page.getByTestId('machine-heads').innerText(), /1 router spindle\(s\) · 0 saw blade\(s\)/)
+  // a 1-head router without drilling: drilling is listed as not machined instead of being written
+  assert.match(await page.getByTestId('not-machined').innerText(), /Vertical drilling: NO_HEAD_FOR_OPERATION/)
+  assert.ok(await page.getByTestId('export-production').isDisabled())
+  await page.getByTestId('blockers').locator('summary').click()
+  assert.match(await page.getByTestId('blockers').innerText(), /MACHINE_PROFILE_NOT_VERIFIED — machine profile is not VERIFIED/)
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-preview').click()])
+  assert.match(dl.suggestedFilename(), /NOT FOR MACHINE/)
   const buf = readFileSync(await dl.path())
   assert.equal(buf.readUInt32LE(0), 0x04034b50) // ZIP local header
-  assert.ok(buf.includes(Buffer.from('G21 G90 G17 G94')))
-  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+  const names = zipNames(buf)
+  assert.ok(names.length > 1 && names.every((n) => n.endsWith('.NOT_FOR_MACHINE.txt') || n === 'manifest.json') && names.includes('manifest.json'), names.join(' | '))
+  for (const s of ['(ENGINEERING PREVIEW - NOT FOR MACHINE USE)', '(machine=DEMO_1_HEADS_NOT_FOR_MACHINE status=UNVERIFIED', 'M0 (ENGINEERING PREVIEW - NOT FOR MACHINE USE - STOP)', 'G21 G90 G17 G94', '"kind": "ENGINEERING_PREVIEW"']) assert.ok(buf.includes(Buffer.from(s)), s)
+  // after the review a changed measured thickness makes the job STALE
+  await page.getByLabel('MFC 18 - Walnut Measured thickness (mm)').fill('18.4')
+  assert.match(await page.getByTestId('job-stale').innerText(), /STALE: stock changed after the last review/)
+  assert.match(await page.getByTestId('job-status').innerText(), /STALE/)
+  // Machines & Tools opens from the dialog: the four v2.3 samples, all UNVERIFIED
+  await page.getByTestId('open-machines').click()
+  const m = page.getByTestId('machines-dialog')
+  await m.waitFor()
+  for (const id of ['DEMO_1_HEADS_NOT_FOR_MACHINE', 'DEMO_2_HEADS_NOT_FOR_MACHINE', 'DEMO_3_HEADS_NOT_FOR_MACHINE', 'DEMO_2_SAW_BLADES_NOT_FOR_MACHINE']) assert.ok((await m.innerText()).includes(id), id)
+  assert.match(await page.getByTestId('machine-gate').innerText(), /MACHINE_PROFILE_NOT_VERIFIED/)
+  // commissioning without the required evidence never verifies
+  await page.getByTestId('commission-run').click()
+  assert.match(await page.getByTestId('commission-last').innerText(), /FAILED: .*AIR_CUT_FAILED/)
+  await page.getByRole('dialog', { name: 'Machines & Tools' }).getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'Nesting & CNC' }).getByRole('button', { name: 'Close' }).click()
 })
 
 for (const [r, n] of results) console.log(`${r}  ${n}`)

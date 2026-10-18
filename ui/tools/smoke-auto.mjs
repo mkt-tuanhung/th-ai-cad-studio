@@ -54,7 +54,7 @@ await step('a house DXF: read, recognised and built by itself — building summa
   assert.match(h, /3 levels · 18 walls · 9 doors · 13 windows · 10 rooms · 12 columns · 18 furniture/)
   assert.match(h, /Interior \(Tầng 1\): 5 rooms · 9 items · 4 cabinets/)
   // the cut list and CNC cover every level with furniture (Tầng 2 has a wardrobe too)
-  assert.match(h, /Cut list and CNC, 2 levels: \d+ cabinets → \d+ parts on \d+ sheets · \d+ CNC programs/)
+  assert.match(h, /Cut list and CNC, 2 levels: \d+ cabinets → \d+ parts on \d+ sheets · \d+ CNC previews \(NOT for machine\)/)
   assert.match(h, /Model checks: all passed/)
   // elevations and sections are drawn by the OCCT kernel: the browser says so instead of pretending
   assert.match(h, /Elevations and sections need the desktop app/)
@@ -62,13 +62,15 @@ await step('a house DXF: read, recognised and built by itself — building summa
   await page.getByRole('dialog').screenshot({ path: SHOTS + 'auto_house_review.png' })
 })
 
-await step('Approve & build everything: BIM + Interior applied, the ZIP holds IFC, plans (DXF + SVG), schedules, cut list, nesting, G-code, report', async () => {
+await step('Approve & build everything: BIM + Interior applied, the ZIP holds IFC, plans (DXF + SVG), schedules, cut list, nesting, CNC previews (never .nc), report', async () => {
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('auto-approve').click()])
   houseZip = readFileSync(await dl.path())
   const names = zipNames(houseZip)
   const has = (re) => assert.ok(names.some((n) => re.test(n)), `missing ${re} in ${names.join(' | ')}`)
   has(/BIM\.ifc$/); has(/Walls\.csv$/); has(/Rooms\.csv$/); has(/Doors and windows\.csv$/); has(/Floor plan Tầng 1\.dxf$/); has(/Floor plan Tầng 2\.dxf$/)
-  has(/Floor plan.*\.svg$/); has(/Bill of quantities\.csv$/); has(/Bill of quantities.*\.svg$/); has(/Door and window schedule.*\.svg$/); has(/Interior furniture\.csv$/); has(/Cut list\.csv$/); has(/Nesting\.dxf$/); has(/CNC .*\.nc$/i); has(/^Report\.html$/)
+  has(/Floor plan.*\.svg$/); has(/Bill of quantities\.csv$/); has(/Bill of quantities.*\.svg$/); has(/Door and window schedule.*\.svg$/); has(/Interior furniture\.csv$/); has(/Cut list\.csv$/); has(/Nesting\.dxf$/); has(/CNC .*\.NOT_FOR_MACHINE\.txt$/); has(/CNC manifest\.json$/); has(/^Report\.html$/)
+  // the one-command package only ever writes engineering previews
+  assert.ok(!names.some((n) => /\.nc$/i.test(n)), `production-looking .nc in ${names.filter((n) => /\.nc$/i.test(n)).join(' | ')}`)
   await page.getByTestId('auto-done').waitFor()
   const bim = (await store('thcad.bim')).model
   assert.equal(bim.walls.length, 18)
@@ -76,13 +78,19 @@ await step('Approve & build everything: BIM + Interior applied, the ZIP holds IF
   assert.equal(int.cabinets.length, 4)
 })
 
-await step('the package is real: IFC header, plan DXF with the walls, G-code program, report text', async () => {
+await step('the package is real: IFC header, plan DXF with the walls, watermarked CNC preview, report with CNC blockers', async () => {
   const s = houseZip.toString('utf8')
   assert.match(s, /ISO-10303-21;/)
   assert.match(s, /FILE_SCHEMA\(\('IFC4'\)\)/)
   assert.match(s, /A-WALL/)
   assert.match(s, /G0 Z/)
+  assert.match(s, /\(ENGINEERING PREVIEW - NOT FOR MACHINE USE\)/)
+  assert.match(s, /\(machine=NONE status=NO_MACHINE_PROFILE post=/)
+  assert.match(s, /"kind": "ENGINEERING_PREVIEW"/)
   assert.match(s, /one-command report/)
+  // the report says the CNC files are previews and lists the release blockers
+  assert.match(s, /CNC files are engineering previews/)
+  assert.match(s, /CNC production blocked: MACHINE_NOT_SELECTED/)
 })
 
 await step('Done: Open BIM 3D goes to the built model', async () => {
