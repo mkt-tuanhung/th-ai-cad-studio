@@ -110,6 +110,31 @@ export interface Cabinet {
   edgeBand?: number
   /** Dimension provenance (see DimSource); undefined = drawn / parametric in this app. */
   src?: DimSource
+  /** Hinge / drawer slide / connector products and their placement (cam/hardware.ts); undefined = the generic hinge cups. */
+  hardware?: CabinetHardware
+}
+
+/**
+ * Hardware chosen for a cabinet (ids of cam/library hardware items) and the placement decisions that belong to
+ * the design, not to the product: hinge boring distance and end distance, hinge count, slide length and the
+ * heights of the slide hole lines. Missing product data or placement → CNC drilling is blocked ("needs data").
+ */
+export interface CabinetHardware {
+  hinge?: string | null
+  /** Door edge → cup edge (mm), within the product's range. */
+  boringDistance?: number | null
+  /** Door end → first / last cup centre (mm). */
+  hingeEndDistance?: number | null
+  /** Hinges per door (null = 2 / 3 / 4 / 5 by door height ≤ 900 / 1600 / 2000 / more). */
+  hingeCount?: number | null
+  /** Drill the hinge fixing holes (press-in / INSERTA dowels) when the product documents them. */
+  hingeFixings?: boolean
+  slide?: string | null
+  /** Nominal slide length (mm); null = the longest that fits the carcass depth. */
+  slideLength?: number | null
+  /** Heights of the slide hole lines from the bottom of the side panel (mm), one per drawer. */
+  slideRows?: number[]
+  connector?: string | null
 }
 
 export type EdgeSide = 'L1' | 'L2' | 'W1' | 'W2'

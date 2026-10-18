@@ -82,7 +82,8 @@ export function previewFiles(programs: NcProgram[], o: { machine: MachineProfile
   const parses: PreviewResult['parses'] = []
   for (const p of programs) {
     const text = watermark(p.text, { machine: o.machine?.profile_id ?? 'NONE', status: o.machine?.status ?? 'NO_MACHINE_PROFILE', post: `${o.post.id} ${o.post.version} UNVERIFIED`, blockers: o.blockers, job: `${o.meta.job.job_id} r${o.meta.job.revision}` })
-    const name = `${o.prefix ?? ''}${p.name.replace(/\.nc$/i, '')}${PREVIEW_EXT}`
+    // any program extension (.nc / .tap / .mpf…) becomes the preview extension no controller loads
+    const name = `${o.prefix ?? ''}${p.name.replace(/\.(nc|tap|ngc|mpf|cnc|iso|gcode|txt)$/i, '')}${PREVIEW_EXT}`
     files.push({ name, text })
     parses.push({ name, parse: parseNc(text, { ...p.ctx, preview: true }) })
   }
@@ -140,4 +141,81 @@ export function productionFiles(programs: NcProgram[], o: { machine: MachineProf
   }
   files.push({ name: `${o.prefix ?? ''}manifest.json`, text: JSON.stringify(manifest, null, 2) + '\n' })
   return { files, manifest }
+}
+
+/* ------------------------------------------------------------------ commissioning air cut */
+
+export const AIRCUT_MARK = 'COMMISSIONING AIR CUT - SUPERVISED DRY RUN - NO MATERIAL'
+
+/**
+ * The commissioning air-cut test program (docs/09 step 5): the post's program with EVERY Z raised by `lift` so the
+ * deepest move stays `gap` mm above the board top (and above every clamp top + clearance), feeds unchanged, a
+ * header in the controller's comment syntax and the file name marked AIRCUT_TEST. It is run without material,
+ * under supervision, to check motion, head / tool selection and the program end — it is not production NC.
+ * The parser re-reads the lifted bytes: any move below `gap` throws.
+ */
+export function airCutFiles(programs: NcProgram[], o: { gap: number; clampTop?: number }): WrittenFile[] {
+  return programs.map((p) => {
+    const parsed = parseNc(p.text, { ...p.ctx, preview: false })
+    const lift = Math.max(0, -parsed.minZ) + o.gap + Math.max(0, o.clampTop ?? 0)
+    const style = /\(/.test(p.text) ? 'paren' : /;/.test(p.text) ? 'semicolon' : 'none'
+    const c = (s: string) => (style === 'paren' ? `(${s})` : style === 'semicolon' ? `; ${s}` : null)
+    const lines = p.text.replace(/\n$/, '').split('\n').map((raw) => {
+      const i = raw.search(/[(;]/)
+      const code = i < 0 ? raw : raw.slice(0, i), rest = i < 0 ? '' : raw.slice(i)
+      return code.replace(/Z\s*([-+]?\d*\.?\d+)/gi, (_, v: string) => `Z${(Math.round((Number(v) + lift) * 1000) / 1000).toString()}`) + rest
+    })
+    const head = [c(AIRCUT_MARK), c(`ALL Z RAISED BY ${lift.toFixed(3)} MM - DEEPEST MOVE ${o.gap} MM ABOVE THE BOARD TOP`), c('OPERATOR: E-STOP IN REACH, FEED OVERRIDE LOW, WATCH EVERY TOOL / HEAD CHANGE')].filter((x): x is string => !!x)
+    const at = lines[0]?.trim() === '%' ? 1 : 0
+    lines.splice(at, 0, ...head)
+    const text = lines.join('\n') + '\n'
+    const check = parseNc(text, { ...p.ctx, stockT: null, expectThrough: false, maxDepth: null, preview: false })
+    if (check.minZ < o.gap - 1e-6) throw new Error(`AIRCUT_NOT_LIFTED:${p.name}:${check.minZ}`)
+    const m = /^(.*?)(\.[A-Za-z0-9]{1,6})?$/.exec(p.name)!
+    return { name: `${m[1]}.AIRCUT_TEST${m[2] ?? '.nc'}`, text }
+  })
+}
+
+/* ------------------------------------------------------------------ panel saw (cutting list, no NC) */
+
+export const SAW_PREVIEW_EXT = '.NOT_FOR_MACHINE.csv'
+
+/** Panel-saw engineering preview: the cutting list / cut sequence with a watermark row, the patterns (SVG), a manifest. */
+export function previewSawFiles(files: WrittenFile[], svgs: WrittenFile[], o: { machine: MachineProfile | null; machineHash: string | null; post: Post; blockers: string[]; meta: ReleaseMeta; at?: string }): { files: WrittenFile[]; manifest: Record<string, unknown> } {
+  const out: WrittenFile[] = [
+    ...files.map((f) => ({ name: f.name.replace(/\.csv$/i, SAW_PREVIEW_EXT), text: `"${WATERMARK}"\r\n${f.text}` })),
+    ...svgs.map((f) => ({ name: f.name.replace(/\.svg$/i, '.NOT_FOR_MACHINE.svg'), text: f.text })),
+  ]
+  const manifest = {
+    kind: 'ENGINEERING_PREVIEW', not_for_machine: true, notice: WATERMARK, generated_at: o.at ?? new Date().toISOString(), app: o.meta.app, job: o.meta.job, parts: o.meta.parts,
+    machine: machineInfo(o.machine, o.machineHash), post: { id: o.post.id, version: o.post.version, sha256: o.post.sha256, status: o.post.status }, blockers: o.blockers,
+    files: out.map((f) => ({ name: f.name, ...fileHash(f.text) })),
+  }
+  out.push({ name: 'manifest.json', text: JSON.stringify(manifest, null, 2) + '\n' })
+  return { files: out, manifest }
+}
+
+/**
+ * Panel-saw production release: the cutting list + cut sequence (CSV) whose bytes the job's chain approved, the
+ * patterns (SVG) and a manifest with sha256 + sign-offs — only when the release gate is empty (re-checked here).
+ * The saw's optimiser / controller program is made on the saw from this list; nothing is sent to the machine.
+ */
+export function productionSawFiles(files: WrittenFile[], svgs: WrittenFile[], o: { machine: MachineProfile | null; machineHash: string | null; commissioning: CommissioningRecord | null; post: Post; gate: JobGateInput; meta: ReleaseMeta; at?: string }): { files: WrittenFile[]; manifest: Record<string, unknown> } {
+  const gate: JobGateInput = { ...o.gate, post: { id: o.post.id, version: o.post.version, sha256: o.post.sha256 } }
+  const blockers = releaseBlockers(o.machine, gate, o.commissioning)
+  if (o.machine && o.machine.machine_type !== 'PANEL_SAW') blockers.push('SAW_LIST_FOR_A_NON_SAW_MACHINE')
+  const chain = o.meta.job.chain
+  if (!chain || ncStageHash(chain.post, files.map((f) => f.text)) !== chain.nc) blockers.push('NC_BYTES_NOT_APPROVED')
+  if (blockers.length) throw new ProductionBlocked(blockers)
+  const out = [...files, ...svgs]
+  const manifest = {
+    kind: 'PRODUCTION_RELEASE', not_for_machine: false, format: 'MDCAD-SAW-CSV-1', generated_at: o.at ?? new Date().toISOString(), app: o.meta.app, job: o.meta.job, parts: o.meta.parts,
+    machine: machineInfo(o.machine, o.machineHash),
+    commissioning: o.commissioning ? { id: o.commissioning.id, at: o.commissioning.at, operator: o.commissioning.operator, engineer: o.commissioning.engineer, evidence_refs: o.commissioning.evidence_refs } : null,
+    post: { id: o.post.id, version: o.post.version, sha256: o.post.sha256 }, signoffs: o.gate.approvals,
+    files: out.map((f) => ({ name: f.name, ...fileHash(f.text) })),
+    notice: 'Cutting list for the panel saw (manual transfer). The saw operator starts every cut; the app never sends or starts a program.',
+  }
+  out.push({ name: 'manifest.json', text: JSON.stringify(manifest, null, 2) + '\n' })
+  return { files: out, manifest }
 }
