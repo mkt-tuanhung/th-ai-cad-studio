@@ -14,6 +14,7 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/model_downloader.cpp src/model_downloader.hpp
   src/blender_worker.cpp src/blender_worker.hpp
   src/mac_window.hpp
+  src/licence_gate.cpp src/licence_gate.hpp
 )
 # brand icon: macOS AppIcon.icns in Contents/Resources, Windows app.ico through a resource script
 if(APPLE)
@@ -61,6 +62,17 @@ if(APPLE)
   target_link_libraries(THAICADStudio PRIVATE "-framework AppKit" "-framework AVFoundation" "-framework CoreMedia" "-framework CoreVideo" "-framework Speech")
 endif()
 target_compile_definitions(THAICADStudio PRIVATE THCAD_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+# licence: verification only (the signing seed never leaves the owner's keygen vault)
+if(NOT THCAD_HAS_LICENSE)
+  message(FATAL_ERROR "the desktop app needs libsodium for its licence check (brew install libsodium / vcpkg libsodium)")
+endif()
+target_link_libraries(THAICADStudio PRIVATE thcad::license)
+if(THCAD_LICENSE_ENFORCE)
+  target_compile_definitions(THAICADStudio PRIVATE THCAD_LICENSE_ENFORCE=1)
+  message(STATUS "Licence enforcement: ON (customer build)")
+else()
+  message(STATUS "Licence enforcement: OFF (dev / QA build — never package this)")
+endif()
 if(THCAD_WITH_OCCT)
   target_link_libraries(THAICADStudio PRIVATE thcad::geom_occt)
   target_compile_definitions(THAICADStudio PRIVATE THCAD_HAS_OCCT=1)

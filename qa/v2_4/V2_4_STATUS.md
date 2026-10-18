@@ -56,6 +56,10 @@ Ba bộ unit cũ (`dwg`, `layouts`, `survey`) không có hàm `run`; chúng đư
 
 **Bài CNC v2.3:** phần lớn tự động hoá và đạt (xem `QA_CNC_GATE.md`). CNC-075…077 và 081 **bị chặn** vì cần máy thật để chạy thử không phôi, cắt mẫu đầu và có người vận hành ký duyệt.
 
+## 2b. Bản quyền theo máy (2026-10-18)
+
+Bản cho khách khoá mọi chức năng cho tới khi kích hoạt KEY đúng máy (watermark + cửa sổ kích hoạt). Chi tiết, kiểm thử và giới hạn: `qa/v2_4/QA_LICENSE.md`. **Chương trình cấp KEY chưa có**, nên chưa thử được kích hoạt bằng KEY thật.
+
 ## 3. Còn mở
 
 1. **Máy CNC thật:** cần hãng, model, controller và firmware, mã G/M đã kiểm chứng, offset và dao đo thực tế. Chưa có thì xuất NC sản xuất **luôn bị chặn**.

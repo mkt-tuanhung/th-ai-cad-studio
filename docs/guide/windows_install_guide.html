@@ -72,7 +72,7 @@
   <ol class="toc">
     <li>Bộ cài gồm những gì</li>
     <li>Yêu cầu máy tính</li>
-    <li>Bước 1 — Cài ứng dụng</li>
+    <li>Bước 1 — Cài ứng dụng và kích hoạt bản quyền (KEY)</li>
     <li>Bước 2 — Cài mô hình AI (offline, không cần mạng)</li>
     <li>Bước 3 — Bật tăng tốc GPU cho AI</li>
     <li>Bước 4 — Nhận giọng nói tiếng Việt và micro</li>
@@ -135,8 +135,18 @@
   </div>
   <p><span class="step">5</span>Thư mục cài mặc định: <code>C:\Program Files\MD CAD AI STUDIO</code> (hoặc trong thư mục người dùng nếu chọn "chỉ cho bạn"). Giữ nguyên, bấm <b>Tiếp</b>.</p>
   <p><span class="step">6</span>Tích <b>Tạo biểu tượng trên màn hình</b> nếu muốn, bấm <b>Cài đặt</b>. Trình cài đặt tự tạo sẵn thư mục mô hình <code>%LOCALAPPDATA%\MD CAD AI STUDIO\models</code>.</p>
-  <p><span class="step">7</span>Bấm <b>Hoàn tất</b> (để tích "Mở MD CAD AI STUDIO"). Lần đầu mở có màn giới thiệu khoảng 4 giây, sau đó vào trang Tổng quan.</p>
-  <div class="fig"><img src="shots/10_dashboard.png" style="width:92%"><div class="cap">Trang Tổng quan sau khi mở ứng dụng (ảnh chụp thật).</div></div>
+  <p><span class="step">7</span>Bấm <b>Hoàn tất</b> (để tích "Mở MD CAD AI STUDIO"). Lần đầu mở có màn giới thiệu khoảng 4 giây, sau đó hiện màn hình <b>kích hoạt bản quyền</b> (mục 3.1).</p>
+</div>
+
+<div class="page">
+  <h2>3.1 Kích hoạt bản quyền (KEY) — bắt buộc</h2>
+  <p>Khi chưa kích hoạt, phần mềm ở <b>chế độ dùng thử bị khoá</b>: màn hình phủ chữ <i>"TRIAL VERSION - SẢN PHẨM ĐƯỢC PHÁT TRIỂN BỞI MINH DŨNG Vui lòng liên hệ để cung cấp KEY - HOTLINE: 0879232666"</i>, <b>mọi chức năng đều bị khoá</b> và cửa sổ kích hoạt hiện ra.</p>
+  <p><span class="step">1</span>Bấm <b>Sao chép mã máy</b>. Mã có dạng <code>MDCA-XXXXX-XXXXX-XXXXX-XXXXX-X</code>.</p>
+  <p><span class="step">2</span>Gửi mã máy cho <b>Minh Dũng — HOTLINE 0879232666</b> (Zalo / tin nhắn) để nhận KEY.</p>
+  <p><span class="step">3</span>Khi có KEY: dán vào ô <b>Dán KEY vào đây</b>, hoặc bấm <b>Chọn file key (.mdkey)…</b> nếu được gửi dạng file, rồi bấm <b>Kích hoạt</b>.</p>
+  <p><span class="step">4</span>Phần mềm báo <b>Kích hoạt thành công</b> và tự khởi động lại với đầy đủ chức năng. Thông tin bản quyền xem ở <b>Cài đặt → Cập nhật</b>.</p>
+  <div class="fig"><img src="shots/15_activation.png" style="width:92%"><div class="cap">Màn hình khi chưa kích hoạt: chữ TRIAL VERSION, dải đỏ và cửa sổ kích hoạt (ảnh chụp thật trên macOS — trên Windows giống hệt).</div></div>
+  <div class="box note"><b>Mỗi máy một KEY.</b> KEY chỉ dùng được trên đúng máy có mã máy đã gửi. Cài lại Windows hoặc format ổ C có thể làm đổi mã máy — khi đó gửi mã mới để được cấp lại.</div>
 </div>
 
 <div class="page">
@@ -260,6 +270,9 @@
   <h2 style="margin-top:6mm">11. Xử lý sự cố thường gặp</h2>
   <table>
     <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
+    <tr><td>Màn hình ghi TRIAL VERSION, không dùng được chức năng nào</td><td>Chưa kích hoạt: làm mục 3.1 (gửi mã máy, nhập KEY).</td></tr>
+    <tr><td>Báo "KEY này được cấp cho máy khác"</td><td>KEY gắn với một máy. Gửi đúng mã máy của máy đang dùng (nút Sao chép mã máy) để được cấp KEY riêng.</td></tr>
+    <tr><td>Báo "KEY bị hỏng hoặc thiếu ký tự"</td><td>Dán lại đủ cả KEY (bắt đầu bằng MDK1-), hoặc dùng nút Chọn file key (.mdkey).</td></tr>
     <tr><td>Không cài được, Windows chặn</td><td>SmartScreen: More info → Run anyway. Phần mềm diệt virus: cho phép file cài đặt (ứng dụng chưa ký số).</td></tr>
     <tr><td>AI báo "Chưa nạp mô hình"</td><td>Kiểm tra 2 file <code>.gguf</code> nằm đúng <code>%LOCALAPPDATA%\MD CAD AI STUDIO\models</code> (không nằm trong thư mục con), mở lại ứng dụng. Hoặc Cài đặt → Thư mục mô hình → Đổi… trỏ tới nơi đặt file.</td></tr>
     <tr><td>AI quá chậm</td><td>Bật "Dùng GPU cho AI", cập nhật driver. Máy RAM ≤ 8 GB: dùng mô hình 3B.</td></tr>

@@ -1005,6 +1005,12 @@ export const vi: Messages = {
       ai: 'AI cục bộ',
       dwg: 'Bộ đọc DWG',
       browser: 'Bản xem trên trình duyệt (không có host desktop)',
+      licence: 'Bản quyền',
+      licensed: 'Đã kích hoạt — {customer} · key #{serial} · cấp ngày {issued}{expires}',
+      expiresOn: ' · hết hạn {date}',
+      unlicensedDev: 'Bản phát triển (không khoá)',
+      unlicensed: 'Chưa kích hoạt',
+      machine: 'Mã máy',
     },
     privacy: {
       title: 'Quyền riêng tư',

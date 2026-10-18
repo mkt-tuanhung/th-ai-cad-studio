@@ -13,3 +13,8 @@ ui/test-results/
 native/packaging/windows/build-win/
 native/third_party/downloads/
 ui/public/ocr/
+native/build-release/
+native/build-release.log
+native/build-win-qa/
+native/qa-stage/
+ui/vite.wt.config.ts

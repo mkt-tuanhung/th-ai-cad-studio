@@ -102,7 +102,7 @@ jobs:
           $env:THCAD_TEST_NO_GPU = "1"
           $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
           New-Item -ItemType Directory -Force vcpkg-cache | Out-Null
-          ./native/packaging/windows/build_windows.ps1
+          ./native/packaging/windows/build_windows.ps1 -QaBuild
 
       - name: Save vcpkg binary cache
         if: always()
@@ -118,10 +118,14 @@ jobs:
           path: C:\Qt
           key: qt-6.10.3-msvc2022_64-webengine
 
+      # the packaged app is licence-enforced (locked without a key for this PC, QA hooks off), so the self-test runs
+      # the unlocked QA build of the same sources in a copy of the staged folder; the installer never contains it
       - name: In-app self-test (bridge, engine, BIM, OCCT; no AI model on the runner)
         shell: pwsh
         run: |
-          $exe = "native/dist-win/MD CAD AI STUDIO/MD CAD AI STUDIO.exe"
+          Copy-Item -Recurse "native/dist-win/MD CAD AI STUDIO" "native/qa-stage"
+          Copy-Item -Force "native/build-win-qa/app/MD CAD AI STUDIO.exe" "native/qa-stage/MD CAD AI STUDIO.exe"
+          $exe = "native/qa-stage/MD CAD AI STUDIO.exe"
           $env:THCAD_SELFTEST = "1"; $env:THCAD_QUIT_AFTER_MS = "60000"; $env:QT_QUICK_BACKEND = "software"
           # a GUI-subsystem exe logs to OutputDebugString unless told otherwise
           $env:QT_FORCE_STDERR_LOGGING = "1"

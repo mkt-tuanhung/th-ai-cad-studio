@@ -1,4 +1,5 @@
 #include "host_bridge.hpp"
+#include "licence_gate.hpp"
 
 #include <QDesktopServices>
 #include <QDir>
@@ -57,6 +58,22 @@ namespace thcad::app {
 namespace {
 QJsonObject toQt(const json::Value& v) { return QJsonDocument::fromJson(QByteArray::fromStdString(json::stringify(v))).object(); }
 constexpr double kGiB = 1073741824.0;
+}  // namespace
+
+namespace {
+/** Defence in depth for customer builds: the bridge only exists once a licence was verified at start, and the
+ *  costly entry points verify it again (cached for a minute). */
+bool licensedNow() {
+  if (!licence::enforced()) return true;
+  static qint64 at = -1;
+  static bool ok = false;
+  const qint64 now = QDateTime::currentSecsSinceEpoch();
+  if (at < 0 || now - at > 60) {
+    ok = licence::check().licensed;
+    at = now;
+  }
+  return ok;
+}
 }  // namespace
 
 HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
@@ -148,6 +165,7 @@ bool HostBridge::nativeViewport() const { return viewport_ != nullptr; }
 QJsonObject HostBridge::info() const {
   return {
       {"engine", "0.1.0"},
+      {"licence", licence::toJson(licence::check())},
       {"platform", QSysInfo::prettyProductName() + " " + QSysInfo::currentCpuArchitecture()},
       {"commands", static_cast<int>(commandTable().size())},
 #ifdef THCAD_HAS_OCCT
@@ -259,6 +277,7 @@ void HostBridge::voiceTranscribe(const QString& id, const QString& wavBase64, co
 }
 
 bool HostBridge::aiTask(const QString& taskJson) {
+  if (!licensedNow()) return false;
   const QJsonObject task = QJsonDocument::fromJson(taskJson.toUtf8()).object();
   const QString id = task.value("id").toString();
   // no model, or a downloaded one is being swapped in (the UI falls back as with no model)
@@ -789,6 +808,7 @@ QJsonArray HostBridge::scene3dOverlaps(const QString& key) {
 }
 
 QJsonObject HostBridge::scene3dExportStep(const QString& key, const QString& suggestedName) {
+  if (!licensedNow()) return {{"ok", false}, {"error", "licence"}};
   auto* v = scene(key);
   if (!v) return {{"ok", false}, {"error", "no scene"}};
   QString path = qEnvironmentVariable("THCAD_STEP_OUT");  // QA: skip the dialog
@@ -1063,6 +1083,7 @@ QString writeProvenance(const QString& imagePath, const QJsonObject& job, const 
 }  // namespace
 
 QJsonObject HostBridge::renderStart(const QString& jobJson) {
+  if (!licensedNow()) return {{"ok", false}, {"error", "licence"}};
   if (rendering_) return {{"ok", false}, {"error", "busy"}};
   const QJsonObject job = QJsonDocument::fromJson(jobJson.toUtf8()).object();
   const QString fmt = job.value("format").toString("png");

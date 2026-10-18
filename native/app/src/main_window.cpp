@@ -15,8 +15,10 @@
 #include <QWebEngineScriptCollection>
 #include <QWebEngineSettings>
 #include <QWebEngineView>
+#include <QStackedLayout>
 
 #include "host_bridge.hpp"
+#include "licence_gate.hpp"
 #include "mac_window.hpp"
 #include "native_viewport.hpp"
 #include "ui_scheme.hpp"
@@ -85,13 +87,19 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   // persistent: localStorage / IndexedDB survive restarts. Automated QA (THCAD_QA=1) gets its own profile so a
   // test run never edits or opens the user's drawings and settings.
   // THCAD_PROFILE=<name> gives parallel QA runs (several worktrees) a profile each.
+  // licence (licence_gate.hpp): a customer build without a valid key for this computer starts locked; customer
+  // builds also ignore the QA hooks (UI from elsewhere, injected scripts) whether locked or not
+  const licence::Status lic = licence::check();
+  locked_ = licence::enforced() && !lic.licensed;
+  const bool qaHooks = !licence::enforced();
   const QString profileName = qEnvironmentVariable("THCAD_PROFILE", qEnvironmentVariableIntValue("THCAD_QA") == 1 ? QStringLiteral("thcad-qa") : QStringLiteral("thcad"));
   auto* profile = new QWebEngineProfile(profileName, this);
-  profile->installUrlSchemeHandler("thcad", new UiSchemeHandler(UiSchemeHandler::locateUi(), profile));
+  profile->installUrlSchemeHandler("thcad", new UiSchemeHandler(UiSchemeHandler::locateUi(qaHooks), profile));
   auto* page = new LoggingPage(profile, this);
   // Browser-style downloads (CSV, G-code, ZIP, PNG…): a save dialog, like a browser asking where to save.
   // THCAD_DOWNLOAD_DIR (QA) saves without asking.
   connect(profile, &QWebEngineProfile::downloadRequested, this, [this](QWebEngineDownloadRequest* d) {
+    if (locked_) return d->cancel();
     const QString qaDir = qEnvironmentVariable("THCAD_DOWNLOAD_DIR");
     QString path;
     if (!qaDir.isEmpty()) path = QDir(qaDir).filePath(d->suggestedFileName());
@@ -111,27 +119,46 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   page->settings()->setAttribute(QWebEngineSettings::LocalStorageEnabled, true);
   page->setBackgroundColor(QColor(0x05, 0x08, 0x0b));  // the intro's background: no light flash at launch
 
+  if (!locked_) {
   QWebEngineScript boot;
   boot.setName(QStringLiteral("thcad-bootstrap"));
   boot.setInjectionPoint(QWebEngineScript::DocumentCreation);
   boot.setWorldId(QWebEngineScript::MainWorld);
   boot.setSourceCode(bootstrapScript());
   page->scripts().insert(boot);
+  }
 
-  web_ = new QWebEngineView(this);
+  auto* central = new QWidget(this);
+  central->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
+  auto* stack = new QStackedLayout(central);
+  stack->setContentsMargins(0, 0, 0, 0);
+  web_ = new QWebEngineView(central);
   web_->setAttribute(Qt::WA_ContentsMarginsRespectsSafeArea, false);
   web_->setPage(page);
-  setCentralWidget(web_);
+  stack->addWidget(web_);
+  setCentralWidget(central);
 
-  const bool nativeVp = qEnvironmentVariableIntValue("THCAD_NATIVE_VIEWPORT") == 1;
+  const bool nativeVp = qaHooks && qEnvironmentVariableIntValue("THCAD_NATIVE_VIEWPORT") == 1;
   if (nativeVp) viewport_ = new NativeViewport(web_);
-  bridge_ = new HostBridge(viewport_, this);
-  channel_ = new QWebChannel(this);
-  channel_->registerObject(QStringLiteral("host"), bridge_);
-  page->setWebChannel(channel_);
+  if (locked_) {
+    lock();
+  } else {
+    bridge_ = new HostBridge(viewport_, this);
+    channel_ = new QWebChannel(this);
+    channel_->registerObject(QStringLiteral("host"), bridge_);
+    page->setWebChannel(channel_);
+  }
+  if (licence::enforced()) {
+    // re-verified while running (a key removed, the clock past its expiry): lock again
+    auto* recheck = new QTimer(this);
+    connect(recheck, &QTimer::timeout, this, [this] {
+      if (!locked_ && !licence::check().licensed) lock();
+    });
+    recheck->start(10 * 60 * 1000);
+  }
 
   // Dev: THCAD_UI_URL=http://127.0.0.1:5173 (Vite). Otherwise the bundled build via thcad://.
-  QString url = qEnvironmentVariable("THCAD_UI_URL", QStringLiteral("thcad://app/index.html"));
+  QString url = qaHooks ? qEnvironmentVariable("THCAD_UI_URL", QStringLiteral("thcad://app/index.html")) : QStringLiteral("thcad://app/index.html");
   // Microphone (Voice CAD → local Whisper): granted to the app's own UI only; any other origin is refused.
   // The operating system still asks the user once (macOS: NSMicrophoneUsageDescription).
   const QUrl uiUrl(url);
@@ -144,7 +171,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
   const QString route = qEnvironmentVariable("THCAD_ROUTE", QStringLiteral("dashboard"));
   // QA: THCAD_SELFTEST=1 exercises the bridge from the page (same calls the UI makes) and quits.
   // THCAD_SCRIPT=/path.js runs any QA script the same way.
-  if (qEnvironmentVariableIntValue("THCAD_SELFTEST") == 1 || qEnvironmentVariableIsSet("THCAD_SCRIPT"))
+  if (qaHooks && (qEnvironmentVariableIntValue("THCAD_SELFTEST") == 1 || qEnvironmentVariableIsSet("THCAD_SCRIPT")))
     connect(page, &QWebEnginePage::loadFinished, this, [page](bool) {
       QFile f(qEnvironmentVariableIsSet("THCAD_SCRIPT") ? qEnvironmentVariable("THCAD_SCRIPT") : QStringLiteral(THCAD_SOURCE_DIR "/app/resources/selftest.js"));
       f.open(QIODevice::ReadOnly);
@@ -159,9 +186,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
       });
   });
   // the brand intro plays at launch, except for automated QA runs (THCAD_SCRIPT / SELFTEST) or THCAD_SPLASH=0
-  const bool qa = qEnvironmentVariableIntValue("THCAD_SELFTEST") == 1 || qEnvironmentVariableIsSet("THCAD_SCRIPT");
+  const bool qa = qaHooks && (qEnvironmentVariableIntValue("THCAD_SELFTEST") == 1 || qEnvironmentVariableIsSet("THCAD_SCRIPT"));
   const bool splash = !qa && qEnvironmentVariable("THCAD_SPLASH") != QStringLiteral("0");
   web_->load(QUrl(url + QStringLiteral("?shell=native") + (splash ? QString() : QStringLiteral("&splash=0")) + QStringLiteral("#/") + route));
+}
+
+void MainWindow::lock() {
+  locked_ = true;
+  if (channel_ && bridge_) channel_->deregisterObject(bridge_);
+  web_->setEnabled(false);  // no click or key reaches the page
+  if (!overlay_) overlay_ = new licence::TrialOverlay(centralWidget());
+  overlay_->show();
+  overlay_->raise();
 }
 
 void MainWindow::showEvent(QShowEvent* e) {

@@ -18,6 +18,10 @@ option(THCAD_WITH_QT "Build the Qt 6 desktop app" ON)
 option(THCAD_WITH_OCCT "Build the Open CASCADE geometry adapter" ON)
 option(THCAD_WITH_LLAMA "Build the llama.cpp local AI backend" ON)
 option(THCAD_BUILD_TESTS "Build unit tests" ON)
+# Licence enforcement (qa/v2_4/QA_LICENSE.md): ON for the packaged customer builds (package_macos.sh, the Windows
+# installer), which start locked until a key for this machine is activated. OFF for the dev / QA build in
+# native/build used by the e2e suites. The packaging scripts refuse a binary that reports enforce=0.
+option(THCAD_LICENSE_ENFORCE "Lock the app until a valid per-machine licence key is activated" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -38,6 +42,7 @@ endif()
 add_subdirectory(libs/core)
 add_subdirectory(libs/bim)
 add_subdirectory(libs/ai)
+add_subdirectory(libs/license)
 
 if(THCAD_WITH_OCCT)
   find_package(OpenCASCADE CONFIG QUIET)

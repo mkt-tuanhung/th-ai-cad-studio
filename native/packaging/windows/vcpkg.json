@@ -4,6 +4,7 @@
   "dependencies": [
     { "name": "opencascade", "default-features": false, "features": ["freetype"] },
     "llama-cpp",
+    "libsodium",
     { "name": "ggml", "features": ["vulkan"] }
   ]
 }

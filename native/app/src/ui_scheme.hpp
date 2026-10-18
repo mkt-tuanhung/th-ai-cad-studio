@@ -12,7 +12,8 @@ class UiSchemeHandler : public QWebEngineUrlSchemeHandler {
   explicit UiSchemeHandler(QDir root, QObject* parent = nullptr);
   void requestStarted(QWebEngineUrlRequestJob* job) override;
   static void registerScheme();
-  static QDir locateUi();
+  /** allowEnv: honour $THCAD_UI_DIR (dev / QA builds only). */
+  static QDir locateUi(bool allowEnv = true);
 
  private:
   QDir root_;

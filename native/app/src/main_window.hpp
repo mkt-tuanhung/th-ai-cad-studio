@@ -7,6 +7,7 @@ class QWebChannel;
 namespace thcad::app {
 
 class HostBridge;
+namespace licence { class TrialOverlay; }
 class NativeViewport;
 
 class MainWindow : public QMainWindow {
@@ -22,6 +23,9 @@ class MainWindow : public QMainWindow {
   QWebChannel* channel_ = nullptr;
   HostBridge* bridge_ = nullptr;
   NativeViewport* viewport_ = nullptr;
+  bool locked_ = false;
+  licence::TrialOverlay* overlay_ = nullptr;
+  void lock();
 };
 
 }  // namespace thcad::app

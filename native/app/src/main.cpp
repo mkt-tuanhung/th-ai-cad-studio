@@ -11,6 +11,7 @@
 
 #include "mac_window.hpp"
 
+#include "licence_gate.hpp"
 #include "main_window.hpp"
 #include "ui_scheme.hpp"
 
@@ -50,6 +51,9 @@ int main(int argc, char** argv) {
   QApplication::setApplicationDisplayName(QStringLiteral("MD CAD AI STUDIO"));
   QApplication::setOrganizationName(QStringLiteral("TH"));
   QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+  // licence CLI (--licence-info, --licence-activate=<file>) answers without opening a window
+  if (const int rc = thcad::app::licence::handleCommandLine(argc, argv); rc >= 0) return rc;
+  argc = thcad::app::licence::sanitiseArguments(argc, argv);
   QApplication app(argc, argv);
 #ifdef Q_OS_UNIX
   installQuitOnSignal(app);

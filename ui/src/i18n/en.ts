@@ -1003,6 +1003,12 @@ export const en = {
       ai: 'Local AI backend',
       dwg: 'DWG reader',
       browser: 'Browser preview (no desktop host)',
+      licence: 'Licence',
+      licensed: 'Activated — {customer} · key #{serial} · issued {issued}{expires}',
+      expiresOn: ' · expires {date}',
+      unlicensedDev: 'Development build (not locked)',
+      unlicensed: 'Not activated',
+      machine: 'Machine code',
     },
     privacy: {
       title: 'Privacy',

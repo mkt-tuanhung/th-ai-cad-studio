@@ -4,6 +4,9 @@ import { useEffect as useHostEffect, useState as useHostState } from 'react'
  * `window.thcadHostReady` (QWebChannel) before any page script runs. In a plain browser there is no
  * host and every caller falls back to the prototype implementation.
  */
+/** Licence state from the desktop host (native/app/src/licence_gate.hpp). */
+export interface LicenceInfo { enforced: boolean; licensed: boolean; reason: string; machineCode: string; customer: string; serial: number; issued: string; expires: string }
+
 export interface NativeAiStatus {
   source: 'native'
   backend: string
@@ -20,7 +23,7 @@ export interface NativeAiStatus {
 
 export interface HostApi {
   nativeViewport: boolean
-  info(): Promise<{ engine: string; platform: string; occt: string | null; aiBackend: string; commands: number; nativeViewport: boolean; dwgReader?: string; blender?: BlenderInfo }>
+  info(): Promise<{ engine: string; platform: string; occt: string | null; aiBackend: string; commands: number; nativeViewport: boolean; dwgReader?: string; blender?: BlenderInfo; licence?: LicenceInfo }>
   localAiStatus(): Promise<NativeAiStatus>
   cadExecute(opsJson: string): Promise<{ ok: boolean; error?: { code: string; detail: string } }>
   proposeOps(title: string, opsJson: string): Promise<{ ok: boolean; message: string }>

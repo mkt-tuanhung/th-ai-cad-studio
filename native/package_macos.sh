@@ -4,11 +4,16 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 (cd ../ui && npm run build >/dev/null)
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
-cmake --build build
+# customer build: licence enforcement ON, in its own build dir (native/build stays the unlocked dev / QA build)
+cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release -DTHCAD_LICENSE_ENFORCE=ON >/dev/null
+cmake --build build-release
 rm -rf dist && mkdir -p dist
-cp -R "build/app/MD CAD AI STUDIO.app" dist/
+cp -R "build-release/app/MD CAD AI STUDIO.app" dist/
 APP="dist/MD CAD AI STUDIO.app"
+# guard: never package a binary that does not lock without a key
+LIC=$("$APP/Contents/MacOS/MD CAD AI STUDIO" --licence-info)
+echo "licence: $LIC"
+[[ $LIC == enforce=1* ]] || { echo "error: the packaged app is not licence-enforced" >&2; exit 1; }
 macdeployqt "$APP" -always-overwrite 2>&1 | grep -E "ERROR" | grep -vE "codesign|QtSvg|using QList|invalid signature" || true
 # The UI is web-based; Qt's SVG icon engine (needs QtSvg) is not used — drop it.
 rm -rf "$APP/Contents/PlugIns/iconengines"

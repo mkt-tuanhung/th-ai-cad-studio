@@ -662,6 +662,12 @@ export function UpdatesCard(p: CardProps) {
         [U.occt, i?.occt ?? '—'],
         [U.ai, i?.aiBackend ?? '—'],
         [U.dwg, i?.dwgReader || '—'],
+        ...(i?.licence ? [
+          [U.licence, i.licence.licensed
+            ? fmt(U.licensed, { customer: i.licence.customer || '—', serial: String(i.licence.serial), issued: i.licence.issued, expires: i.licence.expires ? fmt(U.expiresOn, { date: i.licence.expires }) : '' })
+            : i.licence.enforced ? U.unlicensed : U.unlicensedDev],
+          [U.machine, i.licence.machineCode || '—'],
+        ] as [string, string][] : []),
       ]} />
     </Card>
   )

@@ -8,7 +8,9 @@ param(
   # 6.10.3: newest Qt whose online repository layout aqtinstall 3.3 can read (6.11.x moved to a new layout)
   [string]$QtVersion = "6.10.3",
   [string]$QtRoot = "C:\Qt",
-  [string]$SignCmd = ""
+  [string]$SignCmd = "",
+  # also build the unlocked QA app (CI self-test); it is never staged into the installer
+  [switch]$QaBuild
 )
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"  # the progress bar slows Invoke-WebRequest to a crawl
@@ -34,9 +36,16 @@ $VcpkgPrefix = "$Build\vcpkg\x64-windows"
 Push-Location $Ui; npm ci; Check "npm ci"; npm run build; Check "npm run build"; Pop-Location
 
 # 4) Native build
+# customer build: licence enforcement ON (the installer's app starts locked until a key for the PC is activated)
 cmake -S $Native -B $Build -G Ninja -DCMAKE_BUILD_TYPE=Release `
-  "-DCMAKE_PREFIX_PATH=$QtDir;$VcpkgPrefix" -DTHCAD_BUILD_TESTS=ON; Check "cmake configure"
+  "-DCMAKE_PREFIX_PATH=$QtDir;$VcpkgPrefix" -DTHCAD_BUILD_TESTS=ON -DTHCAD_LICENSE_ENFORCE=ON; Check "cmake configure"
 cmake --build $Build; Check "cmake build"
+# QA variant (licence OFF) for the in-app self-test only — built in its own dir and NEVER staged or packaged
+if ($QaBuild) {
+  cmake -S $Native -B "$Native\build-win-qa" -G Ninja -DCMAKE_BUILD_TYPE=Release `
+    "-DCMAKE_PREFIX_PATH=$QtDir;$VcpkgPrefix" -DTHCAD_BUILD_TESTS=OFF -DTHCAD_LICENSE_ENFORCE=OFF; Check "cmake configure (QA)"
+  cmake --build "$Native\build-win-qa" --target THAICADStudio; Check "cmake build (QA)"
+}
 # the test executables load the OCCT / llama.cpp / Qt DLLs from vcpkg and Qt
 $env:PATH = "$VcpkgPrefix\bin;$QtDir\bin;$env:PATH"
 ctest --test-dir $Build --output-on-failure; Check "ctest"
@@ -135,6 +144,14 @@ Get-Content "$Build\whisper-log.txt" | Select-String -Pattern "backend|vulkan|lo
 $Said = (Get-Content "$Build\whisper-out.txt" -Raw)
 Write-Host "   transcript (tiny model): $Said"
 if ($P.ExitCode -ne 0 -or -not $Said.Trim()) { throw "whisper-cli transcription failed (exit $($P.ExitCode))" }
+
+# 5d) guard: the staged app must be licence-enforced and start locked on a PC without a key
+$P = Start-Process -FilePath "$Stage\MD CAD AI STUDIO.exe" -ArgumentList "--licence-info" -NoNewWindow -PassThru -RedirectStandardOutput "$Build\licence-info.txt"
+if (-not $P.WaitForExit(60000)) { $P.Kill(); throw "--licence-info timed out" }
+$Lic = (Get-Content "$Build\licence-info.txt" -Raw)
+Write-Host "   licence: $Lic"
+if ($Lic -notmatch "enforce=1") { throw "the staged app is not licence-enforced: refusing to package it" }
+if ($Lic -notmatch "licensed=0") { throw "the staged app reports a licence on the build machine (unexpected)" }
 
 # 6) Optional signing, then the installer
 Write-Host "== Installer (Inno Setup)"

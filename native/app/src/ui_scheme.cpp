@@ -20,10 +20,10 @@ void UiSchemeHandler::registerScheme() {
   QWebEngineUrlScheme::registerScheme(s);
 }
 
-QDir UiSchemeHandler::locateUi() {
+QDir UiSchemeHandler::locateUi(bool allowEnv) {
   // 1) $THCAD_UI_DIR  2) macOS bundle Contents/Resources/ui  3) Windows <exe dir>/ui
   // 4) ../ui/dist next to the source tree (dev)
-  if (const QByteArray env = qgetenv("THCAD_UI_DIR"); !env.isEmpty()) return QDir(QString::fromUtf8(env));
+  if (const QByteArray env = qgetenv("THCAD_UI_DIR"); allowEnv && !env.isEmpty()) return QDir(QString::fromUtf8(env));
   QDir bundle(QCoreApplication::applicationDirPath() + "/../Resources/ui");
   if (bundle.exists("index.html")) return bundle;
   QDir beside(QCoreApplication::applicationDirPath() + "/ui");
