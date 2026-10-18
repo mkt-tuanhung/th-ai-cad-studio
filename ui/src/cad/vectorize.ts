@@ -11,6 +11,7 @@
  * as plain geometry / text, and a poor scan gives broken lines. The result is a starting point to correct.
  */
 import type { Entity, Vec2 } from './types'
+import { OCR_CONFIDENT } from './importReview'
 
 export interface VectorizeOptions {
   mmPerPx: number
@@ -32,6 +33,8 @@ export interface VectorizeResult {
   threshold: number
   ms: number
   words: { text: string; conf: number }[]
+  /** Words kept for review (confidence below OCR_CONFIDENT), on layer SCAN-TEXT-REVIEW. */
+  review: { text: string; conf: number }[]
 }
 
 const MAX_SIDE = 5000
@@ -275,6 +278,7 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
   const entities: Entity[] = []
   const counts = { lines: 0, polylines: 0, circles: 0, texts: 0 }
   const words: { text: string; conf: number }[] = []
+  const review: { text: string; conf: number }[] = []
   let allWords: VectorizeResult['allWords']
   let n = 0
   const W = (x: number, y: number): Vec2 => ({ x: x * mm, y: (h - y) * mm })
@@ -318,10 +322,20 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
       const text = wd.text.trim()
       const { x0, y0, x1, y1 } = wd.bbox
       const bh = y1 - y0
-      // real words: confident, letter-sized, not a long thin run (that is a line)
-      if (!text || wd.confidence < 65 || bh < 6 || bh > h * 0.12 || x1 - x0 > w * 0.6 || !/[\p{L}\p{N}]/u.test(text)) continue
-      words.push({ text, conf: Math.round(wd.confidence) })
-      entities.push({ ...base, id: `scan${++n}`, kind: 'text', layer: 'SCAN-TEXT', p: W(x0, y1), height: bh * mm * 0.72, value: text, rotation: 0, align: 'left' })
+      const cls = classifyWord(text, wd.confidence, wd.bbox, w, h)
+      if (cls === 'drop') continue
+      const conf = Math.round(wd.confidence)
+      // v2.4: an uncertain reading is kept for review (own layer, confidence on the entity), never silently dropped;
+      // its pixels stay in the line image (it may be part of the drawing, not text)
+      const src = { id: '', confidence: conf / 100, bbox: { x0: x0 * mm, y0: (h - y1) * mm, x1: x1 * mm, y1: (h - y0) * mm } }
+      if (cls === 'review') {
+        review.push({ text, conf })
+        entities.push({ ...base, id: `scan${++n}`, kind: 'text', layer: 'SCAN-TEXT-REVIEW', p: W(x0, y1), height: bh * mm * 0.72, value: text, rotation: 0, align: 'left', src: { ...src, reviewRequired: true } })
+        counts.texts++
+        continue
+      }
+      words.push({ text, conf })
+      entities.push({ ...base, id: `scan${++n}`, kind: 'text', layer: 'SCAN-TEXT', p: W(x0, y1), height: bh * mm * 0.72, value: text, rotation: 0, align: 'left', src })
       counts.texts++
       for (let y = Math.max(0, y0 - 1); y <= Math.min(h - 1, y1 + 1); y++) for (let x = Math.max(0, x0 - 1); x <= Math.min(w - 1, x1 + 1); x++) m[y * w + x] = 0
     }
@@ -365,5 +379,16 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
       counts.polylines++
     }
   }
-  return { entities, counts, w, h, threshold, ms: Math.round(performance.now() - t0), words, allWords }
+  return { entities, counts, w, h, threshold, ms: Math.round(performance.now() - t0), words, review, allWords }
+}
+
+/**
+ * What to do with an OCR word: 'keep' (confident text), 'review' (letter-sized text read with confidence below
+ * OCR_CONFIDENT — kept, flagged for the user), 'drop' (not text: empty, no letter / digit, too small, taller
+ * than 12 % of the page or wider than 60 % — a line or a frame).
+ */
+export function classifyWord(text: string, confidence: number, bbox: { x0: number; y0: number; x1: number; y1: number }, w: number, h: number): 'keep' | 'review' | 'drop' {
+  const bh = bbox.y1 - bbox.y0
+  if (!text.trim() || bh < 6 || bh > h * 0.12 || bbox.x1 - bbox.x0 > w * 0.6 || !/[\p{L}\p{N}]/u.test(text)) return 'drop'
+  return confidence < OCR_CONFIDENT ? 'review' : 'keep'
 }
