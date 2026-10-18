@@ -17,7 +17,9 @@
  *    is exact for straight walls), named by the text inside; footprint (floor slab) = the outline of the building;
  *  - furniture = block instances on furniture layers, sized in the block's own frame.
  * Nothing here edits a model: the result is a preview the user approves (src/bim/fromCadBuild.ts builds it).
- * Units: drawing units are taken as millimetres (the CAD 2D convention).
+ * Units: drawing units are taken as millimetres (the CAD 2D convention; the DXF reader scales by INSUNITS). A drawing
+ * whose walls are 0.1–0.3 units thick is in metres, 10–30 in centimetres: it is read × 1000 / × 10 (PlanRegion.unit)
+ * and the plan carries a warning.
  */
 import type { CadDocument, Entity, Vec2 } from '../cad/types'
 import type { P2 } from './model'
@@ -38,7 +40,7 @@ export function norm(s: string): string {
 const RULES: [LayerRole, RegExp][] = [
   ['ignore', /\b(DIM\w*|KICH ?THUOC|KTHUOC|DEFPOINTS|VPORTS?|VIEWPORTS?|THANG ?MAY|ELEVATORS?|LIFT)\b/],
   ['window', /\b(WINDOWS?|WIN|WINDOW\w*|CUA ?SO|CS|GLAZING|VACH ?KINH)\b/],
-  ['door', /\b(DOORS?|DOOR\w*|CUA ?DI|CUA|CD|DR)\b/],
+  ['door', /\b(DOORS?|DOOR\w*|CUA ?DI|CUA|CD|DR|OPENINGS?|LO ?MO|SHUTTERS?)\b/],
   ['wall', /(WALL|TUONG|BRICK|GACH|\bXAY\b)/],
   ['column', /\b(COLUMNS?|COLUMN\w*|COL|COT|PILLAR|TRU)\b/],
   ['stair', /(STAIR|CAU ?THANG|\bTHANG\b)/],
@@ -187,12 +189,51 @@ function geometryRole(st: LayerStat): { role: LayerRole; by: RoleSource } {
 
 /* ================================================================ texts */
 
-/** "+3.900", "±0.000", "-0,450", "COS +3.600" → mm (null when the text holds no elevation). */
+/**
+ * "+3.900", "±0.000", "-0,450", "COS +3.600", "CỐT +3.900", "COS 3.900", "EL. 3.9 m", "ĐỈNH ĐÀI −0.950" → mm (null when
+ * the text holds no elevation). The sign: "+" / "±" plus; "−" (the minus sign) minus; a hyphen or dash is a minus only
+ * when it is attached to the number ("-3.900") or follows a level word ("COS - 0.450") — after any other word or
+ * number, with spaces round it ("MẶT BẰNG TẦNG 2 - 3.900") it separates the title from its elevation.
+ * Metres are written with three decimals (mm), or with fewer after a level word or with the unit ("EL. 3.9 m").
+ */
 export function parseElevation(s: string): number | null {
-  const m = /(±|\+|-|–)?\s*(\d{1,3})[.,](\d{3})(?!\d)/.exec(s)
-  if (!m) return null
-  const v = Number(m[2]) * 1000 + Number(m[3])
-  return m[1] === '-' || m[1] === '–' ? -v : v
+  return parseElevationEx(s)?.value ?? null
+}
+
+const LEVEL_WORD = /(?:\bCOS|\bCOT|\bCAO DO|\bEL|\bELEV|\bELEVATION|\bLEVEL|\bLVL|\bFFL|\bSFL|\bTOS|\bMAT SAN(?: KC)?)\s*\.?\s*[:=]?\s*$/
+/** parseElevation, telling also whether a spaced dash separated the number (a basement title may mean a minus). */
+export function parseElevationEx(s: string): { value: number; dashSeparated: boolean } | null {
+  // accents off but symbols kept, one character for one (the indices stay those of s)
+  const up = [...s].map((c) => (c.length === 1 ? c.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'D').toUpperCase().slice(0, 1) || c : c)).join('')
+  const re = /(\d{1,3})(?:[.,](\d{1,3}))?(?![\d.,]*\d)/g
+  for (let m = re.exec(up); m; m = re.exec(up)) {
+    const i = m.index
+    if (i > 0 && /[\d.,A-Z]/.test(up[i - 1])) continue // part of another number or of a word ("D2-1", "S12")
+    const dec = m[2]
+    const before = up.slice(0, i)
+    const after = up.slice(i + m[0].length)
+    const unitM = /^\s*M\b(?!2|²)/.test(after) && !/^\s*MM/.test(after)
+    // the sign right before the number (spaces allowed), and what is before the sign
+    const sg = /([+±−\-–—])(\s*)$/.exec(before)
+    const pre = sg ? before.slice(0, before.length - sg[0].length) : before
+    const word = LEVEL_WORD.test(pre)
+    if (!dec) continue
+    // fewer decimals: only as a level (a level word, a written sign, or a signed number in metres) — "3.6 m" alone is
+    // a length
+    if (dec.length !== 3 && !(word || (sg && (/[+±−]/.test(sg[1]) || unitM)))) continue
+    const v = Math.round((Number(m[1]) + Number(dec) / 10 ** dec.length) * 1000)
+    if (!sg) return { value: v, dashSeparated: false }
+    const c = sg[1]
+    if (c === '+' || c === '±') return { value: v, dashSeparated: false }
+    if (c === '−') return { value: -v, dashSeparated: false }
+    // hyphen / dash: attached → minus (unless glued to a word or number before it: "TẦNG 2-3.900"); spaced → minus only
+    // after a level word or at the start, else a separator
+    const glued = /[A-Z0-9]$/.test(pre)
+    if (!sg[2] && !glued) return { value: -v, dashSeparated: false }
+    if (word || !pre.trim() || /[(=:[]\s*$/.test(pre)) return { value: -v, dashSeparated: false }
+    return { value: v, dashSeparated: true }
+  }
+  return null
 }
 
 /** Door / window tag ("D1", "Đ-02", "S3", "CS1", "W04", "LM1"): its kind and the mark as written. */
@@ -229,13 +270,34 @@ export interface PlanRegion {
   order: number | null
   /** Level name from the title ("Tầng 2"), null when the title does not name one. */
   levelName: string | null
+  /** Millimetres per drawing unit when the drawing was found to be in metres (1000) or centimetres (10) by its wall
+   *  thickness: `box` and everything recognised are then in millimetres (the drawing × unit). Absent: millimetres. */
+  unit?: number
+}
+
+/**
+ * A roof plan's title ("MẶT BẰNG MÁI", "MB MÁI", "MẶT BẰNG KẾT CẤU SÀN MÁI", "ROOF PLAN"): the roof word without a
+ * storey number. "MẶT BẰNG TẦNG 4 + MÁI" (a storey with its roof part), "TẦNG ÁP MÁI" (the attic storey), "TẦNG TUM"
+ * (the stair head) are storeys. Any text of a drawing (not a plan's title already): `plan` asks for a drawing word
+ * too ("MÁI DỐC i = 35%" is a note on the roof plan, not its title).
+ */
+export function isRoofPlanTitle(title: string, plan = false): boolean {
+  const n = norm(title)
+  if (!/\bMAI\b|\bROOF\b/.test(n)) return false
+  if (plan && !/\b(MAT BANG|MB|PLAN)\b/.test(n)) return false
+  if (/\bAP MAI\b|\bTUM\b|\bATTIC\b|\bPENTHOUSE\b/.test(n)) return false
+  if (/\bTANG ?\d{1,2}\b|\b(?:FLOOR|LEVEL|STOREY) ?\d{1,2}\b|\b\d{1,2}(?:ST|ND|RD|TH) FLOOR\b/.test(n)) return false
+  return true
 }
 
 /** Storey of a title: [order, level name]. */
-function storeyOf(title: string): [number | null, string | null] {
+export function storeyOf(title: string): [number | null, string | null] {
   const n = norm(title)
   const t = /\bTANG ?(\d{1,2})\b/.exec(n) ?? /\b(?:FLOOR|LEVEL|STOREY) ?(\d{1,2})\b/.exec(n)
-  if (/\bMAI\b|\bROOF\b/.test(n)) return [99, /\bMAI\b/.test(n) ? 'Mái' : 'Roof']
+  if (isRoofPlanTitle(title)) return [99, /\bMAI\b/.test(n) ? 'Mái' : 'Roof']
+  // the attic / stair-head storey under the roof (above the numbered storeys)
+  if (/\bAP MAI\b|\bATTIC\b/.test(n)) return [98, /AP MAI/.test(n) ? 'Tầng áp mái' : 'Attic']
+  if (/\bTUM\b|\bPENTHOUSE\b/.test(n)) return [98, /TUM/.test(n) ? 'Tầng tum' : 'Penthouse']
   if (/\bTANG ?HAM\b|\bHAM\b|BASEMENT/.test(n)) return [0, /HAM/.test(n) ? 'Tầng hầm' : 'Basement']
   if (/\bLUNG\b|MEZZ/.test(n)) return [1.5, /LUNG/.test(n) ? 'Tầng lửng' : 'Mezzanine']
   if (/\bTRET\b|GROUND/.test(n)) return [1, /TRET/.test(n) ? 'Tầng trệt' : 'Ground floor']
@@ -248,7 +310,13 @@ function storeyOf(title: string): [number | null, string | null] {
  * under it. Clusters smaller than 2 × 2 m or with fewer than 6 wall segments are dropped.
  */
 export function findPlans(doc: CadDocument, roles: Record<string, LayerRole>): PlanRegion[] {
-  const walls = doc.entities.filter((e) => roles[e.layer] === 'wall' && (e.kind === 'line' || e.kind === 'polyline'))
+  let walls = doc.entities.filter((e) => roles[e.layer] === 'wall' && (e.kind === 'line' || e.kind === 'polyline'))
+  // a drawing in metres or centimetres (no INSUNITS, walls 0.22 or 22 units thick): read in millimetres
+  const unit = unitScaleOf(walls)
+  if (unit !== 1) {
+    doc = scaledDoc(doc, unit)
+    walls = doc.entities.filter((e) => roles[e.layer] === 'wall' && (e.kind === 'line' || e.kind === 'polyline'))
+  }
   const items = walls.map((e) => ({ b: boxOf(e), n: segsOf(e).length }))
   // union-find over boxes closer than GAP (sweep along x)
   const GAP = 2500
@@ -289,14 +357,17 @@ export function findPlans(doc: CadDocument, roles: Record<string, LayerRole>): P
     const nt = title ? norm(title) : ''
     const other = /\b(MAT DUNG|MAT CAT|ELEVATION|SECTION|CHI TIET|DETAIL|TRIEN KHAI)\b/.test(nt)
     const [ord, levelName] = title && !other ? storeyOf(title) : [null, null]
+    const el = title && !other ? parseElevationEx(title) : null
     regions.push({
       id: `plan-${regions.length + 1}`,
       box: g.b,
       title,
-      elevation: title && !other ? parseElevation(title) : null,
+      // "TẦNG HẦM - 3.000": a basement is below ±0.000, the spaced dash is its minus
+      elevation: el ? (el.dashSeparated && ord === 0 && el.value > 0 ? -el.value : el.value) : null,
       kind: other ? 'other' : ord === 99 ? 'roof' : 'plan',
       order: ord,
       levelName,
+      ...(unit !== 1 ? { unit } : {}),
     })
   }
   return regions.sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a.box.x0 - b.box.x0 || b.box.y0 - a.box.y0).map((r, i) => ({ ...r, id: `plan-${i + 1}` }))
@@ -306,8 +377,7 @@ export function findPlans(doc: CadDocument, roles: Record<string, LayerRole>): P
 export function roofElevation(doc: CadDocument): number | null {
   for (const e of doc.entities) {
     if (e.kind !== 'text') continue
-    const n = norm(e.value)
-    if (/\b(MAT BANG MAI|ROOF PLAN)\b/.test(n)) {
+    if (isRoofPlanTitle(e.value, true)) {
       const v = parseElevation(e.value)
       if (v !== null) return v
     }
@@ -351,8 +421,11 @@ export interface RecOpening {
   height: number
   sill: number
   mark: string | null
-  /** What identified it (for the preview): layer, block, arc, glazing lines, tag. */
+  /** What identified it (for the preview): layer, block, arc, glazing lines, tag, line (a door-layer line spanning
+   *  it), text ("CỬA CUỐN"), wallLine (a wide gap in the outer wall line, nothing drawn in it). */
   why: string[]
+  /** while recognising: a gap wider than a door with nothing drawn in it, decided by the rooms (internal) */
+  wide?: boolean
 }
 export interface RecColumn {
   x: number
@@ -365,7 +438,9 @@ export interface RecRoom {
   name: string | null
   number: string | null
   outline: P2[]
-  /** m², computed from the outline (columns inside deducted). */
+  /** inner boundaries: a core / shaft / wall block the room runs round (not its floor; the shaft is a room itself) */
+  holes?: P2[][]
+  /** m², computed from the outline (holes and columns inside deducted). */
   area: number
   /** crossed corner to corner (two diagonals): the way plans mark a double-height void */
   crossed?: boolean
@@ -398,6 +473,14 @@ export type RecWarning =
   | { code: 'roomSnapFallback'; n: number }
   | { code: 'stairsSkipped' }
   | { code: 'unknownFurniture'; n: number }
+  /** the drawing is in metres (n = 1000) or centimetres (n = 10) by its wall thickness: read × n as millimetres */
+  | { code: 'unitsScaled'; n: number }
+  /** gaps wider than a door in the outer walls with nothing drawn in them, built as wide openings (shop front,
+   *  garage without its door drawn) */
+  | { code: 'wideOpenings'; n: number }
+  /** gaps too wide for an opening (or between two named rooms) closed along the wall line for the rooms and the
+   *  footprint only: no wall or opening is built there */
+  | { code: 'gapsClosedVirtual'; n: number }
 
 export interface Recognition {
   region: PlanRegion
@@ -629,6 +712,8 @@ const columnRect = (c: RecColumn): Rect => [[c.x - c.w / 2, c.y - c.d / 2], [c.x
 
 const DOOR_BLOCK = /DOOR|\bCUA\b(?! ?SO)|CUA ?DI|^D ?\d|\bD\d|SLIDE|LUA/
 const WIN_BLOCK = /WIN|CUA ?SO|^S ?\d|\bCS\b|GLAZ|KINH/
+/** The words of a rolling shutter / garage / folding door written by its opening (norm()ed text). */
+const SHUTTER = /\b(CUA CUON|CUA KEO|CUA XEP|CUA GARA|CC ?\d{0,2}|ROLLING|SHUTTER|ROLLER|GARAGE|OVERHEAD DOOR)\b/
 
 interface Other {
   e: Entity
@@ -664,7 +749,7 @@ function evidence(o: Other[], groups: Map<string, InsGroup>, ux: number, uy: num
   const g = s1 - s0
   let door = 0, win = 0
   const why = new Set<string>()
-  let roleDoor = false, roleWin = false, blockDoor = false, glazing = 0
+  let roleDoor = false, roleWin = false, blockDoor = false, glazing = 0, spanDoor = false, shutter = false
   const local = (p: Vec2) => ({ s: p.x * ux + p.y * uy, o: -p.x * uy + p.y * ux - c })
   const nx = -uy, ny = ux
   const at = (s: number, off: number): P2 => [ux * s + nx * (c + off), uy * s + ny * (c + off)]
@@ -678,6 +763,15 @@ function evidence(o: Other[], groups: Map<string, InsGroup>, ux: number, uy: num
       if (x.role === 'door') roleDoor = true
       else roleWin = true
     }
+    // a rolling shutter / garage door written next to the gap ("CỬA CUỐN", "CC1", "ROLLING SHUTTER")
+    if (e.kind === 'text' && SHUTTER.test(norm(e.value)) && lc.s >= s0 - 500 && lc.s <= s1 + 500) shutter = true
+    // a line on a door layer across the whole gap, in the wall or just off its face (a shutter, a folding door)
+    if (x.role === 'door' && !spanDoor)
+      for (const [a, b] of segsOf(e)) {
+        const la = local(a), lb = local(b), L = Math.hypot(b.x - a.x, b.y - a.y)
+        if (Math.abs((b.x - a.x) * uy - (b.y - a.y) * ux) > 0.035 * L || Math.abs(la.o) > t / 2 + 300 || Math.abs(lb.o) > t / 2 + 300) continue
+        if (Math.min(Math.max(la.s, lb.s), s1) - Math.max(Math.min(la.s, lb.s), s0) >= 0.8 * g) { spanDoor = true; break }
+      }
     if (e.kind === 'arc') {
       const ac = local(e.c)
       const nearJamb = Math.abs(ac.s - s0) < 150 || Math.abs(ac.s - s1) < 150
@@ -710,9 +804,12 @@ function evidence(o: Other[], groups: Map<string, InsGroup>, ux: number, uy: num
   win += glazing
   if (roleDoor) { door += 2; why.add('layer') }
   if (roleWin) { win += 2; why.add('layer') }
+  if (spanDoor) { why.add('line'); if (!roleDoor) door += 2 }
+  if (shutter) { door += 3; why.add('text') }
   // a door with a swing arc wins over glazing lines of its frame; otherwise the stronger evidence decides.
-  // Doors wider than 2.6 m need a door block or swing arcs (sliding / folding sets): a layer alone is not enough.
-  const doorOk = g <= 2600 || blockDoor || why.has('arc')
+  // Doors wider than 2.6 m need more than a door layer touching the gap: a door block, swing arcs (sliding / folding
+  // sets), a door-layer line across the whole gap (a rolling shutter drawn as its line) or the words of one.
+  const doorOk = g <= 2600 || blockDoor || why.has('arc') || spanDoor || shutter
   const kind = door >= 2 && door >= win && doorOk ? 'door' : win >= 2 ? 'window' : null
   return { kind, why: [...why] }
 }
@@ -732,10 +829,66 @@ interface Raster {
   regions: number
 }
 
-function rasterize(walls: RecWall[], cols: RecColumn[], box: Box): Raster {
+/** Most cells of a room raster (memory ~6 bytes a cell): beyond it the cells grow (a very large building). */
+const MAX_CELLS = 5e6
+
+/**
+ * Walls of a site wall / fence round the building: a group of walls (walls closer than 2.5 m belong together) whose
+ * extent holds the building's — the group with the most walls and openings. They stay walls of the model but are left
+ * out of the rooms (the yard between is no room, the building's outline its footprint, and a 400 m site does not
+ * blow up the raster).
+ */
+function enclosingWalls(walls: RecWall[], openings: RecOpening[]): Set<RecWall> {
+  const n = walls.length
+  if (n < 2) return new Set()
+  const boxes = walls.map((w) => { const b = { ...EMPTY }; for (const [x, y] of wallRect(w)) addPt(b, { x, y }); return b })
+  const parent = walls.map((_, i) => i)
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+  const order = walls.map((_, i) => i).sort((a, b) => boxes[a].x0 - boxes[b].x0)
+  const active: number[] = []
+  for (const i of order) {
+    for (let k = active.length - 1; k >= 0; k--) {
+      const j = active[k]
+      if (boxes[j].x1 + 2500 < boxes[i].x0) { active.splice(k, 1); continue }
+      if (overlaps(boxes[i], boxes[j], 2500)) parent[find(i)] = find(j)
+    }
+    active.push(i)
+  }
+  const groups = new Map<number, { ids: number[]; box: Box; score: number }>()
+  walls.forEach((_, i) => {
+    const r = find(i)
+    const g = groups.get(r) ?? { ids: [], box: { ...EMPTY }, score: 0 }
+    g.ids.push(i)
+    addPt(g.box, { x: boxes[i].x0, y: boxes[i].y0 })
+    addPt(g.box, { x: boxes[i].x1, y: boxes[i].y1 })
+    g.score++
+    groups.set(r, g)
+  })
+  if (groups.size < 2) return new Set()
+  for (const o of openings) { const g = groups.get(find(o.wall)); if (g) g.score++ }
+  const main = [...groups.values()].sort((a, b) => b.score - a.score)[0]
+  const out = new Set<RecWall>()
+  for (const g of groups.values()) {
+    if (g === main) continue
+    const b = g.box, m = main.box
+    if (b.x0 <= m.x0 && b.y0 <= m.y0 && b.x1 >= m.x1 && b.y1 >= m.y1) for (const i of g.ids) out.add(walls[i])
+  }
+  return out
+}
+
+function rasterize(walls: RecWall[], cols: RecColumn[], planBox: Box, virtual: RecWall[] = []): Raster {
   const pad = 2000
+  // the extent of the walls (and columns), not of the plan: a site boundary or a long line on a wall layer makes the
+  // plan's box far larger than the building
+  const box = { ...EMPTY }
+  for (const w of [...walls, ...virtual]) for (const [x, y] of wallRect(w)) addPt(box, { x, y })
+  for (const c of cols) for (const [x, y] of columnRect(c)) addPt(box, { x, y })
+  if (!Number.isFinite(box.x0)) Object.assign(box, planBox)
   const span = Math.max(box.x1 - box.x0, box.y1 - box.y0) + 2 * pad
-  const h = Math.min(60, Math.max(20, Math.ceil(span / 1800)))
+  let h = Math.min(60, Math.max(20, Math.ceil(span / 1800)))
+  // the cell grows when the grid would hold too many cells
+  const full = (box.x1 - box.x0 + 2 * pad) * (box.y1 - box.y0 + 2 * pad)
+  if (full / (h * h) > MAX_CELLS) h = Math.ceil(Math.sqrt(full / MAX_CELLS))
   const x0 = box.x0 - pad, y0 = box.y0 - pad
   const W = Math.ceil((box.x1 - box.x0 + 2 * pad) / h), H = Math.ceil((box.y1 - box.y0 + 2 * pad) / h)
   const solid = new Uint8Array(W * H)
@@ -748,7 +901,7 @@ function rasterize(walls: RecWall[], cols: RecColumn[], box: Box): Raster {
       for (let i = i0; i <= i1; i++) if (insidePoly([x0 + (i + 0.5) * h, y0 + (j + 0.5) * h], poly)) solid[j * W + i] = 1
   }
   // conservative: each wall grown by half a cell so thin walls stay closed
-  for (const w of walls) fill(wallRect(w, w.s0 - h / 2, w.s1 + h / 2, h / 2))
+  for (const w of [...walls, ...virtual]) fill(wallRect(w, w.s0 - h / 2, w.s1 + h / 2, h / 2))
   for (const c of cols) fill(columnRect({ ...c, w: c.w + h, d: c.d + h }))
   // close hairline cracks: one cell of dilation
   const grown = solid.slice()
@@ -776,6 +929,12 @@ function rasterize(walls: RecWall[], cols: RecColumn[], box: Box): Raster {
 
 /** Outer boundary loop of the cells where `inside(k)` (cell-edge polygon, collinear points removed, CCW). */
 function traceOuter(r: Raster, inside: (k: number) => boolean, bounds?: [number, number, number, number]): P2[] | null {
+  return traceLoops(r, inside, bounds).outer
+}
+
+/** Boundary loops of the cells where `inside(k)`: the outer one (CCW, the largest) and the inner ones round the holes
+ *  (clockwise, inside the outer one). */
+function traceLoops(r: Raster, inside: (k: number) => boolean, bounds?: [number, number, number, number]): { outer: P2[] | null; holes: P2[][] } {
   const { W, H } = r
   const [bi0, bj0, bi1, bj1] = bounds ?? [0, 0, W - 1, H - 1]
   const key = (i: number, j: number) => j * (W + 1) + i
@@ -796,6 +955,7 @@ function traceOuter(r: Raster, inside: (k: number) => boolean, bounds?: [number,
     }
   const xy = (k: number): [number, number] => [k % (W + 1), Math.floor(k / (W + 1))]
   let best: P2[] | null = null, bestA = 0
+  const inner: P2[][] = []
   while (next.size) {
     const [start] = next.keys()
     const loop: number[] = [start]
@@ -827,8 +987,10 @@ function traceOuter(r: Raster, inside: (k: number) => boolean, bounds?: [number,
     if (pts.length < 3) continue
     const a = shoelace(pts)
     if (a > bestA) { bestA = a; best = pts }
+    else if (a < 0) inner.push(pts)
   }
-  return best
+  const outer = best
+  return { outer, holes: outer ? inner.filter((h) => insidePoly(h[0], outer)) : [] }
 }
 
 /** Douglas–Peucker on a closed polygon. */
@@ -1143,7 +1305,77 @@ export function rotateEntity(e: Entity, ang: number, o: Vec2): Entity {
   }
 }
 
-/** Recognises one plan region of the drawing. */
+/* ---------- drawing units ---------- */
+
+/**
+ * Millimetres per drawing unit, read from the walls (or beams) of a drawing whose units say nothing (no INSUNITS):
+ * wall faces 0.06–0.45 units apart → metres (1000), 6–45 units → centimetres (10), else millimetres (1). Only a
+ * small drawing is looked at (a building in millimetres is thousands of units across): the median distance of each
+ * long line to its nearest parallel partner is the wall thickness.
+ */
+export function unitScaleOf(ents: Entity[]): 1 | 10 | 1000 {
+  const b = { ...EMPTY }
+  for (const e of ents) if (e.kind === 'line' || e.kind === 'polyline') for (const p of ptsOf(e)) addPt(b, p)
+  const span = Math.max(b.x1 - b.x0, b.y1 - b.y0)
+  if (!(span > 0) || span >= 5000) return 1
+  const segs = ents.flatMap(segsOf).filter(([p, q]) => Math.hypot(q.x - p.x, q.y - p.y) >= 0.02 * span).slice(0, 2000)
+  const info = segs.map(([p, q]) => {
+    let th = Math.atan2(q.y - p.y, q.x - p.x)
+    if (th < 0) th += Math.PI
+    if (th >= Math.PI - 1e-9) th -= Math.PI
+    const ux = Math.cos(th), uy = Math.sin(th)
+    const s0 = p.x * ux + p.y * uy, s1 = q.x * ux + q.y * uy
+    return { th, c: -p.x * uy + p.y * ux, lo: Math.min(s0, s1), hi: Math.max(s0, s1) }
+  })
+  const near: number[] = []
+  for (let i = 0; i < info.length; i++) {
+    let best = Infinity
+    for (let j = 0; j < info.length; j++) {
+      if (i === j) continue
+      const a = info[i], c = info[j]
+      if (Math.abs(a.th - c.th) > 0.005) continue
+      const d = Math.abs(a.c - c.c)
+      if (d < 1e-6 * span || d >= best) continue
+      if (Math.min(a.hi, c.hi) - Math.max(a.lo, c.lo) < 0.5 * Math.min(a.hi - a.lo, c.hi - c.lo)) continue
+      best = d
+    }
+    if (Number.isFinite(best)) near.push(best)
+  }
+  if (near.length < 8) return 1
+  const md = median(near)
+  if (md >= 0.06 && md <= 0.45) return 1000
+  if (md >= 6 && md <= 45) return 10
+  return 1
+}
+
+/** The drawing with every coordinate (and text height) multiplied by k. */
+export function scaleDoc(doc: CadDocument, k: number): CadDocument {
+  if (k === 1) return doc
+  const S = (p: Vec2): Vec2 => ({ x: p.x * k, y: p.y * k })
+  const ents = doc.entities.map((e): Entity => {
+    switch (e.kind) {
+      case 'line': return { ...e, a: S(e.a), b: S(e.b) }
+      case 'polyline': return { ...e, pts: e.pts.map(S) }
+      case 'circle': return { ...e, c: S(e.c), r: e.r * k }
+      case 'arc': return { ...e, c: S(e.c), r: e.r * k }
+      case 'text': return { ...e, p: S(e.p), height: e.height * k }
+      case 'dimension': return { ...e, a: S(e.a), b: S(e.b), offset: e.offset * k, textHeight: e.textHeight * k }
+    }
+  })
+  return { ...doc, entities: ents }
+}
+
+const scaledCache = new WeakMap<CadDocument, Map<number, CadDocument>>()
+/** scaleDoc, kept per drawing (the plans of one drawing are recognised one by one). */
+function scaledDoc(doc: CadDocument, k: number): CadDocument {
+  if (k === 1) return doc
+  let m = scaledCache.get(doc)
+  if (!m) { m = new Map(); scaledCache.set(doc, m) }
+  let d = m.get(k)
+  if (!d) { d = scaleDoc(doc, k); m.set(k, d) }
+  return d
+}
+
 /** A stair flight drawn on a plan: tread lines of one length, evenly spaced along the run. In the plan's frame:
  *  `a` is the middle of the first tread line, `dir` the unit run direction from the first line to the last. */
 export interface RecFlight {
@@ -1305,6 +1537,11 @@ export function findFlights(ents: Entity[]): RecFlight[] {
 
 export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, region: PlanRegion, opt: RecOptions = DEFAULT_REC): Recognition {
   const warnings: RecWarning[] = []
+  // a drawing found to be in metres / centimetres (findPlans): recognised in millimetres
+  if (region.unit && region.unit !== 1) {
+    doc = scaledDoc(doc, region.unit)
+    warnings.push({ code: 'unitsScaled', n: region.unit })
+  }
   // wall geometry of this plan only; symbols, tags and room texts also from a 1.2 m margin (tags outside the walls)
   let near = doc.entities.filter((e) => { const b = boxOf(e); return overlaps(b, region.box, roles[e.layer] === 'wall' ? 50 : 1200) })
   let wallEnts = near.filter((e) => roles[e.layer] === 'wall' && overlaps(boxOf(e), region.box, 50))
@@ -1394,6 +1631,12 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
           curOps.push({ kind, s0: f0, s1: f1, height: 0, sill: 0, mark: null, why: ev.why })
           continue
         }
+        // nothing in a gap wider than a door: decided once the rooms are known (step 8) — in the outer wall line, a
+        // wide opening (it closes the building); between two named rooms, a boundary for the rooms only; else open
+        if (len <= 8000) {
+          curOps.push({ kind: 'opening', s0: f0, s1: f1, height: 0, sill: 0, mark: null, why: [], wide: true })
+          continue
+        }
         // nothing in a wide gap: the wall stops here and starts again after it
         gapsLeft++
         cur.s1 = Math.max(cur.s1, f0)
@@ -1405,7 +1648,6 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     }
     flush()
   }
-  if (gapsLeft) warnings.push({ code: 'gapsLeftOpen', n: gapsLeft })
   if (!walls.length) warnings.push({ code: 'noWalls' })
 
   // 4. overlapping parallel walls (one wall drawn as two lines of pieces): the shorter one goes, its openings move
@@ -1486,6 +1728,8 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     o.mark = c.m.mark
     o.why.push('tag')
     if (o.kind === 'opening') o.kind = c.m.kind
+    // a wide gap with its door / window tag by it is that door / window
+    delete o.wide
   }
   for (const o of openings) {
     const [cx, cy] = mid(o)
@@ -1500,20 +1744,102 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     else { o.sill = 0; o.height = size?.[1] ?? (o.kind === 'door' ? opt.doorH : opt.openingH) }
   }
 
-  const noSymbol = openings.filter((o) => o.kind === 'opening').length
-  if (noSymbol) warnings.push({ code: 'openingsNoSymbol', n: noSymbol })
 
   // 8. rooms and footprint (raster), exterior walls
   let rooms: RecRoom[] = []
   let footprint: P2[] | null = null
+  let wideBuilt = 0, closedVirtual = 0
   if (walls.length) {
-    const ras = rasterize(walls, columns, box)
-    const lines = snapLines(walls, columns)
-    const reach = 3 * ras.h
-    const cellOf = (x: number, y: number) => {
-      const i = Math.floor((x - ras.x0) / ras.h), j = Math.floor((y - ras.y0) / ras.h)
-      return i < 0 || j < 0 || i >= ras.W || j >= ras.H ? -1 : j * ras.W + i
+    // wide gaps closed for the rooms only (no wall, no opening built there)
+    const virtual: RecWall[] = []
+    // a site wall / fence round the building is no room boundary
+    const ring = enclosingWalls(walls, openings)
+    const regionsOf = () => {
+      const ras = rasterize(ring.size ? walls.filter((w) => !ring.has(w)) : walls, columns, box, virtual)
+      const cellOf = (x: number, y: number) => {
+        const i = Math.floor((x - ras.x0) / ras.h), j = Math.floor((y - ras.y0) / ras.h)
+        return i < 0 || j < 0 || i >= ras.W || j >= ras.H ? -1 : j * ras.W + i
+      }
+      // region sizes and cell bounds
+      const cells = new Int32Array(ras.regions + 1)
+      const bnd = new Int32Array(4 * (ras.regions + 1)).fill(-1)
+      for (let k = 0; k < ras.label.length; k++) {
+        const id = ras.label[k]
+        cells[id]++
+        const i = k % ras.W, j = (k - i) / ras.W, b = 4 * id
+        if (bnd[b] < 0) { bnd[b] = i; bnd[b + 1] = j; bnd[b + 2] = i; bnd[b + 3] = j }
+        else { bnd[b] = Math.min(bnd[b], i); bnd[b + 1] = Math.min(bnd[b + 1], j); bnd[b + 2] = Math.max(bnd[b + 2], i); bnd[b + 3] = Math.max(bnd[b + 3], j) }
+      }
+      // names: room texts inside a region
+      const named = new Map<number, { name: string | null; number: string | null; score: number }>()
+      for (const t of texts) {
+        const v = t.value.trim()
+        if (!hasLetters(v) || isAreaText(v) || parseMark(v) || parseSize(v) || (parseElevation(v) !== null && v.length < 14)) {
+          // room numbers ("101", "R101") are kept as numbers
+          if (/^[A-Z]?\d{2,4}[A-Z]?$/i.test(v) && !parseMark(v)) {
+            const k = cellOf(t.p.x, t.p.y)
+            const id = k >= 0 ? ras.label[k] : 0
+            if (id >= 2) { const cur = named.get(id) ?? { name: null, number: null, score: 0 }; cur.number ??= v; named.set(id, cur) }
+          }
+          continue
+        }
+        const k = cellOf(t.p.x, t.p.y)
+        const id = k >= 0 ? ras.label[k] : 0
+        if (id < 2) continue
+        const score = t.height + (roles[t.layer] === 'room' ? 1e6 : 0)
+        const cur = named.get(id) ?? { name: null, number: null, score: 0 }
+        if (score > cur.score) { cur.name = v; cur.score = score }
+        named.set(id, cur)
+      }
+      return { ras, cellOf, cells, bnd, named }
     }
+    let R = regionsOf()
+    // wide gaps with nothing drawn in them (the wall ran on across them for this first raster): what lies either side
+    const cands = openings.filter((o) => o.wide)
+    if (cands.length) {
+      const sideOf = (o: RecOpening, sg: 1 | -1) => {
+        const w = walls[o.wall], nx = -w.uy, ny = w.ux, off = w.c + sg * (w.t / 2 + 3 * R.ras.h)
+        // the first free cell along the gap (a column or a wall end may stand right by its middle)
+        for (const f of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+          const s = o.s0 + (o.s1 - o.s0) * f
+          const k = R.cellOf(w.ux * s + nx * off, w.uy * s + ny * off)
+          if (k >= 0 && R.ras.label[k] > 0) return R.ras.label[k]
+        }
+        return 0
+      }
+      const split: { o: RecOpening; keep: boolean }[] = []
+      let rerun = false
+      for (const o of cands) {
+        delete o.wide
+        if (o.kind !== 'opening') continue
+        const a = sideOf(o, 1), b = sideOf(o, -1)
+        const na = R.named.get(a)?.name, nb = R.named.get(b)?.name
+        if ((a === 1) !== (b === 1) && Math.min(a, b) >= 1) {
+          // in the outer wall line, closing the building: a wide opening (a shop front, a garage without its door
+          // drawn); too wide for one (> 6 m): the outline is closed along the wall line for the rooms only
+          if (o.s1 - o.s0 <= 6000) { o.why = ['wallLine']; wideBuilt++ } else { split.push({ o, keep: true }); closedVirtual++ }
+        } else if (a >= 2 && b >= 2 && a !== b && na && nb && norm(na) !== norm(nb)) {
+          // between two named rooms: their boundary runs along the wall line
+          split.push({ o, keep: true }); closedVirtual++
+        } else { split.push({ o, keep: false }); gapsLeft++; rerun = true }
+      }
+      for (const { o, keep } of split) {
+        // the wall stops at the gap and starts again after it; its openings past the gap go with the second part
+        const w = walls[o.wall], end = w.s1
+        w.s1 = o.s0
+        walls.push({ ...w, s0: o.s1, s1: end })
+        const k2 = walls.length - 1
+        if (ring.has(w)) ring.add(walls[k2])
+        for (const q of openings) if (q.wall === o.wall && q !== o && q.s0 >= o.s1 - 1) q.wall = k2
+        if (keep) virtual.push({ ...w, s0: o.s0, s1: o.s1, ext: false })
+        openings.splice(openings.indexOf(o), 1)
+      }
+      if (split.length) pruneWalls(walls, openings, opt)
+      if (rerun) R = regionsOf()
+    }
+    const { ras, cellOf, cells, bnd, named } = R
+    const lines = snapLines([...walls, ...virtual], columns)
+    const reach = 3 * ras.h
     // exterior walls: one side of the wall is outside
     for (const w of walls) {
       const mid = (w.s0 + w.s1) / 2
@@ -1523,37 +1849,6 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
         const k = cellOf(w.ux * mid + nx * off, w.uy * mid + ny * off)
         if (k >= 0 && ras.label[k] === 1) w.ext = true
       }
-    }
-    // region sizes and cell bounds
-    const cells = new Int32Array(ras.regions + 1)
-    const bnd = new Int32Array(4 * (ras.regions + 1)).fill(-1)
-    for (let k = 0; k < ras.label.length; k++) {
-      const id = ras.label[k]
-      cells[id]++
-      const i = k % ras.W, j = (k - i) / ras.W, b = 4 * id
-      if (bnd[b] < 0) { bnd[b] = i; bnd[b + 1] = j; bnd[b + 2] = i; bnd[b + 3] = j }
-      else { bnd[b] = Math.min(bnd[b], i); bnd[b + 1] = Math.min(bnd[b + 1], j); bnd[b + 2] = Math.max(bnd[b + 2], i); bnd[b + 3] = Math.max(bnd[b + 3], j) }
-    }
-    // names: room texts inside a region
-    const named = new Map<number, { name: string | null; number: string | null; score: number }>()
-    for (const t of texts) {
-      const v = t.value.trim()
-      if (!hasLetters(v) || isAreaText(v) || parseMark(v) || parseSize(v) || (parseElevation(v) !== null && v.length < 14)) {
-        // room numbers ("101", "R101") are kept as numbers
-        if (/^[A-Z]?\d{2,4}[A-Z]?$/i.test(v) && !parseMark(v)) {
-          const k = cellOf(t.p.x, t.p.y)
-          const id = k >= 0 ? ras.label[k] : 0
-          if (id >= 2) { const cur = named.get(id) ?? { name: null, number: null, score: 0 }; cur.number ??= v; named.set(id, cur) }
-        }
-        continue
-      }
-      const k = cellOf(t.p.x, t.p.y)
-      const id = k >= 0 ? ras.label[k] : 0
-      if (id < 2) continue
-      const score = t.height + (roles[t.layer] === 'room' ? 1e6 : 0)
-      const cur = named.get(id) ?? { name: null, number: null, score: 0 }
-      if (score > cur.score) { cur.name = v; cur.score = score }
-      named.set(id, cur)
     }
     let unnamed = 0, fallback = 0
     // rooms drawn as closed outlines on the room layers (designer's areas) win over the raster regions they cover
@@ -1596,18 +1891,34 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
       }
       const nm = named.get(id)
       if (!nm?.name && cells[id] < 2e6 / (ras.h * ras.h)) continue
-      const raw = traceOuter(ras, (k) => ras.label[k] === id, [bnd[4 * id], bnd[4 * id + 1], bnd[4 * id + 2], bnd[4 * id + 3]])
+      const loops = traceLoops(ras, (k) => ras.label[k] === id, [bnd[4 * id], bnd[4 * id + 1], bnd[4 * id + 2], bnd[4 * id + 3]])
+      const raw = loops.outer
       if (!raw) continue
       const simple = simplify(raw, 1.2 * ras.h)
       let outline = snapOutline(simple, lines, reach)
+      // inner boundaries: a core, a shaft, a block of walls the room runs round — not floor area (the shaft inside is a
+      // room of its own). A loop round a single column is that column (deducted by its own size below).
+      const colIn = (poly: P2[]) => columns.filter((c) => insidePoly([c.x, c.y], poly))
+      const holes: P2[][] = []
+      for (const hl of loops.holes) {
+        const hs = simplify([...hl].reverse(), 1.2 * ras.h)
+        const ha = Math.abs(shoelace(hs))
+        if (ha < 0.05e6) continue
+        const cs = colIn(hs)
+        if (cs.length && ha < 2 * cs.reduce((a, c) => a + (c.w + 4 * ras.h) * (c.d + 4 * ras.h), 0)) continue
+        let hp = snapOutline(hs, lines, reach)
+        if (hp.length < 3 || Math.abs(Math.abs(shoelace(hp)) - ha) > 0.15 * ha) hp = hs
+        holes.push(shoelace(hp) < 0 ? [...hp].reverse() : hp)
+      }
+      const holeArea = holes.reduce((a, h) => a + Math.abs(shoelace(h)), 0)
       const rasterArea = cells[id] * ras.h * ras.h
-      let area = Math.abs(shoelace(outline))
-      if (outline.length < 3 || Math.abs(area - rasterArea) > 0.15 * rasterArea) { outline = simple; area = Math.abs(shoelace(simple)); fallback++ }
+      let area = Math.abs(shoelace(outline)) - holeArea
+      if (outline.length < 3 || Math.abs(area - rasterArea) > 0.15 * rasterArea) { outline = simple; area = Math.abs(shoelace(simple)) - holeArea; fallback++ }
       if (shoelace(outline) < 0) outline.reverse()
-      // free-standing columns inside the room are not floor area
-      for (const c of columns) if (insidePoly([c.x, c.y], outline)) area -= c.round ? (Math.PI * c.w * c.w) / 4 : c.w * c.d
+      // free-standing columns inside the room are not floor area (those inside a hole are deducted with it)
+      for (const c of columns) if (insidePoly([c.x, c.y], outline) && !holes.some((h) => insidePoly([c.x, c.y], h))) area -= c.round ? (Math.PI * c.w * c.w) / 4 : c.w * c.d
       if (!nm?.name) unnamed++
-      rooms.push({ name: nm?.name ?? null, number: nm?.number ?? null, outline, area: Math.round(area / 1e4) / 100 })
+      rooms.push({ name: nm?.name ?? null, number: nm?.number ?? null, outline, ...(holes.length ? { holes } : {}), area: Math.round(area / 1e4) / 100 })
     }
     rooms = rooms.sort((a, b) => b.area - a.area)
     if (unnamed) warnings.push({ code: 'unnamedRooms', n: unnamed })
@@ -1618,6 +1929,11 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
       footprint = fp.length >= 3 ? (shoelace(fp) < 0 ? fp.reverse() : fp) : null
     }
   }
+  if (gapsLeft) warnings.push({ code: 'gapsLeftOpen', n: gapsLeft })
+  if (wideBuilt) warnings.push({ code: 'wideOpenings', n: wideBuilt })
+  if (closedVirtual) warnings.push({ code: 'gapsClosedVirtual', n: closedVirtual })
+  const noSymbol = openings.filter((o) => o.kind === 'opening' && !o.why.includes('wallLine')).length
+  if (noSymbol) warnings.push({ code: 'openingsNoSymbol', n: noSymbol })
 
   // 9. furniture blocks
   const groups = new Map<string, { name: string; rot: number; pts: Vec2[] }>()
@@ -1644,8 +1960,9 @@ export function recognize(doc: CadDocument, roles: Record<string, LayerRole>, re
     furniture.push({ block: g.name, kind, x: lc.x * Math.cos(g.rot) - lc.y * Math.sin(g.rot), y: lc.x * Math.sin(g.rot) + lc.y * Math.cos(g.rot), w: Math.round(w), d: Math.round(d), rot: Math.round(((((g.rot * 180) / Math.PI + 540) % 360) - 180) * 100) / 100 })
   }
   if (unknownFurn) warnings.push({ code: 'unknownFurniture', n: unknownFurn })
-  // stairs: the flights inside the building outline (the stair layers also hold symbols on other drawings)
-  const stairEnts = near.filter((e) => roles[e.layer] === 'stair' && overlaps(boxOf(e), region.box, 0))
+  // stairs: the flights inside the building outline (the stair layers also hold symbols on other drawings) — tested
+  // in the plan's squared frame, the one `near` was turned into (the drawing's box would cut off treads)
+  const stairEnts = near.filter((e) => roles[e.layer] === 'stair' && overlaps(boxOf(e), box, 0))
   const spirals = findSpirals(stairEnts)
   // a spiral's radial treads are no straight flight
   const flights = findFlights(stairEnts).filter((f) => !spirals.some((s) => Math.hypot(f.a[0] - s.c[0], f.a[1] - s.c[1]) < s.r1 + 200))
