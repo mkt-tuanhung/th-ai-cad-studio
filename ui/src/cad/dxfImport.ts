@@ -19,6 +19,24 @@ export interface DxfImport {
   records: number
   /** Paper-space layouts (DXF R2000+ LAYOUT objects): name, paper, scale of their model viewport. */
   layouts?: Layout[]
+  /** $INSUNITS of the header (drawing units: 4 mm, 5 cm, 6 m, 1 inch…); null when the header has none. The
+   *  geometry is returned as stored — src/cad/batch.ts scales it to millimetres. */
+  insunits: number | null
+}
+
+/** $INSUNITS from the HEADER section (group 9 name, then group 70 value). */
+export function dxfInsunits(text: string): number | null {
+  return headerInt(pairsOf(text), '$INSUNITS')
+}
+
+function headerInt(pairs: Pair[], name: string): number | null {
+  const h = section(pairs, 'HEADER')
+  for (let i = 0; i + 1 < h.length; i++)
+    if (h[i][0] === 9 && h[i][1] === name) {
+      for (let j = i + 1; j < h.length && h[j][0] !== 9; j++) if (h[j][0] === 70) { const v = parseInt(h[j][1], 10); return Number.isFinite(v) ? v : null }
+      return null
+    }
+  return null
 }
 
 type Pair = [number, string]
@@ -540,7 +558,7 @@ export function importDxf(text: string): DxfImport {
   const layers = [...used].map((name) => ({ name, visible: layerVis.get(name) ?? true }))
   const layouts = readLayouts(pairs, recs)
   if (layouts.length) delete skipped['paper space'] // read as layouts, not lost
-  return { entities, layers, skipped, approximated, records: recs.length, ...(layouts.length ? { layouts } : {}) }
+  return { entities, layers, skipped, approximated, records: recs.length, insunits: headerInt(pairs, '$INSUNITS'), ...(layouts.length ? { layouts } : {}) }
 }
 
 /** Props of a record after its subclass marker (100 = marker): LAYOUT has a "1" in both of its parts. */
