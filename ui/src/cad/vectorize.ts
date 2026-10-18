@@ -313,6 +313,54 @@ export function eraseBox(m: Uint8Array, w: number, h: number, bx0: number, by0: 
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (!keepRow[y - y0] && !keepCol[x - x0]) m[y * w + x] = 0
 }
 
+/** The offline Tesseract worker (worker, core and the Vietnamese model bundled in /ocr). */
+export async function ocrWorker(onPct?: (pct: number) => void) {
+  const { createWorker } = await import('tesseract.js')
+  // Vietnamese model only: it reads Latin text too, and adding English drops the diacritics of capitals
+  return createWorker('vie', 1, {
+    workerPath: '/ocr/worker.min.js',
+    corePath: '/ocr',
+    langPath: '/ocr/lang',
+    gzip: false,
+    workerBlobURL: false,
+    logger: (l: { status: string; progress: number }) => l.status === 'recognizing text' && onPct?.(Math.round(l.progress * 100)),
+  })
+}
+
+/** One OCR word: text, Tesseract confidence (0–100), box in picture px. */
+export type OcrWord = { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }
+
+/**
+ * Tesseract LSTM OCR of a picture (offline: worker, core and the Vietnamese model from /ocr), two passes — the page
+ * as it is, and letter-sized ink only (text / graphics separation, `m` = the ink mask, 1 = ink); where both find a
+ * word at the same place the more confident reading is kept. Shared by Scan to CAD and the plan-image recogniser.
+ */
+export async function ocrWords(canvas: HTMLCanvasElement, m: Uint8Array, w: number, h: number, onPct?: (pct: number) => void): Promise<OcrWord[]> {
+  const worker = await ocrWorker(onPct)
+  const ocrCanvas = document.createElement('canvas')
+  ocrCanvas.width = w
+  ocrCanvas.height = h
+  ocrCanvas.getContext('2d')!.putImageData(textOnly(m, w, h, Math.max(80, Math.round(Math.max(w, h) * 0.04))), 0, 0)
+  const passes: OcrWord[][] = []
+  try {
+    for (const img of [canvas, ocrCanvas]) passes.push(((await worker.recognize(img)).data.words as OcrWord[]).filter((x) => x.text.trim()))
+  } finally {
+    await worker.terminate()
+  }
+  const iou = (a: OcrWord['bbox'], b: OcrWord['bbox']) => {
+    const ix = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)), iy = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0))
+    const inter = ix * iy, u = (a.x1 - a.x0) * (a.y1 - a.y0) + (b.x1 - b.x0) * (b.y1 - b.y0) - inter
+    return u > 0 ? inter / u : 0
+  }
+  const merged: OcrWord[] = []
+  for (const wd of passes.flat()) {
+    const same = merged.findIndex((x) => iou(x.bbox, wd.bbox) > 0.3)
+    if (same < 0) merged.push(wd)
+    else if (wd.confidence > merged[same].confidence) merged[same] = wd
+  }
+  return merged.map((x) => ({ text: x.text, confidence: x.confidence, bbox: { x0: x.bbox.x0, y0: x.bbox.y0, x1: x.bbox.x1, y1: x.bbox.y1 } }))
+}
+
 export async function vectorize(source: CanvasImageSource & { width: number; height: number }, opts: VectorizeOptions): Promise<VectorizeResult> {
   const t0 = performance.now()
   const k = Math.min(1, MAX_SIDE / Math.max(source.width, source.height))
@@ -349,37 +397,7 @@ export async function vectorize(source: CanvasImageSource & { width: number; hei
   // ---- text: OCR, then clear the recognised words from the line image
   if (opts.ocr) {
     opts.onStep?.('ocr', 0)
-    const { createWorker } = await import('tesseract.js')
-    // Vietnamese model only: it reads Latin text too, and adding English drops the diacritics of capitals
-    const worker = await createWorker('vie', 1, {
-      workerPath: '/ocr/worker.min.js',
-      corePath: '/ocr',
-      langPath: '/ocr/lang',
-      gzip: false,
-      workerBlobURL: false,
-      logger: (l: { status: string; progress: number }) => l.status === 'recognizing text' && opts.onStep?.('ocr', Math.round(l.progress * 100)),
-    })
-    // two passes — the page as scanned, and letter-sized ink only (text / graphics separation); where both
-    // find a word at the same place the more confident reading is kept
-    const ocrCanvas = document.createElement('canvas')
-    ocrCanvas.width = w
-    ocrCanvas.height = h
-    ocrCanvas.getContext('2d')!.putImageData(textOnly(m, w, h, Math.max(80, Math.round(Math.max(w, h) * 0.04))), 0, 0)
-    type Word = { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }
-    const passes: Word[][] = []
-    for (const img of [canvas, ocrCanvas]) passes.push(((await worker.recognize(img)).data.words as Word[]).filter((x) => x.text.trim()))
-    await worker.terminate()
-    const iou = (a: Word['bbox'], b: Word['bbox']) => {
-      const ix = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)), iy = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0))
-      const inter = ix * iy, u = (a.x1 - a.x0) * (a.y1 - a.y0) + (b.x1 - b.x0) * (b.y1 - b.y0) - inter
-      return u > 0 ? inter / u : 0
-    }
-    const merged: Word[] = []
-    for (const wd of passes.flat()) {
-      const same = merged.findIndex((x) => iou(x.bbox, wd.bbox) > 0.3)
-      if (same < 0) merged.push(wd)
-      else if (wd.confidence > merged[same].confidence) merged[same] = wd
-    }
+    const merged = await ocrWords(canvas, m, w, h, (pct) => opts.onStep?.('ocr', pct))
     allWords = merged.map((x) => ({ text: x.text, conf: Math.round(x.confidence), h: x.bbox.y1 - x.bbox.y0 }))
     for (const wd of merged) {
       const text = wd.text.trim()

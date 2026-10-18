@@ -43,6 +43,12 @@ async function open(bytes: Uint8Array) {
 }
 
 /** A page rendered to PNG at `dpi` (a scanned sheet opened as an underlay). */
+/** Number of pages of a PDF. */
+export async function pdfPageCount(bytes: Uint8Array): Promise<number> {
+  const { doc } = await open(bytes)
+  return doc.numPages
+}
+
 export async function renderPdfPage(bytes: Uint8Array, pageNo: number, dpi: number): Promise<{ src: string; w: number; h: number }> {
   const { doc } = await open(bytes)
   const page = await doc.getPage(Math.min(Math.max(1, pageNo), doc.numPages))
