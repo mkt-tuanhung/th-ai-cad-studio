@@ -11,6 +11,7 @@ license; the full license texts ship with the installer under `licenses/`.
 | Vulkan loader (Windows) | GPU access for ggml's Vulkan backend | Apache-2.0 | from vcpkg; the GPU driver provides the rest |
 | **LibreDWG 0.14** (`dwg2dxf`, `dwgadd`, `dxf2dwg`) | opening and saving `.dwg` files (with layouts) | **GPL-3.0-or-later** | shipped as a **separate program**, run as a child process; not linked into the app. The complete source of the shipped version is included in the installer (`licenses/libredwg/`). See `native/third_party/libredwg/README.md` |
 | **whisper.cpp 1.9.4** (`whisper-cli`) | Voice CAD speech recognition | MIT | separate program, run as a child process (its own ggml); see `native/third_party/whisper/README.md` |
+| llama.cpp / ggml — `llama-mtmd-cli` (tag b11429) | reading reference photos (Interior → AI → “Phong cách từ ảnh mẫu”) with the local vision model | MIT | separate program, run as a child process with its own ggml (Windows: `vision\` folder, Vulkan + CPU); only given local files, never a URL; see `native/third_party/llama-mtmd/README.md` |
 | GNU libiconv (Windows only) | character sets for LibreDWG | LGPL-2.1-or-later | DLL from the LibreDWG Windows build |
 | GLib, GNU gettext (libintl), D-Bus, Graphite2 (macOS) | pulled in by Qt / HarfBuzz (Homebrew builds) | LGPL-2.1-or-later (GLib, libintl), AFL-2.1 OR GPL-2.0-or-later (D-Bus), LGPL-2.1-or-later OR MPL-2.0 (Graphite2) | dynamically linked, in `Contents/Frameworks` |
 | ICU, HarfBuzz, FreeType, OpenSSL 3, PCRE2, zstd, Brotli, libpng, libjpeg-turbo, double-conversion, MD4C, libb2, oneTBB, LLVM libomp | text, fonts, TLS for model downloads, images, compression, threads (Qt, OCCT, ggml) | Unicode-3.0, MIT, FTL, Apache-2.0, BSD-3-Clause, libpng-2.0, IJG, CC0-1.0, Apache-2.0 WITH LLVM-exception | dynamically linked; versions in `docs/SBOM.json` |
@@ -34,6 +35,10 @@ and checked by `ui/tools/check-sbom.mjs` (fails when anything shipped has no ent
   not the app's:
   - **Qwen2.5-7B-Instruct** is under Apache-2.0.
   - **Qwen2.5-3B-Instruct** is under the *Qwen Research License*, which restricts commercial use.
+  - **Qwen2.5-VL-7B-Instruct** (`Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf` + `mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf`, 5.5 GB,
+    ggml-org GGUF conversion pinned by revision and sha256) is under **Apache-2.0** (the Qwen2.5-VL **3B** and **72B**
+    variants have other licences and are not offered); it reads reference photos and is downloaded from Settings →
+    Manage Models when the user asks, into `<models>/vision/`.
   - **Whisper large-v3-turbo** (`ggml-large-v3-turbo-q5_0.bin`, speech) is under MIT; it is downloaded from Settings → Manage Models when the user asks.
   - Check the model license before shipping a model, or before using it commercially.
 - **3D interior library** (furniture / decor models, PBR materials, HDRI skies) is downloaded only when the user

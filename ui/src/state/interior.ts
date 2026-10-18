@@ -33,6 +33,10 @@ export interface StyleSession {
   /** Basic (no model) or model reading under way. */
   withModel?: boolean
   analysis?: import('../interior/styleRef').StyleAnalysis
+  /** Furniture categories the user switched off (left out of the generated layouts). */
+  excluded?: import('../interior/styleRef').FurnCat[]
+  /** Render jobs queued from the style dialog (Renders queue ids) and their camera names. */
+  renders?: { id: string; cam: string }[]
   raw?: string
   modelError?: string
   device?: string

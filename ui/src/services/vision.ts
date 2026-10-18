@@ -5,6 +5,7 @@
  * the model fails — the basic colour / texture analysis, labelled as such.
  */
 import type { HostApi } from './host'
+import { getMessages } from '../i18n'
 import { extractPalette, type Pixels, type RoleSwatch } from '../interior/palette'
 import { basicAnalysis, parseModelAnswer, STYLE_SYSTEM, styleGrammar, stylePrompt, type StyleAnalysis } from '../interior/styleRef'
 
@@ -159,5 +160,10 @@ export async function readStyle(host: HostApi | null, images: RefImage[], pixels
       } else modelError = r.error ?? 'failed'
     } else if (st && st.reason) modelError = undefined // not installed: the basic analysis is the expected path
   }
-  return { analysis: basicAnalysis(sw, images.length), palette: sw, ...(modelError ? { modelError } : {}) }
+  const vi = getMessages('vi'), en = getMessages('en')
+  const names = {
+    vi: { mat: (m: string) => vi.interior.matNames[m] ?? m, style: (k: string) => vi.styleRef.styles[k] ?? k },
+    en: { mat: (m: string) => en.interior.matNames[m] ?? m, style: (k: string) => en.styleRef.styles[k] ?? k },
+  }
+  return { analysis: basicAnalysis(sw, images.length, names), palette: sw, ...(modelError ? { modelError } : {}) }
 }

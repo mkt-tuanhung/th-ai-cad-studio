@@ -23,6 +23,7 @@
   "Vulkan loader (Windows)",
   "LibreDWG 0.14 (`dwg2dxf`, `dwgadd`, `dxf2dwg`)",
   "whisper.cpp 1.9.4 (`whisper-cli`)",
+  "llama.cpp / ggml — `llama-mtmd-cli` (tag b11429)",
   "GNU libiconv (Windows only)",
   "GLib, GNU gettext (libintl), D-Bus, Graphite2 (macOS)",
   "ICU, HarfBuzz, FreeType, OpenSSL 3, PCRE2, zstd, Brotli, libpng, libjpeg-turbo, double-conversion, MD4C, libb2, oneTBB, LLVM libomp",
@@ -391,6 +392,18 @@
   },
   {
    "type": "native",
+   "name": "llama.cpp llama-mtmd-cli (reference photo reader)",
+   "version": "b11429",
+   "license": "MIT",
+   "distribution": "bundled as a separate program (llama-mtmd-cli; macOS static, Windows in vision\\ with its own ggml / llama / mtmd DLLs) run as a child process, never given a URL",
+   "source": "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b11429.tar.gz",
+   "match": [
+    "^llama-mtmd-cli(\\.exe)?$",
+    "^vision/"
+   ]
+  },
+  {
+   "type": "native",
    "name": "oneTBB",
    "version": "2023.1.0",
    "brew": "tbb",
@@ -651,6 +664,26 @@
    "flag": "NON-COMMERCIAL: the Qwen Research License does not allow commercial use without a separate licence from Alibaba Cloud. Offer the 7B (Apache-2.0) for commercial work.",
    "distribution": "downloaded on request (Settings → AI Model) from huggingface.co, sha256-verified; not in the installer",
    "source": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF"
+  },
+  {
+   "type": "model",
+   "name": "Qwen2.5-VL-7B-Instruct (GGUF Q4_K_M)",
+   "file": "Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+   "version": "Q4_K_M, ggml-org conversion at revision 508edd0a, sha256-pinned",
+   "license": "Apache-2.0",
+   "commercialUse": true,
+   "distribution": "downloaded on request (Settings → Manage Models → photo-reading model) from huggingface.co into <models>/vision, sha256-verified; not in the installer",
+   "source": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"
+  },
+  {
+   "type": "model",
+   "name": "Qwen2.5-VL-7B-Instruct vision projector (mmproj Q8_0)",
+   "file": "mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf",
+   "version": "Q8_0, revision 508edd0a, sha256-pinned",
+   "license": "Apache-2.0",
+   "commercialUse": true,
+   "distribution": "downloaded with the model above; not in the installer",
+   "source": "https://huggingface.co/ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"
   },
   {
    "type": "model",

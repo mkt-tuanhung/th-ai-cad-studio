@@ -356,8 +356,9 @@ class Interior:
             set_input(b, ('Sheen Roughness',), 0.4)
             b.inputs['Roughness'].default_value = 0.85
         if kind in ('wood', 'board'):
-            set_input(b, ('Coat Weight', 'Clearcoat'), 0.15)
-            set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.25)
+            # furniture: a satin lacquer; floors: an oiled / matt-varnished finish (a strong coat reads as a mirror)
+            set_input(b, ('Coat Weight', 'Clearcoat'), 0.05 if floor else 0.15)
+            set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.45 if floor else 0.25)
         if kind == 'stone':
             set_input(b, ('Coat Weight', 'Clearcoat'), 0.35)
             set_input(b, ('Coat Roughness', 'Clearcoat Roughness'), 0.08)
@@ -454,9 +455,10 @@ class Interior:
         br.inputs['Mortar Size'].default_value = 0.009
         br.inputs['Mortar Smooth'].default_value = 0.3
         br.inputs['Bias'].default_value = 0.0
-        br.inputs['Color1'].default_value = (col[0] * 1.08, col[1] * 1.0, col[2] * 0.95, 1)
-        br.inputs['Color2'].default_value = (col[0] * 0.78, col[1] * 0.74, col[2] * 0.72, 1)
-        br.inputs['Mortar'].default_value = (0.62, 0.59, 0.55, 1)
+        # reclaimed brick: each brick a random mix of a pale tan and a deep red-brown (Blender varies it per brick)
+        br.inputs['Color1'].default_value = (min(1.0, col[0] * 1.55), min(1.0, col[1] * 1.6), min(1.0, col[2] * 1.5), 1)
+        br.inputs['Color2'].default_value = (col[0] * 0.7, col[1] * 0.62, col[2] * 0.6, 1)
+        br.inputs['Mortar'].default_value = (0.55, 0.52, 0.48, 1)
         nt.links.new(comb.outputs['Vector'], br.inputs['Vector'])
         nz = nt.nodes.new('ShaderNodeTexNoise')
         nz.inputs['Scale'].default_value = 40.0
@@ -676,9 +678,13 @@ class Interior:
             if (side and abs(n.z) > 0.5) or (not side and n.z > -0.5):
                 continue
             q = (mw @ p.center) + n * 0.08
+            # the face's height range (a tall wall may be one triangle reaching above the room: its centre can be too)
+            zs = [(mw @ me.vertices[v].co).z for v in p.vertices]
             for r in rooms:
                 top = float(r.get('openTo') or r.get('ceiling') or 3000) / 1000.0
-                if not (-0.05 <= q.z <= top + 0.05) or not inside(r['outline'], q.x * 1000.0, q.y * 1000.0):
+                if (side and (min(zs) > top - 0.05 or max(zs) < 0.05)) or (not side and not (-0.05 <= q.z <= top + 0.05)):
+                    continue
+                if not inside(r['outline'], q.x * 1000.0, q.y * 1000.0):
                     continue
                 name = r[key]
                 if name not in slots:

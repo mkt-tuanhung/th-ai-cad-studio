@@ -45,12 +45,12 @@ export interface StyleFinish {
  *  curated Poly Haven mapping (libIdOf). */
 export const FINISHES: StyleFinish[] = [
   // wood (floors use the plank / parquet textures of the same finish)
-  { id: 'oak', app: 'Wood - Oak', surfaces: ['floor', 'walls', 'ceiling', 'joinery'], look: 'mid oak planks / oak veneer' },
+  { id: 'oak', app: 'Wood - Oak', surfaces: ['floor', 'walls', 'ceiling', 'joinery'], look: 'plain straight oak planks or oak veneer (the usual wood floor)' },
   { id: 'ash', app: 'Wood - Ash Light', surfaces: ['floor', 'joinery'], look: 'pale light wood (ash, birch, maple)' },
   { id: 'white_oak', app: 'Wood - White Oak', surfaces: ['walls', 'joinery'], look: 'whitewashed / natural white oak' },
   { id: 'walnut', app: 'Wood - Walnut', surfaces: ['floor', 'walls', 'ceiling', 'joinery'], look: 'warm brown walnut' },
   { id: 'dark_wood', app: 'Wood - Dark Stained', surfaces: ['floor', 'walls', 'ceiling', 'joinery'], look: 'very dark stained wood, wenge' },
-  { id: 'herringbone_oak', app: 'Parquet - Herringbone Oak', surfaces: ['floor'], look: 'oak herringbone / chevron parquet' },
+  { id: 'herringbone_oak', app: 'Parquet - Herringbone Oak', surfaces: ['floor'], look: 'only when a zig-zag herringbone / chevron pattern is clearly visible' },
   { id: 'rattan', app: 'Rattan - Natural', surfaces: ['joinery'], look: 'rattan, cane, wicker' },
   { id: 'white_lacquer', app: 'Lacquer - White', surfaces: ['joinery'], look: 'white painted / lacquered fronts' },
   { id: 'black_lacquer', app: 'Lacquer - Black', surfaces: ['joinery'], look: 'black painted / lacquered fronts' },
@@ -308,7 +308,7 @@ const woodByL = (L: number) => (L > 66 ? 'ash' : L > 50 ? 'oak' : L > 34 ? 'waln
  * Palette + texture statistics → a style guess, labelled as such: brick-like walls → industrial, dark wood → classic,
  * pale wood + white → scandinavian, near-white and flat → minimal, else modern. Confidence stays ≤ 0.4.
  */
-export function basicAnalysis(sw: RoleSwatch[], images = 1): StyleAnalysis {
+export function basicAnalysis(sw: RoleSwatch[], images = 1, names?: { vi: { mat: (app: string) => string; style: (k: StyleKey) => string }; en: { mat: (app: string) => string; style: (k: StyleKey) => string } }): StyleAnalysis {
   const by = (r: PaletteRole) => sw.find((s) => s.role === r)
   const wall = by('wall') ?? sw[0]
   const floor = by('floor') ?? sw[sw.length - 1] ?? wall
@@ -340,7 +340,9 @@ export function basicAnalysis(sw: RoleSwatch[], images = 1): StyleAnalysis {
   const ceiling = walls === 'brick' || fl0 === 'concrete' ? (meanL < 45 ? 'concrete' : 'gypsum') : walls === 'plaster' ? 'plaster' : 'gypsum'
   const materials: Record<Surface, string | null> = { floor: fl0, walls, ceiling, joinery, upholstery, metal, stone: null }
   const d = STYLE_DEFAULTS[style]
-  const f = (id: string | null) => finishById(id)?.app ?? '—'
+  const app = (id: string | null) => finishById(id)?.app ?? '—'
+  const f = (id: string | null) => (names ? names.vi.mat(app(id)) : app(id))
+  const fe = (id: string | null) => (names ? names.en.mat(app(id)) : app(id))
   return {
     version: 1,
     source: 'basic',
@@ -350,8 +352,8 @@ export function basicAnalysis(sw: RoleSwatch[], images = 1): StyleAnalysis {
     furniture: d.furniture.map((c) => ({ category: c, hint: '' })),
     lighting,
     confidence: Math.min(0.4, 0.2 + (sw[0]?.share ?? 0) * 0.3),
-    description: `Phân tích cơ bản theo màu và độ nhám bề mặt: tường ${f(walls)}, sàn ${f(fl0)}, gỗ ${f(joinery)}, ánh sáng ${lighting.tone === 'warm' ? 'ấm' : 'trung tính'}. Phong cách đoán: ${style}.`,
-    descriptionEn: `Basic analysis from colours and surface texture: walls ${f(walls)}, floor ${f(fl0)}, wood ${f(joinery)}, ${lighting.tone} light. Style guessed: ${style}.`,
+    description: `Phân tích cơ bản theo màu và độ nhám bề mặt: tường ${f(walls)}, sàn ${f(fl0)}, đồ gỗ ${f(joinery)}, ánh sáng ${lighting.tone === 'warm' ? 'ấm' : 'trung tính'}. Phong cách đoán: ${names ? names.vi.style(style) : style}.`,
+    descriptionEn: `Basic analysis from colours and surface texture: walls ${fe(walls)}, floor ${fe(fl0)}, joinery ${fe(joinery)}, ${lighting.tone} light. Style guessed: ${names ? names.en.style(style) : style}.`,
     images,
   }
 }

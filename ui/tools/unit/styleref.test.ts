@@ -12,6 +12,8 @@ import { libMaterialFor, parseManifest, type LibAsset } from '../../src/library/
 import { STARTER_MATERIALS } from '../../src/library/polyhaven'
 import { deltaE, extractPalette, kmeansPalette, labOfHex, type Pixels } from '../../src/interior/palette'
 import { basicAnalysis, FINISHES, finishById, finishesFor, FURN_CATS, libIdOf, parseModelAnswer, STYLE_DEFAULTS, STYLE_KEYS, STYLE_SYSTEM, styleGrammar, stylePrompt, SURFACES, validateAnalysis, type StyleAnalysis } from '../../src/interior/styleRef'
+import { styleViews } from '../../src/interior/styleViews'
+import { autoViews } from '../../src/renders/interiorRender'
 import { boardFor, DEFAULT_APPLY, doorClearance, insideRoom, lightingPreset, planStyle, restyleItem, styleAssetFor } from '../../src/interior/styleApply'
 
 /** Grammar + prompt for a palette (QA: the real model run uses exactly these). */
@@ -219,4 +221,11 @@ export function run() {
   const skip = new Set(['ms', 'planSummary', 'paletteDetail', 'basicDetail'])
   const failed = Object.entries(r).filter(([k, v]) => !skip.has(k) && v !== true).map(([k]) => k)
   return { all: failed.length === 0, failed, ...r }
+}
+
+/** QA: style cameras vs the Interior auto views for a dumped interior document (argument: JSON file). */
+export function views(json: string) {
+  const doc = JSON.parse(json) as InteriorDoc
+  const room = doc.rooms.find((r) => /KH/i.test(r.name)) ?? doc.rooms[0]
+  return { room: room.id, style: styleViews(doc, room.id, 2).map((v) => [v.eye, v.at, v.lensEq]), auto: autoViews(doc, room.id, 2).map((v) => [v.eye, v.at]) }
 }

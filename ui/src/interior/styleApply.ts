@@ -129,13 +129,14 @@ export function restyleItem(i: Item, a: StyleAnalysis, rug: string): Item {
     }
     case 'tables': {
       const top = st && (i.h < 500 || ['luxury', 'minimal', 'modern'].includes(a.style)) ? st : jo
-      return { ...i, material: top, parts: { ...i.parts, top: { material: top }, legs: { material: legs } } }
+      // renders: the library model in the style's finish (a white lacquer table stays white, not the model's oak)
+      return { ...i, material: top, parts: { ...i.parts, top: { material: top }, legs: { material: legs } }, assetFinish: 'item' }
     }
     case 'beds':
       return { ...i, material: up, parts: { ...i.parts, frame: { material: jo }, mattress: { material: 'Fabric - Linen' } } }
     case 'cabinet':
       // a parametric cabinet's body / front ARE its boards (manufacturing data): only the item's display finish here
-      return i.cabinet ? { ...i, material: jo } : { ...i, material: jo, parts: { ...i.parts, body: { material: jo }, front: { material: jo } } }
+      return i.cabinet ? { ...i, material: jo } : { ...i, material: jo, parts: { ...i.parts, body: { material: jo }, front: { material: jo } }, assetFinish: 'item' }
     case 'lighting':
       return { ...i, material: me }
     case 'rugs':

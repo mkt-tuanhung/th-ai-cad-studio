@@ -234,7 +234,9 @@ export function assignRoles(sw: Swatch[]): RoleSwatch[] {
     }
   }
   take('wall', (s) => s.share * (s.top + 0.25), (s) => s.lab[0] >= 45)
-  take('floor', (s) => s.share * (s.bottom + 0.15), (s) => s.bottom >= 0.3)
+  // floors are usually textured (planks, tiles, stone): grain weighs in, a flat bright colour low in the frame is
+  // more often furniture (a white console) than the floor
+  take('floor', (s) => s.share * (s.bottom + 0.15) * (1 + Math.min(s.texture, 15) / 8), (s) => s.bottom >= 0.3)
   take('wood', (s) => s.share, (s) => isWoodish(s.lab))
   take('accent', (s) => chroma(s.lab), (s) => chroma(s.lab) >= 22 && s.share >= 0.015)
   take('metal', (s) => 1 - s.share, (s) => s.lab[0] < 26 && chroma(s.lab) < 9 && s.share < 0.12)

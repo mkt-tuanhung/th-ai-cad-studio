@@ -16,6 +16,8 @@ import { PALETTE_ROLES, type PaletteRole } from '../../interior/palette'
 import { boardFor, DEFAULT_APPLY, lightingPreset, planStyle, type StyleApplyOptions, type StyleOption, type StylePlan } from '../../interior/styleApply'
 import { appFinish } from '../../interior/styleRef'
 import { addAutoCameras } from '../../renders/autoCameras'
+import { styleViews } from '../../interior/styleViews'
+import type { Camera } from '../../renders/model'
 import { LIGHTING_PATCH } from '../../renders/provenance'
 import { startJob } from '../../renders/runner'
 import { Modal } from '../../components/ui/Modal'
@@ -88,8 +90,8 @@ export function StylePanel({ vision }: { vision: VisionStatus | null }) {
     <>
       <header>
         <Sparkles size={16} strokeWidth={1.6} />
-        <b>{p.title}</b>
-        {a && <em className={a.source === 'model' ? st.srcAi : st.srcBasic} title={a.source === 'model' ? p.model : p.basic}>{a.source === 'model' ? 'AI' : p.basic.split(' (')[0]}</em>}
+        <b className={st.title}>{p.title}</b>
+        {a && <em className={a.source === 'model' ? st.srcAi : st.srcBasic} title={a.source === 'model' ? p.model : p.basic} data-testid="style-source">{a.source === 'model' ? 'AI' : p.basicShort}</em>}
         {a ? (
           <button type="button" className={st.link} onClick={() => set({ styleDlg: 'analysis' })} data-testid="style-review">{p.review}</button>
         ) : (
@@ -252,7 +254,11 @@ function AnalysisStep() {
           const hint = a.furniture.find((f) => f.category === c)?.hint
           return (
             <label key={c} className={on ? st.chipOn : undefined} title={hint}>
-              <input type="checkbox" checked={on} onChange={() => up({ furniture: on ? a.furniture.filter((f) => f.category !== c) : [...a.furniture, { category: c, hint: '' }] })} />
+              <input type="checkbox" checked={on} data-cat={c} onChange={() => {
+                const ex = styleRef!.excluded ?? []
+                const v = validateAnalysis({ ...a, furniture: on ? a.furniture.filter((f) => f.category !== c) : [...a.furniture, { category: c, hint: '' }] })
+                if (v.ok) set({ styleRef: { ...styleRef!, analysis: v.value, excluded: on ? [...new Set([...ex, c])] : ex.filter((x) => x !== c) } })
+              }} />
               {T.assetLib.cats[c] ?? c}
               {hint ? <em> — {hint}</em> : null}
             </label>
@@ -294,7 +300,8 @@ function OptionsStep({ host }: { host: HostApi | null }) {
   const r = doc.rooms.find((x) => x.id === roomId)
   const rn = (n: string) => T.interior.roomNames[n] ?? n
   const mn = (m: string) => T.interior.matNames[m] ?? m
-  const [opts, setOpts] = useState<StyleApplyOptions>(() => ({ ...DEFAULT_APPLY, exclude: STYLE_DEFAULTS[a.style].furniture.filter((c) => !a.furniture.some((f) => f.category === c)) }))
+  // only what the user switched off is left out: the photo's list is a wish list (rug, plant…), not the whole room
+  const [opts, setOpts] = useState<StyleApplyOptions>(() => ({ ...DEFAULT_APPLY, exclude: styleRef!.excluded ?? [] }))
   const [plan, setPlan] = useState<StylePlan | null>(() => (lastPlan && lastPlan.room === roomId && lastPlan.analysis === a ? lastPlan.plan : null))
   useEffect(() => {
     if (host) void ensureLibrary(host)
@@ -349,7 +356,7 @@ function OptionsStep({ host }: { host: HostApi | null }) {
                 {o.boards.length > 0 && <p className={st.warn}>{fmt(d.boards, { board: o.boards[0].board, names: o.boards.map((b) => b.name).join(', ') })}</p>}
                 {o.doors.length > 0 && <p>{fmt(d.doorsBim, { list: o.doors.map((x) => `${x.width} mm`).join(', ') })}</p>}
                 <p className={o.checks.ok ? st.ok : st.warn} data-testid={`style-checks-${o.id}`}>
-                  {o.checks.ok ? fmt(d.checks, { d: Number.isFinite(o.checks.doorClear) ? `${o.checks.doorClear >= 2000 ? '≥ 2000' : o.checks.doorClear} mm` : d.noDoor }) : fmt(d.failedChecks, { list: o.checks.issues.slice(0, 4).join(', ') })}
+                  {!o.checks.ok ? fmt(d.failedChecks, { list: o.checks.issues.slice(0, 4).join(', ') }) : o.checks.doorClear < 800 ? fmt(d.checksKept, { d: `${o.checks.doorClear} mm` }) : fmt(d.checks, { d: Number.isFinite(o.checks.doorClear) ? `${o.checks.doorClear >= 2000 ? '≥ 2000' : o.checks.doorClear} mm` : d.noDoor })}
                 </p>
                 <footer>
                   <button type="button" onClick={() => set({ preview: on ? null : { label: `style:${o.id}`, doc: o.doc }, plan: useInterior.getState().plan ?? 'floor' })} aria-pressed={on}><Eye size={12} /> {d.preview}</button>
@@ -365,6 +372,26 @@ function OptionsStep({ host }: { host: HostApi | null }) {
 }
 
 /* ------------------------------------------------------------------ render beside the reference */
+
+/** Starts the given render jobs one at a time (waits while another render runs), each when the previous ended. */
+async function renderInOrder(host: HostApi, ids: string[], onError: (id: string, why: string) => void) {
+  const ended = (id: string) => ['done', 'failed', 'cancelled'].includes(useRenders.getState().runs[id]?.status ?? '')
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  for (const id of ids) {
+    if (ended(id)) continue
+    for (let tries = 0; ; tries++) {
+      const err = await startJob(host, id)
+      if (!err) break
+      if (err !== 'busy' || tries > 3600) {
+        onError(id, err)
+        break
+      }
+      await wait(1000)
+      if (ended(id)) break // the runner's own queue order reached it
+    }
+    while (!ended(id)) await wait(1000)
+  }
+}
 
 interface RenderRow {
   id: string
@@ -382,24 +409,40 @@ function RenderStep({ host }: { host: HostApi | null }) {
   const roomName = doc.rooms.find((r) => r.id === roomId)?.name ?? roomId
   const [n, setN] = useState(1)
   const [preset, setPreset] = useState<'day' | 'golden' | 'night'>(lightingPreset(a))
-  const [rows, setRows] = useState<RenderRow[]>([])
+  // the renders of this session live in the store (the dialog may be closed / reopened while Blender works)
+  const rows: RenderRow[] = styleRef!.renders ?? []
+  const setRows = (r: RenderRow[]) => { const s = useInterior.getState(); if (s.styleRef) s.set({ styleRef: { ...s.styleRef, renders: r } }) }
   const [imgs, setImgs] = useState<Record<string, string>>({})
   const [ref, setRef] = useState(0)
   const go = async () => {
     if (!host) return
     const A = T.assetLib.render
-    const { cameras } = addAutoCameras(useInterior.getState().doc, roomId, (k) => fmt(A.view, { n: k, room: T.interior.roomNames[roomName] ?? roomName }), n)
-    if (!cameras.length) return toast(d.noViews, 'warning')
+    const rname = T.interior.roomNames[roomName] ?? roomName
+    const cur = useInterior.getState().doc
+    // views that show what a reference photo shows (the main piece from its front); the Interior auto views otherwise
+    const sv = styleViews(cur, roomId, n)
     const R = useRenders.getState()
+    let cameras: Camera[]
+    if (sv.length) {
+      cameras = sv.map((v, k) => ({ id: `cam-style-${roomId}-${k + 1}`, name: fmt(d.camName, { n: k + 1, room: rname }), kind: 'Interior - Bookmark', aspect: '16:9', w: 1920, h: 1080, thumb: '/assets/v2/renders/cam3.png', view: { scene: 'interior', eye: v.eye, at: v.at, up: v.up, fov: v.fov, level: true, shift: v.shift, lensEq: v.lensEq, room: roomId } }))
+      const ids = new Set(cameras.map((c) => c.id))
+      R.edit(`${d.render} — ${rname}`, (dd) => ({ ...dd, cameras: [...dd.cameras.filter((c) => !ids.has(c.id) && !c.id.startsWith(`cam-style-${roomId}-`)), ...cameras] }))
+    } else {
+      const all = addAutoCameras(cur, roomId, (k) => fmt(A.view, { n: k, room: rname }), n).cameras
+      // a small room may give the same spot twice: one render per distinct eye
+      const eye = (c: Camera) => (c.view as { eye: number[] }).eye
+      cameras = all.filter((c, k) => !all.slice(0, k).some((p) => Math.hypot(eye(p)[0] - eye(c)[0], eye(p)[1] - eye(c)[1]) < 1000))
+    }
+    if (!cameras.length) return toast(d.noViews, 'warning')
     const settings = { ...R.doc.settings, ...LIGHTING_PATCH[preset], engine: 'Blender Cycles (local)' as const, samples: 128, denoise: true, format: 'png' as const }
     const now = Date.now()
     const jobs = cameras.map((c, k) => ({ id: `style-${now.toString(36)}-${k}`, cameraId: c.id, camera: c.name, settings: '1600 × 900', output: 'PNG', status: 'waiting' as const, created: now, cfg: { settings, fx: R.doc.fx }, special: { w: 1600, h: 900, samples: 128 } }))
     R.edit(`${d.render} — ${roomName}`, (dd) => ({ ...dd, queue: [...dd.queue, ...jobs] }))
     setRows(jobs.map((j) => ({ id: j.id, cam: j.camera })))
     toast(fmt(d.queued, { n: jobs.length, preset: d.presets[preset] }), 'success')
-    // the runner renders them one after the other (each job's scene captured now, presentation-only provenance)
-    const err = await startJob(host, jobs[0].id)
-    if (err && err !== 'busy') toast(fmt(d.renderFailed, { cam: jobs[0].camera, why: err }), 'warning')
+    // one after the other (each job's scene captured when queued, presentation-only provenance), ahead of older
+    // waiting jobs of the Renders queue; keeps going when the dialog is closed
+    void renderInOrder(host, jobs.map((j) => j.id), (id, why) => toast(fmt(d.renderFailed, { cam: jobs.find((j) => j.id === id)?.camera ?? id, why }), 'warning'))
   }
   // finished renders → images beside the reference
   useEffect(() => {

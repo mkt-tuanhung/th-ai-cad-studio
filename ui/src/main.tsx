@@ -73,6 +73,11 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), assetLib: { assets, service, polyhaven, composer, interiorRender } }
   })
+  // v2.4 reference photo → style (desktop e2e: e2e_stylephoto.js)
+  Promise.all([import('./interior/styleRef'), import('./interior/styleApply'), import('./interior/palette'), import('./services/vision')]).then(([styleRef, styleApply, palette, vision]) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), styleRef: { styleRef, styleApply, palette, vision } }
+  })
   import('./state/aiStudio').then(({ useAiStudio }) => {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), aiStudio: useAiStudio }

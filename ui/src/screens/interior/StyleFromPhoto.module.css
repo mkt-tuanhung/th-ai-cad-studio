@@ -1,6 +1,13 @@
 /* Interior → AI → "Phong cách từ ảnh mẫu": the block that replaces the DEMO suggestion cards (same box: header,
    two cards of 93 / 88 px, a 14 px strip) and its dialog. */
 
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .link {
   margin-left: auto;
   font-size: 11px;
