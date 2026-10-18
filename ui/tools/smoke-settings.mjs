@@ -15,7 +15,7 @@ const step = async (name, fn) => {
 }
 await page.addInitScript(() => {
   if (!sessionStorage.getItem('seeded')) {
-    localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: 'en' }, version: 1 }))
+    localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: 'en' }, version: 2 }))
     sessionStorage.setItem('seeded', '1')
   }
 })
@@ -201,6 +201,9 @@ await step('Reset to Default restores the factory values (after Save)', async ()
   await save()
   const st = await settings()
   assert.equal(st.units, 'mm'); assert.equal(st.precision, 2); assert.equal(st.compactUi, false); assert.equal(st.shortcuts.osnap, 'F3'); assert.equal(st.projectsDir, '')
+  // the factory language is Vietnamese (owner, 2026-10-18); back to EN for the EN-string checks below
+  assert.equal(st.language, 'vi')
+  await page.getByRole('radio', { name: 'EN' }).click()
 })
 
 await step('left menu sections: Updates, Privacy, Integrations show honest facts; Help opens a guide', async () => {

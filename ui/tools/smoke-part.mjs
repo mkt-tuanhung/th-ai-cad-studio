@@ -16,7 +16,7 @@ const step = async (name, fn) => {
 await page.addInitScript(() => {
   if (!sessionStorage.getItem('seeded')) {
     localStorage.clear()
-    localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: 'en' }, version: 1 }))
+    localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: 'en' }, version: 2 }))
     sessionStorage.setItem('seeded', '1')
   }
 })

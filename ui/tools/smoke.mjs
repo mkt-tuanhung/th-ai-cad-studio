@@ -20,19 +20,21 @@ const step = async (name, fn) => {
 
 await page.goto(URL + '#/dashboard', { waitUntil: 'networkidle' })
 
-await step('default language is EN (as in mockup)', async () => {
+await step('default language is VI (owner decision 2026-10-18; EN is the second language)', async () => {
   assert.equal(await page.locator('h1').first().textContent(), 'MD CAD AI STUDIO')
-  assert.ok(await page.getByText('WELCOME TO').isVisible())
-})
-
-await step('VI toggle translates UI and persists across reload', async () => {
-  await page.getByRole('radio', { name: 'VI' }).click()
   assert.ok(await page.getByText('CHÀO MỪNG ĐẾN VỚI').isVisible())
   assert.equal(await page.evaluate(() => document.documentElement.lang), 'vi')
+})
+
+await step('EN toggle translates UI and persists across reload', async () => {
+  await page.getByRole('radio', { name: 'EN' }).click()
+  assert.ok(await page.getByText('WELCOME TO').isVisible())
+  assert.equal(await page.evaluate(() => document.documentElement.lang), 'en')
   await page.reload({ waitUntil: 'networkidle' })
+  assert.ok(await page.getByText('Recent Projects').isVisible())
+  await page.getByRole('radio', { name: 'VI' }).click()
   assert.ok(await page.getByText('Dự án gần đây').isVisible())
   await page.getByRole('radio', { name: 'EN' }).click()
-  assert.ok(await page.getByText('Recent Projects').isVisible())
 })
 
 await step('sidebar navigation + hash routing + back', async () => {

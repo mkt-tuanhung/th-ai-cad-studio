@@ -5,6 +5,9 @@ import assert from 'node:assert/strict'
 const CREDIT = 'Xây dựng và phát triển bởi Minh Dũng'
 const browser = await chromium.launch()
 const ctx = await browser.newContext({ viewport: { width: 1528, height: 957 } })
+
+// the app's default language is Vietnamese (owner, 2026-10-18); these checks are written against the EN strings
+await ctx.addInitScript(() => { if (!localStorage.getItem('thcad.settings')) localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: 'en' }, version: 2 })) })
 ctx.setDefaultTimeout(8000)
 const page = await ctx.newPage()
 const errors = []

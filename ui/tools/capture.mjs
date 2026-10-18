@@ -10,7 +10,7 @@ const errors = []
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 page.on('pageerror', (e) => errors.push(String(e)))
 await page.addInitScript((l) => {
-  localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: l, themePreference: 'light', learningExpanded: true }, version: 1 }))
+  localStorage.setItem('thcad.settings', JSON.stringify({ state: { language: l, themePreference: 'light', learningExpanded: true }, version: 2 }))
 }, lang)
 await page.goto(`${process.env.THCAD_UI ?? 'http://127.0.0.1:5173'}/#/${route}`, { waitUntil: 'networkidle' })
 await page.evaluate(() => document.fonts.ready)
