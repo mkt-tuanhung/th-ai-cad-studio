@@ -1,10 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import {
   ChevronDown, ChevronUp, CircleHelp, Cpu, FileText, Folder, FolderOpen, Gauge, Globe, Keyboard, Monitor, Moon, Plug,
-  Settings as Gear, ShieldCheck, Sun, Trash2, CloudUpload, Ruler,
+  Settings as Gear, ShieldCheck, Sun, Trash2, CloudUpload, Ruler, History,
 } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
-import { DEFAULT_SHORTCUTS, shortcutFromEvent, shortcutLabel, useSettings, type Prefs, type ShortcutId, type UnitSystem } from '../../state/settings'
+import { DEFAULT_SHORTCUTS, shortcutFromEvent, shortcutLabel, useSettings, type KeyProfileId, type Prefs, type ShortcutId, type UnitSystem } from '../../state/settings'
+import { useWorkspace } from '../../state/workspace'
+import { ACTIONS, activeProfile, collisions, comboOf, PROFILES, profileBindings } from '../../platform/keymap'
+import { collisionText } from '../../platform/profileState'
+import { openCheatsheet, openHistory } from '../../platform/ui'
+import ps from '../../platform/Platform.module.css'
 import { getHost } from '../../services/host'
 import { onModelDownloadDone, useModelDownload } from '../../services/modelDownload'
 import { clearCaches, formatGb, type SystemStatus } from '../../services/system'
@@ -14,6 +19,7 @@ import { Dropdown, Switch } from '../../components/ui/Controls'
 import { Modal } from '../../components/ui/Modal'
 import { ActionButton } from '../../components/ui/Button'
 import { Field, TextInput } from '../../components/ui/Field'
+import { hostError } from '../../platform/hostErrors'
 import s from './Settings.module.css'
 
 export interface CardProps {
@@ -195,6 +201,7 @@ export function AiModelCard(p: CardProps) {
  */
 function ModelDownload({ onDone }: { onDone: () => void }) {
   const D = useT().settings.ai.dl
+  const T = useT().platform
   const { state, progress, result, refresh, start, cancel } = useModelDownload()
   const [pick, setPick] = useState<string | null>(null)
   useEffect(() => {
@@ -229,7 +236,7 @@ function ModelDownload({ onDone }: { onDone: () => void }) {
     if (result.ok) outcome = { ok: true, text: fmt(D.done, { answer: result.test ?? '', secs: (result as { seconds?: number }).seconds?.toFixed(1) ?? '—', device: result.device || 'CPU' }) }
     else if (result.cancelled) outcome = { ok: false, text: fmt(D.paused, { got: formatGb(chosen.partialBytes) }) }
     else if (result.needBytes) outcome = { ok: false, text: fmt(D.noSpace, { need: formatGb(result.needBytes), free: formatGb(result.freeBytes ?? 0) }) }
-    else outcome = { ok: false, text: fmt(D.failed, { why: result.error ?? '' }) }
+    else outcome = { ok: false, text: fmt(D.failed, { why: hostError(result.error, useSettings.getState().language) }) }
   }
   return (
     <div className={s.dl} data-testid="model-download">
@@ -239,7 +246,7 @@ function ModelDownload({ onDone }: { onDone: () => void }) {
         {state.models.map((m) => (
           <label key={m.id} className={`${s.dlItem} ${m.id === chosen.id ? s.dlOn : ''}`}>
             <input type="radio" name="dl-model" checked={m.id === chosen.id} disabled={busy} onChange={() => setPick(m.id)} />
-            <span className={s.dlName}>{m.label}</span>
+            <span className={s.dlName} title={/3b-instruct/i.test(m.id) ? T.licences.nonCommercial : T.licences.apache}>{m.label}{/3b-instruct/i.test(m.id) ? ` · ${T.licences.nonCommercialShort}` : ""}</span>
             <span className={s.dlSize}>{formatGb(m.bytes)}</span>
             {m.installed ? <Chip tone="green">{D.installed}</Chip> : m.id === state.recommended ? <Chip tone="green">{fmt(D.recommended, { ram: formatGb(state.ramBytes).replace('.0 ', ' ') })}</Chip> : !m.fits ? <Chip tone="amber">{D.slow}</Chip> : null}
             {!m.installed && m.partialBytes > 0 && !busy && <span className={s.dlNote}>{fmt(D.partial, { pct: pct(m.partialBytes, m.bytes) })}</span>}
@@ -293,7 +300,7 @@ function SpeechModel() {
       const r = p as { received?: number; total?: number; done?: boolean; ok?: boolean; error?: string }
       if (!r.done) return setPct(r.total ? Math.floor(((r.received ?? 0) / r.total) * 100) : 0)
       setPct(null)
-      toast(r.ok ? A.speechDone : fmt(A.speechFailed, { why: r.error ?? '' }), r.ok ? 'success' : 'warning')
+      toast(r.ok ? A.speechDone : fmt(A.speechFailed, { why: hostError(r.error, useSettings.getState().language) }), r.ok ? 'success' : 'warning')
       void refresh()
     })
     void h.whisperDownload()
@@ -497,9 +504,29 @@ export function PerformanceCard(p: CardProps) {
 
 // ---------------------------------------------------------------- shortcuts
 export function ShortcutsCard(p: CardProps) {
-  const K = useT().settings.shortcuts
+  const t = useT()
+  const K = t.settings.shortcuts
+  const P = t.platform.profiles
   const [capturing, setCapturing] = useState<ShortcutId | null>(null)
+  const [capAction, setCapAction] = useState<string | null>(null)
   const [warn, setWarn] = useState('')
+  const project = useWorkspace((st) => st.projects.find((x) => x.id === st.currentId) ?? null)
+  const perProject = !!project && !!p.draft.projectKeyProfiles[project.id]
+  const profile = activeProfile(p.draft, project?.id)
+  const bindings = profileBindings(profile, p.draft.keyMaps)
+  const why = new Map(collisions(bindings, p.draft.shortcuts).map((c) => [c.action, c]))
+  const setProfile = (v: KeyProfileId) => {
+    if (perProject && project) p.set({ projectKeyProfiles: { ...p.draft.projectKeyProfiles, [project.id]: v } })
+    else p.set({ keyProfile: v })
+  }
+  const setScope = (v: 'all' | 'project') => {
+    if (!project) return
+    const { [project.id]: _drop, ...rest } = p.draft.projectKeyProfiles
+    void _drop
+    p.set({ projectKeyProfiles: v === 'project' ? { ...rest, [project.id]: profile } : rest })
+  }
+  const setKey = (action: string, combo: string) =>
+    p.set({ keyMaps: { ...p.draft.keyMaps, [profile]: { ...(p.draft.keyMaps[profile] ?? {}), [action]: combo } } })
   useEffect(() => {
     if (!capturing) return
     const onKey = (e: KeyboardEvent) => {
@@ -517,8 +544,42 @@ export function ShortcutsCard(p: CardProps) {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [capturing, p, K])
+  // a profile key: any key, plain letters included (the collision check decides where it can act)
+  useEffect(() => {
+    if (!capAction) return
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') return setCapAction(null)
+      if (e.key === 'Backspace') { setKey(capAction, ''); return setCapAction(null) }
+      const combo = comboOf(e)
+      if (!combo) return
+      setKey(capAction, combo)
+      setCapAction(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
+  const scopes = ['cad2d', 'bim', 'interior'] as const
   return (
     <Card icon={<Keyboard size={22} strokeWidth={1.5} />} title={K.title} text={K.text}>
+      <div className={ps.selects}>
+        <label>
+          {P.title}
+          <select aria-label={P.title} value={profile} onChange={(e) => setProfile(e.target.value as KeyProfileId)}>
+            {PROFILES.map((id) => <option key={id} value={id}>{P.names[id]}</option>)}
+          </select>
+        </label>
+        <label>
+          {P.appliesTo}
+          <select aria-label={P.appliesTo} value={perProject ? 'project' : 'all'} disabled={!project} onChange={(e) => setScope(e.target.value as 'all' | 'project')}>
+            <option value="all">{P.allProjects}</option>
+            {project && <option value="project">{fmt(P.thisProject, { name: project.name })}</option>}
+          </select>
+        </label>
+        <button type="button" className={s.linkBtn} onClick={openCheatsheet}>{P.cheatsheet}</button>
+      </div>
+      <p className={s.note} style={{ color: '#6b7381' }}>{P.text[profile]}{project ? '' : ' ' + P.noProject}</p>
       {warn && <p className={s.note}>{warn}</p>}
       <ul className={s.keys}>
         {(Object.keys(DEFAULT_SHORTCUTS) as ShortcutId[]).map((id) => (
@@ -532,6 +593,46 @@ export function ShortcutsCard(p: CardProps) {
           </li>
         ))}
       </ul>
+      <p className={ps.group}>{P.keysTitle} · {P.names[profile]}</p>
+      <p className={s.note} style={{ color: '#6b7381' }}>{P.keysText}</p>
+      {scopes.map((sc) => (
+        <div key={sc}>
+          <p className={ps.group}>{P.workspaces[sc]}</p>
+          <ul className={`${s.keys} ${ps.profileKeys}`} data-testid={`profile-keys-${sc}`}>
+            {ACTIONS.filter((a) => a.scope === sc).map((a) => {
+              const c = why.get(a.id)
+              const k = bindings[a.id]
+              return (
+                <li key={a.id} data-action={a.id} data-active={k && !c ? 'true' : 'false'}>
+                  <span>{t.platform.actions[a.id]}</span>
+                  <button type="button" className={`${s.keyBtn} ${capAction === a.id ? s.keyOn : ''}`} aria-label={`${P.keysTitle}: ${t.platform.actions[a.id]} (${P.workspaces[sc]})`} onClick={() => { setWarn(''); setCapAction(a.id) }}>
+                    {capAction === a.id ? P.press : k ? <kbd>{shortcutLabel(k)}</kbd> : <span className={ps.off}>{P.unbound}</span>}
+                  </button>
+                  <span className={ps.why}>{c ? `${P.inactive}: ${collisionText(c, t)}` : ''}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+      <div className={ps.selects}>
+        <button type="button" className={s.linkBtn} disabled={!Object.keys(p.draft.keyMaps[profile] ?? {}).length}
+          onClick={() => { const { [profile]: _d, ...rest } = p.draft.keyMaps; void _d; p.set({ keyMaps: rest }) }}>{P.reset}</button>
+      </div>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------- version history
+/** Files section: what Auto-recover / backup do now, and the Version history dialog (platform/VersionHistory.tsx). */
+export function VersionsCard(p: CardProps) {
+  const H = useT().platform.history
+  return (
+    <Card icon={<History size={22} strokeWidth={1.5} />} title={H.title} text={H.text}>
+      <p className={s.note} style={{ color: '#6b7381' }}>{p.draft.autoRecover || p.draft.backup ? fmt(H.on, { n: 10 }) : H.off}</p>
+      <div className={ps.selects}>
+        <ActionButton onClick={openHistory}>{H.open}</ActionButton>
+      </div>
     </Card>
   )
 }

@@ -212,6 +212,50 @@ await step('Layouts: Layout1 sheet; add a layout, set A4 1:200, delete it; MODEL
   assert.equal(await page.getByRole('tab', { name: 'Model' }).getAttribute('aria-selected'), 'true')
 })
 
+await step('Sheets: A0 / A0 portrait, check ruler (100 mm paper, 1 m model at 1:50), plot flag on a dimension', async () => {
+  await page.getByRole('tab', { name: 'Villa Riverside - Floor Plan.dwg' }).click()
+  await page.getByRole('button', { name: 'New layout' }).click()
+  await page.getByRole('tab', { name: 'Layout3' }).waitFor()
+  const papers = await page.getByLabel('Paper', { exact: true }).locator('option').allInnerTexts()
+  assert.ok(papers.includes('A0') && papers.includes('A0 portrait') && papers.includes('A1 portrait'), papers.join())
+  await page.getByLabel('Paper', { exact: true }).selectOption('A0')
+  await page.getByLabel('Scale', { exact: true }).selectOption('50')
+  await page.getByLabel('Check ruler').check()
+  const html = await page.getByTestId('paper-sheet').innerHTML()
+  assert.match(html, /viewBox="0 0 1189 841"/)
+  assert.match(html, /<line x1="10\.000" y1="815\.000" x2="110\.000" y2="815\.000"/) // 100.000 mm on paper
+  assert.match(html, /<line x1="142\.000" y1="815\.000" x2="162\.000" y2="815\.000"/) // 1 m at 1:50 = 20 mm
+  assert.ok(html.includes('100 mm (paper)') && html.includes('1 m (model, 1:50)'))
+  assert.equal((await doc()).layouts.find((l) => l.paper === 'A0')?.ruler, true)
+  // plot flag: the selected dimension stays on screen but leaves the plot
+  const texts = async () => ((await page.getByTestId('paper-sheet').innerHTML()).match(/<text /g) ?? []).length
+  const before = await texts()
+  await page.evaluate(() => { const s = window.__thcad.cad.getState(); s.setSelection([s.docs[s.activeId].entities.find((e) => e.kind === 'dimension').id]) })
+  await page.getByRole('tab', { name: 'Properties' }).click()
+  await page.getByRole('combobox', { name: 'Plotted' }).selectOption('off')
+  assert.equal(await texts(), before - 1)
+  assert.equal((await doc()).entities.filter((e) => e.noPlot).length, 1)
+  await page.getByRole('combobox', { name: 'Screen only (not plotted)' }).selectOption('on')
+  assert.equal(await texts(), before)
+  await page.getByRole('button', { name: 'Delete layout' }).click()
+  await page.getByRole('tab', { name: 'Layout1' }).click()
+  await page.getByRole('button', { name: 'MODEL', exact: true }).click()
+})
+
+await step('V24-038: with the SketchUp profile active, typed AutoCAD aliases PL / TR / L still reach the command line', async () => {
+  await page.evaluate(() => window.__thcad.settings.getState().apply({ keyProfile: 'sketchup' }))
+  await vp().hover({ position: { x: 400, y: 300 } })
+  for (const [keys, tool] of [['PL', 'polyline'], ['TR', 'trim'], ['L', 'line']]) {
+    await page.keyboard.press('Escape')
+    for (const k of keys) await page.keyboard.press(k)
+    await page.keyboard.press('Enter')
+    assert.equal(await page.evaluate(() => window.__thcad.cad.getState().tool), tool, keys)
+  }
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.evaluate(() => window.__thcad.settings.getState().apply({ keyProfile: 'autocad' }))
+})
+
 await step('Snap settings menu: OSNAP modes toggle and persist; command line settings (text size, Space = Enter)', async () => {
   await page.getByRole('button', { name: 'Snap settings' }).click()
   const quad = page.getByRole('menuitemcheckbox', { name: 'Quadrant' })

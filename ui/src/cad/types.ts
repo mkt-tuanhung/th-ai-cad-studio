@@ -25,6 +25,8 @@ interface EntityBase {
   /** Imported from a DXF/DWG block instance (INSERT): instance id, block name, world rotation (radians).
    *  Informational only (plan recognition reads furniture / doors from it); selection is per entity. */
   insert?: { id: string; name: string; rot: number }
+  /** Shown on screen but left out of plots (PDF / PNG / SVG sheets) — e.g. a working dimension or note. */
+  noPlot?: boolean
   /** Provenance (v2.4): which import / survey this entity came from (`CadDocument.provenance.sources[id]`), its
    *  own confidence (0–1, OCR words) and whether it still needs review. Absent = drawn in this app. */
   src?: import('./provenance').EntitySrc
@@ -129,11 +131,16 @@ export interface CadDocument {
   provenance?: import('./provenance').DocProvenance
 }
 
+/** ISO A sizes; landscape unless "P" (portrait). */
+export type PaperSize = 'A4' | 'A3' | 'A2' | 'A1' | 'A0' | 'A1P' | 'A0P'
+
 export interface Layout {
   id: string
   name: string
-  paper: 'A4' | 'A3' | 'A2' | 'A1'
+  paper: PaperSize
   scale: number | null
+  /** Plot a check ruler: 100 mm on paper and 1 m (or 10 m) of the model at the plot scale. */
+  ruler?: boolean
 }
 
 export const DEFAULT_LAYOUTS: Layout[] = [

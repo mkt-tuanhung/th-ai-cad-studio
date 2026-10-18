@@ -1,3 +1,5 @@
+import { matchesShortcut, useSettings } from './settings'
+
 /**
  * Shared undo/redo stack for the discipline workspaces. A workspace keeps its editable data in `doc`;
  * every change goes through `edit(label, fn)`, which validates the result before committing.
@@ -37,12 +39,16 @@ export function undoableActions<D, S extends Undoable<D>>(get: Get<S>, set: Set<
   }
 }
 
-/** ⌘Z / ⌘⇧Z handler for a workspace (ignored while typing in a field). */
+/** Undo / redo handler for a workspace — the keys of Settings → Keyboard Shortcuts (⌘Z / ⌘⇧Z by default);
+ *  ignored while typing in a field. */
 export function undoKeys(undo: () => string | null, redo: () => string | null, report: (label: string | null, redo: boolean) => void) {
   return (e: KeyboardEvent) => {
     const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement
-    if (typing || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+    if (typing) return
+    const sc = useSettings.getState().shortcuts
+    const isRedo = matchesShortcut(e, sc.redo)
+    if (!isRedo && !matchesShortcut(e, sc.undo)) return
     e.preventDefault()
-    report(e.shiftKey ? redo() : undo(), e.shiftKey)
+    report(isRedo ? redo() : undo(), isRedo)
   }
 }

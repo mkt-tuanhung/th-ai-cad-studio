@@ -1,0 +1,9 @@
+samples: 8  (every 0.5 s)
+sockets seen: 42
+outbound (not loopback): 0
+bound to all interfaces (no remote end): 0
+[js:0] E2E PASS A0 1:50 sheet with the check ruler (:6)
+[js:0] E2E PASS A4 1:100 sheet with the check ruler (:6)
+[js:0] E2E PASS sheet set → one PDF with 4 pages — Layout “Layout3” added | Layout “Layout4” added | Sheet set: 4 layout(s) in one PDF — offline_sheet_set.pdf (:6)
+[js:0] E2E PASS cheatsheet opens (⌘/) (:6)
+[js:0] E2E DONE OK (:6)

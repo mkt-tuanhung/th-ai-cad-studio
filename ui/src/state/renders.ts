@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CAMERAS, DEFAULT_FX, DEFAULT_PANO, DEFAULT_SETTINGS, DEFAULT_VIDEO, settingsSummary, FORMATS, videoFrames, type Camera, type CustomVariation, type Job, type JobRun, type PanoSettings, type PostFx, type RenderSettings, type Variation, type VideoSettings } from '../renders/model'
 import { undoableActions, type Undoable } from './undoable'
+import { migrateRenders } from './migrations'
 
 export type RenderTab = 'studio' | 'panorama' | 'video' | 'ai' | 'batch'
 export type RenderMode = 'wireframe' | 'clay' | 'shaded' | 'rendered'
@@ -125,7 +126,9 @@ export const useRenders = create<RenderState>()(
     }),
     {
       name: 'thcad.renders',
-      version: 1,
+      // v2: explicit migration (state/migrations.ts)
+      version: 2,
+      migrate: (p, v) => migrateRenders(p, v) as RenderState,
       partialize: (s) => ({ doc: s.doc, camera: s.camera, variation: s.variation, mode: s.mode, history: s.history, pano: s.pano, video: s.video, runs: Object.fromEntries(Object.entries(s.runs).filter(([, r]) => r.status !== 'rendering')) }),
     },
   ),

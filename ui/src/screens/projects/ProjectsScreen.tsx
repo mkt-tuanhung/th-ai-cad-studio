@@ -13,6 +13,9 @@ import { ProjectGridCard } from './ProjectGridCard'
 import { ProjectInspector } from './ProjectInspector'
 import { ProjectFiles, sessionFiles } from './ProjectFiles'
 import { NewFolderModal, TemplateModal } from './ProjectsModals'
+import { openHistory } from '../../platform/ui'
+import { createFromTemplate } from '../../platform/templateApply'
+import { templateById } from '../../platform/templates'
 import s from './ProjectsScreen.module.css'
 
 type Tab = 'all' | 'recent' | 'shared' | 'archived'
@@ -199,6 +202,7 @@ export function ProjectsScreen() {
                 { label: T.menu.rename, onSelect: () => setModal({ rename: p }) },
                 { label: p.favorite ? T.menu.unfavorite : T.menu.favorite, onSelect: () => ws.toggleFavorite(p.id) },
                 { label: statusOf(p) === 'archived' ? T.menu.restore : T.menu.archive, onSelect: () => archiveToggle(p) },
+                { label: t.platform.history.open, onSelect: () => { ws.touchProject(p.id); openHistory() } },
               ]}
             />
           ))}
@@ -225,6 +229,14 @@ export function ProjectsScreen() {
       {modal === 'template' && (
         <TemplateModal
           onClose={() => setModal(null)}
+          onCreateContent={async (id, name) => {
+            const { project, result } = await createFromTemplate(id, name, fmt(t.platform.templates.created, { name, tpl: t.platform.templates.items[id].name, v: templateById(id).version }))
+            setSelectedId(project.id)
+            setTab('all')
+            setModal(null)
+            for (const e of result.errors) toast(fmt(t.platform.history.failed, { store: t.platform.history.stores[e.store], error: e.error }), 'warning')
+            toast(fmt(t.platform.templates.created, { name, tpl: t.platform.templates.items[id].name, v: templateById(id).version }), 'success')
+          }}
           onCreate={(name: string, discipline: Discipline, folders: string[]) => {
             const created = ws.createProject({ name, discipline, format: discipline === 'mechanical' ? 'STEP' : discipline === 'bim' ? 'IFC' : 'DWG' })
             ws.addEntries(created.id, folders.map((f) => ({ kind: 'folder' as const, name: f, category: null, type: 'Folder', sizeBytes: null, modifiedAt: Date.now(), modifiedBy: 'hoang' })))

@@ -98,6 +98,33 @@ await step('⌘K focuses search; typing shows results; Enter opens project', asy
   await goHome()
 })
 
+await step('⌘K finds commands (PL → PLINE in CAD 2D), tools (Wall → BIM), settings pages, library and the cheatsheet', async () => {
+  const search = async (q) => { await page.keyboard.press('Meta+k'); await page.keyboard.type(q) }
+  await search('PL')
+  // an exact alias comes first, before the projects / files whose names contain "pl"
+  assert.match(await page.getByRole('listbox').getByRole('option').first().innerText(), /^PLINE/)
+  await page.keyboard.press('Enter')
+  await page.waitForFunction(() => location.hash === '#/cad2d' && window.__thcad.cad.getState().tool === 'polyline')
+  await page.keyboard.press('Escape')
+  await search('wall')
+  await page.getByRole('listbox').getByRole('option', { name: /Wall — BIM/ }).click()
+  await page.waitForFunction(() => location.hash === '#/bim' && window.__thcad.bim.getState().tool === 'wall')
+  await search('units')
+  await page.getByRole('listbox').getByRole('option', { name: /^Units — / }).click()
+  await page.waitForFunction(() => location.hash === '#/settings')
+  assert.ok(await page.locator('section[aria-label="Units & Precision"]').isVisible())
+  assert.equal(await page.locator('section[aria-label="AI Model Configuration"]').count(), 0) // the Units page, not General
+  await search('modern sofa')
+  await page.getByRole('listbox').getByRole('option', { name: /Modern Sofa 3-Seater/ }).click()
+  await page.waitForFunction(() => location.hash === '#/components')
+  await search('cheatsheet')
+  await page.getByRole('listbox').getByRole('option', { name: /Keyboard cheatsheet/ }).first().click()
+  assert.ok(await page.getByTestId('cheatsheet').isVisible())
+  await page.keyboard.press('Escape')
+})
+await page.keyboard.press('Escape')
+await goHome()
+
 const DXF = (n) => ['0', 'SECTION', '2', 'ENTITIES', ...Array.from({ length: n }, (_, i) => ['0', 'LINE', '8', '0', '10', String(i * 1000), '20', '0', '11', String(i * 1000 + 800), '21', '500']).flat(), '0', 'ENDSEC', '0', 'EOF'].join('\n')
 
 await step('Open File: a .dxf opens in CAD 2D; .ifc is listed with an honest note; unsupported types rejected', async () => {

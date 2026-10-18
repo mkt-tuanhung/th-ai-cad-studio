@@ -5,6 +5,7 @@ import { useSettings } from './settings'
 import { getMessages } from '../i18n'
 import { createNorthCanal, type CivilModel } from '../civil/model'
 import { undoableActions, type Undoable } from './undoable'
+import { migrateCivil } from './migrations'
 
 export type CivilView = 'plan' | 'profile' | 'section' | '3d' | 'schedule'
 export type CivilBottom = 'earthwork' | 'channel' | 'structures' | 'materials'
@@ -108,6 +109,7 @@ export const useCivil = create<CivilState>()(
       set: (p) => set(p),
       reset: () => set({ doc: createNorthCanal(), undoStack: [], redoStack: [] }),
     }),
-    { name: 'thcad.civil', version: 1, storage: createJSONStorage(() => civilStorage), partialize: (s) => ({ doc: s.doc, station: s.station, layers: s.layers, bottom: s.bottom, contour: s.contour }) },
+    // v2: explicit migration (state/migrations.ts)
+    { name: 'thcad.civil', version: 2, migrate: (p, v) => migrateCivil(p, v) as CivilState, storage: createJSONStorage(() => civilStorage), partialize: (s) => ({ doc: s.doc, station: s.station, layers: s.layers, bottom: s.bottom, contour: s.contour }) },
   ),
 )

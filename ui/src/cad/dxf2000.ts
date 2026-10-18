@@ -39,7 +39,7 @@ export function toDxf2000(doc: CadDocument, opts: { leftText?: boolean } = {}): 
   }
   const extraLayers = ['TITLE', 'VIEWPORTS'].filter((n) => !doc.layers.some((l) => l.name === n))
   const layerH = [...doc.layers.map((l) => l.name), ...extraLayers].map(() => h())
-  const sheets = layouts.map((l, i) => ({ l, i, br: h(), lay: h(), blk: h(), end: h(), name: i === 0 ? '*Paper_Space' : `*Paper_Space${i - 1}`, geo: sheetLayout(doc, l.paper, l.scale ?? undefined) }))
+  const sheets = layouts.map((l, i) => ({ l, i, br: h(), lay: h(), blk: h(), end: h(), name: i === 0 ? '*Paper_Space' : `*Paper_Space${i - 1}`, geo: sheetLayout(doc, l.paper, l.scale ?? undefined, { ruler: l.ruler }) }))
 
   // ---- entities
   const entity = (e: Entity, owner: string, paper: boolean) => {
@@ -90,7 +90,7 @@ export function toDxf2000(doc: CadDocument, opts: { leftText?: boolean } = {}): 
   }
   /** Paper-space content of one layout: the overall paper viewport (id 1), the model viewport (id 2), frame and title block. */
   const sheetEntities = (s: (typeof sheets)[number]) => {
-    const { W, H: Hp, viewport: vp, view, lines, texts } = s.geo
+    const { W, H: Hp, viewport: vp, view, lines, texts, ruler } = s.geo
     const viewportEnt = (id: number, cx: number, cy: number, w: number, hh: number, vcx: number, vcy: number, vh: number) => {
       g(0, 'VIEWPORT'); g(5, h()); g(330, s.br); g(100, 'AcDbEntity'); g(67, 1); g(8, 'VIEWPORTS'); g(100, 'AcDbViewport')
       g(10, cx); g(20, cy); g(30, 0); g(40, w); g(41, hh); g(68, id); g(69, id)
@@ -103,6 +103,7 @@ export function toDxf2000(doc: CadDocument, opts: { leftText?: boolean } = {}): 
     viewportEnt(2, vp.cx, vp.cy, vp.w, vp.h, view.cx, view.cy, view.height)
     const base = { id: '', color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer: 'TITLE' } as const
     for (const [ax, ay, bx, by] of lines) entity({ ...base, kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } }, s.br, true)
+    for (const r of ruler) entity({ ...base, kind: 'line', a: { x: r.x1, y: r.y1 }, b: { x: r.x2, y: r.y2 } }, s.br, true)
     for (const t of texts) entity({ ...base, kind: 'text', p: { x: t.x, y: t.y }, height: t.h, value: t.value, rotation: 0, align: 'left' }, s.br, true)
   }
 

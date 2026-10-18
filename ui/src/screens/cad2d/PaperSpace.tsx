@@ -5,7 +5,7 @@ import { DEFAULT_LAYOUTS } from '../../cad/types'
 import { fmt, useT } from '../../i18n'
 import { useCad } from '../../state/cad'
 import { toast } from '../../state/toast'
-import { pageSvg, plotPage, PAPERS, type Paper } from '../../cad/plot'
+import { pageSvg, paperLabel, plotPage, PAPERS, type Paper } from '../../cad/plot'
 import s from './PaperSpace.module.css'
 
 const SCALES = [10, 20, 25, 50, 75, 100, 200, 500]
@@ -28,11 +28,11 @@ export function PaperSpace({ doc, layout, onPlot }: { doc: CadDocument; layout: 
     ro.observe(el)
     return () => ro.disconnect()
   }, [W, H])
-  const page = useMemo(() => plotPage(doc, layout.paper, layout.scale ?? undefined), [doc, layout.paper, layout.scale])
+  const page = useMemo(() => plotPage(doc, layout.paper, layout.scale ?? undefined, { ruler: layout.ruler }), [doc, layout.paper, layout.scale, layout.ruler])
   const svg = useMemo(() => pageSvg(page).replace(/width="[^"]+mm" height="[^"]+mm"/, 'width="100%" height="100%"'), [page])
   const layouts = doc.layouts ?? DEFAULT_LAYOUTS
   const patch = (p: Partial<Layout>) => setLayouts(layouts.map((l) => (l.id === layout.id ? { ...l, ...p } : l)))
-  const auto = plotPage(doc, layout.paper).scale
+  const auto = plotPage(doc, layout.paper, undefined, { ruler: layout.ruler }).scale
   return (
     <div ref={ref} className={s.paper}>
       <div className={s.bar}>
@@ -40,7 +40,7 @@ export function PaperSpace({ doc, layout, onPlot }: { doc: CadDocument; layout: 
         <label>
           {L.paperSize}
           <select aria-label={L.paperSize} value={layout.paper} onChange={(e) => patch({ paper: e.target.value as Paper })}>
-            {(Object.keys(PAPERS) as Paper[]).map((p) => <option key={p} value={p}>{p}</option>)}
+            {(Object.keys(PAPERS) as Paper[]).map((p) => <option key={p} value={p}>{paperLabel(p, t.platform.sheets.portrait)}</option>)}
           </select>
         </label>
         <label>
@@ -49,6 +49,10 @@ export function PaperSpace({ doc, layout, onPlot }: { doc: CadDocument; layout: 
             <option value="">{fmt(L.auto, { n: auto })}</option>
             {SCALES.map((n) => <option key={n} value={n}>1:{n}</option>)}
           </select>
+        </label>
+        <label title={t.platform.sheets.rulerHelp}>
+          <input type="checkbox" aria-label={t.platform.sheets.ruler} checked={!!layout.ruler} onChange={(e) => patch({ ruler: e.target.checked || undefined })} />
+          {t.platform.sheets.ruler}
         </label>
         <button type="button" onClick={onPlot}><Printer size={14} />{L.plot}</button>
         <button

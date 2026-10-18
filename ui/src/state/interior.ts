@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { CABINETS, ITEMS, MATERIALS, ROOMS, roomOverlap, type Cabinet, type Item, type Room } from '../interior/model'
 import { undoableActions, type Undoable } from './undoable'
 import { DEFAULT_CAM, type CamSettings } from '../cam/gcode'
+import { migrateInterior } from './migrations'
 
 export interface InteriorDoc {
   rooms: Room[]
@@ -135,11 +136,9 @@ export const useInterior = create<InteriorState>()(
     {
       name: 'thcad.interior',
       version: 2,
-      // v2: corrected sample outlines (Bedroom 1 / Laundry overlapped their neighbours)
-      migrate: (s, v) => {
-        const st = s as { doc?: InteriorDoc }
-        return (v < 2 && st.doc ? { ...st, doc: { ...st.doc, rooms: ROOMS } } : st) as InteriorState
-      },
+      // v2: corrected sample outlines (Bedroom 1 / Laundry overlapped their neighbours) — the user's rooms are kept
+      // (state/migrations.ts; the first version of this migration replaced them with the sample rooms)
+      migrate: (s, v) => migrateInterior(s, v) as InteriorState,
       partialize: (s) => ({ doc: s.doc, bottom: s.bottom, right: s.right, mode: s.mode, scale: s.scale, room: s.room, styles: s.styles, appliedPreset: s.appliedPreset, cam: s.cam }),
     },
   ),

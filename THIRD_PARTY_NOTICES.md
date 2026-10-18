@@ -12,6 +12,8 @@ license; the full license texts ship with the installer under `licenses/`.
 | **LibreDWG 0.14** (`dwg2dxf`, `dwgadd`, `dxf2dwg`) | opening and saving `.dwg` files (with layouts) | **GPL-3.0-or-later** | shipped as a **separate program**, run as a child process; not linked into the app. The complete source of the shipped version is included in the installer (`licenses/libredwg/`). See `native/third_party/libredwg/README.md` |
 | **whisper.cpp 1.9.4** (`whisper-cli`) | Voice CAD speech recognition | MIT | separate program, run as a child process (its own ggml); see `native/third_party/whisper/README.md` |
 | GNU libiconv (Windows only) | character sets for LibreDWG | LGPL-2.1-or-later | DLL from the LibreDWG Windows build |
+| GLib, GNU gettext (libintl), D-Bus, Graphite2 (macOS) | pulled in by Qt / HarfBuzz (Homebrew builds) | LGPL-2.1-or-later (GLib, libintl), AFL-2.1 OR GPL-2.0-or-later (D-Bus), LGPL-2.1-or-later OR MPL-2.0 (Graphite2) | dynamically linked, in `Contents/Frameworks` |
+| ICU, HarfBuzz, FreeType, OpenSSL 3, PCRE2, zstd, Brotli, libpng, libjpeg-turbo, double-conversion, MD4C, libb2, oneTBB, LLVM libomp | text, fonts, TLS for model downloads, images, compression, threads (Qt, OCCT, ggml) | Unicode-3.0, MIT, FTL, Apache-2.0, BSD-3-Clause, libpng-2.0, IJG, CC0-1.0, Apache-2.0 WITH LLVM-exception | dynamically linked; versions in `docs/SBOM.json` |
 | React, React DOM | UI | MIT | |
 | zustand | UI state | MIT | |
 | lucide-react | icons | ISC | |
@@ -21,6 +23,10 @@ license; the full license texts ship with the installer under `licenses/`.
 | tesseract.js 5.1.1 (Tesseract OCR + Leptonica, WASM) | Scan to CAD: reading text in scans | Apache-2.0 (Tesseract), BSD-2-Clause (Leptonica) | runs offline in a web worker |
 | Tesseract model `vie` (tessdata_best 4.1.0) | Vietnamese OCR | Apache-2.0 | shipped in `ui/ocr/lang/` (12.4 MB) |
 | Roboto (Fontsource) | UI font | SIL Open Font License 1.1 | |
+
+The complete, machine-readable list (every UI package, native library, plug-in, helper, model and bundled
+asset, with version, licence and how it is distributed) is `docs/SBOM.json`, made by `ui/tools/make-sbom.mjs`
+and checked by `ui/tools/check-sbom.mjs` (fails when anything shipped has no entry).
 
 ## Not included in the installers
 

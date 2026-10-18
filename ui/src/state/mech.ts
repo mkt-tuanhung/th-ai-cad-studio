@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { createPump, type MechModel } from '../mech/model'
 import { undoableActions, type Undoable } from './undoable'
+import { migrateMech } from './migrations'
 import { DEFAULT_SHAFT, type ShaftInputs } from '../mech/fea'
 import type { FeatureKind } from '../mech/part'
 
@@ -82,6 +83,7 @@ export const useMech = create<MechState>()(
       set: (p) => set(p),
       reset: () => set({ doc: createPump(), undoStack: [], redoStack: [], sel: 'casing' }),
     }),
-    { name: 'thcad.mech', version: 1, partialize: (s) => ({ doc: s.doc, mode: s.mode, bottom: s.bottom, fea: s.fea, tab: s.tab, activePart: s.activePart }) },
+    // v2: explicit migration (state/migrations.ts)
+    { name: 'thcad.mech', version: 2, migrate: (p, v) => migrateMech(p, v) as MechState, partialize: (s) => ({ doc: s.doc, mode: s.mode, bottom: s.bottom, fea: s.fea, tab: s.tab, activePart: s.activePart }) },
   ),
 )

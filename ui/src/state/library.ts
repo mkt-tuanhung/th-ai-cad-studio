@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Entity } from '../cad/types'
 import { BUILTIN, SEED_RECENT, type LibComponent } from '../library/catalog'
 import { bounds } from '../library/shapes'
+import { migrateLibrary } from './migrations'
 
 /** Components uploaded by the user (from DXF / DWG): geometry is kept, normalised to (0, 0). */
 export interface UploadedComponent {
@@ -68,7 +69,8 @@ export const useLibrary = create<LibraryState>()(
         setLayerFor: (id, layer) => set({ layerFor: { ...get().layerFor, [id]: layer } }),
       }
     },
-    { name: 'thcad.library', version: 1 },
+    // v2: explicit migration (state/migrations.ts)
+    { name: 'thcad.library', version: 2, migrate: (p, v) => migrateLibrary(p, v) as LibraryState },
   ),
 )
 

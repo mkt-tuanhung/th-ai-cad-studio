@@ -7,6 +7,7 @@ import { rendersVi } from './ws/renders'
 import { fromCadVi } from './ws/fromCad'
 import { autoVi } from './ws/auto'
 import { cncVi } from './ws/cnc'
+import { platformVi } from './ws/platform'
 import { importCalVi } from './ws/importCal'
 
 export const vi: Messages = {
@@ -928,7 +929,7 @@ export const vi: Messages = {
     ui: {
       title: 'Giao diện & hiển thị',
       text: 'Tuỳ chỉnh giao diện của ứng dụng.',
-      theme: 'Theme',
+      theme: 'Chủ đề',
       light: 'Sáng',
       dark: 'Tối',
       system: 'Hệ thống',
@@ -984,19 +985,20 @@ export const vi: Messages = {
         snap: 'Bật/tắt SNAP',
         polar: 'Bật/tắt POLAR',
         help: 'Trợ giúp lệnh',
+        cheatsheet: 'Bảng tra phím',
       },
     },
     languageCard: {
       title: 'Ngôn ngữ',
       text: 'Ngôn ngữ hiển thị của toàn bộ giao diện. Tên lệnh CAD (LINE, OFFSET …) giữ tiếng Anh.',
-      en: 'English (EN)',
+      en: 'Tiếng Anh (EN)',
       vi: 'Tiếng Việt (VI)',
     },
     updates: {
       title: 'Cập nhật',
       text: 'MD CAD AI STUDIO là ứng dụng ngoại tuyến, không tự kiểm tra cập nhật qua mạng. Phiên bản mới được cài từ tệp .dmg (macOS) hoặc .exe (Windows).',
       app: 'Ứng dụng',
-      engine: 'CAD engine',
+      engine: 'Bộ máy CAD',
       occt: 'Open CASCADE',
       ai: 'AI cục bộ',
       dwg: 'Bộ đọc DWG',
@@ -1037,7 +1039,7 @@ export const vi: Messages = {
       units: 'Hệ đơn vị',
       angle: 'Đơn vị góc',
       language: 'Ngôn ngữ',
-      theme: 'Theme',
+      theme: 'Chủ đề',
       projects: 'Thư mục dự án',
       autosave: 'Thư mục tự lưu',
       export: 'Thư mục xuất',
@@ -1072,6 +1074,7 @@ export const vi: Messages = {
   },
   interior: interiorVi,
   cnc: cncVi,
+  platform: platformVi,
   mep: mepVi,
   civil: civilVi,
   mechanical: mechVi,

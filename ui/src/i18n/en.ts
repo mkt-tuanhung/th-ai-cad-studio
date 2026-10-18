@@ -6,6 +6,7 @@ import { rendersEn } from './ws/renders'
 import { fromCadEn } from './ws/fromCad'
 import { autoEn } from './ws/auto'
 import { cncEn } from './ws/cnc'
+import { platformEn } from './ws/platform'
 import { importCalEn } from './ws/importCal'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
 export const en = {
@@ -982,6 +983,7 @@ export const en = {
         snap: 'Toggle SNAP',
         polar: 'Toggle POLAR',
         help: 'Command help',
+        cheatsheet: 'Keyboard cheatsheet',
       },
     },
     languageCard: {
@@ -1070,6 +1072,7 @@ export const en = {
   },
   interior: interiorEn,
   cnc: cncEn,
+  platform: platformEn,
   mep: mepEn,
   civil: civilEn,
   mechanical: mechEn,

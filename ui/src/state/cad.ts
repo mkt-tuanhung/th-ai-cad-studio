@@ -5,6 +5,7 @@ import type { CadDocument, Vec2 } from '../cad/types'
 import { commit, emptyHistory, preview, redo as redoOp, undo as undoOp, validate, type CadOp, type History, type ValidationError } from '../cad/commandBus'
 import { createBlankDocument, createVillaDocument, SEED_VIEW } from '../cad/seed'
 import { useSettings } from './settings'
+import { migrateCad } from './migrations'
 
 /** Settings → Performance → Max Undo Steps. */
 const capUndo = (h: History): History => {
@@ -78,6 +79,9 @@ interface CadState {
   /** Paper-space layouts of the active document (not an undoable model edit; marks the drawing modified). */
   setLayouts: (layouts: import('../cad/types').Layout[]) => void
   setAi: (patch: Partial<CadState['aiPanel']>) => void
+  /** Version history / project import: puts a whole drawing back (one undo step on that drawing; a drawing that
+   *  is not open is opened). The native engine is told through the usual mirror (erase all + add all). */
+  restoreDoc: (doc: CadDocument, label: string) => void
 }
 
 /**
@@ -230,10 +234,21 @@ export const useCad = create<CadState>()(
       set: (patch) => set(patch),
       clearLog: () => set({ log: [] }),
       setAi: (patch) => set({ aiPanel: { ...get().aiPanel, ...patch } }),
+      restoreDoc: (doc, label) => {
+        const before = get().docs[doc.id]
+        if (!before) return get().openDocument(doc)
+        if (before === doc) return
+        const h = get().history[doc.id] ?? emptyHistory()
+        const history = capUndo({ undo: [...h.undo, { label, before, after: doc }], redo: [] })
+        set({ docs: { ...get().docs, [doc.id]: doc }, history: { ...get().history, [doc.id]: history }, tabs: get().tabs.includes(doc.id) ? get().tabs : [...get().tabs, doc.id], selection: [] })
+        mirror()?.commit(doc.id, [{ type: 'erase', ids: before.entities.map((e) => e.id), label }, { type: 'add', entities: doc.entities, label }], label)
+      },
     }),
     {
       name: 'thcad.cad',
-      version: 1,
+      // v2: explicit migration (state/migrations.ts) — v1 drawings kept as they are, missing fields filled
+      version: 2,
+      migrate: (p, v) => migrateCad(p, v) as CadState,
       storage: idbStorage<Partial<CadState>>('docs'),
       partialize: (s) => ({
         docs: s.docs,

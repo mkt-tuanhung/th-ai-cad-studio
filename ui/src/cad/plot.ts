@@ -3,14 +3,25 @@
  * a title block, as vector primitives in paper millimetres (origin top-left, y down). The same page feeds
  * the SVG / PNG export (browser) and the PDF export (desktop: Qt QPdfWriter, system fonts — Vietnamese safe).
  */
-import type { CadDocument, Entity, Layer, Vec2 } from './types'
+import type { CadDocument, Entity, Layer, PaperSize, Vec2 } from './types'
 import { dimensionGeometry, formatLength, measured } from './geometry'
 
 /** The plot date in the user's own time zone (an ISO string is UTC: the day before, in Vietnam, until 07:00). */
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
-export type Paper = 'A4' | 'A3' | 'A2' | 'A1'
-export const PAPERS: Record<Paper, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594] } // landscape
+export type Paper = PaperSize
+/** ISO 216 sheet sizes in mm [width, height]: landscape, plus A1 / A0 portrait ("P"). */
+export const PAPERS: Record<Paper, [number, number]> = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], A0: [1189, 841], A1P: [594, 841], A0P: [841, 1189] }
+/** Display name of a sheet size ("A0 portrait"). */
+export const paperLabel = (p: Paper, portrait = 'portrait') => (p.endsWith('P') ? `${p.slice(0, -1)} ${portrait}` : p)
+
+/** Plot options: `ruler` adds a check ruler (100 mm on paper + a model length at the plot scale) above the title block. */
+export interface PlotOptions { ruler?: boolean }
+/** Height (paper mm) the ruler strip takes from the drawing area. */
+export const RULER_H = 9
+/** Paper length (mm) of the paper ruler, and of the model reference bar at 1:scale (1 m, or 10 m when 1 m < 10 mm). */
+export const RULER_MM = 100
+export const modelRuler = (scale: number) => { const m = 1000 / scale >= 10 ? 1 : 1000 / scale >= 1 ? 10 : 100; return { metres: m, paperMm: (m * 1000) / scale } }
 const SCALES = [1, 2, 5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 500, 1000, 2000, 5000]
 
 export type Prim =
@@ -60,17 +71,18 @@ const DASH: Record<string, number[] | undefined> = { Dashed: [3, 1.5], DashDot: 
  * the viewport onto model space (centre, size, the model point at its centre and the model height it
  * shows = scale) plus the frame and title block, so a layout written to a DXF matches the PDF.
  */
-export function sheetLayout(doc: CadDocument, paper: Paper = 'A3', fixedScale?: number) {
+export function sheetLayout(doc: CadDocument, paper: Paper = 'A3', fixedScale?: number, opts: PlotOptions = {}) {
   const [W, H] = PAPERS[paper]
   const margin = 10, titleH = 18
   const ext = extents(doc)
   const dw = ext.x1 - ext.x0, dh = ext.y1 - ext.y0
-  const aw = W - 2 * margin, ah = H - 2 * margin - titleH
+  const aw = W - 2 * margin, ah = H - 2 * margin - titleH - (opts.ruler ? RULER_H : 0)
   const scale = fixedScale ?? SCALES.find((s) => dw / s <= aw && dh / s <= ah) ?? Math.ceil(Math.max(dw / aw, dh / ah))
   const m = margin / 2, top = m + titleH
   return {
     W, H, scale,
     viewport: { cx: margin + aw / 2, cy: H - (margin + ah / 2), w: aw, h: ah },
+    ruler: opts.ruler ? rulerPrims(H, scale).map((q) => (q.t === 'line' ? { x1: q.x1, y1: H - q.y1, x2: q.x2, y2: H - q.y2 } : null)).filter((q) => q !== null) : [],
     view: { cx: (ext.x0 + ext.x1) / 2, cy: (ext.y0 + ext.y1) / 2, height: ah * scale },
     lines: [
       [m, m, W - m, m], [W - m, m, W - m, H - m], [W - m, H - m, m, H - m], [m, H - m, m, m],
@@ -84,12 +96,12 @@ export function sheetLayout(doc: CadDocument, paper: Paper = 'A3', fixedScale?: 
   }
 }
 
-export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: number): Page {
+export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: number, opts: PlotOptions = {}): Page {
   const [W, H] = PAPERS[paper]
   const margin = 10, titleH = 18
   const ext = extents(doc)
   const dw = ext.x1 - ext.x0, dh = ext.y1 - ext.y0
-  const aw = W - 2 * margin, ah = H - 2 * margin - titleH
+  const aw = W - 2 * margin, ah = H - 2 * margin - titleH - (opts.ruler ? RULER_H : 0)
   const scale = fixedScale ?? SCALES.find((s) => dw / s <= aw && dh / s <= ah) ?? Math.ceil(Math.max(dw / aw, dh / ah))
   const ox = margin + (aw - dw / scale) / 2, oy = margin + (ah - dh / scale) / 2
   const X = (x: number) => ox + (x - ext.x0) / scale
@@ -99,6 +111,7 @@ export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: num
   for (const e of doc.entities) {
     const l = layerOf(e)
     if (l && !l.visible) continue
+    if (e.noPlot) continue // on screen only (Properties → Plot off)
     const color = e.color === 'ByLayer' ? (l?.color ?? '#111827') : e.color
     const w = Math.max(0.13, Number(e.lineweight === 'ByLayer' ? (l?.lineweight ?? 0.25) : e.lineweight) || 0.25)
     const dash = DASH[e.linetype === 'ByLayer' ? (l?.linetype ?? 'Continuous') : e.linetype]
@@ -143,7 +156,28 @@ export function plotPage(doc: CadDocument, paper: Paper = 'A3', fixedScale?: num
   prims.push({ t: 'text', x: margin, y: ty + 11, h: 4, rot: 0, value: doc.name, anchor: 'start', color: k, bold: true })
   prims.push({ t: 'text', x: W - 145, y: ty + 7.5, h: 2.6, rot: 0, value: `Scale 1:${scale} · ${paper} · mm`, anchor: 'start', color: k })
   prims.push({ t: 'text', x: W - 145, y: ty + 13.5, h: 2.6, rot: 0, value: `MD CAD AI STUDIO · ${today()}`, anchor: 'start', color: k })
+  if (opts.ruler) prims.push(...rulerPrims(H, scale))
   return { name: doc.name, w: W, h: H, scale, prims }
+}
+
+/**
+ * The check ruler (V24-035: measure the printed sheet at 100 %): a 100 mm paper ruler with 10 mm ticks and a model
+ * bar of 1 m (10 m / 100 m at small scales) = 1000·m / scale paper mm, in the strip just above the title block.
+ * Its first primitive is the 100 mm base line — tools/check-pdf-ruler.py looks for exactly that segment.
+ */
+export function rulerPrims(H: number, scale: number): Prim[] {
+  const margin = 10, titleH = 18, k = '#111827'
+  const y = H - margin / 2 - titleH - 3 // 3 mm above the title block line
+  const x0 = margin
+  const out: Prim[] = [{ t: 'line', x1: x0, y1: y, x2: x0 + RULER_MM, y2: y, w: 0.25, color: k }]
+  for (let i = 0; i <= 10; i++) out.push({ t: 'line', x1: x0 + i * 10, y1: y, x2: x0 + i * 10, y2: y - (i % 5 === 0 ? 3 : 1.5), w: 0.18, color: k })
+  out.push({ t: 'text', x: x0 + RULER_MM + 2, y: y - 0.3, h: 2, rot: 0, value: `${RULER_MM} mm (paper)`, anchor: 'start', color: k })
+  const mr = modelRuler(scale)
+  const mx = x0 + RULER_MM + 32
+  out.push({ t: 'line', x1: mx, y1: y, x2: mx + mr.paperMm, y2: y, w: 0.25, color: k })
+  out.push({ t: 'line', x1: mx, y1: y, x2: mx, y2: y - 3, w: 0.18, color: k }, { t: 'line', x1: mx + mr.paperMm, y1: y, x2: mx + mr.paperMm, y2: y - 3, w: 0.18, color: k })
+  out.push({ t: 'text', x: mx + mr.paperMm + 2, y: y - 0.3, h: 2, rot: 0, value: `${mr.metres} m (model, 1:${scale})`, anchor: 'start', color: k })
+  return out
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

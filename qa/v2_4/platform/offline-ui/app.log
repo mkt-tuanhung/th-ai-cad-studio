@@ -1,0 +1,10 @@
+2026-10-18 13:40:35.723 MD CAD AI STUDIO[88036:73593890] +[IMKClient subclass]: chose IMKClient_Modern
+2026-10-18 13:40:35.723 MD CAD AI STUDIO[88036:73593890] +[IMKInputSession subclass]: chose IMKInputSession_Modern
+[js:0] E2E PASS A0 1:50 sheet with the check ruler (:6)
+[js:0] E2E PASS A4 1:100 sheet with the check ruler (:6)
+[js:0] E2E LAYOUTS [{"paper":"A3","scale":null,"ruler":false},{"paper":"A1","scale":null,"ruler":false},{"paper":"A0","scale":50,"ruler":true},{"paper":"A4","scale":100,"ruler":true}] (:6)
+[js:0] E2E PASS sheet set → one PDF with 4 pages — Layout “Layout3” added | Layout “Layout4” added | Sheet set: 4 layout(s) in one PDF — offline_sheet_set.pdf (:6)
+[js:0] E2E PASS cheatsheet opens (⌘/) (:6)
+[js:0] E2E DONE OK (:6)
+2026-10-18 13:40:39.217 MD CAD AI STUDIO[88036:73593890] error messaging the mach port for IMKCFRunLoopWakeUpReliable
+Release of profile requested but WebEnginePage still not deleted. Expect troubles !

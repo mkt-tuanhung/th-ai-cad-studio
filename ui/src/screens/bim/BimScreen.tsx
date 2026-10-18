@@ -3,6 +3,9 @@ import { useEffect } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useBim } from '../../state/bim'
 import { toast } from '../../state/toast'
+import { undoKeys } from '../../state/undoable'
+import { useKeyActions } from '../../platform/useKeyActions'
+import type { BimTool } from '../../state/bim'
 import { wallsCsv } from '../../bim/model'
 import { BimHeader } from './BimHeader'
 import { BimRibbon } from './BimRibbon'
@@ -14,6 +17,18 @@ import { ScheduleTable } from './ScheduleTable'
 import { CoordinationCard } from './CoordinationCard'
 import { PropertiesPanel } from './PropertiesPanel'
 import s from './BimScreen.module.css'
+
+const tool = (t: BimTool) => () => useBim.getState().set(t === 'select' ? { tool: t } : { tool: t, view: 'plan', selection: null, pendingComponent: null })
+const BIM_ACTIONS: Record<string, () => void> = {
+  'bim.select': tool('select'), 'bim.wall': tool('wall'), 'bim.door': tool('door'), 'bim.window': tool('window'), 'bim.column': tool('column'),
+  'bim.slab': tool('slab'), 'bim.room': tool('room'), 'bim.stair': tool('stair'), 'bim.dimension': tool('dimension'), 'bim.grid': tool('grid'),
+  'bim.erase': () => { useBim.getState().deleteSelection() },
+  'bim.viewPlan': () => useBim.getState().set({ view: 'plan' }),
+  'bim.view3d': () => useBim.getState().set({ view: '3d' }),
+  'bim.viewSchedule': () => useBim.getState().set({ view: 'schedule' }),
+  'bim.wireframe': () => { const st = useBim.getState(); st.set({ view: '3d', display: st.display === 'wireframe' ? 'shaded' : 'wireframe' }) },
+  'bim.maximize': () => { const st = useBim.getState(); st.set({ maximized: !st.maximized }) },
+}
 
 export function BimScreen() {
   const T = useT()
@@ -30,17 +45,15 @@ export function BimScreen() {
     toast(fmt(T.bim.toast.exported, { file }), 'success')
   }
 
+  // undo / redo: the keys of Settings → Keyboard Shortcuts (was a hard-coded ⌘Z)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement
-      if (typing || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
-      e.preventDefault()
-      const label = e.shiftKey ? useBim.getState().redo() : useBim.getState().undo()
-      toast(label ? fmt(e.shiftKey ? T.bim.toast.redone : T.bim.toast.undone, { label }) : T.bim.toast.nothing)
-    }
+    const onKey = undoKeys(() => useBim.getState().undo(), () => useBim.getState().redo(), (label, redo) =>
+      toast(label ? fmt(redo ? T.bim.toast.redone : T.bim.toast.undone, { label }) : T.bim.toast.nothing))
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [T])
+  // interaction profile keys (platform/keymap.ts): the ribbon's tools and views
+  useKeyActions(BIM_ACTIONS)
 
   return (
     <div className={`${s.screen} ${maximized ? s.max : ''} ${browserCollapsed ? s.slim : ''}`}>

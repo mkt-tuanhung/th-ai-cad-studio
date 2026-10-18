@@ -107,6 +107,7 @@ function PropertiesTab() {
   const lineweight = sel.length ? common(sel, (e) => e.lineweight) : 'ByLayer'
   const transparency = sel.length ? common(sel, (e) => e.transparency) : 0
   const layerColor = doc.layers.find((l) => l.name === layerName)?.color ?? '#111827'
+  const plotState = sel.length ? common(sel, (e) => (e.noPlot ? 'off' : 'on')) : 'on'
 
   const patch = (p: Partial<Entity>) => {
     if (!sel.length) return
@@ -184,6 +185,21 @@ function PropertiesTab() {
             <ChevronsUpDown size={14} strokeWidth={1.8} />
           </label>
         </Row>
+        {sel.length > 0 && (
+          // plot visibility, separate from the layer's on-screen visibility (shown only with a selection: the
+          // approved empty-selection panel is unchanged)
+          <Row label={T.platform.plotFlag.label}>
+            <SelectField
+              value={plotState === '*' ? '' : plotState}
+              display={plotState === '*' ? t.varies : plotState === 'off' ? T.platform.plotFlag.off : T.platform.plotFlag.on}
+              options={[{ value: 'on', label: T.platform.plotFlag.on }, { value: 'off', label: T.platform.plotFlag.off }]}
+              onChange={(x) => {
+                patch({ noPlot: x === 'off' ? true : undefined })
+                print(fmt(T.platform.plotFlag.set, { n: sel.length, state: x === 'off' ? T.platform.plotFlag.offWord : T.platform.plotFlag.onWord }))
+              }}
+            />
+          </Row>
+        )}
         {(() => {
           // v2.4 provenance of the selection (only shown for imported / surveyed entities)
           const I = T.importCal
