@@ -107,6 +107,22 @@ await step('CAM Prep: machine first; stock 124 × 84 × 31, face / profiles / po
   await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
 })
 
+await step('CAM Prep → Machine library: a Syntec nesting router from the library becomes the part machine (UNVERIFIED); its family post is not written by Part Studio CAM → blocked, not mislabelled', async () => {
+  await tool('CAM Prep')
+  await page.getByTestId('open-library').click()
+  await page.getByTestId('library-search').fill('2131 1 spindle')
+  await page.getByTestId('library-list').locator('button').first().click()
+  await page.getByTestId('library-profile-id').fill('MY_SYNTEC_2131')
+  await page.getByTestId('library-use').click()
+  await page.getByRole('dialog', { name: 'Machines & Tools' }).getByRole('button', { name: 'Close' }).click()
+  assert.equal(await page.getByTestId('machine-select').inputValue(), 'MY_SYNTEC_2131')
+  assert.match(await page.getByTestId('machine-status').innerText(), /UNVERIFIED/)
+  await page.getByTestId('blockers').locator('summary').click()
+  assert.match(await page.getByTestId('blockers').innerText(), /PART_CAM_POST_NOT_AVAILABLE\/syntec/)
+  assert.ok(await page.getByTestId('export-production').isDisabled())
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+})
+
 await step('+ opens a blank part; Assembly tab returns to the pump', async () => {
   await page.getByRole('button', { name: 'New document' }).click()
   assert.ok(await page.getByRole('tab', { name: /Part_2\.prt/ }).isVisible())

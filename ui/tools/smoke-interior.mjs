@@ -199,6 +199,98 @@ await step('Cut list → Nesting & CNC: machine first, then real sheets, simulat
   await page.getByRole('dialog', { name: 'Nesting & CNC' }).getByRole('button', { name: 'Close' }).click()
 })
 
+// ---- machine library (v2.4): pick a machine, panel saw patterns, commissioning wizard, own machine, hardware
+const shots = process.env.QA_SHOTS ?? new URL('../../qa/v2_4/machlib/', import.meta.url).pathname
+const shot = async (name) => { await page.waitForTimeout(400); await page.screenshot({ path: shots + name }) }
+
+await step('Machine library: filter + detail card (confidence, reference note, sources) → "Use this machine" makes an UNVERIFIED profile and picks it for the job', async () => {
+  await page.getByTestId('open-nesting').click()
+  await page.getByTestId('nesting-dialog').waitFor()
+  await page.getByTestId('open-library').click()
+  await page.getByTestId('machine-library').waitFor()
+  await page.getByTestId('library-category').selectOption('panel-saw')
+  assert.match(await page.getByTestId('library-list').innerText(), /3800|panel|saw/i)
+  await page.getByTestId('library-list').locator('button').first().click()
+  assert.match(await page.getByTestId('library-refnote').innerText(), /catalogue references — measure and confirm/)
+  assert.ok((await page.getByTestId('library-confidence').innerText()).length > 0)
+  assert.ok((await page.getByTestId('library-similar').locator('button').count()) > 0, 'similar machines listed')
+  await shot('01_library_detail.png')
+  await page.getByTestId('library-profile-id').fill('MY_PANEL_SAW_1')
+  await page.getByTestId('library-use').click()
+  // back on "My machines" with the new profile, UNVERIFIED, and the job now uses it
+  assert.match(await page.getByTestId('machines-dialog').innerText(), /MY_PANEL_SAW_1/)
+  assert.match(await page.getByTestId('machine-gate').innerText(), /MACHINE_PROFILE_NOT_VERIFIED/)
+  await page.getByRole('dialog', { name: 'Machines & Tools' }).getByRole('button', { name: 'Close' }).click()
+  assert.equal(await page.getByTestId('machine-select').inputValue(), 'MY_PANEL_SAW_1')
+})
+
+await step('Panel saw profile: guillotine cutting patterns (no router programs), cut-list CSV, production release blocked until commissioned', async () => {
+  assert.match(await page.getByTestId('saw-summary').innerText(), /never router paths/)
+  assert.ok(await page.getByTestId('saw-pattern').locator('svg').isVisible())
+  assert.equal(await page.getByTestId('export-preview').count(), 0, 'no router NC preview for a saw')
+  assert.ok(await page.getByTestId('export-production').isDisabled())
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-saw-list').click()])
+  const text = readFileSync(await dl.path(), 'utf8')
+  assert.match(text, /^Pattern,Sheets,Books,Sheets per book,Material/)
+  await shot('02_panel_saw_patterns.png')
+})
+
+await step('Commissioning wizard: survey checklist, automated parser / backplot run, first-article table; recording without evidence never verifies', async () => {
+  await page.getByTestId('machine-select').selectOption('DEMO_1_HEADS_NOT_FOR_MACHINE')
+  await page.getByTestId('open-machines').click()
+  await page.getByTestId('commissioning').scrollIntoViewIfNeeded()
+  await shot('03_wizard_survey.png')
+  await page.getByTestId('wiz-step-3').click()
+  await page.getByTestId('wiz-auto').click()
+  assert.match(await page.getByTestId('wiz-auto-result').innerText(), /Parser .* backplot .* program/)
+  await page.getByTestId('commissioning').scrollIntoViewIfNeeded()
+  await shot('04_wizard_automated.png')
+  await page.getByTestId('wiz-step-5').click()
+  assert.ok(await page.getByTestId('wiz-fa').isVisible())
+  await page.getByTestId('commission-run').click()
+  assert.match(await page.getByTestId('commission-last').innerText(), /FAILED: .*SURVEY|FAILED: .*AIR_CUT_FAILED/)
+})
+
+await step('Enter my machine: the form validates (make / model / envelope required) before it can be saved', async () => {
+  await page.getByRole('tab', { name: 'Enter my machine' }).click()
+  await page.getByTestId('own-start').click()
+  assert.match(await page.getByTestId('own-errors').innerText(), /manufacturer and model/)
+  await shot('05_own_machine.png')
+  await page.getByRole('dialog', { name: 'Machines & Tools' }).getByRole('button', { name: 'Close' }).click()
+  await page.getByRole('dialog', { name: 'Nesting & CNC' }).getByRole('button', { name: 'Close' }).click()
+})
+
+await step('Cabinet hardware dialog: Blum-like hinge → needs boring distance; with it the plan is valid; Apply stores it (one undo step)', async () => {
+  await page.getByRole('tab', { name: 'Furniture & Items' }).click()
+  await rows('Furniture & Items').filter({ hasText: 'TV Cabinet' }).click()
+  await page.getByRole('button', { name: /^TV Cabinet/ }).click()
+  await page.getByTestId('open-hardware').click()
+  await page.getByTestId('hardware-dialog').waitFor()
+  await page.getByTestId('hw-hinge').selectOption('generic-hinge-35-system32')
+  assert.match(await page.getByTestId('hw-issues').innerText(), /HW_NEEDS_DATA/)
+  await page.getByRole('textbox', { name: /Boring distance C/ }).fill('4')
+  await page.getByRole('textbox', { name: 'Hinge from the door ends (mm)' }).fill('100')
+  assert.match(await page.getByTestId('hw-issues').innerText(), /No problem found/)
+  await shot('06_hardware_dialog.png')
+  await page.getByRole('button', { name: 'Apply' }).click()
+  const c = (await doc()).cabinets.find((x) => x.name === 'TV Cabinet')
+  assert.equal(c.hardware.hinge, 'generic-hinge-35-system32')
+  assert.equal(c.hardware.boringDistance, 4)
+})
+
+await step('VI: machine library tab and reference note are translated', async () => {
+  await page.getByRole('tab', { name: 'Cut List (Production)' }).click()
+  await page.getByRole('radio', { name: 'VI', exact: true }).click()
+  await page.getByTestId('open-nesting').click()
+  await page.getByTestId('open-library').click()
+  assert.ok(await page.getByRole('tab', { name: 'Thư viện máy' }).isVisible())
+  assert.match(await page.getByTestId('library-refnote').innerText(), /tham khảo catalogue/)
+  await shot('07_library_vi.png')
+  await page.getByRole('dialog', { name: 'Máy & Dao' }).getByRole('button', { name: 'Close' }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('radio', { name: 'EN', exact: true }).click()
+})
+
 for (const [r, n] of results) console.log(`${r}  ${n}`)
 if (errors.length) console.log('CONSOLE ERRORS:\n' + errors.join('\n'))
 const failed = results.filter((r) => r[0] === 'FAIL').length
