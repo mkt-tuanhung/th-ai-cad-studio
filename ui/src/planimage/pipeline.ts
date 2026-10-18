@@ -4,12 +4,11 @@
  * (shadow gradient, noise, contrast), read the text (Tesseract OCR, offline), recognise the plan (recognize.ts).
  * Everything runs locally; nothing is applied — the caller shows the result for review (PlanImageReview).
  */
-import { ocrWords } from '../cad/vectorize'
 import { pdfPageCount, renderPdfPage } from '../cad/pdfImport'
 import { detectSheet, homography, invertH, paperAspect, rotationH, sheetSize, skewAngle, warpRGBA, type Pt } from './perspective'
 import { DEFAULT_PREP, inkOf, type PrepOptions } from './preprocess'
 import { and, components, minus, open, or, type Gray, type Mask } from './raster'
-import { readSparse, readTextLines, textInkOf, textLineBoxes } from './textlines'
+import { readSparse, textInkOf, textLineBoxes } from './textlines'
 import { barrierOf, recognizePlan, type PlanGraph, type PWord } from './recognize'
 
 export interface Picture { rgba: Uint8ClampedArray; w: number; h: number }
@@ -111,29 +110,6 @@ export interface AnalyseOptions {
 
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
-/** OCR of the plan area (with the title under it), enlarged so that room names are ~30 px high. */
-export async function readWords(p: Picture, ink: Uint8Array, box: PlanGraph['box'], pxPerM: number, onPct?: (n: number) => void): Promise<PWord[]> {
-  const bw = box.x1 - box.x0, bh = box.y1 - box.y0
-  const x0 = Math.max(0, Math.floor(box.x0 - 0.2 * bw)), x1 = Math.min(p.w, Math.ceil(box.x1 + 0.2 * bw))
-  const y0 = Math.max(0, Math.floor(box.y0 - 0.15 * bh)), y1 = Math.min(p.h, Math.ceil(box.y1 + 0.35 * bh))
-  const f = Math.max(1, Math.min(3, Math.round(30 / Math.max(4, 0.3 * pxPerM))))
-  const w = (x1 - x0) * f, h = (y1 - y0) * f
-  const src = canvasOf(p)
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const g = c.getContext('2d', { willReadFrequently: true })!
-  g.imageSmoothingQuality = 'high'
-  g.fillStyle = '#fff'
-  g.fillRect(0, 0, w, h)
-  g.drawImage(src, x0, y0, x1 - x0, y1 - y0, 0, 0, w, h)
-  // the ink of the crop, enlarged (text / graphics separation pass)
-  const m = new Uint8Array(w * h)
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) m[y * w + x] = ink[(y0 + Math.floor(y / f)) * p.w + x0 + Math.floor(x / f)]
-  const words = await ocrWords(c, m, w, h, onPct)
-  return words.map((wd) => ({ text: wd.text.trim(), conf: Math.round(wd.confidence), x0: x0 + wd.bbox.x0 / f, y0: y0 + wd.bbox.y0 / f, x1: x0 + wd.bbox.x1 / f, y1: y0 + wd.bbox.y1 / f })).filter((wd) => wd.text && wd.y1 - wd.y0 >= 3)
-}
-
 /**
  * The text of the plan area (with the title under it): letters out of the line work (the wall bands removed),
  * chained into lines, each line read alone.
@@ -164,11 +140,11 @@ export async function readPlanText(gray: Gray, ink: Mask, first: PlanGraph, k: n
   const h0 = textLineBoxes(textInkOf(crop, and(walls, crop), longRun), minH, maxH).letterH
   const text = textInkOf(crop, and(or(walls, bigBands(crop, k, 1.2 * h0)), crop), longRun)
   const { lines, letters, letterH } = textLineBoxes(text, minH, maxH)
-  const mode = (globalThis as unknown as { __planOcrMode?: string }).__planOcrMode ?? 'sparse'
   // enlarged so that the typical letter is ~30 px high (Tesseract's comfortable size)
   const f = Math.max(1, Math.min(3, 30 / Math.max(5, letterH)))
-  ;(globalThis as unknown as { __planOcrMeta?: unknown }).__planOcrMeta = { letterH, f, lines: lines.length, maxH }
-  const words = mode === 'lines' ? await readTextLines(cg, minus(crop, letters), lines, onPct) : await readSparse(cg, minus(crop, letters), f, onPct)
+  // the whole plan area read at once in sparse-text mode (line by line reads worse on drawings: readTextLines)
+  const words = await readSparse(cg, minus(crop, letters), f, onPct)
+  void lines
   return words.map((w) => ({ ...w, x0: w.x0 + x0, x1: w.x1 + x0, y0: w.y0 + y0, y1: w.y1 + y0 }))
 }
 

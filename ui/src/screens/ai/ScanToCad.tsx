@@ -203,15 +203,15 @@ export function ScanToCadModal({ file, onClose, jobId }: { file: File; onClose: 
       footer={
         rasterMode ? (
           <>
-            <ActionButton disabled={(isPdf ? !res : !img) || needPage} onClick={to3d} data-testid="scan-to-3d">{T.planImage.scanTo3d}</ActionButton>
             <ActionButton disabled={(isPdf ? !res : !img) || needPage} onClick={() => (isPdf ? void pageUnderlay() : img && openUnderlay(img.src, img.w, img.h, 1))}>{t.openUnderlay}</ActionButton>
             <ActionButton disabled={(isPdf ? !res : !img) || !!step || needPage} onClick={() => void runVectorize()}>{t.vectorize}</ActionButton>
             <ActionButton variant="primary" disabled={!vec || needPage} onClick={() => void openVector()}>{t.openVector}</ActionButton>
+            <ActionButton disabled={(isPdf ? !res : !img) || needPage} onClick={to3d} data-testid="scan-to-3d">{T.planImage.scanTo3d}</ActionButton>
           </>
         ) : (
           <>
-            <ActionButton disabled={busy || !res || needPage} onClick={to3d} data-testid="scan-to-3d">{T.planImage.scanTo3d}</ActionButton>
             <ActionButton variant="primary" disabled={busy || !res || needPage} onClick={openVectors}>{t.open}</ActionButton>
+            <ActionButton disabled={busy || !res || needPage} onClick={to3d} data-testid="scan-to-3d">{T.planImage.scanTo3d}</ActionButton>
           </>
         )
       }

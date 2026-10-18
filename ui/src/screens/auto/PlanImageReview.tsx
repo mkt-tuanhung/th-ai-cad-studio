@@ -52,6 +52,7 @@ export function PlanImageReview({ file, page0, onCancel, onBuilt }: { file: File
   const [an, setAn] = useState<{ ink: Mask; dark?: Mask; words: PWord[] } | null>(null)
   const [g, setG] = useState<PlanGraph | null>(null)
   const hist = useRef<PlanGraph[]>([])
+  const [histN, setHistN] = useState(0)
   const [refs, setRefs] = useState<CalRef[]>([])
   const [sel, setSel] = useState<Sel>(null)
   const [tool, setTool] = useState<'select' | 'addWall'>('select')
@@ -106,6 +107,7 @@ export function PlanImageReview({ file, page0, onCancel, onBuilt }: { file: File
       setAn({ ink: r.ink, dark: r.dark, words: r.words })
       if (r.scaleText && SCALES.includes(r.scaleText)) setScaleDen(r.scaleText)
       hist.current = []
+      setHistN(0)
       setRefs([]); setSel(null); setPend(null); setTool('select')
       setG(r)
       fitView(r)
@@ -120,11 +122,12 @@ export function PlanImageReview({ file, page0, onCancel, onBuilt }: { file: File
   const reRecognise = () => {
     if (!an || !fit || !g) return
     hist.current.push(g)
+    setHistN(hist.current.length)
     const r = recognizeAt(an.ink, an.dark, an.words, 1000 / fit.k)
     setG({ ...r, words: an.words }); setSel(null)
   }
-  const edit = (next: PlanGraph) => { if (!g || next === g) return; hist.current.push(g); if (hist.current.length > 40) hist.current.shift(); setG(next) }
-  const undo = () => { const p = hist.current.pop(); if (p) { setG(p); setSel(null) } }
+  const edit = (next: PlanGraph) => { if (!g || next === g) return; hist.current.push(g); if (hist.current.length > 40) hist.current.shift(); setHistN(hist.current.length); setG(next) }
+  const undo = () => { const p = hist.current.pop(); setHistN(hist.current.length); if (p) { setG(p); setSel(null) } }
 
   const approve = () => {
     if (!g || !cor) return
@@ -332,7 +335,7 @@ export function PlanImageReview({ file, page0, onCancel, onBuilt }: { file: File
                 <button type="button" aria-pressed={tool === 'select'} onClick={() => { setTool('select'); setPend(null) }}>{t.tools.select}</button>
                 <button type="button" aria-pressed={tool === 'addWall'} data-testid="pi-tool-addwall" onClick={() => { setTool('addWall'); setSel(null); setPend(null) }}>{t.tools.addWall}</button>
                 <button type="button" disabled={!sel} data-testid="pi-delete" onClick={() => { edit(remove(g, sel)); setSel(null) }}>{t.tools.delete}</button>
-                <button type="button" disabled={!hist.current.length} data-testid="pi-undo" onClick={undo}>{t.tools.undo}</button>
+                <button type="button" disabled={!histN} data-testid="pi-undo" onClick={undo}>{t.tools.undo}</button>
               </div>
               <div className={s.tools}>
                 <button type="button" aria-label={`${t.zoom} +`} onClick={() => zoom(1 / 1.3)}>+</button>

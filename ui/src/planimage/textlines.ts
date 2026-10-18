@@ -112,8 +112,6 @@ export async function readTextLines(gray: Gray, notText: Mask | null, lines: Lin
       g.imageSmoothingQuality = 'high'
       g.drawImage(src, pad, pad, W * f, H * f)
       const r = await worker.recognize(c)
-      const dbgArr = (globalThis as unknown as { __planOcrDebug?: { src: string; text: string }[] }).__planOcrDebug
-      if (dbgArr && dbgArr.length < 400) dbgArr.push({ src: c.toDataURL(), text: r.data.text })
       type Wd = { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }
       const tl = (r.data as unknown as { lines?: { words: Wd[] }[] }).lines ?? [{ words: r.data.words as Wd[] }]
       tl.forEach((ln, li) => {
@@ -160,8 +158,6 @@ export async function readSparse(gray: Gray, notText: Mask | null, f: number, on
   try {
     await worker.setParameters({ tessedit_pageseg_mode: '11' as never, preserve_interword_spaces: '1' })
     const r = await worker.recognize(c)
-    const dbgArr = (globalThis as unknown as { __planOcrDebug?: { src: string; text: string }[] }).__planOcrDebug
-    if (dbgArr) dbgArr.push({ src: c.toDataURL('image/jpeg', 0.7), text: r.data.text })
     type Wd = { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }
     const tl = (r.data as unknown as { lines?: { words: Wd[] }[] }).lines ?? [{ words: r.data.words as Wd[] }]
     tl.forEach((ln, li) => {

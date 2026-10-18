@@ -335,7 +335,7 @@ export function roomLabel(lines: ReturnType<typeof textLines>): { name: string |
       if (ROOM_NO.test(t)) { number = number ?? t.toUpperCase(); return false }
       if (MARK.test(t)) return false
       // a doubtful reading stays only when it is a word of a room name (put back to its dictionary form)
-      return t.length > 0 && (w.conf >= 55 || isLexicon(t) || (/^[+/&\-]$/.test(t) && w.conf >= 40) || (/^\d{1,2}$/.test(t) && w.conf >= 70))
+      return t.length > 0 && (w.conf >= 55 || isLexicon(t) || (/^[+/&-]$/.test(t) && w.conf >= 40) || (/^\d{1,2}$/.test(t) && w.conf >= 70))
     }).map((w) => ({ ...w, text: lexiconWord(w.text) ?? w.text }))
     // trim symbols left at the ends ("+ BẾP", "BẾP /")
     while (words.length && !/[\p{L}\p{N}]/u.test(words[0].text)) words.shift()
