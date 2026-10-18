@@ -11,6 +11,7 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/video_writer.cpp src/video_writer.hpp
   src/speech_input.hpp
   src/whisper_runner.cpp src/whisper_runner.hpp
+  src/vision_runner.cpp src/vision_runner.hpp
   src/model_downloader.cpp src/model_downloader.hpp
   src/blender_worker.cpp src/blender_worker.hpp
   src/library_store.cpp src/library_store.hpp

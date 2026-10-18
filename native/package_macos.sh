@@ -45,6 +45,12 @@ cp "$WHISPER" "$APP/Contents/Helpers/whisper-cli"
 mkdir -p "$APP/Contents/Resources/licenses/whisper"
 cp "$(dirname "$WHISPER")/../../LICENSE" "$APP/Contents/Resources/licenses/whisper/LICENSE"
 cp third_party/whisper/README.md "$APP/Contents/Resources/licenses/whisper/"
+# Reference photo → interior style: llama.cpp `llama-mtmd-cli` (MIT), a separate static program (third_party/llama-mtmd)
+MTMD=$(third_party/llama-mtmd/build_macos.sh)
+cp "$MTMD" "$APP/Contents/Helpers/llama-mtmd-cli"
+mkdir -p "$APP/Contents/Resources/licenses/llama-mtmd"
+cp "$(dirname "$MTMD")/../../LICENSE" "$APP/Contents/Resources/licenses/llama-mtmd/LICENSE"
+cp third_party/llama-mtmd/README.md "$APP/Contents/Resources/licenses/llama-mtmd/"
 python3 tools/fix_bundle_paths.py "$APP"
 # every Mach-O in the bundle must be relocatable
 BAD=$(find "$APP" -type f -perm +111 -o -type f -name "*.dylib" | while read -r f; do otool -L "$f" 2>/dev/null | grep -q "/opt/homebrew" && echo "$f"; done || true)

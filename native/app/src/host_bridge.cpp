@@ -26,6 +26,7 @@
 #include "video_writer.hpp"
 #include "speech_input.hpp"
 #include "whisper_runner.hpp"
+#include "vision_runner.hpp"
 #include "model_downloader.hpp"
 #include "native_viewport.hpp"
 #include "thcad/ai/assistant.hpp"
@@ -99,6 +100,12 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
   });
   connect(downloader_, &ModelDownloader::progress, this, [this](const QJsonObject& p) {
     if (p.value("phase").toString() != QStringLiteral("installed")) return emit modelProgress(p);
+    if (p.value("kind").toString() == QStringLiteral("vision")) {
+      // the reference-photo model is read by the llama-mtmd-cli helper per run: nothing to load in the app
+      const QJsonObject st = VisionRunner::status();
+      QJsonObject r{{"id", p.value("id")}, {"done", true}, {"ok", true}, {"kind", "vision"}, {"path", p.value("path")}, {"vision", st}};
+      return emit modelProgress(r);
+    }
     modelInstalling_ = true;
     // verified and in place: load it now and ask a one-word question, so "ready" means the app can call it.
     // Loading maps 2–5 GB (and uploads it to the GPU): on a worker, never the GUI thread. The runtime holds its
@@ -254,6 +261,24 @@ void HostBridge::voiceStop() {
 }
 
 QJsonObject HostBridge::whisperStatus() { return WhisperRunner::status(); }
+
+QJsonObject HostBridge::visionStatus() { return VisionRunner::status(); }
+
+QJsonObject HostBridge::visionAnalyze(const QString& taskJson) {
+  if (!licensedNow()) return {{"ok", false}, {"error", QStringLiteral("not licensed")}};
+  const QJsonObject o = QJsonDocument::fromJson(taskJson.toUtf8()).object();
+  VisionRunner::Task task;
+  task.id = o.value("id").toString();
+  for (const QJsonValue& v : o.value("images").toArray()) task.images.append(QByteArray::fromBase64(v.toString().toLatin1()));
+  task.system = o.value("system").toString();
+  task.prompt = o.value("prompt").toString();
+  task.grammar = o.value("grammar").toString();
+  task.maxTokens = o.value("maxTokens").toInt(700);
+  if (task.id.isEmpty() || task.prompt.isEmpty()) return {{"ok", false}, {"error", QStringLiteral("id and prompt are required")}};
+  return VisionRunner::analyze(task, [this](QJsonObject r) { emit visionResult(r); });
+}
+
+bool HostBridge::visionCancel(const QString& id) { return VisionRunner::cancel(id); }
 
 QJsonObject HostBridge::modelDownloadState() {
   QJsonObject s = downloader_->state();
