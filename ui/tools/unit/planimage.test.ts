@@ -7,10 +7,20 @@ import { decodeDxf, importDxf } from '../../src/cad/dxfImport'
 import type { CadDocument } from '../../src/cad/types'
 import { findPlans, interiorPoint, layerStats, recognize, wallLine, type LayerRole } from '../../src/bim/fromCad'
 import { inkOf } from '../../src/planimage/preprocess'
-import { detectSheet } from '../../src/planimage/perspective'
+import { applyH, detectSheet, homography, invertH, paperAspect, rotationH, skewAngle, warpRGBA } from '../../src/planimage/perspective'
 import { textInkOf, textLineBoxes } from '../../src/planimage/textlines'
-import { open } from '../../src/planimage/raster'
-import { recognizePlan, type PlanGraph } from '../../src/planimage/recognize'
+import { fillRect, mask, normalizeBackground, open, runLengths, type Gray, type Mask } from '../../src/planimage/raster'
+import { recognizePlan, roomLabel, textLines, type PlanGraph, type Pt, type PWord } from '../../src/planimage/recognize'
+import { planRecord, toRecognition } from '../../src/planimage/toModel'
+import { autoFromPlan } from '../../src/planimage/build'
+import { mergeCollinear, suggestScale } from '../../src/planimage/scale'
+import { lexiconWord } from '../../src/planimage/roomWords'
+import { addWall, pointIn, remove, renameRoom, setOpening } from '../../src/planimage/edit'
+import type { BuildNames } from '../../src/bim/fromCadBuild'
+import { fromCadEn } from '../../src/i18n/ws/fromCad'
+import { validateInterior } from '../../src/state/interior'
+import { fabricationAllowed } from '../../src/cad/provenance'
+import type { CalRef } from '../../src/cad/calibration'
 
 const proc = (globalThis as unknown as { process: { cwd(): string; env: Record<string, string | undefined>; getBuiltinModule(m: string): Record<string, (...a: unknown[]) => unknown> } }).process
 const fs = () => proc.getBuiltinModule('node:fs') as unknown as { readFileSync(p: string, e?: string): string | Uint8Array; writeFileSync(p: string, d: Uint8Array | string): void }
@@ -182,4 +192,178 @@ export function textdebug(latin1?: string) {
     fs().writeFileSync(out, pngOf(W, H, rgb))
   }
   return { lines: lines.length, h: lines.map((l) => l.h) }
+}
+
+/* ---------------------------------------------------------------- unit tests of the geometry steps */
+
+/** A synthetic plan drawn into a mask (picture px, y down): 50 px per metre, outer walls 200 mm (10 px) filled,
+ *  one interior wall 100 mm with a door (quarter arc + leaf, 1 px lines), a window (two thin lines) in the outer
+ *  wall, two rooms. Truth in mm. */
+function synthPlan() {
+  const P = 50 // px per metre
+  const W = 700, H = 560
+  const m: Mask = mask(W, H)
+  const x0 = 100, y0 = 80, x1 = 100 + 10 * P, y1 = 80 + 8 * P // centre lines: 10 m × 8 m
+  const band = (ax: number, ay: number, bx: number, by: number, t: number) => fillRect(m, Math.min(ax, bx) - t / 2, Math.min(ay, by) - t / 2, Math.max(ax, bx) + t / 2, Math.max(ay, by) + t / 2)
+  const line = (ax: number, ay: number, bx: number, by: number) => { const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2); for (let k = 0; k <= n; k++) { const x = Math.round(ax + ((bx - ax) * k) / n), y = Math.round(ay + ((by - ay) * k) / n); if (x >= 0 && y >= 0 && x < W && y < H) m.d[y * W + x] = 1 } }
+  // outer walls, the top one with a window gap 2 m wide (x 250…350)
+  band(x0, y0, 250, y0, 10); band(350, y0, x1, y0, 10)
+  band(x0, y1, x1, y1, 10); band(x0, y0, x0, y1, 10); band(x1, y0, x1, y1, 10)
+  line(250, y0 - 3, 350, y0 - 3); line(250, y0 + 3, 350, y0 + 3)
+  // interior wall x = 350 (100 mm = 5 px… drawn 6 px), door gap y 280…325 (0.9 m) hinged at y 325, swinging right
+  band(350, y0, 350, 280, 6); band(350, 325, 350, y1, 6)
+  const r = 45
+  line(350, 325, 350 + r, 325)
+  for (let k = 0; k <= 90; k++) { const a = (k * Math.PI) / 180; const x = Math.round(350 + r * Math.cos(a)), y = Math.round(325 - r * Math.sin(a)); m.d[y * W + x] = 1 }
+  const words: PWord[] = [
+    { text: 'P.', conf: 90, x0: 180, y0: 270, x1: 195, y1: 285, line: 1 }, { text: 'KHÁCH', conf: 90, x0: 200, y0: 270, x1: 260, y1: 285, line: 1 },
+    { text: 'BẾP', conf: 88, x0: 440, y0: 270, x1: 480, y1: 285, line: 2 },
+  ]
+  // inner faces: left room x 105…347, y 85…475 → 242 × 390 px; right room x 353…595
+  const truth = { walls: 5, lenM: (2 * 10 + 2 * 8 + 8), rooms: { 'P. KHÁCH': (242 * 390) / (P * P), 'BẾP': (242 * 390) / (P * P) } }
+  return { m, words, P, truth }
+}
+
+export function run() {
+  const out: string[] = []
+  let fails = 0
+  const check = (name: string, ok: boolean, extra = '') => { if (!ok) fails++; out.push(`${ok ? 'PASS' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`) }
+  const near = (a: number, b: number, rel: number) => Math.abs(a - b) <= rel * Math.abs(b)
+
+  /* raster: exact morphology, run lengths, background */
+  {
+    const m = mask(60, 40)
+    fillRect(m, 5, 5, 55, 7) // a 2 px line
+    fillRect(m, 5, 20, 55, 28) // an 8 px band
+    const o = open(m, 5)
+    let line = 0, bandN = 0
+    for (let y = 0; y < 40; y++) for (let x = 0; x < 60; x++) { if (o.d[y * 60 + x] && y < 10) line++; if (o.d[y * 60 + x] && y >= 20) bandN++ }
+    check('opening by 5 px: a 2 px line vanishes, an 8 px band stays exactly', line === 0 && bandN === 50 * 8, `${line} / ${bandN}`)
+    const { hr, vr } = runLengths(m)
+    check('run lengths across / along a band', hr[22 * 60 + 30] === 50 && vr[22 * 60 + 30] === 8)
+    const g: Gray = { w: 200, h: 50, d: new Uint8Array(200 * 50) }
+    for (let y = 0; y < 50; y++) for (let x = 0; x < 200; x++) g.d[y * 200 + x] = 120 + x / 2 // a shadow gradient
+    const n = normalizeBackground(g, 8)
+    const left = n.d[25 * 200 + 20], right = n.d[25 * 200 + 180]
+    check('background normalisation evens out a shadow gradient (paper → white on both sides)', left > 235 && right > 235, `${left} ${right}`)
+  }
+
+  /* perspective: homography, sheet, aspect, deskew */
+  {
+    const src: Pt[] = [[10, 20], [300, 5], [320, 260], [0, 240]], dst: Pt[] = [[0, 0], [400, 0], [400, 280], [0, 280]]
+    const H = homography(src, dst)
+    const err = Math.max(...src.map((p, i) => Math.hypot(applyH(H, p)[0] - dst[i][0], applyH(H, p)[1] - dst[i][1])))
+    const Hi = invertH(H), back = applyH(Hi, [200, 140]), fwd = applyH(H, back)
+    check('homography from 4 corners maps them exactly; its inverse round-trips', err < 1e-6 && Math.hypot(fwd[0] - 200, fwd[1] - 140) < 1e-6, `${err}`)
+    check('A-series aspect recognised from the corners (1 : √2 within 10 %)', paperAspect([[0, 0], [1414, 0], [1414, 1000], [0, 1000]]) === 1 / Math.SQRT2)
+    // a white sheet (quad) on a dark table
+    const w = 400, h = 300, rgba = new Uint8ClampedArray(w * h * 4)
+    const quad: Pt[] = [[60, 40], [350, 30], [370, 270], [40, 260]]
+    const inside = (x: number, y: number) => pointIn([x, y], quad)
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = inside(x + 0.5, y + 0.5) ? 245 : 70; rgba.set([v, v, v, 255], (y * w + x) * 4) }
+    const c = detectSheet(rgba, w, h)
+    check('the sheet’s four corners are found in a photo (within 6 px)', !!c && c.every((p, i) => Math.hypot(p[0] - quad[i][0], p[1] - quad[i][1]) < 6), JSON.stringify(c))
+    const white = new Uint8ClampedArray(w * h * 4).fill(255)
+    check('a scan (paper fills the picture): no corners, no correction', detectSheet(white, w, h) === null)
+    // deskew: horizontal / vertical lines turned by 2.5°
+    const m = mask(400, 400)
+    const a = (2.5 * Math.PI) / 180
+    for (let k = 0; k < 6; k++) for (let s = -150; s <= 150; s++) {
+      for (const [x, y] of [[s, -150 + k * 60], [-150 + k * 60, s]]) { const X = Math.round(200 + x * Math.cos(a) - y * Math.sin(a)), Y = Math.round(200 + x * Math.sin(a) + y * Math.cos(a)); m.d[Y * 400 + X] = 1 }
+    }
+    const sk = skewAngle(m)
+    check('skew of a drawing turned 2.5° is measured (±0.2°)', Math.abs(Math.abs(sk) - 2.5) <= 0.2, `${sk}`)
+    const rgbaM = new Uint8ClampedArray(400 * 400 * 4)
+    for (let i = 0; i < m.d.length; i++) { const v = m.d[i] ? 0 : 255; rgbaM.set([v, v, v, 255], i * 4) }
+    const turned = warpRGBA(rgbaM, 400, 400, rotationH(-sk, 400, 400), 400, 400)
+    const m2 = mask(400, 400)
+    for (let i = 0; i < m2.d.length; i++) m2.d[i] = turned[i * 4] < 128 ? 1 : 0
+    check('turned back by the measured skew it is square (±0.15°)', Math.abs(skewAngle(m2)) <= 0.15, `${skewAngle(m2)}`)
+  }
+
+  /* recognition of a synthetic plan */
+  const { m, words, P, truth } = synthPlan()
+  const g = recognizePlan({ ink: m, words }, { pxPerM: P })
+  {
+    const len = g.walls.reduce((a, w) => a + Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), 0) / P
+    check('walls: the five walls found, centre lines within 3 % of the true length', g.walls.length === truth.walls && near(len, truth.lenM, 0.03), `${g.walls.length} walls, ${len.toFixed(2)} m vs ${truth.lenM}`)
+    const doors = g.openings.filter((o) => o.kind === 'door'), wins = g.openings.filter((o) => o.kind === 'window')
+    check('door: a swing arc with its leaf at the gap → one door 0.78 m wide (the gap between the wall ends)', doors.length === 1 && near((doors[0].s1 - doors[0].s0) / P, 0.78, 0.08), JSON.stringify(doors.map((d) => [d.s1 - d.s0, d.why])))
+    check('window: two thin lines across the gap → one window 1.8 m wide (between the wall ends)', wins.length === 1 && near((wins[0].s1 - wins[0].s0) / P, 1.8, 0.06), JSON.stringify(wins.map((d) => [d.s1 - d.s0, d.why])))
+    const byName = Object.fromEntries(g.rooms.map((r) => [r.name, r.areaPx / (P * P)]))
+    check('rooms: two, named from the words inside them, areas within 3 % (inner faces)', g.rooms.length === 2 && near(byName['P. KHÁCH'], truth.rooms['P. KHÁCH'], 0.03) && near(byName['BẾP'], truth.rooms['BẾP'], 0.03), JSON.stringify(byName))
+    check('outer walls flagged, the interior one not', g.walls.filter((w) => w.ext).length === 4)
+    check('every element has a confidence 0…1', [...g.walls, ...g.openings, ...g.rooms].every((x) => x.conf > 0 && x.conf <= 1))
+  }
+
+  /* the same intermediate as the DWG recogniser; the downstream builders unchanged */
+  {
+    const k = 1000 / P // 20 mm / px
+    const rec = toRecognition({ graph: g, k, levelName: 'Tầng 1' })
+    check('Recognition: walls in mm, y up, thickness snapped (200 outer / 100 inner)', rec.walls.length === 5 && rec.walls.filter((w) => w.t === 200).length === 4 && rec.walls.some((w) => w.t === 100 || w.t === 110), JSON.stringify(rec.walls.map((w) => w.t)))
+    check('openings lie inside their host wall’s extent', rec.openings.every((o) => o.s0 >= rec.walls[o.wall].s0 - 1 && o.s1 <= rec.walls[o.wall].s1 + 1))
+    check('rooms in m² from the calibrated scale', rec.rooms.every((r) => r.area > 30 && r.area < 45), JSON.stringify(rec.rooms.map((r) => r.area)))
+    const names: BuildNames = { roofLevel: 'Roof', room: (n) => `Room ${n}`, wallExt: (t) => `Ext ${t}`, wallInt: (t) => `Int ${t}`, curtain: (t) => `CW ${t}`, door: 'Door', doubleDoor: 'Double door', opening: 'Opening', window: 'Window', furniture: fromCadEn.furniture }
+    const res = autoFromPlan(rec, { names, levelName: 'Tầng 1', file: 'synth.png' })
+    const c = res.house!.built.counts
+    check('BIM model built by the DWG path’s builder: walls, door, window, rooms, roof level', c.walls === 5 && c.doors === 1 && c.windows === 1 && c.rooms === 2 && c.levels === 2, JSON.stringify(c))
+    check('model checks pass', res.house!.checks.every((x) => x.status !== 'error'), res.house!.checks.map((x) => `${x.key}:${x.status}`).join(' '))
+    const it = res.house!.interior!
+    check('Interior: both rooms; the living room and the kitchen furnished by the room-type rules (catalog items, cabinets)', it.rooms.length === 2 && it.items.length > 0 && it.cabinets.length > 0 && res.furnished.length >= 1, `${it.items.length} items, ${it.cabinets.length} cabinets, ${res.furnished.join(', ')}`)
+    check('interior validates (the Interior workspace would accept it)', validateInterior({ rooms: it.rooms, items: it.items, cabinets: it.cabinets, notes: [] }) === null)
+    // provenance: uncalibrated → REVIEW REQUIRED and no fabrication; calibrated → allowed
+    const nominal = { dpi: 150, scale: 100, mmPerPx: 16.933 }
+    const un = planRecord({ graph: g, file: 'synth.png', page: null, kind: 'image', nominal, refs: [], picture: null })
+    check('CAD record uncalibrated: REVIEW REQUIRED, fabrication blocked', un.provenance!.reviewRequired && !fabricationAllowed(un).ok)
+    const ref: CalRef = { id: 'r1', method: 'two-point', a: { x: 100, y: 80 }, b: { x: 600, y: 80 }, measured: 500, refDistance: 10000 }
+    const cal = planRecord({ graph: g, file: 'synth.png', page: null, kind: 'image', nominal, refs: [ref], picture: null })
+    const xs = cal.entities.filter((e) => e.layer === 'IMG-WALL' && e.kind === 'polyline').flatMap((e) => (e.kind === 'polyline' ? e.pts.map((p) => p.x) : []))
+    check('CAD record calibrated (10 000 mm over 500 px): true size, fabrication allowed', fabricationAllowed(cal).ok && near(Math.max(...xs) - Math.min(...xs), 10200, 0.02), `${Math.max(...xs) - Math.min(...xs)}`)
+  }
+
+  /* scale suggestions, OCR clean-up */
+  {
+    const g2: PlanGraph = { ...g, rooms: g.rooms.map((r) => ({ ...r, areaLabel: +((r.areaPx * 400) / 1e6).toFixed(2) })) }
+    const s = suggestScale(g2)
+    check('written room areas suggest the scale (two agree → 20 mm/px ±1 %)', s.k !== null && near(s.k, 20, 0.01), `${s.k}`)
+    // a dimension line cut by a tick is not joined across it; a broken line without a tick is
+    const segs: PlanGraph['segs'] = [{ a: [0, 10], b: [50, 10] }, { a: [50, 10], b: [100, 10] }, { a: [50, 4], b: [50, 16] }, { a: [130, 10], b: [180, 10] }, { a: [200, 10.5], b: [260, 10.5] }]
+    const mg = mergeCollinear(segs).filter((x) => Math.abs(x.a[1] - x.b[1]) < 1).map((x) => [Math.round(x.a[0]), Math.round(x.b[0])])
+    check('collinear pieces: joined over a gap, never across a tick', JSON.stringify(mg) === JSON.stringify([[0, 50], [50, 260]]), JSON.stringify(mg))
+    check('room words put back to their dictionary form ("BÊP" → BẾP, "TÀNG" → TẦNG, "KHÁC" → KHÁCH, "P." stays)', lexiconWord('BÊP') === 'BẾP' && lexiconWord('TÀNG') === 'TẦNG' && lexiconWord('KHÁC') === 'KHÁCH' && lexiconWord('P.') === 'P.' && lexiconWord('XYZQ') === null)
+    const lab = roomLabel(textLines([{ text: 'R113', conf: 90, x0: 0, y0: 0, x1: 20, y1: 8, line: 0 }, { text: 'GIẶT', conf: 80, x0: 0, y0: 12, x1: 40, y1: 26, line: 1 }, { text: '6.72', conf: 85, x0: 0, y0: 30, x1: 25, y1: 38, line: 2 }, { text: 'm²', conf: 60, x0: 27, y0: 30, x1: 37, y1: 38, line: 2 }]))
+    check('room label: name, number and written area read apart', lab.name === 'GIẶT' && lab.number === 'R113' && lab.area === 6.72, JSON.stringify(lab))
+    check('a stair marked only by its direction is the stair', roomLabel(textLines([{ text: 'LÊN', conf: 90, x0: 0, y0: 0, x1: 30, y1: 14, line: 0 }])).name === 'THANG BỘ')
+  }
+
+  /* fixes */
+  {
+    const w0 = g.walls.length
+    const g1 = addWall(g, [110, 300], [345, 303])
+    const nw = g1.walls[g1.walls.length - 1]
+    check('add wall: squared (horizontal) and snapped to the walls it meets', g1.walls.length === w0 + 1 && nw.a[1] === nw.b[1] && Math.abs(nw.a[0] - 100) < 1 && Math.abs(nw.b[0] - 350) < 1, JSON.stringify([nw.a, nw.b]))
+    check('…and the room it crosses is split in two', g1.rooms.length === 3)
+    const win = g.openings.find((o) => o.kind === 'window')!
+    const g2 = remove(g, { type: 'wall', id: win.wall })
+    check('delete a wall: its openings go with it', !g2.openings.some((o) => o.wall === win.wall) && g2.walls.length === w0 - 1)
+    const g3 = setOpening(g, win.id, { kind: 'door', width: 40 })
+    const o3 = g3.openings.find((o) => o.id === win.id)!
+    check('opening: type and width changed about its centre, confirmed by the user', o3.kind === 'door' && Math.abs(o3.s1 - o3.s0 - 40) < 1e-6 && o3.conf === 1)
+    const room = g.rooms.find((r) => r.name === 'BẾP')!
+    const g4 = addWall(renameRoom(g, room.id, "BẾP CHÍNH"), [355, 200], [595, 200])
+    check('a typed room name is kept when the walls change', g4.rooms.some((r) => r.name === 'BẾP CHÍNH'))
+  }
+
+  out.push(fails ? `FAILED ${fails}` : 'ALL PASS')
+  return { all: fails === 0, lines: out }
+}
+
+/** The synthetic plan of `run` with its recognition (QA). */
+export function synthdebug() {
+  const { m, words, P } = synthPlan()
+  const dbg: Record<string, unknown> = {}
+  const g = recognizePlan({ ink: m, words }, { pxPerM: P, debug: dbg })
+  const out = proc.env.PI_OUT
+  if (out) { const grey = m.d.map((v) => (v ? 0 : 255)); const o = overlay(g, grey, 20); fs().writeFileSync(out, pngOf(o.w, o.h, o.rgb)) }
+  return { dbg, walls: g.walls.map((w) => [w.a, w.b, w.t, w.by]), ops: g.openings.map((o) => [o.kind, o.s0, o.s1, o.wall]), notes: g.notes }
 }

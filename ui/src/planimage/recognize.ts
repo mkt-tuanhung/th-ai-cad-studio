@@ -614,10 +614,12 @@ export function lineWidth(ink: Mask): number {
   const { hr, vr } = runLengths(ink)
   const hist = new Float64Array(64)
   for (let i = 0; i < ink.d.length; i++) if (ink.d[i]) { const v = Math.min(hr[i], vr[i]); if (v < 64) hist[v]++ }
-  // weight per line (a run of width v is counted v times per unit length)
-  let best = 1
-  for (let v = 1; v < 8; v++) if (hist[v] / v > hist[best] / best) best = v
-  return best
+  // weight per line (a run of width v is counted v times per unit length); the thinnest width that is common (a
+  // quarter of the most common one) — a plan with few thin lines and many thin walls still has its lines thin
+  let top = 0
+  for (let v = 1; v < 8; v++) top = Math.max(top, hist[v] / v)
+  for (let v = 1; v < 8; v++) if (hist[v] / v >= 0.25 * top) return v
+  return 1
 }
 
 /**

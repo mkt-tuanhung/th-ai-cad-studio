@@ -269,7 +269,7 @@ export function AutoDialog() {
   const files = pkg.files
   const cabinets = useMemo(() => (res ? allCabinets(res) : []), [res])
   // the CNC previews of the package (same code as the files written): sheets, oversize parts, release blockers
-  const cncInfo = useMemo(() => { try { return res && cabinets.length ? cncPreview(cabinets, camSetup, res.file.replace(/\.(dwg|dxf)$/i, '')).cnc : null } catch { return null } }, [res, cabinets, camSetup])
+  const cncInfo = useMemo(() => { try { return res && cabinets.length ? cncPreview(cabinets, camSetup, res.file.replace(/\.(dwg|dxf|png|jpe?g|webp|pdf)$/i, '')).cnc : null } catch { return null } }, [res, cabinets, camSetup])
   const nesting = cncInfo?.nest ?? null
 
   const summary = useMemo(() => {
