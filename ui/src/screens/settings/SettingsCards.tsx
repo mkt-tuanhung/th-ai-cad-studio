@@ -201,6 +201,7 @@ export function AiModelCard(p: CardProps) {
  */
 function ModelDownload({ onDone }: { onDone: () => void }) {
   const D = useT().settings.ai.dl
+  const T = useT().platform
   const { state, progress, result, refresh, start, cancel } = useModelDownload()
   const [pick, setPick] = useState<string | null>(null)
   useEffect(() => {
@@ -245,7 +246,7 @@ function ModelDownload({ onDone }: { onDone: () => void }) {
         {state.models.map((m) => (
           <label key={m.id} className={`${s.dlItem} ${m.id === chosen.id ? s.dlOn : ''}`}>
             <input type="radio" name="dl-model" checked={m.id === chosen.id} disabled={busy} onChange={() => setPick(m.id)} />
-            <span className={s.dlName}>{m.label}</span>
+            <span className={s.dlName} title={/3b-instruct/i.test(m.id) ? T.licences.nonCommercial : T.licences.apache}>{m.label}{/3b-instruct/i.test(m.id) ? ` · ${T.licences.nonCommercialShort}` : ""}</span>
             <span className={s.dlSize}>{formatGb(m.bytes)}</span>
             {m.installed ? <Chip tone="green">{D.installed}</Chip> : m.id === state.recommended ? <Chip tone="green">{fmt(D.recommended, { ram: formatGb(state.ramBytes).replace('.0 ', ' ') })}</Chip> : !m.fits ? <Chip tone="amber">{D.slow}</Chip> : null}
             {!m.installed && m.partialBytes > 0 && !busy && <span className={s.dlNote}>{fmt(D.partial, { pct: pct(m.partialBytes, m.bytes) })}</span>}

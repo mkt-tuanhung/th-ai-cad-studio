@@ -103,6 +103,11 @@ export const platformEn = {
     command: 'Command', tool: 'Tool', library: 'Library', setting: 'Settings', action: 'Action',
     typeIn: 'type {alias} in CAD 2D',
   },
+  licences: {
+    nonCommercial: 'Qwen Research License: commercial use is not allowed without a licence from Alibaba Cloud (see docs/SBOM.json)',
+    nonCommercialShort: 'non-commercial licence',
+    apache: 'Licence: Apache-2.0 (commercial use allowed)',
+  },
   hostErrors: {
     cancelled: 'Cancelled',
     folder: 'The folder was not chosen in this session — choose it again',
@@ -221,6 +226,11 @@ export const platformVi: typeof platformEn = {
   search: {
     command: 'Lệnh', tool: 'Công cụ', library: 'Thư viện', setting: 'Cài đặt', action: 'Thao tác',
     typeIn: 'gõ {alias} trong CAD 2D',
+  },
+  licences: {
+    nonCommercial: 'Giấy phép Qwen Research: không được dùng cho mục đích thương mại nếu chưa có giấy phép của Alibaba Cloud (xem docs/SBOM.json)',
+    nonCommercialShort: 'giấy phép phi thương mại',
+    apache: 'Giấy phép: Apache-2.0 (được dùng thương mại)',
   },
   hostErrors: {
     cancelled: 'Đã huỷ',
