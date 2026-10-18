@@ -452,7 +452,8 @@ function RenderStep({ host }: { host: HostApi | null }) {
       if (run?.status === 'done' && run.path && !imgs[r.id]) void host.renderReadImage(run.path, 1280).then((x) => x.ok && x.url && setImgs((m) => ({ ...m, [r.id]: x.url! })))
     }
   }, [runs, rows, host, imgs])
-  const shown = useMemo(() => rows.find((r) => imgs[r.id]), [rows, imgs])
+  const [pick, setPick] = useState<string | null>(null)
+  const shown = useMemo(() => rows.find((r) => r.id === pick && imgs[r.id]) ?? rows.find((r) => imgs[r.id]), [rows, imgs, pick])
   if (!host) return <p className={st.note}>{d.renderNeedsHost}</p>
   return (
     <div className={st.form}>
@@ -487,7 +488,7 @@ function RenderStep({ host }: { host: HostApi | null }) {
       </div>
       {rows.length > 1 && (
         <div className={st.thumbs}>
-          {rows.filter((r) => imgs[r.id]).map((r) => <img key={r.id} src={imgs[r.id]} alt={r.cam} title={r.cam} />)}
+          {rows.filter((r) => imgs[r.id]).map((r) => <img key={r.id} src={imgs[r.id]} alt={r.cam} title={r.cam} className={shown?.id === r.id ? st.thumbOn : undefined} onClick={() => setPick(r.id)} />)}
         </div>
       )}
     </div>

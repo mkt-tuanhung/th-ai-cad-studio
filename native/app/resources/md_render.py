@@ -456,8 +456,8 @@ class Interior:
         br.inputs['Mortar Smooth'].default_value = 0.3
         br.inputs['Bias'].default_value = 0.0
         # reclaimed brick: each brick a random mix of a pale tan and a deep red-brown (Blender varies it per brick)
-        br.inputs['Color1'].default_value = (min(1.0, col[0] * 1.55), min(1.0, col[1] * 1.6), min(1.0, col[2] * 1.5), 1)
-        br.inputs['Color2'].default_value = (col[0] * 0.7, col[1] * 0.62, col[2] * 0.6, 1)
+        br.inputs['Color1'].default_value = (min(1.0, col[0] * 1.6), min(1.0, col[1] * 2.6), min(1.0, col[2] * 3.2), 1)
+        br.inputs['Color2'].default_value = (col[0] * 0.62, col[1] * 0.55, col[2] * 0.55, 1)
         br.inputs['Mortar'].default_value = (0.55, 0.52, 0.48, 1)
         nt.links.new(comb.outputs['Vector'], br.inputs['Vector'])
         nz = nt.nodes.new('ShaderNodeTexNoise')
@@ -672,6 +672,27 @@ class Interior:
         me = obj.data
         mw = obj.matrix_world
         mn = mw.to_3x3()
+        if side:
+            # a wall face may run on past the room (one long wall shared with the next room): cut the walls with
+            # vertical planes at the room's corners, square to its sides, so each piece lies along one room only
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            inv = mw.inverted()
+            for r in rooms:
+                pts = r['outline']
+                for i in range(len(pts)):
+                    a, b = pts[i], pts[(i + 1) % len(pts)]
+                    d = Vector(((b[0] - a[0]) / 1000.0, (b[1] - a[1]) / 1000.0, 0.0))
+                    if d.length < 1e-6:
+                        continue
+                    d.normalize()
+                    no = (inv.to_3x3() @ d).normalized()
+                    for p in (a, b):
+                        co = inv @ Vector((p[0] / 1000.0, p[1] / 1000.0, 0.0))
+                        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no)
+            bm.to_mesh(me)
+            bm.free()
+            me.update()
         slots = {}
         for p in me.polygons:
             n = (mn @ p.normal).normalized()

@@ -431,5 +431,10 @@
 }
 .thumbs img {
   width: 160px;
+  border: 2px solid transparent;
   border-radius: 4px;
+  cursor: pointer;
+}
+.thumbOn {
+  border-color: #17595f !important;
 }
