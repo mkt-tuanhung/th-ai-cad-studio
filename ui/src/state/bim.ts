@@ -75,7 +75,7 @@ interface BimState {
   /** Validated, undoable model edit (ONE undo step): rooms / stairs recomputed, the model rules checked, element
    *  identities stamped (guid kept, rev + 1, provenance `opts.src` on new elements). Returns an error or null: the
    *  mark of the element whose top would not be above its base, or `rule:<message>` (see ruleMessage). */
-  edit: (label: string, fn: (m: BimModel) => BimModel, opts?: { src?: Provenance }) => string | null
+  edit: (label: string, fn: (m: BimModel) => BimModel, opts?: { src?: Provenance; /** false: an import — the opening rules are left to the model checks */ rules?: boolean }) => string | null
   /** Saved 3D viewpoints (persisted) and the live 3D view-only state (session). */
   bookmarks: CameraBookmark[]
   setBookmarks: (b: CameraBookmark[]) => void
@@ -162,7 +162,7 @@ export const useBim = create<BimState>()(
         })
         if (bad) return bad.mark
         // the host-wall rule of openings, arc radii, sloped tops (only what this edit touched)
-        const rule = editRule(before, after)
+        const rule = opts?.rules === false ? null : editRule(before, after)
         if (rule) return RULE + ruleText(rule.mark, rule.code)
         const stamped = stampEdit(before, after, opts?.src ?? { kind: 'drawn' }).model
         set({ model: stamped, undoStack: [...get().undoStack.slice(-99), { label, model: before }], redoStack: [] })

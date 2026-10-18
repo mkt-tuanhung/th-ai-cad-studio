@@ -536,7 +536,7 @@ function AiTab() {
   const { model, edit } = useBim()
   return (
     <div className={s.aiTab}>
-      <AiAssist d={bimAi} model={model} apply={(label, next) => edit(label, () => next)} example={T.aiAssist.examples.bim} />
+      <AiAssist d={bimAi} model={model} apply={(label, next) => edit(label, () => next, { src: { kind: 'ai' } })} example={T.aiAssist.examples.bim} />
       <ActionButton onClick={() => navigate('ai-studio')}>
         {t.open}
       </ActionButton>

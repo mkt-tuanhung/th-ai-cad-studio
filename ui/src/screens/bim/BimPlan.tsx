@@ -4,8 +4,14 @@ import { useBim, type BimTool } from '../../state/bim'
 import { toast } from '../../state/toast'
 import { levelOf, typeOf, type Annotation, type BimModel, type ElementRef, type Opening, type P2, type Wall } from '../../bim/model'
 import { centreOf, dist, markOf, nextGridLabel, nextLevel, nextMark, openingPoint, pointInPoly, polyArea, rectPoly, roomAt, segDist, uid, wallEnds, wallPoly, wallsOn } from '../../bim/geometry'
-import { isStructuralWall, stairFlight } from '../../bim/scene'
+import { isStructuralWall, stairFlight, stairGeometry, type FlightGeom } from '../../bim/scene'
 import { Modal } from '../../components/ui/Modal'
+import { ruleMessage } from '../../state/bim'
+import { useLinkedT } from '../../i18n/ws/linked'
+import { faceLengths, lockAngle, moveWall, moveWallEnd, parseTyped, pointAt, radiusThrough, snapWalls, wallRun, type SnapKind } from '../../bim/walls'
+import { roomEdgesAt } from '../../bim/rooms'
+import { smartOutline, arcLoop } from '../../bim/smartRoom'
+import { commitSmartRoom } from './LinkedDialogs'
 import s from './BimPlan.module.css'
 
 interface View {
@@ -39,6 +45,14 @@ export function BimPlan() {
   const [textAt, setTextAt] = useState<P2 | null>(null)
   const [text, setText] = useState('')
   const drag = useRef<{ x: number; y: number; v: View; moved: boolean } | null>(null)
+  // v2.4 direct editing: typed coordinates, the arc radius of the next wall, straight / arc walls, wall grips
+  const L = useLinkedT()
+  const [typed, setTyped] = useState<string | null>(null)
+  const [pendingRadius, setPendingRadius] = useState<number | null>(null)
+  const [wallShape, setWallShape] = useState<'straight' | 'arc'>('straight')
+  const grip = useRef<{ wall: string; kind: 'a' | 'b' | 'mid'; from: P2 } | null>(null)
+  const [gripAt, setGripAt] = useState<{ wall: string; kind: 'a' | 'b' | 'mid'; p: P2; alt: boolean } | null>(null)
+  const [snapKind, setSnapKind] = useState<SnapKind | null>(null)
   const lvl = levelOf(model, level)
   const top = nextLevel(model, level)
 
@@ -73,7 +87,11 @@ export function BimPlan() {
     if (size.w && !view) fit()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size])
-  useEffect(() => setPts([]), [tool, level])
+  useEffect(() => {
+    setPts([])
+    setTyped(null)
+    setPendingRadius(null)
+  }, [tool, level])
 
   // screen ↔ world
   const S = (p: P2): P2 => (view ? [(p[0] - view.cx) / view.k + size.w / 2, (view.cy - p[1]) / view.k + size.h / 2] : [0, 0])
@@ -85,36 +103,33 @@ export function BimPlan() {
   const openings = useMemo(() => [...model.doors, ...model.windows].filter((o) => wallIds.has(o.hostWall)), [model, wallIds])
   const onLevel = <X extends { level: string }>(xs: X[]) => xs.filter((x) => x.level === level)
 
-  /** Snap: element points within 10 px, else a 50 mm grid; orthogonal from the last point unless Shift. */
-  const snap = (raw: P2, free: boolean): { p: P2; snapped: boolean } => {
+  /** Snap (v2.4): endpoint, midpoint, intersection, perpendicular from the last point, nearest on a wall face or
+   *  centre line (within 10 px), else a 50 mm grid nearly orthogonal from the last point; Shift locks the angle to 15°
+   *  steps, Alt turns the snaps off. `exclude`: the wall being dragged. */
+  const snap = (raw: P2, mods: { shift?: boolean; alt?: boolean } = {}, exclude?: string, from?: P2 | null): { p: P2; snapped: boolean; kind?: SnapKind } => {
     if (!view) return { p: raw, snapped: false }
-    const r = 10 * view.k
-    const cands: P2[] = []
-    for (const w of walls) {
-      const e = wallEnds(w)
-      cands.push(e.a, e.b)
+    const last = from !== undefined ? from : pts.at(-1) ?? null
+    if (!mods.alt) {
+      const extra: P2[] = []
+      for (const c of onLevel(model.columns)) extra.push([c.x, c.y])
+      for (const g of model.grids) extra.push(g.a, g.b)
+      for (const x of [...onLevel(model.slabs), ...model.rooms.filter((q) => q.level === level && q.outline)]) extra.push(...(x.outline ?? []))
+      const sn = snapWalls(model, walls.filter((w) => w.id !== exclude), raw, 10 * view.k, last, extra)
+      if (sn) return { p: sn.p, snapped: true, kind: sn.kind }
     }
-    for (const c of onLevel(model.columns)) cands.push([c.x, c.y])
-    for (const g of model.grids) cands.push(g.a, g.b)
-    for (const x of [...onLevel(model.slabs), ...model.rooms.filter((q) => q.level === level && q.outline)]) cands.push(...(x.outline ?? []))
-    let best: P2 | null = null,
-      bd = r
-    for (const c of cands) {
-      const d = dist(c, raw)
-      if (d < bd) ((best = c), (bd = d))
-    }
-    if (best) return { p: best, snapped: true }
     let p: P2 = [Math.round(raw[0] / 50) * 50, Math.round(raw[1] / 50) * 50]
-    const last = pts.at(-1)
-    if (last && !free && tool !== 'room') {
-      const a = Math.atan2(p[1] - last[1], p[0] - last[0])
-      const q = Math.round(a / (Math.PI / 2)) * (Math.PI / 2)
-      if (Math.abs(a - q) < (8 * Math.PI) / 180) {
-        const L = dist(last, p)
-        p = [Math.round((last[0] + Math.cos(q) * L) / 10) * 10, Math.round((last[1] + Math.sin(q) * L) / 10) * 10]
+    if (last && tool !== 'room') {
+      if (mods.shift) p = lockAngle(last, p, 15)
+      else if (!mods.alt) {
+        const a = Math.atan2(p[1] - last[1], p[0] - last[0])
+        const q = Math.round(a / (Math.PI / 2)) * (Math.PI / 2)
+        if (Math.abs(a - q) < (8 * Math.PI) / 180) {
+          const L = dist(last, p)
+          p = [Math.round((last[0] + Math.cos(q) * L) / 10) * 10, Math.round((last[1] + Math.sin(q) * L) / 10) * 10]
+        }
       }
     }
-    return { p, snapped: false }
+    return { p, snapped: false, kind: 'grid' }
   }
 
   /** Topmost element under a plan point. */
@@ -125,7 +140,7 @@ export function BimPlan() {
       for (const a of onLevel(model.annotations)) if (dist(a.a, p) < tol * 3 || (a.b && segDist(p, a.a, a.b).d < tol)) return { category: 'annotation', id: a.id }
       for (const c of onLevel(model.components)) if (pointInPoly(p, boxPoly(c.x, c.y, c.w, c.d, c.rot))) return { category: 'component', id: c.id }
       for (const c of onLevel(model.columns)) if (Math.abs(p[0] - c.x) <= c.w / 2 + tol && Math.abs(p[1] - c.y) <= c.d / 2 + tol) return { category: 'column', id: c.id }
-      for (const st of model.stairs.filter((x) => x.baseLevel === level)) if (pointInPoly(p, stairPoly(st))) return { category: 'stair', id: st.id }
+      for (const st of model.stairs.filter((x) => x.baseLevel === level)) if (stairHit(model, st, p)) return { category: 'stair', id: st.id }
       for (const o of openings) {
         const w = model.walls.find((x) => x.id === o.hostWall)!
         const d = segDist(p, openingPoint(w, o, 0), openingPoint(w, o, 1))
@@ -150,13 +165,13 @@ export function BimPlan() {
 
   const add = (what: string, fn: (m: BimModel) => BimModel, sel?: ElementRef) => {
     const err = edit(`Add ${what}`, fn)
-    if (err) return toast(fmt(T.bim.props.invalid, { mark: err }), 'warning')
+    if (err) return toast(ruleMessage(err) ?? fmt(T.bim.props.invalid, { mark: err }), 'warning')
     if (sel) set({ selection: sel })
     toast(fmt(t.added, { what }))
   }
   const topOf = () => (top ? { topLevel: top.id, topOffset: 0 } : { topLevel: level, topOffset: 3000 })
 
-  const addWall = (a: P2, b: P2) => {
+  const addWall = (a: P2, b: P2, radius?: number | null) => {
     const L = Math.round(dist(a, b))
     if (L < 200) return toast(fmt(t.tooShort, { min: 200 }), 'warning')
     const mark = nextMark(
@@ -176,6 +191,8 @@ export function BimPlan() {
       x: a[0],
       y: a[1],
       angle: Math.round(((Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI) * 100) / 100,
+      // an arc wall: the radius from a third point or typed (R2500), at least half the chord
+      ...(radius && tool === 'wall' ? { arc: { radius: Math.sign(radius) * Math.max(Math.abs(radius), L / 2) } } : {}),
     }
     add(`${mark} (${typeOf(model, w).name})`, (m) => ({ ...m, walls: [...m.walls, w] }), { category: 'wall', id: w.id })
   }
@@ -235,8 +252,29 @@ export function BimPlan() {
         return set({ selection: hit(raw), rightTab: 'properties' })
       case 'wall':
       case 'curtainWall':
-        if (pts.length) addWall(pts[pts.length - 1], p)
+        if (tool === 'wall' && wallShape === 'arc') {
+          if (!pts.length) return setPts([p])
+          if (pts.length === 1) {
+            // a typed radius: the arc ends here; else a third click gives the point it passes through
+            if (pendingRadius) {
+              addWall(pts[0], p, pendingRadius)
+              setPendingRadius(null)
+              return setPts([p])
+            }
+            return setPts([pts[0], p])
+          }
+          addWall(pts[0], pts[1], radiusThrough(pts[0], pts[1], p))
+          return setPts([pts[1]])
+        }
+        if (pts.length) addWall(pts[pts.length - 1], p, pendingRadius)
+        setPendingRadius(null)
         return setPts([p])
+      case 'smartRoom': {
+        const spec = useBim.getState().pendingRoom
+        if (!spec) return set({ tool: 'select' })
+        if (commitSmartRoom({ ...spec, level, origin: p })) set({ tool: 'select', pendingRoom: null })
+        return
+      }
       case 'door':
       case 'window':
         return addOpening(raw, tool)
@@ -271,6 +309,8 @@ export function BimPlan() {
           .map((r) => Number(r.number))
           .filter(Number.isFinite)
         const number = String(nums.length ? Math.max(...nums) + 1 : idx * 100 + 1)
+        // v2.4: the room knows its four bounding walls, so its outline and area follow them from now on
+        const edges = roomEdgesAt(full, level, raw)
         const r = {
           id: uid('room'),
           category: 'room' as const,
@@ -279,6 +319,7 @@ export function BimPlan() {
           level,
           area: Math.round(polyArea(outline) / 1e4) / 100,
           outline,
+          ...(edges ? { edges } : {}),
         }
         return add(`${T.bim.tools.room} ${number}`, (m) => ({ ...m, rooms: [...m.rooms, r] }), { category: 'room', id: r.id })
       }
@@ -420,10 +461,29 @@ export function BimPlan() {
     }
   }
 
+  const applyTyped = () => {
+    const v = typed ?? ''
+    setTyped(null)
+    const r = parseTyped(v, pts.at(-1) ?? null, cursor?.p ?? null)
+    if (r.kind === 'radius') {
+      if (Math.abs(r.r) < 100) return toast(fmt(L.plan.typedBad, { v }), 'warning')
+      setPendingRadius(r.r)
+      if (tool === 'wall') setWallShape('arc')
+      return toast(fmt(L.plan.typedRadius, { r: r.r }))
+    }
+    if (r.kind === 'error') return toast(fmt(L.plan.typedBad, { v }), 'warning')
+    click(r.p, r.p)
+  }
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement
       if (typing) return
+      // a typed length / coordinate / radius while drawing walls (as in CAD): the first key opens the input
+      if ((tool === 'wall' || tool === 'curtainWall') && typed === null && /^[0-9@rR-]$/.test(e.key) && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        return setTyped(e.key)
+      }
       if (e.key === 'Escape') {
         if (pts.length) setPts([])
         else set({ tool: 'select' })
@@ -459,6 +519,22 @@ export function BimPlan() {
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
+
+  /** Grips of the selected wall (ends and middle) in screen px. */
+  const grips = (): { wall: string; kind: 'a' | 'b' | 'mid'; p: P2 }[] => {
+    if (tool !== 'select' || selection?.category !== 'wall') return []
+    const w = walls.find((q) => q.id === selection.id)
+    if (!w) return []
+    const e = wallEnds(w)
+    return [{ wall: w.id, kind: 'a', p: e.a }, { wall: w.id, kind: 'b', p: e.b }, { wall: w.id, kind: 'mid', p: pointAt(w, wallRun(w) / 2).p }]
+  }
+  const gripUnder = (x: number, y: number) => {
+    for (const g of grips()) {
+      const q = S(g.p)
+      if (Math.abs(q[0] - x) <= 7 && Math.abs(q[1] - y) <= 7) return { wall: g.wall, kind: g.kind, from: g.p }
+    }
+    return null
+  }
 
   const local = (e: React.PointerEvent | React.MouseEvent): [number, number] => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -516,7 +592,7 @@ export function BimPlan() {
     for (const o of openings) {
       const w = model.walls.find((x) => x.id === o.hostWall)!
       const half = (typeOf(model, w)?.thickness ?? 200) / 2 + 2
-      const { dir } = wallEnds(w)
+      const dir = pointAt(w, o.offset + o.width / 2).t
       const n: P2 = [-dir[1], dir[0]]
       const p0 = openingPoint(w, o, 0),
         p1 = openingPoint(w, o, 1)
@@ -528,8 +604,11 @@ export function BimPlan() {
       ] as P2[]
       const sel = isSel(o.id) ? s.sel : ''
       if (o.category === 'door') {
-        const leafEnd: P2 = [p0[0] + n[0] * o.width, p0[1] + n[1] * o.width]
-        const [A, B, C] = [S(p0), S(leafEnd), S(p1)]
+        // the leaf drawn open at 90° from its hinge, to the side it opens to; the swing arc back to the other jamb
+        const hp = o.hinge === 'right' ? p1 : p0, other = o.hinge === 'right' ? p0 : p1
+        const sd = o.swing === 'out' ? -1 : 1
+        const leafEnd: P2 = [hp[0] + n[0] * sd * o.width, hp[1] + n[1] * sd * o.width]
+        const [A, B, C] = [S(hp), S(leafEnd), S(other)]
         out.push(
           <g key={o.id}>
             <polygon points={poly(gap)} className={s.gap} />
@@ -576,10 +655,68 @@ export function BimPlan() {
     }
     for (const a of onLevel(model.annotations)) out.push(<AnnotationPlan key={a.id} a={a} m={model} S={S} px={px} sel={isSel(a.id)} />)
 
+    // v2.4: the selected wall's centre / face lengths, its grips, and a grip drag's preview
+    if (selection?.category === 'wall') {
+      const w = walls.find((q) => q.id === selection.id)
+      if (w) {
+        const f = faceLengths(model, w)
+        const mid = pointAt(w, wallRun(w) / 2)
+        const off = (typeOf(model, w)?.thickness ?? 200) / 2 + 450
+        const q = S([mid.p[0] - mid.t[1] * off, mid.p[1] + mid.t[0] * off])
+        const ang = (Math.atan2(-mid.t[1], mid.t[0]) * 180) / Math.PI
+        const up = ang > 90 || ang < -90 ? ang + 180 : ang
+        const r = (v: number) => Math.round(v).toLocaleString('en-US')
+        out.push(
+          <text key="faces" x={q[0]} y={q[1]} className={s.previewText} data-testid="wall-faces" transform={`rotate(${up} ${q[0]} ${q[1]})`} textAnchor="middle">
+            {fmt(L.plan.faces, { c: r(wallRun(w)), l: r(f.left), r: r(f.right) })}
+          </text>,
+        )
+      }
+      for (const g of grips()) {
+        const q = S(g.p)
+        out.push(<rect key={`grip-${g.kind}`} x={q[0] - 5} y={q[1] - 5} width={10} height={10} className={s.snap} data-grip={g.kind} style={{ fill: '#0f766e', stroke: '#fff' }} />)
+      }
+    }
+    if (gripAt) {
+      const g = grip.current
+      if (g) {
+        const pm = g.kind === 'mid' ? moveWall(full, g.wall, [gripAt.p[0] - g.from[0], gripAt.p[1] - g.from[1]], !gripAt.alt) : moveWallEnd(full, g.wall, g.kind, gripAt.p, !gripAt.alt)
+        for (const w of pm.walls) {
+          const before = full.walls.find((q) => q.id === w.id)
+          if (before === w) continue
+          out.push(<polygon key={`gp-${w.id}`} points={poly(wallPoly(pm, w))} className={s.previewFill} />)
+          if (w.id === g.wall) {
+            const mid = pointAt(w, wallRun(w) / 2).p
+            const q = S(mid)
+            out.push(<text key="gp-len" x={q[0]} y={q[1] - 10} className={s.previewText}>{fmt(t.length, { l: Math.round(wallRun(w)).toLocaleString('en-US') })}</text>)
+          }
+        }
+      }
+    }
+
     // preview of the active tool
     const cur = cursor?.p
     const last = pts.at(-1)
-    if (cur && last && (tool === 'wall' || tool === 'curtainWall' || tool === 'railing' || tool === 'stair' || tool === 'dimension' || tool === 'grid')) {
+    if (cur && tool === 'wall' && wallShape === 'arc' && pts.length === 2) {
+      // the arc through the cursor
+      const R = radiusThrough(pts[0], pts[1], cur)
+      const [A, B] = [S(pts[0]), S(pts[1])]
+      const big = 0
+      const sweep = R !== null && R > 0 ? 0 : 1
+      out.push(
+        <g key="preview">
+          {R !== null ? <path d={`M${A[0]},${A[1]} A${px(Math.abs(R))},${px(Math.abs(R))} 0 ${big} ${sweep} ${B[0]},${B[1]}`} className={s.preview} fill="none" /> : <line x1={A[0]} y1={A[1]} x2={B[0]} y2={B[1]} className={s.preview} />}
+          <text x={(A[0] + B[0]) / 2} y={(A[1] + B[1]) / 2 - 8} className={s.previewText}>R {R !== null ? Math.round(Math.abs(R)).toLocaleString('en-US') : '∞'}</text>
+        </g>,
+      )
+    } else if (cur && tool === 'smartRoom') {
+      const spec = useBim.getState().pendingRoom
+      if (spec) {
+        const sp = { ...spec, origin: cur }
+        const o = smartOutline(sp) ?? arcLoop(sp).pts
+        if (o.length > 2) out.push(<polygon key="preview" points={poly(o)} className={s.previewFill} data-testid="smart-preview" />)
+      }
+    } else if (cur && last && (tool === 'wall' || tool === 'curtainWall' || tool === 'railing' || tool === 'stair' || tool === 'dimension' || tool === 'grid')) {
       const [a, b] = [S(last), S(cur)]
       out.push(
         <g key="preview">
@@ -610,10 +747,11 @@ export function BimPlan() {
     if (cur && tool !== 'select') {
       const q = S(cur)
       out.push(cursor!.snapped ? <rect key="snap" x={q[0] - 5} y={q[1] - 5} width={10} height={10} className={s.snap} /> : <circle key="snap" cx={q[0]} cy={q[1]} r={3} className={s.cursor} />)
+      if (cursor!.snapped && snapKind && snapKind !== 'grid') out.push(<text key="snapKind" x={q[0] + 9} y={q[1] - 8} className={s.previewText} data-testid="snap-kind" data-kind={snapKind}>{L.plan.snap[snapKind]}</text>)
     }
   }
 
-  const hint = (T.bim.draw.hint as Record<string, string>)[tool]
+  const hint = tool === 'wall' ? (wallShape === 'arc' ? L.plan.arcHint : L.plan.wallHint) : tool === 'smartRoom' ? fmt(L.plan.smartHint, { shape: L.smart.shapes[useBim.getState().pendingRoom?.shape ?? 'rect'], w: useBim.getState().pendingRoom?.w ?? useBim.getState().pendingRoom?.r ?? '', d: useBim.getState().pendingRoom?.d ?? '' }) : tool === 'select' && selection?.category === 'wall' ? L.plan.grip : (T.bim.draw.hint as Record<string, string>)[tool]
   return (
     <>
       <div
@@ -626,10 +764,26 @@ export function BimPlan() {
           if (!view) return
           ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
           const [x, y] = local(e)
+          // a grip of the selected wall: drag its end (stretch) or its middle (move)
+          const g = tool === 'select' && e.button === 0 ? gripUnder(x, y) : null
+          if (g) {
+            grip.current = g
+            setGripAt({ wall: g.wall, kind: g.kind, p: g.from, alt: e.altKey })
+            return
+          }
           drag.current = { x, y, v: view, moved: false }
         }}
         onPointerMove={(e) => {
           const [x, y] = local(e)
+          if (grip.current) {
+            const g = grip.current
+            const w = full.walls.find((q) => q.id === g.wall)
+            const anchor = w ? (g.kind === 'a' ? wallEnds(w).b : g.kind === 'b' ? wallEnds(w).a : null) : null
+            const sn = snap(W(x, y), { shift: e.shiftKey, alt: e.altKey }, g.wall, anchor)
+            setSnapKind(sn.snapped ? (sn.kind ?? null) : null)
+            setGripAt({ wall: g.wall, kind: g.kind, p: sn.p, alt: e.altKey })
+            return
+          }
           const d = drag.current
           if (d && (tool === 'select' || e.buttons === 4 || e.buttons === 2) && Math.hypot(x - d.x, y - d.y) > 3) {
             d.moved = true
@@ -640,15 +794,30 @@ export function BimPlan() {
             })
             return
           }
-          setCursor(snap(W(x, y), e.shiftKey))
+          const sn = snap(W(x, y), { shift: e.shiftKey, alt: e.altKey })
+          setSnapKind(sn.snapped ? (sn.kind ?? null) : null)
+          setCursor(sn)
         }}
         onPointerUp={(e) => {
+          if (grip.current) {
+            const g = grip.current
+            grip.current = null
+            const at = gripAt
+            setGripAt(null)
+            if (at && dist(at.p, g.from) > 0.5) {
+              const w = full.walls.find((q) => q.id === g.wall)
+              const label = g.kind === 'mid' ? `Move ${w?.mark}` : `Stretch ${w?.mark}`
+              const err = edit(label, (m) => (g.kind === 'mid' ? moveWall(m, g.wall, [at.p[0] - g.from[0], at.p[1] - g.from[1]], !at.alt) : moveWallEnd(m, g.wall, g.kind as 'a' | 'b', at.p, !at.alt)))
+              if (err) toast(ruleMessage(err) ?? fmt(T.bim.props.invalid, { mark: err }), 'warning')
+            }
+            return
+          }
           const d = drag.current
           drag.current = null
           if (!d || d.moved || e.button !== 0) return
           const [x, y] = local(e)
           const raw = W(x, y)
-          click(snap(raw, e.shiftKey).p, raw)
+          click(snap(raw, { shift: e.shiftKey, alt: e.altKey }).p, raw)
         }}
         onDoubleClick={() => {
           if (tool === 'wall' || tool === 'curtainWall') setPts([])
@@ -679,6 +848,30 @@ export function BimPlan() {
                   </option>
                 ))}
             </select>
+          )}
+          {tool === 'wall' && (
+            <select aria-label={L.plan.arcMode} value={wallShape} onChange={(e) => setWallShape(e.target.value as 'straight' | 'arc')}>
+              <option value="straight">{L.props.straight}</option>
+              <option value="arc">{L.props.arc}</option>
+            </select>
+          )}
+          {pendingRadius !== null && <em>R {pendingRadius}</em>}
+          {typed !== null && (
+            <input
+              aria-label={L.plan.typed}
+              title={L.plan.typed}
+              data-testid="typed-input"
+              autoFocus
+              value={typed}
+              style={{ width: 110 }}
+              onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') applyTyped()
+                else if (e.key === 'Escape') setTyped(null)
+                e.stopPropagation()
+              }}
+              onBlur={() => setTyped(null)}
+            />
           )}
           {TWO_CLICK.includes(tool) && pts.length === 1 && <em>1 / 2</em>}
           {tool !== 'select' && (
@@ -735,6 +928,13 @@ function boxPoly(cx: number, cy: number, w: number, d: number, rot: number): P2[
   ).map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c])
 }
 
+/** Hit test of a stair (each flight and landing of an L / U stair). */
+function stairHit(m: BimModel, st: BimModel['stairs'][number], p: P2): boolean {
+  if (!st.run) return pointInPoly(p, stairPoly(st))
+  const g = stairGeometry(m, st)
+  return g.flights.some((f) => pointInPoly(p, stairPoly({ ...st, x: f.x, y: f.y, angle: f.angle, length: f.length, width: f.width, run: undefined }))) || g.landings.some((l) => pointInPoly(p, l.pts))
+}
+
 function stairPoly(st: BimModel['stairs'][number]): P2[] {
   // a spiral: the square round its outer circle
   if (st.spiral) { const r = st.spiral.r1; return [[st.x - r, st.y - r], [st.x + r, st.y - r], [st.x + r, st.y + r], [st.x - r, st.y + r]] }
@@ -752,6 +952,20 @@ function stairPoly(st: BimModel['stairs'][number]): P2[] {
 }
 
 function StairPlan({ st, m, S, sel }: { st: BimModel['stairs'][number]; m: BimModel; S: (p: P2) => P2; sel: boolean }) {
+  if (st.run) {
+    // L / U stair: each flight as a straight run, the landing outlined
+    const g = stairGeometry(m, st)
+    return (
+      <g>
+        {g.landings.map((l, i) => (
+          <polygon key={`l${i}`} points={l.pts.map((p) => S(p).join(',')).join(' ')} className={`${s.stair} ${sel ? s.sel : ''}`} />
+        ))}
+        {g.flights.map((f, i) => (
+          <FlightPlan key={i} f={f} S={S} sel={sel} first={i === 0} />
+        ))}
+      </g>
+    )
+  }
   const { n } = stairFlight(m, st)
   if (st.spiral) {
     // the ring of treads: outer and inner circles, a line per riser
@@ -794,6 +1008,31 @@ function StairPlan({ st, m, S, sel }: { st: BimModel['stairs'][number]; m: BimMo
           <path d="M0,0 L10,5 L0,10 z" fill="#374151" />
         </marker>
       </defs>
+    </g>
+  )
+}
+
+function FlightPlan({ f, S, sel, first }: { f: FlightGeom; S: (p: P2) => P2; sel: boolean; first: boolean }) {
+  const t = (f.angle * Math.PI) / 180
+  const ux = Math.cos(t), uy = Math.sin(t), nx = -uy * (f.width / 2), ny = ux * (f.width / 2)
+  const poly = [[f.x + nx, f.y + ny], [f.x + ux * f.length + nx, f.y + uy * f.length + ny], [f.x + ux * f.length - nx, f.y + uy * f.length - ny], [f.x - nx, f.y - ny]].map((p) => S(p as P2).join(',')).join(' ')
+  const treads = Array.from({ length: Math.max(0, f.n - 1) }, (_, i) => {
+    const d = ((i + 1) * f.length) / f.n
+    return [S([f.x + ux * d + nx, f.y + uy * d + ny]), S([f.x + ux * d - nx, f.y + uy * d - ny])]
+  })
+  const a = S([f.x + ux * 150, f.y + uy * 150]), b = S([f.x + ux * (f.length - 150), f.y + uy * (f.length - 150)])
+  return (
+    <g>
+      <polygon points={poly} className={`${s.stair} ${sel ? s.sel : ''}`} />
+      {treads.map(([p, q], i) => (
+        <line key={i} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} className={s.tread} />
+      ))}
+      <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} className={s.arrow} />
+      {first && (
+        <text x={a[0]} y={a[1] - 6} className={s.upText}>
+          UP
+        </text>
+      )}
     </g>
   )
 }

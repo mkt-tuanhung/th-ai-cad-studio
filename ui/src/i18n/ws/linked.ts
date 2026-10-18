@@ -28,6 +28,7 @@ export const linkedEn = {
   },
   plan: {
     typed: 'Type a length (4200), @dx,dy, x,y, 4200<90 or R2500 · Enter',
+    wallHint: 'Click the start, then each corner — or type a length (4200, @4200<90, @dx,dy) · Shift = 15° angle lock · Alt = no snap · Esc / double-click ends',
     typedBad: 'Not understood: {v}', typedRadius: 'Next wall: arc of radius {r} mm',
     arcMode: 'Wall shape', arcHint: 'Click the start, the end, then a point the arc passes through · or type R2500',
     snap: { end: 'Endpoint', mid: 'Midpoint', int: 'Intersection', perp: 'Perpendicular', near: 'Nearest', grid: 'Grid', none: '' },
@@ -86,6 +87,7 @@ export const linkedVi: LinkedMessages = {
   },
   plan: {
     typed: 'Gõ chiều dài (4200), @dx,dy, x,y, 4200<90 hoặc R2500 · Enter',
+    wallHint: 'Bấm điểm đầu rồi từng góc — hoặc gõ chiều dài (4200, @4200<90, @dx,dy) · Shift = khoá góc 15° · Alt = tắt bắt điểm · Esc / bấm đúp để kết thúc',
     typedBad: 'Không hiểu: {v}', typedRadius: 'Tường tiếp theo: cung bán kính {r} mm',
     arcMode: 'Dạng tường', arcHint: 'Bấm điểm đầu, điểm cuối, rồi một điểm cung đi qua · hoặc gõ R2500',
     snap: { end: 'Điểm đầu mút', mid: 'Trung điểm', int: 'Giao điểm', perp: 'Vuông góc', near: 'Gần nhất', grid: 'Lưới', none: '' },

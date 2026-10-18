@@ -23,6 +23,8 @@ import { Modal } from '../../components/ui/Modal'
 import { useBim, type BimTool } from '../../state/bim'
 import { nextMark } from '../../bim/geometry'
 import { FromCadDialog } from './FromCadDialog'
+import { PerimeterRoofDialog, SmartRoomDialog, StairDialog } from './LinkedDialogs'
+import { useLinkedT } from '../../i18n/ws/linked'
 import s from './BimRibbon.module.css'
 
 type ToolKey = keyof ReturnType<typeof useT>['bim']['tools']
@@ -51,6 +53,9 @@ export function BimRibbon() {
   const { tool, set } = useBim()
   const [levelOpen, setLevelOpen] = useState(false)
   const [fromCad, setFromCad] = useState(false)
+  // v2.4: Smart Room, roof from perimeter, L / U stair (More menu)
+  const L = useLinkedT()
+  const [dlg, setDlg] = useState<'smart' | 'roof' | 'stair' | null>(null)
   // drawing tools work in the plan view of the current level
   const pick = (k: ToolKey) => (k === 'level' ? setLevelOpen(true) : set({ tool: k as BimTool, view: 'plan', selection: null, pendingComponent: null }))
   return (
@@ -81,7 +86,7 @@ export function BimRibbon() {
             <PopoverPanel width={210}>
               <MenuList
                 onClose={() => setMoreOpen(false)}
-                items={[...(['curtainWall', 'ceiling', 'railing', 'component'] as const).map((k) => ({ label: t.tools[k], onSelect: () => pick(k) })), { label: t.fromCad.menu, onSelect: () => setFromCad(true) }]}
+                items={[...(['curtainWall', 'ceiling', 'railing', 'component'] as const).map((k) => ({ label: t.tools[k], onSelect: () => pick(k) })), { label: L.smart.menu, onSelect: () => setDlg('smart') }, { label: L.roof.menu, onSelect: () => setDlg('roof') }, { label: L.stair.menu, onSelect: () => setDlg('stair') }, { label: t.fromCad.menu, onSelect: () => setFromCad(true) }]}
               />
             </PopoverPanel>
           )}
@@ -89,6 +94,9 @@ export function BimRibbon() {
       </div>
       {levelOpen && <LevelDialog onClose={() => setLevelOpen(false)} />}
       {fromCad && <FromCadDialog onClose={() => setFromCad(false)} />}
+      {dlg === 'smart' && <SmartRoomDialog onClose={() => setDlg(null)} />}
+      {dlg === 'roof' && <PerimeterRoofDialog onClose={() => setDlg(null)} />}
+      {dlg === 'stair' && <StairDialog onClose={() => setDlg(null)} />}
     </div>
   )
 }
