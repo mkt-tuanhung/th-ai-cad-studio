@@ -10,13 +10,24 @@ export interface InteriorDoc {
   cabinets: Cabinet[]
   /** Plan dimensions (a → b, mm) and tags (target = item or room id). */
   notes?: { id: string; kind: 'dimension' | 'tag'; a: [number, number]; b?: [number, number]; target?: string }[]
+  /** Space Planning clearance table of this project (guidance values, mm); missing keys use the defaults. */
+  clearance?: Partial<Record<'cabinetFront' | 'bedSide' | 'circulation' | 'doorApproach' | 'hostTolerance', number>>
+}
+
+/** Space Planning sub-panels (bottom card) and view modes (viewer). */
+export type SpaceTab = 'library' | 'checks' | 'layouts' | 'elevation' | 'schedule'
+export type SpaceView = 'plan' | 'live' | 'walk' | 'render' | 'production'
+/** A layout option or any proposed change shown in the plan / 3D without being applied. */
+export interface SpacePreview {
+  label: string
+  doc: InteriorDoc
 }
 
 /** Plan views of the interior: furniture layout (floor), reflected ceiling, finishes. */
 export type InteriorPlan = 'floor' | 'ceiling' | 'finish'
 
 export type InteriorTab = 'design' | 'renders' | 'drawings' | 'schedule'
-export type InteriorBottom = 'furniture' | 'materials' | 'cutlist' | 'quantities'
+export type InteriorBottom = 'furniture' | 'materials' | 'cutlist' | 'quantities' | 'space'
 export type InteriorRight = 'properties' | 'materials' | 'ai'
 export type InteriorMode = 'realistic' | 'shaded' | 'wireframe' | 'hidden'
 export interface CamPrefs {
@@ -61,6 +72,12 @@ interface InteriorState extends Undoable<InteriorDoc> {
   /** Nesting & CNC settings (persisted with the workspace, not part of the design undo history). */
   cam: CamPrefs
   nestingOpen: boolean
+  /* ---- Space Planning (not persisted) ---- */
+  spTab: SpaceTab
+  /** Selected instance of the selected item (items with qty > 1). */
+  inst: number
+  /** Option / proposal being previewed (plan + 3D show it; nothing is applied). */
+  preview: SpacePreview | null
 
   edit: (label: string, fn: (d: InteriorDoc) => InteriorDoc) => string | null
   undo: () => string | null
@@ -81,6 +98,11 @@ export function validateInterior(d: InteriorDoc): string | null {
     if (!(i.qty >= 1 && Number.isInteger(i.qty))) return `${i.name}: quantity`
     if (i.dia !== undefined ? !(i.dia > 0) : !((i.w ?? 0) > 0 && (i.d ?? 0) > 0)) return `${i.name}: size`
     if (!(i.h > 0)) return `${i.name}: height`
+    // Space Planning: per-part finishes, elevation within the room height
+    for (const [part, f] of Object.entries(i.parts ?? {})) if (!mats.has(f.material)) return `${i.name}: ${part} material`
+    if (i.elev !== undefined && !(i.elev >= 0)) return `${i.name}: elevation`
+    const rm = d.rooms.find((r) => r.id === i.room)
+    if (rm && i.category !== 'lighting' && (i.elev ?? 0) + i.h > rm.ceilingHeight) return `${i.name}: above the ceiling`
   }
   for (const c of d.cabinets) {
     if (!(c.w >= 300 && c.w <= 6000 && c.d >= 250 && c.d <= 900 && c.h >= 300 && c.h <= 2800)) return `${c.name}: size`
@@ -89,6 +111,13 @@ export function validateInterior(d: InteriorDoc): string | null {
     if (c.doors && c.w / c.doors < 250) return `${c.name}: doors`
   }
   for (const r of d.rooms) if (!(r.ceilingHeight >= 2200 && r.ceilingHeight <= 6000)) return `${r.name}: ceiling height`
+  for (const r of d.rooms)
+    for (const dr of r.doors ?? []) {
+      const p = r.outline[dr.wall], q = r.outline[(dr.wall + 1) % r.outline.length]
+      if (!p || !q) return `${r.name}: door wall`
+      const len = Math.hypot(q.x - p.x, q.y - p.y)
+      if (!(dr.at >= 0) || (dr.width !== undefined && !(dr.width >= 500 && dr.at + dr.width <= len))) return `${r.name}: door`
+    }
   for (let i = 0; i < d.rooms.length; i++)
     for (let j = i + 1; j < d.rooms.length; j++) if (roomOverlap(d.rooms[i].outline, d.rooms[j].outline) > 0) return `${d.rooms[i].name} / ${d.rooms[j].name}: overlap`
   return null
@@ -122,9 +151,12 @@ export const useInterior = create<InteriorState>()(
       nativeVolumes: null,
       cam: DEFAULT_CAM_PREFS,
       nestingOpen: false,
+      spTab: 'library',
+      inst: 0,
+      preview: null,
       ...undoableActions<InteriorDoc, InteriorState>(get, set, validateInterior),
       set: (p) => set(p),
-      reset: () => set({ doc: initialDoc(), undoStack: [], redoStack: [], sel: null, appliedPreset: null }),
+      reset: () => set({ doc: initialDoc(), undoStack: [], redoStack: [], sel: null, appliedPreset: null, preview: null, inst: 0 }),
     }),
     {
       name: 'thcad.interior',

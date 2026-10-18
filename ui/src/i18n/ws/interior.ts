@@ -1,3 +1,5 @@
+import { spaceEn, spaceVi } from './interiorSpace'
+
 export const interiorEn = {
   crumbs: { projects: 'Projects', project: 'Villa Riverside', discipline: 'Interior Design' },
   disciplines: { architecture: 'Architecture (BIM)', interior: 'Interior Design', mep: 'MEP' },
@@ -5,7 +7,7 @@ export const interiorEn = {
   share: 'Share',
   export: 'Export',
   ai: 'AI Assistant',
-  exportItems: { furniture: 'Furniture schedule (CSV)', cutlist: 'Cut list — production (CSV)', quantities: 'Room quantities (CSV)' },
+  exportItems: { furniture: 'Furniture schedule (CSV)', cutlist: 'Cut list — production (CSV)', quantities: 'Room quantities (CSV)', roomSchedule: 'Room item schedule — measured from the scene (CSV)' },
   tools: {
     select: 'Select',
     furniture: 'Furniture',
@@ -77,7 +79,7 @@ export const interiorEn = {
     camera: 'Camera',
     level1: 'Level 1',
   },
-  bottom: { furniture: 'Furniture & Items', materials: 'Materials', cutlist: 'Cut List (Production)', quantities: 'Room Quantities', viewAll: 'View all', showLess: 'Show less' },
+  bottom: { furniture: 'Furniture & Items', materials: 'Materials', cutlist: 'Cut List (Production)', quantities: 'Room Quantities', space: 'Space Planning', viewAll: 'View all', showLess: 'Show less' },
   cols: {
     image: 'Image',
     name: 'Name',
@@ -174,7 +176,8 @@ export const interiorEn = {
     applied: 'Applied',
     presetNote: 'Style presets apply a fixed material palette (rule-based, not AI). Images are DEMO.',
     presets: { modernLuxury: 'Modern Luxury', japandi: 'Japandi Style' },
-    generateNote: 'Layout generation runs on the local AI model in the desktop app; its proposal is previewed and applied only when you approve it.',
+    generateNote: 'Furniture layouts: Space Planning → Layouts generates up to 3 rule-checked options for the room (scores computed, not AI); preview, then apply or reject. The local AI can only rank and explain them.',
+    openLayouts: 'Open layout options',
     modifyNote: 'Select an item and edit it in Properties, or describe the change above: in the desktop app the local AI proposes it for you to approve.',
     defaultPrompt: 'Suggest a modern living room with wood finishes, neutral tones and a TV feature wall.',
   },
@@ -203,6 +206,7 @@ export const interiorEn = {
     reset: 'Sample data restored',
     brief: 'Brief saved',
   },
+  space: spaceEn,
 }
 
 export const interiorVi: typeof interiorEn = {
@@ -212,7 +216,7 @@ export const interiorVi: typeof interiorEn = {
   share: 'Chia sẻ',
   export: 'Xuất',
   ai: 'Trợ lý AI',
-  exportItems: { furniture: 'Bảng thống kê nội thất (CSV)', cutlist: 'Bảng cắt ván — sản xuất (CSV)', quantities: 'Khối lượng phòng (CSV)' },
+  exportItems: { furniture: 'Bảng thống kê nội thất (CSV)', cutlist: 'Bảng cắt ván — sản xuất (CSV)', quantities: 'Khối lượng phòng (CSV)', roomSchedule: 'Thống kê nội thất theo phòng — đo từ cảnh (CSV)' },
   tools: {
     select: 'Chọn',
     furniture: 'Nội thất',
@@ -284,7 +288,7 @@ export const interiorVi: typeof interiorEn = {
     camera: 'Camera',
     level1: 'Tầng 1',
   },
-  bottom: { furniture: 'Nội thất & Vật dụng', materials: 'Vật liệu', cutlist: 'Bảng cắt (Sản xuất)', quantities: 'Khối lượng phòng', viewAll: 'Xem tất cả', showLess: 'Thu gọn' },
+  bottom: { furniture: 'Nội thất & Vật dụng', materials: 'Vật liệu', cutlist: 'Bảng cắt (Sản xuất)', quantities: 'Khối lượng phòng', space: 'Bố trí không gian', viewAll: 'Xem tất cả', showLess: 'Thu gọn' },
   cols: {
     image: 'Ảnh',
     name: 'Tên',
@@ -381,7 +385,8 @@ export const interiorVi: typeof interiorEn = {
     applied: 'Đã áp dụng',
     presetNote: 'Mẫu phong cách áp một bảng vật liệu cố định (theo luật, không phải AI). Ảnh là DEMO.',
     presets: { modernLuxury: 'Hiện đại sang trọng', japandi: 'Phong cách Japandi' },
-    generateNote: 'Tạo bố trí chạy trên mô hình AI cục bộ trong ứng dụng desktop; đề xuất được xem trước và chỉ áp dụng khi bạn duyệt.',
+    generateNote: 'Bố trí nội thất: Bố trí không gian → Phương án tạo tối đa 3 phương án đã kiểm tra theo luật cho phòng (điểm do code tính, không phải AI); xem trước rồi áp dụng hoặc từ chối. AI cục bộ chỉ xếp hạng và giải thích.',
+    openLayouts: 'Mở các phương án bố trí',
     modifyNote: 'Chọn một mục rồi sửa trong Thuộc tính, hoặc mô tả thay đổi ở trên: trong app desktop AI cục bộ đề xuất để bạn duyệt.',
     defaultPrompt: 'Gợi ý phòng khách hiện đại với hoàn thiện gỗ, tông màu trung tính và mảng tường TV.',
   },
@@ -437,4 +442,5 @@ export const interiorVi: typeof interiorEn = {
     reset: 'Đã khôi phục dữ liệu mẫu',
     brief: 'Đã lưu yêu cầu',
   },
+  space: spaceVi,
 }

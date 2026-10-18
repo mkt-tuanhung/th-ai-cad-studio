@@ -6,7 +6,7 @@ import { useInterior, type InteriorMode } from '../../state/interior'
 import { Modes, Select, ToolStrip, Viewport, wsStyles as w } from '../../components/workspace/Workspace'
 import { NativeScene, type SceneCamera, type SceneLoad } from '../../components/workspace/NativeScene'
 import { useHost } from '../../services/host'
-import { interiorScene, interiorSceneId } from '../../interior/scene'
+import { interiorScene, interiorSceneId, sceneItemOwner } from '../../interior/scene'
 import { explodeScene } from '../../engine3d/scene'
 import { useSceneTools } from '../../components/workspace/sceneTools'
 import s from './Interior.module.css'
@@ -26,7 +26,9 @@ const MODES: { key: InteriorMode; w: number }[] = [
 export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax: () => void; onLoaded?: (r: SceneLoad) => void }) {
   const T = useT()
   const t = T.interior.viewer
-  const { mode, view, level, scale, sel, doc, edit, set, room, cut } = useInterior()
+  const { mode, view, level, scale, sel, doc: model, edit, set, room, cut, preview } = useInterior()
+  // a previewed layout option / fix is shown in 3D too (nothing is applied until the user applies it)
+  const doc = preview?.doc ?? model
   const native = (what: string) => toast(fmt(T.interior.toast.native, { what }))
   const host = useHost()
   const live = !!host && mode !== 'realistic'
@@ -104,7 +106,7 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
   const removeSel = () => {
     if (sel?.kind !== 'item') return native(t.remove)
-    const it = doc.items.find((i) => i.id === sel.id)
+    const it = model.items.find((i) => i.id === sel.id)
     if (!it) return
     edit(`Remove ${it.name}`, (d) => ({ ...d, items: d.items.filter((i) => i.id !== it.id) }))
     set({ sel: null })
@@ -133,11 +135,13 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
           onPick={(id) => {
             const rid = id.startsWith('room:') || id.startsWith('walls:') ? id.split(':')[1] : null
             if (rid) return set({ sel: { kind: 'room', id: rid }, room: rid, browserSel: `room-${rid}`, right: 'properties' })
-            set({ sel: { kind: 'item', id }, right: 'properties' })
+            // per-part finish items are `<item>::<part>`
+            set({ sel: { kind: 'item', id: sceneItemOwner(id) }, right: 'properties' })
           }}
         />
       )}
       {live && <tools.Chips />}
+      {preview && <span className={s.cutLabel} style={{ top: 54 }} data-testid="interior-preview">{fmt(T.interior.space.layouts.previewing, { label: preview.label })}</span>}
       {live && cut && <span className={s.cutLabel} data-testid="interior-cut">{T.interior.plan.cuts[cut as keyof typeof T.interior.plan.cuts] ?? cut}</span>}
       <Select
         label={t.camera}

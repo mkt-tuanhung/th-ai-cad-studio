@@ -52,7 +52,7 @@ export const interiorAi: Discipline<InteriorDoc> = {
       case 'setItemStatus':
         return { model: upd({ status: a.status as Item['status'] }), change: `${item!.name}: ${item!.status} → ${a.status}` }
       case 'addItem': {
-        const it: Item = { id: `i${Date.now()}${Math.floor(Math.random() * 1000)}`, name: String(a.name).slice(0, 60) || 'Item', category: a.category as ItemCategory, room: a.room as string, w: a.w as number, d: a.d as number, h: a.h as number, material: a.material as string, qty: a.qty as number, status: 'planned' }
+        const it: Item = { id: `i${Date.now()}${Math.floor(Math.random() * 1000)}`, name: String(a.name).slice(0, 60) || 'Item', category: a.category as ItemCategory, room: a.room as string, w: a.w as number, d: a.d as number, h: a.h as number, material: a.material as string, qty: a.qty as number, status: 'planned', src: { kind: 'ai', reviewRequired: true } }
         return { model: { ...d, items: [...d.items, it] }, change: `+ ${it.name} (${it.category}) in ${room(it.room)}: ${dimsLabel(it)} mm, ${it.material} × ${it.qty} (planned)` }
       }
       case 'removeItem':

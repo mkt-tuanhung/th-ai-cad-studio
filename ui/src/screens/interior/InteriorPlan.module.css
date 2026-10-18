@@ -123,3 +123,46 @@
   background: #fff;
   cursor: pointer;
 }
+/* Space Planning in the plan */
+.tile {
+  pointer-events: none;
+}
+.tileLine {
+  fill: none;
+  stroke: rgba(31, 41, 55, 0.28);
+  stroke-width: 0.6;
+}
+.door line,
+.door path {
+  fill: none;
+  stroke: #0f766e;
+  stroke-width: 1.4;
+}
+.door line:first-child {
+  stroke: #fbfbfa;
+  stroke-width: 4;
+}
+.door text {
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+  fill: #b42318;
+}
+.doorUnknown line:first-child {
+  stroke: #f3b8b2;
+}
+.issue {
+  fill: rgba(220, 38, 38, 0.14) !important;
+  stroke: #dc2626 !important;
+  stroke-width: 1.8 !important;
+}
+.locked {
+  stroke-width: 1.6;
+}
+.selInst {
+  fill: rgba(15, 118, 110, 0.18) !important;
+}
+.previewing {
+  border-color: #1a8a8c;
+  box-shadow: inset 0 0 0 2px rgba(26, 138, 140, 0.35);
+}

@@ -8,6 +8,8 @@ import { MATERIALS, cutList, cutTotals, dimsLabel, roomQuantities, type CutPart,
 import { cutListVolume } from '../../interior/scene'
 import { nest, piecesOf } from '../../cam/nesting'
 import { nestSettings } from './NestingDialog'
+import { SpacePlanning } from './SpacePlanning'
+import { productionGate } from '../../interior/production'
 import s from './Interior.module.css'
 
 const n2 = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -21,8 +23,10 @@ export function InteriorBottom({ full }: { full?: boolean }) {
   // real nesting of the cut lists (same engine as the Nesting & CNC dialog)
   const nested = useMemo(() => {
     const ns = nestSettings(cam)
-    return { r: nest(piecesOf(doc.cabinets), ns), stock: `${ns.sheetL} × ${ns.sheetW}` }
-  }, [doc.cabinets, cam])
+    // only cabinets with real (confirmed) dimensions enter manufacturing (V24-024)
+    return { r: nest(piecesOf(productionGate(doc).ok), ns), stock: `${ns.sheetL} × ${ns.sheetW}` }
+  }, [doc, cam])
+  const blocked = useMemo(() => productionGate(doc).blocked, [doc])
   const [all, setAll] = useState(false)
   const rn = (id: string) => {
     const r = doc.rooms.find((x) => x.id === id)
@@ -96,8 +100,9 @@ export function InteriorBottom({ full }: { full?: boolean }) {
     { key: 'materials', label: t.bottom.materials },
     { key: 'cutlist', label: t.bottom.cutlist },
     { key: 'quantities', label: t.bottom.quantities },
+    { key: 'space', label: t.bottom.space },
   ]
-  const tabW: Record<Tab, number> = { furniture: 115, materials: 85, cutlist: 149, quantities: 120 }
+  const tabW: Record<Tab, number> = { furniture: 115, materials: 85, cutlist: 149, quantities: 120, space: 128 }
 
   return (
     <TabCard
@@ -148,10 +153,16 @@ export function InteriorBottom({ full }: { full?: boolean }) {
               <button type="button" className={w.link} onClick={() => set({ nestingOpen: true })} data-testid="open-nesting">{t.cam.title}…</button>
             </em>
             {nativeVolumes && <Check3d />}
+            {blocked.length > 0 && (
+              <em data-testid="cut-blocked" className={s.cutBlocked}>
+                {blocked.map((b) => `${b.cabinet.name}: ${fmt(t.space.insp.madeNo, { why: t.space.insp.reasons[b.reason] })}`).join(' · ')}
+              </em>
+            )}
           </p>
           <Table label={t.bottom.cutlist} columns={cutCols} rows={parts.map((p, i) => ({ ...p, k: `${p.cabinet}-${p.part}-${i}` }))} rowKey={(p) => p.k} rowH={24} />
         </>
       )}
+      {bottom === 'space' && <SpacePlanning />}
       {bottom === 'quantities' && (
         <>
           <p className={s.cutSum}><em>{t.qty.gross}</em></p>
@@ -169,7 +180,9 @@ function Check3d() {
   const rows = doc.cabinets
     .map((c) => ({ c, item: doc.items.find((i) => i.cabinet === c.id) }))
     .filter((r) => r.item && nativeVolumes?.[r.item.id] !== undefined)
-    .map(({ c, item }) => ({ name: c.name, d: ((nativeVolumes![item!.id] / ((item!.qty || 1) * cutListVolume(c))) - 1) * 100 }))
+    // per-part finishes split an item into `<id>` + `<id>::<part>` scene items: their volumes add up
+    .map(({ c, item }) => ({ c, item, v: Object.entries(nativeVolumes!).filter(([k]) => k === item!.id || k.startsWith(`${item!.id}::`)).reduce((a, [, v]) => a + v, 0) }))
+    .map(({ c, item, v }) => ({ name: c.name, d: ((v / ((item!.qty || 1) * cutListVolume(c))) - 1) * 100 }))
   const bad = rows.find((r) => Math.abs(r.d) > 0.1)
   return <em data-testid="cut-check3d">{bad ? fmt(t.check3dBad, { name: bad.name, d: bad.d.toFixed(2) }) : fmt(t.check3d, { ok: rows.length, n: rows.length })}</em>
 }

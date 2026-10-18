@@ -10,6 +10,7 @@ import { undoKeys } from '../../state/undoable'
 import { AiSparkIcon, DimensionToolIcon, ExportToolIcon, TagToolIcon } from '../../components/icons'
 import { WsButton, WsHeader, WsRibbon, csv, downloadFile } from '../../components/workspace/Workspace'
 import { cutList, dimsLabel, roomQuantities } from '../../interior/model'
+import { roomSchedule, scheduleCsvRows } from '../../interior/production'
 import { InteriorBrowser } from './InteriorBrowser'
 import { InteriorViewport } from './InteriorViewport'
 import { InteriorPlan } from './InteriorPlan'
@@ -37,12 +38,13 @@ export function InteriorScreen() {
     return () => window.removeEventListener('keydown', onKey)
   }, [st.undo, st.redo, t])
 
-  const exportCsv = (kind: 'furniture' | 'cutlist' | 'quantities') => {
+  const exportCsv = (kind: 'furniture' | 'cutlist' | 'quantities' | 'roomSchedule') => {
     const d = useInterior.getState().doc
     const room = (id: string) => d.rooms.find((r) => r.id === id)?.name ?? id
     let rows: (string | number)[][]
     if (kind === 'furniture') rows = [['Name', 'Category', 'Room', 'Dimensions (mm)', 'Material', 'Qty', 'Status'], ...d.items.map((i) => [i.name, i.category, room(i.room), dimsLabel(i), i.material, i.qty, i.status])]
     else if (kind === 'cutlist') rows = [['Cabinet', 'Part', 'Qty', 'Length (mm)', 'Width (mm)', 'Thickness (mm)', 'Material', 'Edge banding per piece (mm)'], ...d.cabinets.flatMap(cutList).map((p) => [p.cabinet, p.part, p.qty, p.l, p.wd, p.t, p.material, p.edge])]
+    else if (kind === 'roomSchedule') rows = scheduleCsvRows(roomSchedule(d), room)
     else rows = [['Room', 'Floor (m2)', 'Perimeter (m)', 'Walls gross (m2)', 'Ceiling (m2)', 'Ceiling height (mm)', 'Floor finish', 'Wall finish'], ...d.rooms.map(roomQuantities).map((q) => [q.room.name, q.floor.toFixed(2), q.perimeter.toFixed(2), q.wall.toFixed(2), q.ceiling.toFixed(2), q.room.ceilingHeight, q.room.floorFinish, q.room.wallFinish])]
     const file = `Villa Riverside - ${t.exportItems[kind].replace(/ \(CSV\)$/, '')}.csv`
     downloadFile(file, csv(rows))
@@ -84,7 +86,7 @@ export function InteriorScreen() {
                 icon={<ExportToolIcon size={19} strokeWidth={1.5} />}
                 label={t.export}
                 width={104}
-                menu={(['furniture', 'cutlist', 'quantities'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) }))}
+                menu={(['furniture', 'cutlist', 'quantities', 'roomSchedule'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) }))}
               />
               <WsButton primary icon={<AiSparkIcon size={19} strokeWidth={1.7} />} label={t.ai} width={130} onClick={() => st.set({ right: 'ai' })} />
             </>
