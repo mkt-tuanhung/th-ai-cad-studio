@@ -23,6 +23,9 @@ import { roofQuantities } from '../../bim/roof'
 import { nest, piecesOf } from '../../cam/nesting'
 import { nestSettings } from '../interior/NestingDialog'
 import { applyBim, applyCivil, applyInterior, applyMep, buildNames, checkBim, checkCivil, checkInterior, checkMep, type Applied } from '../bim/fromCadActions'
+import { useAiStudio } from '../../state/aiStudio'
+import { beginApply, createJob, finishStep, isApplied, markApplied, readyForReview, restartCompute, startStep, stepFailed, type AiJob } from '../../ai/jobs'
+import { fabricationAllowed } from '../../cad/provenance'
 import s from './Auto.module.css'
 
 type Phase = 'pick' | 'run' | 'review' | 'write' | 'done' | 'error'
@@ -31,6 +34,11 @@ type Part = 'house' | 'interior' | 'route' | 'mep'
 const PARTS: Part[] = ['house', 'interior', 'route', 'mep']
 const STORE_OF: Record<Part, BackupStore> = { house: 'bim', interior: 'interior', route: 'civil', mep: 'mep' }
 const STEPS: StepKey[] = ['read', 'layers', 'ai', 'house', 'route', 'build', 'structure', 'check', 'views']
+/** The job steps of one command (v2.4 AI job queue): the compute steps above, the approval, one apply step each. */
+export const AUTO_STEPS: readonly string[] = STEPS
+const APPLY = ['apply-bim', 'apply-interior', 'apply-route', 'apply-mep', 'write-files'] as const
+const APPLY_OF: Record<Part, (typeof APPLY)[number]> = { house: 'apply-bim', interior: 'apply-interior', route: 'apply-route', mep: 'apply-mep' }
+const jobSteps = () => [...STEPS.map((id) => ({ id, kind: 'compute' as const })), { id: 'approve', kind: 'user' as const }, ...APPLY.map((id) => ({ id, kind: 'apply' as const }))]
 const n0 = (v: number) => Math.round(v).toLocaleString('en-US')
 const why = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -48,6 +56,13 @@ export function AutoDialog() {
   const t = T.auto
   const lang = useLang()
   const hide = useAutoRun((st) => st.hide)
+  const jobId = useAutoRun((st) => st.jobId)
+  // v2.4: the run is an AI job with step checkpoints (persisted) — resumable after a restart, applied steps never twice
+  const aiJob = useRef<AiJob | null>(null)
+  const saveJob = (j: AiJob) => { aiJob.current = j; useAiStudio.getState().saveJob(j) }
+  const [resumedApplied, setResumedApplied] = useState(0)
+  /** The source drawing's manufacturing gate (v2.4): an unverified import must not feed CNC files. */
+  const [srcGate, setSrcGate] = useState<{ file: string; ok: boolean } | null>(null)
   const navigate = useRouter((st) => st.navigate)
   const cadDocs = useCad((st) => st.docs)
   const [phase, setPhase] = useState<Phase>('pick')
@@ -98,6 +113,16 @@ export function AutoDialog() {
     setSteps({ read: 'run' })
     setOutcome(null); setError(null); setWritten(null); setDir(null); applied.current = new Set(); job.current = null
     const f = picked?.find((x) => !/\.csv$/i.test(x.name))
+    {
+      const prev = jobId ? useAiStudio.getState().jobs.find((x) => x.id === jobId && x.status !== 'archived') : null
+      const file = doc?.name ?? f?.name ?? ''
+      const input = doc ? { docId: doc.id, file } : { file, files: (picked ?? []).map((x) => x.name) }
+      // a resumed job recomputes (pure) and keeps what was already applied
+      let j = prev ? restartCompute({ ...prev, input: { ...prev.input, ...input }, questions: prev.questions.filter((q) => q.code !== 'reselect-file' && q.code !== 'open-drawing') }) : createJob({ preset: 'one-command', title: fmt(T.importCal.jobs.jobTitleAuto, { file }), steps: jobSteps(), input })
+      setResumedApplied(prev ? APPLY.filter((id) => isApplied(prev, id)).length : 0)
+      j = startStep(j, 'read')
+      saveJob(j)
+    }
     try {
       // several files, in any order: the drawings (each classified by its content) and a unit price list (CSV)
       const drawingsIn = (picked ?? []).filter((x) => !/\.csv$/i.test(x.name))
@@ -108,6 +133,7 @@ export function AutoDialog() {
       const un = Object.fromEntries(reads.map((r) => [r.doc.name, r.units]))
       setUnits(un)
       const d = docs[0] ?? null
+      setSrcGate(d ? { file: d.name, ok: fabricationAllowed(d).ok } : null)
       if (!d) return setPhase('pick')
       const host = await getHost()
       setDesktop(!!host)
@@ -116,9 +142,12 @@ export function AutoDialog() {
       setAiOn(useAi)
       const seen: StepKey[] = ['read']
       setSteps({ read: 'done' })
+      if (aiJob.current) saveJob(finishStep(aiJob.current, 'read', d.name))
+      // checkpoint per step: the previous one done, this one running
+      const mark = (st: StepKey) => { if (!aiJob.current) return; const prev = seen[seen.length - 2]; let j = aiJob.current; if (prev) j = finishStep(j, prev); saveJob(startStep(j, st)) }
       let r = await runAuto(d, {
         host, useAi, names: buildNames(T.bim.fromCad), levelName: (n) => fmt(T.bim.fromCad.levelDefault, { n }), civilBase: useCivil.getState().doc, extras: docs.slice(1), units: un,
-        onStep: (st) => { seen.push(st); setSteps(Object.fromEntries(seen.map((k, i) => [k, i === seen.length - 1 ? 'run' : 'done']))) },
+        onStep: (st) => { seen.push(st); setSteps(Object.fromEntries(seen.map((k, i) => [k, i === seen.length - 1 ? 'run' : 'done']))); mark(st) },
       })
       // elevations and sections: the OCCT kernel of the desktop app
       if (host && r.house) {
@@ -128,11 +157,18 @@ export function AutoDialog() {
         r = { ...r, house: { ...r.house, views: v }, ms: r.ms + v.ms }
       }
       setSteps(Object.fromEntries(STEPS.map((k) => [k, seen.includes(k) ? 'done' : 'skip'])))
+      if (aiJob.current) {
+        let j = aiJob.current
+        for (const k of STEPS) j = finishStep(j, k, undefined, seen.includes(k) ? 'done' : 'skipped')
+        // waiting for the approval (the job queue can reopen this review)
+        saveJob({ ...readyForReview(j), pre: [`${t.kinds[r.kind]} — ${r.file}`] })
+      }
       setRes(r)
       setKeep({ house: !!r.house, interior: !!r.house?.interior, route: !!r.route, mep: !!r.mepModel, files: r.kind !== 'none' })
       setPhase('review')
     } catch (e) {
       const w = why(e)
+      if (aiJob.current) saveJob({ ...aiJob.current, status: 'failed', error: w, updatedAt: Date.now() })
       toast(w === 'no-dwg-reader' ? T.bim.fromCad.noDwgReader : fmt(T.bim.fromCad.openFailed, { name: f?.name ?? doc?.name ?? '', why: w }), 'warning')
       setPhase('pick')
     }
@@ -275,13 +311,16 @@ export function AutoDialog() {
     const all = j.files.length + 1
     setProgress([0, all])
     try {
+      if (aiJob.current) saveJob(beginApply(aiJob.current, 'write-files'))
       const w = await writePackage(j.files, j.report, j.host, j.dir, j.zipName, (n) => setProgress([n, all]))
       setWritten(w)
       setDir(j.dir)
+      if (aiJob.current) saveJob(readyForReview(markApplied(aiJob.current, 'write-files', undefined, j.dir ?? j.zipName)))
       job.current = null
       setTook(Date.now() - started.current)
       setPhase('done')
     } catch (e) {
+      if (aiJob.current) saveJob(stepFailed(aiJob.current, 'write-files', why(e)))
       setError(fmt(t.writeFailed, { why: why(e) }))
       setPhase('error')
     }
@@ -294,15 +333,21 @@ export function AutoDialog() {
     setProgress(null)
     try {
       const label = fmt(t.undoLabel, { name: res.file })
+      if (aiJob.current) saveJob(finishStep(aiJob.current, 'approve'))
       const o: Outcome = { applied: [], rejected: [], backupFailed: [], noFolder: false }
       // each part: its own validated, undoable edit (the replaced model backed up first); never twice
       const run = async (p: Part, on: boolean, f: () => Promise<Applied>) => {
-        if (!on) return
+        const id = APPLY_OF[p]
+        if (!on) { if (aiJob.current) saveJob(finishStep(aiJob.current, id, undefined, 'skipped')); return }
+        // applied in this dialog, or by this job before a restart (resume): never twice
         if (applied.current.has(p)) { o.applied.push(p); return }
-        if (rejected[p]) { o.rejected.push({ part: p, why: rejected[p]! }); return }
+        if (aiJob.current && isApplied(aiJob.current, id)) { saveJob(finishStep(aiJob.current, id, T.importCal.jobs.skipped)); applied.current.add(p); o.applied.push(p); return }
+        if (rejected[p]) { o.rejected.push({ part: p, why: rejected[p]! }); if (aiJob.current) saveJob(stepFailed(aiJob.current, id, rejected[p]!)); return }
+        if (aiJob.current) saveJob(beginApply(aiJob.current, id))
         let r: Applied
         try { r = await f() } catch (e) { r = { error: why(e), backedUp: false } }
-        if (r.error) { o.rejected.push({ part: p, why: r.error }); return }
+        if (r.error) { o.rejected.push({ part: p, why: r.error }); if (aiJob.current) saveJob(stepFailed(aiJob.current, id, r.error)); return }
+        if (aiJob.current) saveJob(markApplied(aiJob.current, id, { store: STORE_OF[p], label }))
         applied.current.add(p)
         o.applied.push(p)
         if (!r.backedUp) o.backupFailed.push(p)
@@ -316,7 +361,8 @@ export function AutoDialog() {
       if (o.rejected.length) toast(o.applied.length ? fmt(t.result.partial, { name: res.file, ok: o.applied.map(partName).join(', '), bad: o.rejected.map((x) => partName(x.part)).join(', ') }) : fmt(t.result.none, { bad: o.rejected.map((x) => partName(x.part)).join(', ') }), 'warning')
       else if (o.applied.length) toast(fmt(t.built, { name: res.file }), 'success')
       for (const p of o.backupFailed) toast(fmt(t.backup.failed, { what: t.backup.stores[STORE_OF[p]] }), 'warning')
-      if (!keep.files) { setTook(Date.now() - started.current); setPhase('done'); return }
+      const noFiles = () => { if (aiJob.current) saveJob(readyForReview(finishStep(aiJob.current, 'write-files', undefined, 'skipped'))) }
+      if (!keep.files) { noFiles(); setTook(Date.now() - started.current); setPhase('done'); return }
       // the package of the parts applied (a part rejected now leaves its files out too)
       const ok = (p: Part) => keep[p] && !o.rejected.some((x) => x.part === p)
       let out: OutFile[]
@@ -327,7 +373,7 @@ export function AutoDialog() {
         setPhase('error')
         return
       }
-      if (!out.length) { setTook(Date.now() - started.current); setPhase('done'); return }
+      if (!out.length) { noFiles(); setTook(Date.now() - started.current); setPhase('done'); return }
       const host = await getHost()
       let d: string | null = null
       if (host) {
@@ -357,6 +403,14 @@ export function AutoDialog() {
   }
 
   const docList = Object.values(cadDocs)
+  // a job resumed from the AI job queue: the drawing it ran on is opened again (its applied steps are skipped);
+  // a file read from disk is not kept between sessions — the user selects it again
+  const resumeJob = jobId ? useAiStudio.getState().jobs.find((x) => x.id === jobId) ?? null : null
+  useEffect(() => {
+    const d = resumeJob?.input.docId ? useCad.getState().docs[resumeJob.input.docId] : null
+    if (d && phase === 'pick') void start(d)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const go = (r: 'bim' | 'interior' | 'civil' | 'mep') => { hide(); navigate(r) }
   const failed = written?.filter((w) => !w.ok) ?? []
   const icon = (k: StepKey) => {
@@ -379,6 +433,9 @@ export function AutoDialog() {
     <Modal title={t.title} onClose={hide} width={860}>
       <div className={s.box} data-testid="auto">
         <p className={s.note}>{t.intro}</p>
+        {phase === 'pick' && resumeJob && !resumeJob.input.docId && resumeJob.input.file && (
+          <p className={s.warnBox} role="alert" data-testid="auto-reselect">{fmt(T.importCal.jobs.q['reselect-file'], { file: resumeJob.input.file })}</p>
+        )}
         {phase === 'pick' && (
           <>
             <div
@@ -454,6 +511,8 @@ export function AutoDialog() {
                 {summary.warnings.length > 12 && <div>{fmt(t.more, { n: summary.warnings.length - 12 })}</div>}
               </details>
             )}
+            {phase === 'review' && resumedApplied > 0 && <p className={s.note} role="status" data-testid="auto-resumed">{fmt(T.importCal.jobs.resumeNote, { n: resumedApplied })}</p>}
+            {phase === 'review' && srcGate && !srcGate.ok && <p className={s.warnBox} role="alert" data-testid="auto-review-required">{fmt(T.importCal.review.autoBlocked, { file: srcGate.file })}</p>}
             {phase === 'write' && progress && <p className={s.note} role="status">{fmt(t.writing, { n: progress[0], m: progress[1] })}</p>}
             {phase === 'error' && (
               <div className={s.card} data-testid="auto-error">
