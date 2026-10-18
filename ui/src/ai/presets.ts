@@ -20,9 +20,10 @@ export interface PresetDef {
 export const PRESETS: PresetDef[] = [
   { id: 'scan', status: 'available', route: 'cad2d', job: true },
   { id: 'cad3d', status: 'available', route: 'bim', job: true },
-  // Space Planning / layout generator: being built in Interior (v2.4 M2) — the input check runs here already
-  { id: 'layout', status: 'dev', route: 'interior', job: false },
-  { id: 'options3', status: 'dev', route: 'interior', job: false },
+  // Space Planning layout generator (Interior → Space Planning → Layouts, v2.4 M2): rule-based, checked, scored;
+  // the input check (measured rooms, door widths) runs here too
+  { id: 'layout', status: 'available', route: 'interior', job: false },
+  { id: 'options3', status: 'available', route: 'interior', job: false },
   // OCCT path tracer exists (desktop); the Blender worker is v2.4 M3
   { id: 'render4k', status: 'partial', route: 'renders', job: false },
   { id: 'views', status: 'available', route: 'bim', job: false },

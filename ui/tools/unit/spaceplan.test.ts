@@ -12,6 +12,7 @@ import { materialSpec, uvRepeat } from '../../src/interior/materials'
 import { applyChangeSet, generateLayouts, missingInputs, workTriangle } from '../../src/interior/options'
 import { manufacturable, productionGate, roomSchedule, confirmDims } from '../../src/interior/production'
 import { wallElevation } from '../../src/interior/elevation'
+import { doorsFromBim } from '../../src/interior/bimDoors'
 
 const base = (): InteriorDoc => JSON.parse(JSON.stringify({ rooms: ROOMS, items: ITEMS, cabinets: CABINETS }))
 const near = (a: number, b: number, tol = 0.5) => Math.abs(a - b) <= tol
@@ -220,6 +221,11 @@ export function run() {
   const gm1 = generateLayouts(docMissing, 'm1', 'bedroom')
   const gm2 = generateLayouts(base(), 'master', 'bedroom')
   r.V24_031_needsInput = gm1.status === 'needs-input' && gm1.missing.includes('door.width') && gm2.status === 'needs-input' && gm2.missing.includes('door') && missingInputs(bedRoom).length === 0
+  // doors measured in the BIM model (room built from a CAD plan): a 900 door 300 mm from the wall start, wall centred 100 mm outside
+  const rbd = testRoom('bd', 'Bedroom 5', 3600, 4000)
+  const bx = rbd.outline[0].x
+  const found = doorsFromBim({ walls: [{ id: 'w1', length: 3600, x: bx, y: -100, angle: 0 }, { id: 'w2', length: 4000, x: bx + 3700, y: 0, angle: 90 }], doors: [{ id: 'd1', mark: 'D1', hostWall: 'w1', offset: 300, width: 900 }, { id: 'd2', mark: 'D2', hostWall: 'w2', offset: 1000, width: 800 }] }, rbd)
+  r.doorsFromBim = found.length === 2 && found[0].wall === 0 && found[0].at === 300 && found[0].width === 900 && found[1].wall === 1 && found[1].at === 1000 && generateLayouts({ ...base(), rooms: [...base().rooms, { ...rbd, doors: found }] }, 'bd', 'bedroom').status === 'ok'
   r.kitchenTriangle = gk.status === 'ok' ? gk.options.map((o) => workTriangle(o.doc, 'k1')) : null
 
   /* ---------- V24-037: room item schedule matches the scene ---------- */

@@ -11,6 +11,8 @@ import { materialSpec, partMaterial, partOptions, PARTS } from '../../interior/m
 import { checkClearance } from '../../interior/clearance'
 import { confirmDims, manufacturable } from '../../interior/production'
 import { wallFaces } from '../../interior/geom'
+import { doorsFromBim } from '../../interior/bimDoors'
+import { useBim } from '../../state/bim'
 import { commit, issueText, rulesOf } from './spaceKit'
 import s from './SpacePlanning.module.css'
 
@@ -134,6 +136,9 @@ export function RoomDoors({ r }: { r: Room }) {
     if (err) toast(fmt(T.interior.toast.invalid, { why: err }), 'warning')
   }
   const doors = r.doors ?? []
+  // doors measured in the BIM model on this room's outline (rooms built from a CAD plan share its coordinates)
+  const bim = useBim((st) => st.model)
+  const fromBim = useMemo(() => doorsFromBim(bim, r).filter((d) => !doors.some((x) => x.id === d.id)), [bim, r, doors])
   return (
     <Section title={t.title}>
       {!doors.length && <p className={s.inspNote}>{t.none}</p>}
@@ -154,6 +159,9 @@ export function RoomDoors({ r }: { r: Room }) {
         </div>
       ))}
       <button type="button" className={w.link} onClick={() => up(t.add, (ds) => [...ds, { id: newId('door'), wall: 0, at: 300 }])}>+ {t.add}</button>
+      {fromBim.length > 0 && (
+        <button type="button" className={w.link} data-testid="doors-from-bim" onClick={() => up(fmt(t.fromBim, { n: fromBim.length }), (ds) => [...ds, ...fromBim])}>+ {fmt(t.fromBim, { n: fromBim.length })}</button>
+      )}
     </Section>
   )
 }

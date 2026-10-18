@@ -11,10 +11,11 @@
 .head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: none;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 6px;
+  overflow: hidden;
   border-bottom: 1px solid #f0f2f5;
 }
 
@@ -29,9 +30,9 @@
 
 .views button,
 .subs button {
-  padding: 0 7px;
+  padding: 0 5px;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 9.5px;
   white-space: nowrap;
   color: #3a4352;
 }
@@ -49,8 +50,12 @@
 }
 
 .roomSel {
-  width: 112px;
-  height: 22px;
+  position: relative !important;
+  flex: none;
+  width: 104px;
+  height: 22px !important;
+  padding: 0 6px !important;
+  font-size: 10px !important;
 }
 
 .body {
@@ -128,8 +133,12 @@
 }
 
 .fsel {
+  position: relative !important;
+  flex: none;
   width: 128px;
-  height: 22px;
+  height: 22px !important;
+  padding: 0 6px !important;
+  font-size: 10px !important;
 }
 
 .assets {

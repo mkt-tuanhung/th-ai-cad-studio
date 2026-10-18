@@ -64,7 +64,7 @@ export const spaceEn = {
     storage: 'Storage volume',
     door: 'Door clearance',
     cost: 'Approximate cost',
-    noPrice: 'n/a — no prices in the catalog',
+    noPrice: 'n/a (no prices)',
     triangle: 'Work triangle (guidance 1200–2700 per leg, 4000–7900 total)',
     triOk: 'within guidance',
     triOut: 'outside guidance',
@@ -155,6 +155,7 @@ export const spaceEn = {
     swings: { in: 'Into the room', out: 'Outwards', sliding: 'Sliding' },
     remove: 'Remove',
     none: 'No door yet — layouts and circulation checks need one.',
+    fromBim: 'Take {n} door(s) from the BIM model',
   },
   plan: {
     drop: 'Drop to place',
@@ -229,7 +230,7 @@ export const spaceVi: typeof spaceEn = {
     storage: 'Thể tích lưu trữ',
     door: 'Khoảng trống trước cửa',
     cost: 'Chi phí ước tính',
-    noPrice: 'không có — thư viện chưa có giá',
+    noPrice: 'chưa có giá',
     triangle: 'Tam giác bếp (khuyến nghị 1200–2700 mỗi cạnh, tổng 4000–7900)',
     triOk: 'trong khuyến nghị',
     triOut: 'ngoài khuyến nghị',
@@ -320,6 +321,7 @@ export const spaceVi: typeof spaceEn = {
     swings: { in: 'Mở vào phòng', out: 'Mở ra ngoài', sliding: 'Cửa lùa' },
     remove: 'Xoá',
     none: 'Chưa có cửa — phương án bố trí và kiểm tra lối đi cần có cửa.',
+    fromBim: 'Lấy {n} cửa từ mô hình BIM',
   },
   plan: {
     drop: 'Thả để đặt',
