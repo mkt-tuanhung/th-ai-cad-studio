@@ -1,22 +1,22 @@
 # Licence keys (Ed25519 via libsodium): verification + machine code. Used by the app and the keygen.
-# libsodium: vcpkg (Windows) provides unofficial-sodium; Homebrew (macOS) — the static library is preferred so
-# the app bundle carries no extra dylib.
-find_package(unofficial-sodium CONFIG QUIET)
-if(TARGET unofficial-sodium::sodium)
-  set(THCAD_SODIUM_TARGET unofficial-sodium::sodium)
+# libsodium: vcpkg (Windows, DLL) or Homebrew (macOS; the static library is preferred so the bundle carries no extra dylib).
+# vcpkg's unofficial-sodium CMake config needs the vcpkg toolchain (without it its paths are broken), so the header
+# and the import library are located directly under CMAKE_PREFIX_PATH (vcpkg's x64-windows prefix / Homebrew).
+find_path(SODIUM_INCLUDE_DIR sodium.h HINTS /opt/homebrew/opt/libsodium/include /usr/local/opt/libsodium/include)
+if(WIN32)
+  find_library(SODIUM_LIBRARY NAMES libsodium sodium)  # vcpkg: lib/libsodium.lib (DLL in bin/, staged with the others)
 else()
-  find_path(SODIUM_INCLUDE_DIR sodium.h HINTS /opt/homebrew/opt/libsodium/include /usr/local/opt/libsodium/include)
   find_library(SODIUM_LIBRARY NAMES libsodium.a sodium libsodium HINTS /opt/homebrew/opt/libsodium/lib /usr/local/opt/libsodium/lib)
-  if(SODIUM_INCLUDE_DIR AND SODIUM_LIBRARY)
-    add_library(thcad_sodium INTERFACE)
-    target_include_directories(thcad_sodium INTERFACE ${SODIUM_INCLUDE_DIR})
-    target_link_libraries(thcad_sodium INTERFACE ${SODIUM_LIBRARY})
-    if(SODIUM_LIBRARY MATCHES "\\.a$" AND NOT WIN32)
-      find_package(Threads REQUIRED)
-      target_link_libraries(thcad_sodium INTERFACE Threads::Threads)
-    endif()
-    set(THCAD_SODIUM_TARGET thcad_sodium)
+endif()
+if(SODIUM_INCLUDE_DIR AND SODIUM_LIBRARY)
+  add_library(thcad_sodium INTERFACE)
+  target_include_directories(thcad_sodium INTERFACE ${SODIUM_INCLUDE_DIR})
+  target_link_libraries(thcad_sodium INTERFACE ${SODIUM_LIBRARY})
+  if(SODIUM_LIBRARY MATCHES "\\.a$" AND NOT WIN32)
+    find_package(Threads REQUIRED)
+    target_link_libraries(thcad_sodium INTERFACE Threads::Threads)
   endif()
+  set(THCAD_SODIUM_TARGET thcad_sodium)
 endif()
 
 if(NOT THCAD_SODIUM_TARGET)
