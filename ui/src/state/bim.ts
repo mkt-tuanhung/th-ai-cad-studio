@@ -1,13 +1,36 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { createVillaBim, runModelChecks, upgradeModel, type BimModel, type CheckResult, type Comment, type ElementRef, type Wall } from '../bim/model'
+import { createVillaBim, runModelChecks, upgradeModel, type BimModel, type CheckResult, type Comment, type ElementRef, type Provenance, type Wall } from '../bim/model'
+import { stampEdit } from '../bim/identity'
+import { deriveModel, editRule } from '../bim/derive'
+import type { SmartRoomSpec } from '../bim/smartRoom'
+import type { CameraBookmark } from '../model/bookmark'
+import { ruleText } from '../i18n/ws/linked'
 
 export type BimView = 'plan' | '3d' | 'schedule' | 'drawing'
 export type DisplayMode = 'realistic' | 'shaded' | 'wireframe' | 'hidden'
 export type ScheduleCat = 'walls' | 'doors' | 'windows' | 'rooms' | 'levels'
 export type BimRightTab = 'properties' | 'ai' | 'comments'
 /** Drawing tools of the ribbon (they act in the plan view). */
-export type BimTool = 'select' | 'wall' | 'curtainWall' | 'door' | 'window' | 'column' | 'slab' | 'roof' | 'ceiling' | 'stair' | 'room' | 'railing' | 'component' | 'modelText' | 'dimension' | 'tag' | 'grid'
+export type BimTool = 'select' | 'wall' | 'curtainWall' | 'door' | 'window' | 'column' | 'slab' | 'roof' | 'ceiling' | 'stair' | 'room' | 'railing' | 'component' | 'modelText' | 'dimension' | 'tag' | 'grid' | 'smartRoom'
+/** 3D view mode of the BIM viewer (view-only: none of them changes the model). */
+export type View3dMode = 'section' | 'exterior' | 'lowWalls' | 'xray' | 'walk'
+
+/** View-only state of the live 3D view (v2.4): wall opacity of the see-through mode, the cut height of low walls,
+ *  doors drawn open or closed, walkthrough collision. Never written to the model. */
+export interface Live3dView {
+  mode: View3dMode
+  /** see-through walls: opacity of the walls facing the camera (0.1…1) */
+  wallOpacity: number
+  /** low walls: walls cut this high above their level (mm) */
+  lowWalls: number
+  doorsOpen: boolean
+  collide: boolean
+}
+
+/** Message of an edit that a model rule rejected (shown as it is, not as a mark). */
+export const RULE = 'rule:'
+export const ruleMessage = (err: string) => (err.startsWith(RULE) ? err.slice(RULE.length) : null)
 
 interface BimState {
   model: BimModel
@@ -49,13 +72,25 @@ interface BimState {
   viewReq: { kind: 'elev' | 'section' | 'home' | 'sectionBox' | 'exterior'; face?: 'front' | 'back' | 'left' | 'right'; axis?: 'x' | 'y'; n: number } | null
   requestView: (r: Omit<NonNullable<BimState['viewReq']>, 'n'>) => void
 
-  /** Validated, undoable model edit. Returns an error message or null. */
-  edit: (label: string, fn: (m: BimModel) => BimModel) => string | null
+  /** Validated, undoable model edit (ONE undo step): rooms / stairs recomputed, the model rules checked, element
+   *  identities stamped (guid kept, rev + 1, provenance `opts.src` on new elements). Returns an error or null: the
+   *  mark of the element whose top would not be above its base, or `rule:<message>` (see ruleMessage). */
+  edit: (label: string, fn: (m: BimModel) => BimModel, opts?: { src?: Provenance }) => string | null
+  /** Saved 3D viewpoints (persisted) and the live 3D view-only state (session). */
+  bookmarks: CameraBookmark[]
+  setBookmarks: (b: CameraBookmark[]) => void
+  live3d: Live3dView
+  setLive3d: (p: Partial<Live3dView>) => void
+  /** Smart Room tool: the template placed by the next plan click. Session only. */
+  pendingRoom: SmartRoomSpec | null
+  /** 3D room focus request (camera to the room, its level): `n` makes repeats distinct. */
+  focusReq: { room: string; n: number } | null
+  focusRoom: (room: string) => void
   updateWall: (id: string, patch: Partial<Wall>, label: string) => string | null
   undo: () => string | null
   redo: () => string | null
   runChecks: () => void
-  set: (patch: Partial<Pick<BimState, 'view' | 'display' | 'level' | 'scale' | 'scheduleCat' | 'checked' | 'selection' | 'rightTab' | 'browserCollapsed' | 'maximized' | 'appliedRecommendation' | 'browserSel' | 'tool' | 'wallType' | 'discipline' | 'pendingComponent' | 'drawing'>>) => void
+  set: (patch: Partial<Pick<BimState, 'view' | 'display' | 'level' | 'scale' | 'scheduleCat' | 'checked' | 'selection' | 'rightTab' | 'browserCollapsed' | 'maximized' | 'appliedRecommendation' | 'browserSel' | 'tool' | 'wallType' | 'discipline' | 'pendingComponent' | 'drawing' | 'pendingRoom'>>) => void
   /** Deletes the selected element (a wall takes its doors and windows with it). Returns its label or null. */
   deleteSelection: () => string | null
   toggleBrowser: (key: string) => void
@@ -65,11 +100,28 @@ interface BimState {
 
 const initial = createVillaBim()
 
+/** Persisted BIM store of an older version → the current one (v2: placements and lists, v3: element identities).
+ *  Everything the user saved stays as it was; only what is missing is filled in. */
+export function migrateBimState(persisted: unknown, version: number): Partial<BimState> & { model: BimModel } {
+  void version
+  const p = persisted as Partial<BimState>
+  return { ...p, model: upgradeModel(p.model ?? createVillaBim(), !p.model) }
+}
+/** Persisted store version (3 = element identities). */
+export const BIM_STORE_VERSION = 3
+
 export const useBim = create<BimState>()(
   persist(
     (set, get) => ({
       viewReq: null,
       pendingComponent: null,
+      pendingRoom: null,
+      bookmarks: [],
+      setBookmarks: (bookmarks) => set({ bookmarks }),
+      live3d: { mode: 'section', wallOpacity: 0.35, lowWalls: 1200, doorsOpen: false, collide: true },
+      setLive3d: (p) => set({ live3d: { ...get().live3d, ...p } }),
+      focusReq: null,
+      focusRoom: (room) => set({ view: '3d', focusReq: { room, n: (get().focusReq?.n ?? 0) + 1 } }),
       drawing: null,
       requestView: (r) => set({ view: '3d', viewReq: { ...r, n: (get().viewReq?.n ?? 0) + 1 } }),
       model: initial,
@@ -96,9 +148,12 @@ export const useBim = create<BimState>()(
       discipline: 'architecture',
       wallType: 'C200',
 
-      edit: (label, fn) => {
+      edit: (label, fn, opts) => {
         const before = get().model
-        const after = fn(before)
+        const raw = fn(before)
+        if (raw === before) return null
+        // rooms follow their walls, imported stairs a changed storey height — in this same step
+        const after = deriveModel(before, raw)
         // validation: a wall's top must stay above its base
         const bad = after.walls.find((w) => {
           const base = (after.levels.find((l) => l.id === w.baseLevel)?.elevation ?? 0) + w.baseOffset
@@ -106,7 +161,11 @@ export const useBim = create<BimState>()(
           return top - base <= 0 || w.length <= 0
         })
         if (bad) return bad.mark
-        set({ model: after, undoStack: [...get().undoStack.slice(-99), { label, model: before }], redoStack: [] })
+        // the host-wall rule of openings, arc radii, sloped tops (only what this edit touched)
+        const rule = editRule(before, after)
+        if (rule) return RULE + ruleText(rule.mark, rule.code)
+        const stamped = stampEdit(before, after, opts?.src ?? { kind: 'drawn' }).model
+        set({ model: stamped, undoStack: [...get().undoStack.slice(-99), { label, model: before }], redoStack: [] })
         if (get().coordAuto) get().runChecks()
         return null
       },
@@ -162,12 +221,10 @@ export const useBim = create<BimState>()(
     }),
     {
       name: 'thcad.bim',
-      version: 2,
+      version: BIM_STORE_VERSION,
       // v2: walls carry their plan placement; columns, slabs, stairs… lists
-      migrate: (persisted) => {
-        const p = persisted as Partial<BimState>
-        return { ...p, model: upgradeModel(p.model ?? createVillaBim()) } as BimState
-      },
+      // v3: every element carries a guid, rev and provenance (assigned here, nothing else changes)
+      migrate: (persisted, version) => migrateBimState(persisted, version) as BimState,
       partialize: (s) => ({
         model: s.model,
         view: (s.view === 'drawing' ? '3d' : s.view) as BimView,
@@ -181,6 +238,7 @@ export const useBim = create<BimState>()(
         browserSel: s.browserSel,
         coordOff: s.coordOff,
         coordAuto: s.coordAuto,
+        bookmarks: s.bookmarks,
         comments: s.comments,
         checks: s.checks,
         checkedAt: s.checkedAt,

@@ -16,7 +16,7 @@
  *  - doors and windows: number and area; railings: length (along their slope) — m.
  * Every line has a stable `key` (a price list matches on it, src/auto/package.ts).
  */
-import { levelOf, typeOf, wallHeight, type BimModel, type P2 } from './model'
+import { levelOf, typeOf, wallHeight, wallMeanHeight, wallRunLength, type BimModel, type P2 } from './model'
 import { polyArea, segDist, wallEnds } from './geometry'
 import { stairFlight, stairProfile } from './scene'
 import { norm } from './fromCad'
@@ -214,12 +214,13 @@ export function boq(m: BimModel, w: BoqWords, params: BoqParams = {}): BoqRow[] 
   // walls
   for (const x of m.walls) {
     const t = typeOf(m, x)
-    const H = wallHeight(m, x)
-    if (H <= 0) continue
+    // arc walls: the arc length; sloped tops: the mean height (v2.4)
+    const H = wallMeanHeight(m, x), run = wallRunLength(x)
+    if (H <= 0 || wallHeight(m, x) <= 0) continue
     const ops = [...m.doors, ...m.windows].filter((o) => o.hostWall === x.id).reduce((a, o) => a + o.width * Math.min(o.height, H), 0)
-    const net = Math.max(0, x.length * H - ops) / 1e6
+    const net = Math.max(0, run * H - ops) / 1e6
     const lv = lvName(x.baseLevel)
-    if (t?.family === 'Curtain Wall') { add('glazing', G.openings, I.glazing, U.m2, lv, (x.length * H) / 1e6); continue }
+    if (t?.family === 'Curtain Wall') { add('glazing', G.openings, I.glazing, U.m2, lv, (run * H) / 1e6); continue }
     const th = t?.thickness ?? 200
     add(`wall:${th}`, G.masonry, fill(I.wall, { t: th }), U.m2, lv, net)
     add(`wallVol:${th}`, G.masonry, fill(I.wallVol, { t: th }), U.m3, lv, (net * th) / 1000)
