@@ -89,15 +89,6 @@ export function samples() {
   return out
 }
 
-/** Debug helper: the Weihong 3-head fixture's programs and tools. */
-export function debugWeihong() {
-  const wh0 = familyMachine('WEIHONG_NCSTUDIO', { atc: false })
-  const head = (id: string, t: MachineTool) => ({ ...newHead(1, 'ROUTER_SPINDLE'), head_id: id, offset_mm: { x: 0, y: 0, z: 0 }, offset_calibrated: true, activation_mapping_verified: true, tools: [t] })
-  const wh: MachineProfile = { ...wh0, heads: [head('HEAD_1', tool('EM8', 'END_MILL', 8, 1)), head('HEAD_2', tool('DR5', 'DRILL', 5, 2)), head('HEAD_3', tool('FO35', 'FORSTNER', 35, 3))] }
-  const c = cncOf(wh)
-  return { post: c.post.id, assignments: c.assignments, sheets: c.sheets.map((s) => ({ tools: s.cam.ir.tools, blocks: s.cam.ir.blocks.map((b) => [b.op, b.tool]), progs: s.cam.programs.map((p) => p.name), issues: s.cam.postIssues })), blockers: c.blockers }
-}
-
 export function run() {
   /* ------------------------------------------------ library data + search */
   check('library: seed / research data loaded (machines, 12 controller families, hardware)', LIBRARY.machines.length >= 5 && LIBRARY.controllers.length === 12 && LIBRARY.hardware.length >= 4, LIBRARY.origin)

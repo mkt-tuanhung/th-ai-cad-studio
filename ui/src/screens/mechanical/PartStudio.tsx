@@ -19,7 +19,7 @@ import { hashOf } from '../../lib/sha256'
 import { zip } from '../../lib/zip'
 import { currentCommissioning, useMachines } from '../../state/machines'
 import { BlockerList, MachinePicker } from '../cnc/MachinePanel'
-import { MachinesDialog } from '../cnc/MachinesDialog'
+import { MachinesDialog, type MachinesTab } from '../cnc/MachinesDialog'
 import cs from '../cnc/Cnc.module.css'
 import s from './PartStudio.module.css'
 
@@ -468,7 +468,7 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
   const jobs = useMachines((st) => st.jobs)
   const setJob = useMachines((st) => st.setJob)
   const [cfg, setCfg] = useState<PartCamSettings>(DEFAULT_PART_CAM)
-  const [mgr, setMgr] = useState(false)
+  const [mgr, setMgr] = useState<MachinesTab | null>(null)
   const [who, setWho] = useState({ operator: '', engineer: '' })
   const rec = records.find((x) => x.profile.profile_id === mid) ?? null
   const machine = rec?.profile ?? null
@@ -509,7 +509,8 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
       stale: recorded ? stale : null,
       approvals: approval ? { operator: approval.operator, engineer: approval.engineer } : null,
       ncIssues: parses.flatMap((x) => x.issues),
-      unsupported: r.skipped.map((k) => ({ op: k.op, reason: k.reason })),
+      // Part Studio CAM writes ISO / GRBL text itself: a controller-family post of the profile cannot be honoured here
+      unsupported: [...r.skipped.map((k) => ({ op: k.op, reason: k.reason })), ...(profilePost && !['iso_generic', 'grbl11', 'linuxcnc', 'ncstudio'].includes(profilePost.id) ? [{ op: 'PROFILE', reason: `PART_CAM_POST_NOT_AVAILABLE/${profilePost.id}` }] : [])],
       unplaced: [],
       nestErrors: [],
       post: { id: post.id, version: post.version, sha256: post.sha256 },
@@ -560,7 +561,7 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
   }
   return (
     <Modal title={fmt(t.title, { part: part.name })} onClose={onClose} width={980}>
-      <MachinePicker value={mid} onChange={choose} onManage={() => setMgr(true)} />
+      <MachinePicker value={mid} onChange={choose} onManage={(tab) => setMgr(tab ?? 'profiles')} />
       {machine && machine.status !== 'VERIFIED' && <p className={cs.danger} data-testid="not-for-machine">{fmt(c.warnUnverified, { status: c.status[machine.status] ?? machine.status })}</p>}
       {!machine ? null : !r || 'error' in r ? (
         <p className={s.note}>{r && 'error' in r && r.error.startsWith('machine') ? r.error : t.noStock}</p>
@@ -616,7 +617,7 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       )}
-      {mgr && <MachinesDialog initial={mid} onClose={() => setMgr(false)} />}
+      {mgr && <MachinesDialog initial={mid} tab={mgr} onUse={choose} onClose={() => setMgr(null)} />}
     </Modal>
   )
 }

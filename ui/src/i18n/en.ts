@@ -7,6 +7,7 @@ import { render24En } from './ws/render24'
 import { fromCadEn } from './ws/fromCad'
 import { autoEn } from './ws/auto'
 import { cncEn } from './ws/cnc'
+import { machlibEn } from './ws/machlib'
 import { platformEn } from './ws/platform'
 import { importCalEn } from './ws/importCal'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
@@ -1073,6 +1074,7 @@ export const en = {
   },
   interior: interiorEn,
   cnc: cncEn,
+  machlib: machlibEn,
   platform: platformEn,
   mep: mepEn,
   civil: civilEn,

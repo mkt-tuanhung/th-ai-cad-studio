@@ -8,6 +8,7 @@ import { render24Vi } from './ws/render24'
 import { fromCadVi } from './ws/fromCad'
 import { autoVi } from './ws/auto'
 import { cncVi } from './ws/cnc'
+import { machlibVi } from './ws/machlib'
 import { platformVi } from './ws/platform'
 import { importCalVi } from './ws/importCal'
 
@@ -1075,6 +1076,7 @@ export const vi: Messages = {
   },
   interior: interiorVi,
   cnc: cncVi,
+  machlib: machlibVi,
   platform: platformVi,
   mep: mepVi,
   civil: civilVi,

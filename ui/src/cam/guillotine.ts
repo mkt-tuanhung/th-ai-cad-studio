@@ -288,7 +288,7 @@ const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt
 export function patternSvg(p: GPattern, opts: { notForMachine?: boolean } = {}): string {
   const pad = 40, W = p.l + 2 * pad, H = p.w + 2 * pad + 60
   const Y = (y: number) => pad + 60 + (p.w - y)
-  const o: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="Arial, sans-serif">`]
+  const o: string[] = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" font-family="Arial, sans-serif">`]
   o.push(`<text x="${pad}" y="${pad}" font-size="34" font-weight="700">P${p.index} · ${esc(p.material)} ${p.l} × ${p.w} × ${p.t} mm · ${p.count} sheet(s), ${p.books} book(s) of ≤ ${p.perBook}</text>`)
   if (opts.notForMachine) o.push(`<text x="${pad}" y="${pad + 40}" font-size="26" fill="#b42d2d">ENGINEERING PREVIEW - NOT FOR MACHINE USE</text>`)
   o.push(`<rect x="${pad}" y="${Y(p.w)}" width="${p.l}" height="${p.w}" fill="#efe9df" stroke="#555" stroke-width="2"/>`)

@@ -3,10 +3,13 @@ import { fmt, useT } from '../../i18n'
 import { blockerText } from '../../i18n/ws/cnc'
 import { capabilities, headSummary, type MachineProfile } from '../../cam/machine'
 import { useMachines } from '../../state/machines'
+import type { MachinesTab } from './MachinesDialog'
 import s from './Cnc.module.css'
 
-export function MachinePicker({ value, legacy, onChange, onManage }: { value: string | null | undefined; legacy?: boolean; onChange: (id: string | null) => void; onManage: () => void }) {
-  const c = useT().cnc
+export function MachinePicker({ value, legacy, onChange, onManage }: { value: string | null | undefined; legacy?: boolean; onChange: (id: string | null) => void; onManage: (tab?: MachinesTab) => void }) {
+  const T = useT()
+  const c = T.cnc
+  const lib = T.machlib.openLibrary
   const records = useMachines((st) => st.records)
   const cur = records.find((r) => r.profile.profile_id === value)?.profile ?? null
   return (
@@ -20,7 +23,8 @@ export function MachinePicker({ value, legacy, onChange, onManage }: { value: st
             </option>
           ))}
         </select>
-        <button type="button" className={s.linkBtn} onClick={onManage} data-testid="open-machines">{c.manage}</button>
+        <button type="button" className={s.linkBtn} onClick={() => onManage('profiles')} data-testid="open-machines">{c.manage}</button>
+        <button type="button" className={s.linkBtn} onClick={() => onManage('library')} data-testid="open-library">{lib}</button>
       </div>
       {!cur && <p className={s.small} role="note">{legacy ? c.legacy : c.none}</p>}
       {cur && <MachineSummary m={cur} />}

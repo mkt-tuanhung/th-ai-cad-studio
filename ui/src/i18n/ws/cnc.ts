@@ -1,4 +1,5 @@
 // CNC safety: machine profiles, release gate, engineering previews, Machines & Tools (EN / VI).
+import { machlibEn, machlibVi } from './machlib'
 export const cncEn = {
   machine: 'Machine',
   choose: 'Choose a machine profile…',
@@ -18,7 +19,7 @@ export const cncEn = {
   blockers: 'Production NC blocked — {n} reason(s)',
   blockersNone: 'Release gate: no blockers',
   notMachined: 'Not machined on this machine (do it another way): {list}',
-  what: { pins: 'shelf-pin holes', cups: 'hinge cups', grooves: 'back-panel rebates', profiles: 'profile cuts' } as Record<string, string>,
+  what: { pins: 'shelf-pin holes', cups: 'hinge cups', hardware: 'hardware holes', edgeholes: 'edge holes (horizontal)', grooves: 'back-panel rebates', profiles: 'profile cuts', saw: 'saw cuts' } as Record<string, string>,
   job: 'Job',
   jobState: { LEGACY_UNASSIGNED: 'LEGACY UNASSIGNED', DRAFT: 'DRAFT', PARTS_READY: 'PARTS READY', NESTED: 'NESTED', CAM_PLANNED: 'CAM PLANNED', POSTED_FOR_REVIEW: 'POSTED FOR REVIEW', VALIDATED: 'VALIDATED', PRODUCTION_RELEASED: 'PRODUCTION RELEASED', STALE: 'STALE' } as Record<string, string>,
   stages: { parts: 'parts', stock: 'stock', machine: 'machine', tools: 'tools / offsets', nest: 'nesting', cam: 'toolpaths', post: 'post-processor', nc: 'NC files' } as Record<string, string>,
@@ -164,6 +165,7 @@ export const cncEn = {
     SOURCE_DRAWING_NOT_FABRICATION_READY: 'source drawing not calibrated / review items open',
     CABINET_DIMENSIONS_UNVERIFIED: 'cabinet dimensions not real (image / AI concept / not confirmed) — measure and confirm first',
     NC_BYTES_NOT_APPROVED: 'NC bytes differ from the approved revision',
+    ...machlibEn.blocker,
   } as Record<string, string>,
   // Part Studio
   partFile: 'Engineering preview (ZIP)',
@@ -188,7 +190,7 @@ export const cncVi: typeof cncEn = {
   blockers: 'NC sản xuất bị chặn — {n} lý do',
   blockersNone: 'Cổng phát hành: không còn lý do chặn',
   notMachined: 'Máy này không gia công (làm cách khác): {list}',
-  what: { pins: 'lỗ chốt kệ', cups: 'chén bản lề', grooves: 'rãnh lắp hậu', profiles: 'đường cắt biên' },
+  what: { pins: 'lỗ chốt kệ', cups: 'chén bản lề', hardware: 'lỗ phụ kiện', edgeholes: 'lỗ cạnh (khoan ngang)', grooves: 'rãnh lắp hậu', profiles: 'đường cắt biên', saw: 'đường cưa' },
   job: 'Lệnh sản xuất',
   jobState: { LEGACY_UNASSIGNED: 'CHƯA GÁN MÁY (CŨ)', DRAFT: 'NHÁP', PARTS_READY: 'ĐÃ CÓ CHI TIẾT', NESTED: 'ĐÃ XẾP TẤM', CAM_PLANNED: 'ĐÃ LẬP ĐƯỜNG DAO', POSTED_FOR_REVIEW: 'CHỜ DUYỆT', VALIDATED: 'ĐÃ DUYỆT', PRODUCTION_RELEASED: 'ĐÃ PHÁT HÀNH', STALE: 'LỖI THỜI (STALE)' },
   stages: { parts: 'chi tiết', stock: 'phôi', machine: 'máy', tools: 'dao / offset', nest: 'xếp tấm', cam: 'đường dao', post: 'bộ hậu xử lý', nc: 'file NC' },
@@ -333,6 +335,7 @@ export const cncVi: typeof cncEn = {
     SOURCE_DRAWING_NOT_FABRICATION_READY: 'bản vẽ nguồn chưa hiệu chỉnh tỷ lệ / còn mục cần xem lại',
     CABINET_DIMENSIONS_UNVERIFIED: 'kích thước tủ chưa phải số đo thật (từ ảnh / ý tưởng AI / chưa xác nhận) — đo và xác nhận trước',
     NC_BYTES_NOT_APPROVED: 'file NC khác bản đã duyệt',
+    ...machlibVi.blocker,
   },
   partFile: 'Bản xem trước kỹ thuật (ZIP)',
 }

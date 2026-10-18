@@ -14,12 +14,14 @@ import { profileContentHash } from '../../cam/machine'
 import { approveJob, markReviewed, newJob, releaseJob, selectMachine, type ManufacturingJob, type StockRecord } from '../../cam/job'
 import { interiorCnc } from '../../cam/interiorJob'
 import { MOTION_ISSUES } from '../../cam/ncparse'
-import { POSTS, POST_IDS } from '../../cam/posts'
-import { ProductionBlocked, previewFiles, productionFiles } from '../../cam/release'
+import { POSTS, PREVIEW_POST_IDS } from '../../cam/posts'
+import { ProductionBlocked, previewFiles, previewSawFiles, productionFiles, productionSawFiles } from '../../cam/release'
+import { patternSvg } from '../../cam/guillotine'
+import { DEFAULT_DXF_LAYERS, vendorDxfFiles, vendorDxfReadme } from '../../cam/vendorDxf'
 import { sha256 } from '../../lib/sha256'
 import { zip } from '../../lib/zip'
 import { MachinePicker, BlockerList } from '../cnc/MachinePanel'
-import { MachinesDialog } from '../cnc/MachinesDialog'
+import { MachinesDialog, type MachinesTab } from '../cnc/MachinesDialog'
 import c0 from '../cnc/Cnc.module.css'
 import s from './Nesting.module.css'
 
@@ -45,8 +47,9 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
   const addRelease = useMachines((st) => st.addRelease)
   const [sel, setSel] = useState(0)
   const [paths, setPaths] = useState(true)
-  const [mgr, setMgr] = useState(false)
+  const [mgr, setMgr] = useState<MachinesTab | null>(null)
   const [who, setWho] = useState({ operator: '', engineer: '', fa: '' as '' | 'PASS' | 'FAIL' })
+  const L = T.machlib
   const mid = cam.machineProfileId
   const rec = records.find((r) => r.profile.profile_id === mid) ?? null
   const machine = rec?.profile ?? null
@@ -126,13 +129,47 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
     toast(fmt(t.exported, { file }), 'success')
   }
   const notMachined = cnc ? [...new Map(cnc.sheets.flatMap((x) => x.cam.skipped).map((k) => [`${k.op}|${k.what}`, k])).values()] : []
+  // panel saw (guillotine patterns, no router programs) and vendor-CAM machines (DXF per part, no NC)
+  const sawR = cnc?.saw ?? null
+  const vendor = !!machine && machine.machine_type !== 'PANEL_SAW' && (machine.ext?.controller_family === 'PROPRIETARY' || (!POSTS[machine.postprocessor.id as keyof typeof POSTS] && !!machine.ext?.native_formats?.length))
+  const svgs = sawR ? sawR.patterns.map((p) => ({ name: `${PROJECT} - saw pattern P${p.index}.svg`, text: patternSvg(p) })) : []
+  const exportSawPreview = () => {
+    if (!cnc?.sawFiles || !sawR || !job) return
+    const r = previewSawFiles(cnc.sawFiles, sawR.patterns.map((p) => ({ name: `${PROJECT} - saw pattern P${p.index}.svg`, text: patternSvg(p, { notForMachine: true }) })), { machine, machineHash: machine ? profileContentHash(machine) : null, post: cnc.post, blockers: cnc.blockers, meta: cnc.meta })
+    const file = `${PROJECT} - saw cutting list preview (NOT FOR MACHINE).zip`
+    downloadFile(file, zip(r.files), 'application/zip')
+    saveJob(markReviewed(job, cnc.chain))
+    toast(fmt(c.previewSaved, { file }), 'success')
+  }
+  const exportSawProduction = () => {
+    if (!cnc?.sawFiles || !job || !machine) return
+    try {
+      const out = productionSawFiles(cnc.sawFiles, svgs, { machine, machineHash: profileContentHash(machine), commissioning: currentCommissioning(rec), post: cnc.post, gate: cnc.gate, meta: cnc.meta })
+      const file = `${PROJECT} - saw cutting list r${job.revision}.zip`
+      downloadFile(file, zip(out.files), 'application/zip')
+      const release = { job_id: job.job_id, job_revision: job.revision, at: new Date().toISOString(), machine_profile_id: machine.profile_id, machine_profile_revision: machine.revision, machine_profile_hash: profileContentHash(machine), post: { id: cnc.post.id, version: cnc.post.version, sha256: cnc.post.sha256 }, chain: cnc.chain, files: out.files.map((f) => ({ name: f.name, sha256: sha256(f.text), bytes: f.text.length })), approvals: { operator: job.approval!.operator, engineer: job.approval!.engineer, at: job.approval!.at } }
+      addRelease(release)
+      saveJob(releaseJob(job, release))
+      toast(fmt(c.productionSaved, { file }), 'success')
+    } catch (e) {
+      toast(fmt(c.productionBlocked, { list: e instanceof ProductionBlocked ? e.blockers.join(', ') : String(e) }), 'warning')
+    }
+  }
+  const exportVendor = () => {
+    if (!machine) return
+    const layers = machine.ext?.dxf_layers ?? DEFAULT_DXF_LAYERS
+    const files = vendorDxfFiles(doc.cabinets, { hingeCups: cam.cnc.hingeCups, shelfPins: cam.cnc.shelfPins, backGroove: cam.cnc.backGroove !== false }, layers, job?.edge_band_mm)
+    const file = `${PROJECT} - DXF for vendor CAM.zip`
+    downloadFile(file, zip([{ name: 'README.txt', text: vendorDxfReadme(layers, machine.ext?.vendor_cam ?? null) }, ...files]), 'application/zip')
+    toast(fmt(L.vendor.exported, { file }), 'success')
+  }
 
   return (
     <Modal title={t.title} onClose={onClose} width={1180}>
       <div className={s.wrap} data-testid="nesting-dialog">
         <aside className={s.side}>
           <h4>{c.machine}</h4>
-          <MachinePicker value={mid} legacy={mid === undefined} onChange={choose} onManage={() => setMgr(true)} />
+          <MachinePicker value={mid} legacy={mid === undefined} onChange={choose} onManage={(tab) => setMgr(tab ?? 'profiles')} />
           {machine && job && job.machine_profile_revision !== null && job.machine_profile_revision !== machine.revision && (
             <button type="button" className={c0.linkBtn} onClick={() => choose(machine.profile_id)}>{fmt(c.repin, { n: machine.revision })}</button>
           )}
@@ -168,7 +205,8 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
               <h4>{t.cnc}</h4>
               <label className={s.row}><span>{postLocked ? `${t.dialect} (${c.postLocked})` : c.postPreview}</span>
                 <select aria-label={t.dialect} disabled={postLocked} value={postLocked ? machine.postprocessor.id! : cam.cnc.dialect === 'grbl' ? 'grbl11' : cam.cnc.dialect === 'iso' ? 'iso_generic' : cam.cnc.dialect} onChange={(e) => upc({ dialect: e.target.value === 'grbl11' ? 'grbl' : e.target.value === 'iso_generic' ? 'iso' : (e.target.value as 'linuxcnc' | 'ncstudio') })}>
-                  {POST_IDS.map((id) => <option key={id} value={id}>{id === 'grbl11' ? t.grbl : id === 'iso_generic' ? t.iso : id === 'linuxcnc' ? t.linuxcnc : t.ncstudio}</option>)}
+                  {postLocked && !PREVIEW_POST_IDS.includes(machine.postprocessor.id as (typeof PREVIEW_POST_IDS)[number]) && <option value={machine.postprocessor.id!}>{POSTS[machine.postprocessor.id as keyof typeof POSTS].label}</option>}
+                  {PREVIEW_POST_IDS.map((id) => <option key={id} value={id}>{id === 'grbl11' ? t.grbl : id === 'iso_generic' ? t.iso : id === 'linuxcnc' ? t.linuxcnc : t.ncstudio}</option>)}
                 </select>
               </label>
               <label className={s.row}><span>{t.cutter}</span><select aria-label={t.cutter} value={cam.cnc.cutterD} onChange={(e) => upc({ cutterD: Number(e.target.value) })}>{[6, 8, 10, 12].map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
@@ -207,6 +245,10 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
               {cnc.status === 'STALE' && cnc.stale.from && <p className={s.warn} data-testid="job-stale">{fmt(c.stale, { stage: c.stages[cnc.stale.from] ?? cnc.stale.from })}</p>}
               {cnc.nest.unplaced.length > 0 && <p className={s.warn}>{fmt(t.unplaced, { n: cnc.nest.unplaced.length, list: cnc.nest.unplaced.map((p) => `${p.label} ${p.l}×${p.w}`).join(', ') })}</p>}
               {cnc.nestErrors.length > 0 && <p className={s.warn}>{cnc.nestErrors.join('; ')}</p>}
+              {vendor && <p className={s.warn} data-testid="vendor-cam-note">{fmt(L.vendor.note, { cam: machine.ext?.vendor_cam ?? '—' })}</p>}
+              {sawR && <p className={s.note} data-testid="saw-summary">{L.saw.noRouter} {fmt(L.saw.summary, { patterns: sawR.patterns.length, sheets: sawR.sheets, kerf: cnc.nestSettings.gap, trim: cnc.nestSettings.trim })}</p>}
+              {!!cnc.otherMachine?.length && <p className={s.note} data-testid="other-machine">{fmt(L.saw.other, { list: cnc.otherMachine.map((k) => `${c.ops[k.op] ?? k.op} (${k.reason})`).join('; ') })}</p>}
+              {cnc.hardware.some((h) => h.notes.length) && <p className={s.note}>{L.hw.notes}: {[...new Set(cnc.hardware.flatMap((h) => h.notes))].join('; ')}</p>}
               {notMachined.length > 0 && <p className={s.warn} data-testid="not-machined">{fmt(c.notMachined, { list: notMachined.map((k) => `${c.what[k.what] ?? k.what} × ${k.count} (${c.ops[k.op] ?? k.op}: ${k.reason})`).join('; ') })}</p>}
               <div className={s.strip} role="tablist">
                 {sheets.map((sh, i) => (
@@ -216,6 +258,13 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
                   </button>
                 ))}
               </div>
+              {sawR && sawR.patterns[sel] && (
+                <>
+                  <div className={s.big} data-testid="saw-pattern" dangerouslySetInnerHTML={{ __html: patternSvg(sawR.patterns[sel]) }} />
+                  <p className={s.note}>{fmt(L.saw.pattern, { n: sawR.patterns[sel].index, material: sawR.patterns[sel].material, count: sawR.patterns[sel].count, books: sawR.patterns[sel].books, per: sawR.patterns[sel].perBook, cuts: sawR.patterns[sel].cuts.length, y: (sawR.patterns[sel].yield * 100).toFixed(0) })}</p>
+                  <p className={s.note}>{L.saw.format}</p>
+                </>
+              )}
               {sheet && cur && (
                 <>
                   <div className={s.big}>
@@ -238,17 +287,28 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
               )}
               <BlockerList blockers={cnc.blockers} />
               <div className={s.foot}>
-                <span>{fmt(t.total, { min: totalMin.toFixed(0) })}</span>
-                <button type="button" onClick={exportPreview} disabled={!programs.length} data-testid="export-preview"><Download size={14} />{t.zip}</button>
+                {!sawR && <span>{fmt(t.total, { min: totalMin.toFixed(0) })}</span>}
+                {sawR ? (
+                  <>
+                    <button type="button" onClick={exportSawPreview} disabled={!cnc.sawFiles?.length} data-testid="export-saw-preview"><Download size={14} />{L.saw.preview}</button>
+                    <button type="button" onClick={() => cnc.sawFiles && downloadFile(cnc.sawFiles[0].name.replace('.csv', ' (NOT FOR MACHINE).csv'), cnc.sawFiles[0].text)} data-testid="export-saw-list"><Download size={14} />{L.saw.cutList}</button>
+                    <button type="button" onClick={() => cnc.sawFiles && downloadFile(cnc.sawFiles[1].name.replace('.csv', ' (NOT FOR MACHINE).csv'), cnc.sawFiles[1].text)}><Download size={14} />{L.saw.sequence}</button>
+                    <button type="button" onClick={() => downloadFile(`${PROJECT} - saw patterns.zip`, zip(svgs), 'application/zip')}><Download size={14} />{L.saw.svgs}</button>
+                    <button type="button" onClick={exportSawProduction} disabled={cnc.blockers.length > 0} title={cnc.blockers.length ? fmt(c.productionBlocked, { list: cnc.blockers.slice(0, 8).map((b) => blockerText(b, c)).join('; ') }) : undefined} data-testid="export-production"><Lock size={14} />{L.saw.production}</button>
+                  </>
+                ) : (
+                  <button type="button" onClick={exportPreview} disabled={!programs.length} data-testid="export-preview"><Download size={14} />{t.zip}</button>
+                )}
+                {vendor && <button type="button" onClick={exportVendor} data-testid="export-vendor-dxf"><Download size={14} />{L.vendor.export}</button>}
                 <button type="button" onClick={exportDxf} disabled={!sheets.length}><Download size={14} />{t.dxf}</button>
                 <button type="button" onClick={exportLabels} disabled={!sheets.length}><Download size={14} />{t.labels}</button>
-                <button type="button" onClick={exportProduction} disabled={cnc.blockers.length > 0 || !programs.length} title={cnc.blockers.length ? fmt(c.productionBlocked, { list: cnc.blockers.slice(0, 8).map((b) => blockerText(b, c)).join('; ') }) : undefined} data-testid="export-production"><Lock size={14} />{c.production}</button>
+                {!sawR && <button type="button" onClick={exportProduction} disabled={cnc.blockers.length > 0 || !programs.length} title={cnc.blockers.length ? fmt(c.productionBlocked, { list: cnc.blockers.slice(0, 8).map((b) => blockerText(b, c)).join('; ') }) : undefined} data-testid="export-production"><Lock size={14} />{c.production}</button>}
               </div>
             </>
           )}
         </section>
       </div>
-      {mgr && <MachinesDialog initial={mid ?? null} onClose={() => setMgr(false)} />}
+      {mgr && <MachinesDialog initial={mid ?? null} tab={mgr} onUse={choose} onClose={() => setMgr(null)} />}
     </Modal>
   )
 }

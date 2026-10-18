@@ -10,6 +10,7 @@ import { interiorAi } from '../../ai/disciplines/interior'
 import { ItemSpaceSections, RoomDoors } from './SpaceInspector'
 import { resizeItem } from '../../interior/layout'
 import { commit } from './spaceKit'
+import { HardwareDialog } from './HardwareDialog'
 import s from './Interior.module.css'
 
 const n1 = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 })
@@ -129,6 +130,8 @@ function CabinetProps({ c }: { c: Cabinet }) {
     return { ...d, cabinets: d.cabinets.map((x) => (x.id === c.id ? next : x)), items: d.items.map((i) => (i.cabinet === c.id ? { ...i, w: next.w, d: next.d, h: next.h } : i)) }
   }), t)
   const tot = cutTotals(cutList(c))
+  const [hwOpen, setHwOpen] = useState(false)
+  const H = useT().machlib.hw
   return (
     <>
       <div className={w.elem}>
@@ -160,7 +163,11 @@ function CabinetProps({ c }: { c: Cabinet }) {
             {fmt(t.cut.totals, { parts: tot.parts, area: tot.boardArea.toFixed(2), edge: tot.edge.toFixed(2) })}
           </button>
         </PRow>
+        <PRow label={H.row}>
+          <button type="button" className={w.link} onClick={() => setHwOpen(true)} data-testid="open-hardware" title={H.button}>{H.open}{c.hardware ? ` (${[c.hardware.hinge, c.hardware.slide, c.hardware.connector].filter(Boolean).length})` : ''}</button>
+        </PRow>
       </Section>
+      {hwOpen && <HardwareDialog cabinet={c} onClose={() => setHwOpen(false)} />}
     </>
   )
 }
