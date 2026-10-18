@@ -48,8 +48,8 @@ export function watermark(text: string, info: { machine: string; status: string;
   for (let i = 0; i < list.length; i += 6) head.push(`(blockers${list.length > 6 ? ` ${i / 6 + 1}/${Math.ceil(list.length / 6)}` : ''}: ${safe(list.slice(i, i + 6).join(', '))})`)
   const at = lines[0]?.trim() === '%' ? 1 : 0
   lines.splice(at, 0, ...head)
-  // first line with an axis word (comments removed)
-  const motion = lines.findIndex((l) => /[XYZ]\s*[-+.\d]/.test(l.replace(/\(.*?\)/g, '').replace(/;.*$/, '').toUpperCase()))
+  // before the spindle starts or the first line with an axis word (comments removed)
+  const motion = lines.findIndex((l) => /[XYZ]\s*[-+.\d]|\bM0*[34]\b/.test(l.replace(/\(.*?\)/g, '').replace(/;.*$/, '').toUpperCase()))
   lines.splice(motion < 0 ? lines.length : motion, 0, `M0 (${WATERMARK} - STOP)`)
   return lines.join('\n') + '\n'
 }
