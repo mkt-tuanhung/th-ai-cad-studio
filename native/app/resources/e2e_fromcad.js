@@ -36,7 +36,8 @@
     const plans = await until(() => /MẶT BẰNG TẦNG 3/.test(dlg.innerText) && dlg.querySelector('[aria-label="Plans in the drawing"]'), 60000)
     check('DWG read through LibreDWG; three floor plans found by their titles', !!plans, (plans?.innerText || dlg.innerText).slice(0, 300).replace(/\n/g, ' | '))
     const summary = () => document.querySelector('[data-testid=fromcad-summary]').innerText
-    const s0 = summary()
+    // the model is built from the deferred row values (typing never re-runs recognition): wait for the summary
+    const s0 = (await until(() => /levels ·/.test(summary()) && summary(), 20000)) || summary()
     log('summary (rules): ' + s0.replace(/\n/g, ' | '))
     check('recognised: 4 levels, walls, doors, windows, rooms, columns, furniture', /^4 levels · \d+ walls · \d+ doors · \d+ windows · 4\d rooms · \d+ columns · \d+ furniture/.test(s0), s0)
     const p1 = plans.querySelector('tbody tr').innerText
