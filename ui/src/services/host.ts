@@ -20,7 +20,7 @@ export interface NativeAiStatus {
 
 export interface HostApi {
   nativeViewport: boolean
-  info(): Promise<{ engine: string; platform: string; occt: string | null; aiBackend: string; commands: number; nativeViewport: boolean; dwgReader?: string }>
+  info(): Promise<{ engine: string; platform: string; occt: string | null; aiBackend: string; commands: number; nativeViewport: boolean; dwgReader?: string; blender?: BlenderInfo }>
   localAiStatus(): Promise<NativeAiStatus>
   cadExecute(opsJson: string): Promise<{ ok: boolean; error?: { code: string; detail: string } }>
   proposeOps(title: string, opsJson: string): Promise<{ ok: boolean; message: string }>
@@ -53,12 +53,22 @@ export interface HostApi {
   modelDownload(id: string): Promise<{ ok: boolean; error?: string; dir?: string; bytes?: number; needBytes?: number; freeBytes?: number }>
   modelDownloadCancel(): Promise<void>
   scene3dLoadBim(key: string, modelJson: string, extrasJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
-  scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number }>
+  scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number; path?: string; sha256?: string; hash?: string; items?: number; volumeM3?: number; nodes?: number; materials?: string[]; boundsMm?: number[]; eye?: number[]; at?: number[]; up?: number[]; fov?: number; lighting?: string; changed?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
   scene3dOverlaps(key: string): Promise<{ a: string; b: string; m3: number }[]>
-  renderStart(jobJson: string): Promise<{ ok: boolean; error?: string; w?: number; h?: number; samples?: number }>
+  renderStart(jobJson: string): Promise<{ ok: boolean; error?: string; code?: string; w?: number; h?: number; samples?: number; engine?: string; needBytes?: number; budgetBytes?: number }>
   renderCancel(id: string): Promise<void>
   scene3dExportStep(key: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; error?: string; cancelled?: boolean }>
+  /** glTF binary of a scene (presentation; mm → m, Y up), save dialog. */
+  scene3dExportGlb(key: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; nodes?: number; triangles?: number; materials?: string[]; boundsMm?: number[]; sha256?: string; error?: string; cancelled?: boolean }>
+  /** The user's own Blender (external process, never bundled). */
+  blenderInfo(refresh: boolean): Promise<BlenderInfo>
+  /** Render memory pre-check (4K / 8K guard). */
+  renderMemoryCheck(w: number, h: number, engine: string): Promise<{ ok: boolean; needBytes: number; budgetBytes: number; physicalBytes: number; reason?: string }>
+  /** A render output / queued 3D frame (Renders folder or render cache only) as a JPEG data URL. */
+  renderReadImage(path: string, maxWidth: number): Promise<{ ok: boolean; url?: string; w?: number; h?: number; error?: string }>
+  /** Provenance sidecar of a render (Renders folder only). */
+  renderReadSidecar(imagePath: string): Promise<{ ok: boolean; path?: string; sidecar?: { presentationOnly?: boolean; scene?: { id: string; revision: string; glbSha256?: string } | null; camera?: { eye: number[]; at: number[]; up: number[]; fov: number; lens: number } | null; engine?: { name: string; device?: string; blender?: string }; image?: { sha256: string; w: number; h: number }; [k: string]: unknown }; error?: string }>
   bimSummary(): Promise<{ walls: { mark: string; area: number; volume: number; netVolume?: number }[]; checks: number[] }>
   setViewportSlot(kind: string, x: number, y: number, w: number, h: number, visible: boolean): Promise<void>
   /** Async; the result arrives on the 'dwgResult' signal with the returned id. */
@@ -82,6 +92,17 @@ export interface HostApi {
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
   on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress' | 'modelProgress', fn: (payload: unknown) => void): void
+}
+
+export interface BlenderInfo {
+  found: boolean
+  path?: string
+  version?: string
+  script?: string
+  scriptFound?: boolean
+  sandbox?: boolean
+  source?: string
+  reason?: string
 }
 
 export interface HostSystemInfo {

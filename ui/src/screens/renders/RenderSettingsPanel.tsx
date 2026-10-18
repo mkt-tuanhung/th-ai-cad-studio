@@ -5,7 +5,8 @@ import { toast } from '../../state/toast'
 import { useRenders } from '../../state/renders'
 import { PanelTabs, wsStyles as w } from '../../components/workspace/Workspace'
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
-import { DEFAULT_FX, ENGINES, FORMATS, HDRIS, QUALITIES, QUALITY_PRESETS, RESOLUTIONS, dims, fileSizeMb, printCm, type PostFx, type RenderSettings } from '../../renders/model'
+import { MATERIAL_OPTIONS, renderMemoryBytes } from '../../renders/provenance'
+import { DEFAULT_FX, ENGINES, isBlender, FORMATS, HDRIS, QUALITIES, QUALITY_PRESETS, RESOLUTIONS, dims, fileSizeMb, printCm, type PostFx, type RenderSettings } from '../../renders/model'
 import s from './Renders.module.css'
 
 function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
@@ -40,8 +41,10 @@ function Sel<T extends string>({ value, options, onChange, label }: { value: T; 
   )
 }
 
-export function RenderSettingsPanel({ onRender, onRenderAll }: { onRender: () => void; onRenderAll: () => void }) {
-  const t = useT().renders
+export function RenderSettingsPanel({ onRender, onRenderAll, onRenderMaterials }: { onRender: () => void; onRenderAll: () => void; onRenderMaterials?: () => void }) {
+  const T = useT()
+  const t = T.renders
+  const R = T.render24
   const c = t.settings
   const { doc, right, open, edit, set } = useRenders()
   const S = doc.settings
@@ -74,12 +77,12 @@ export function RenderSettingsPanel({ onRender, onRenderAll }: { onRender: () =>
                 <Row label={c.aspect}><Sel label={c.aspect} value={d.aspect} onChange={(v) => { const r = RESOLUTIONS.find((x) => dims(x.key).aspect === v); if (r) up(c.aspect, { resolution: r.key }) }} options={[...new Set(RESOLUTIONS.map((r) => dims(r.key).aspect))].map((a) => ({ value: a, label: `${a} (${a === d.aspect ? aspectName : a === '1:1' ? c.aspectSquare : a === '9:16' ? c.aspectPortrait : c.aspectLandscape})` }))} /></Row>
                 <Row label={c.format}><Sel label={c.format} value={S.format} onChange={(v) => up(c.format, { format: v })} options={FORMATS.map((f) => ({ value: f.key, label: f.label }))} /></Row>
                 <Row label={c.dpi}><input className={s.field} value={S.dpi} aria-label={c.dpi} onChange={(e) => { const v = Number(e.target.value); if (Number.isFinite(v)) up(c.dpi, { dpi: v }) }} /></Row>
-                <p className={s.est}>{c.estimate}: ≈ {fileSizeMb(S.resolution, S.format).toFixed(1)} MB · {d.mp.toFixed(1)} MP · {c.print}: {printCm(S.resolution, S.dpi).w.toFixed(1)} × {printCm(S.resolution, S.dpi).h.toFixed(1)} cm</p>
+                <p className={s.est}>{c.estimate}: ≈ {fileSizeMb(S.resolution, S.format).toFixed(1)} MB · {d.mp.toFixed(1)} MP · {c.print}: {printCm(S.resolution, S.dpi).w.toFixed(1)} × {printCm(S.resolution, S.dpi).h.toFixed(1)} cm · {fmt(R.estimateMem, { gb: (renderMemoryBytes(d.w, d.h, isBlender(S) ? 'blender' : 'occt') / 1073741824).toFixed(1) })}</p>
               </>
             ))}
             {sec('rendering', c.rendering, (
               <>
-                <Row label={c.engine}><Sel label={c.engine} value={S.engine} onChange={(v) => up(c.engine, { engine: v })} options={ENGINES.map((e) => ({ value: e, label: e }))} /></Row>
+                <Row label={c.engine}><Sel label={c.engine} value={S.engine} onChange={(v) => up(c.engine, { engine: v })} options={ENGINES.map((e) => ({ value: e, label: R.engines[e] ?? e }))} /></Row>
                 <Row label={c.samples}><Slider label={c.samples} value={S.samples} min={16} max={4096} step={16} onChange={(v) => up(c.samples, { samples: v })} /></Row>
                 <Row label={c.denoise}><Toggle label={c.denoise} on={S.denoise} onChange={(v) => up(c.denoise, { denoise: v })} /></Row>
                 <Row label={c.bounces}><Sel label={c.bounces} value={String(S.bounces)} onChange={(v) => up(c.bounces, { bounces: Number(v) })} options={[2, 4, 6, 8, 12, 16, 32].map((n) => ({ value: String(n), label: String(n) }))} /></Row>
@@ -129,7 +132,7 @@ export function RenderSettingsPanel({ onRender, onRenderAll }: { onRender: () =>
       <div className={s.renderBar} ref={renderRef}>
         <button type="button" className={s.renderMain} onClick={onRender}><Play size={16} strokeWidth={1.8} />{c.renderCurrent}</button>
         <button type="button" className={s.renderMore} aria-label={c.renderAll} aria-expanded={renderMenu} onClick={() => setRenderMenu(!renderMenu)}><ChevronDown size={16} strokeWidth={1.8} /></button>
-        {renderMenu && <div className={s.renderPop}><PopoverPanel width={230}><MenuList onClose={() => setRenderMenu(false)} items={[{ label: c.renderAll, onSelect: onRenderAll }]} /></PopoverPanel></div>}
+        {renderMenu && <div className={s.renderPop}><PopoverPanel width={230}><MenuList onClose={() => setRenderMenu(false)} items={[{ label: c.renderAll, onSelect: onRenderAll }, ...(onRenderMaterials ? [{ label: fmt(R.materials.batch, { n: MATERIAL_OPTIONS.length }), onSelect: onRenderMaterials }] : [])]} /></PopoverPanel></div>}
       </div>
     </section>
   )

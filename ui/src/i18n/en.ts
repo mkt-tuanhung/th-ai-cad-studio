@@ -3,6 +3,7 @@ import { mepEn } from './ws/mep'
 import { civilEn } from './ws/civil'
 import { mechEn } from './ws/mechanical'
 import { rendersEn } from './ws/renders'
+import { render24En } from './ws/render24'
 import { fromCadEn } from './ws/fromCad'
 import { autoEn } from './ws/auto'
 // English is the source locale: every key must exist here. vi.ts is type-checked against it.
@@ -1070,6 +1071,7 @@ export const en = {
   civil: civilEn,
   mechanical: mechEn,
   renders: rendersEn,
+  render24: render24En,
   components: {
     title: 'Components Library',
     subtitle: 'Shared design assets for all disciplines. Search, browse and use high-quality components, blocks and families.',

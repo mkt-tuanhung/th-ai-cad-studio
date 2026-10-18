@@ -55,6 +55,11 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), renders: useRenders }
   })
+  // v2.4 local render pipeline (desktop e2e: e2e_blender.js)
+  Promise.all([import('./renders/provenance'), import('./renders/snapshot'), import('./renders/runner'), import('./renders/bookmarks')]).then(([provenance, snapshot, runner, bookmarks]) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), render24: { provenance, snapshot, runner, bookmarks } }
+  })
   import('./state/aiStudio').then(({ useAiStudio }) => {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), aiStudio: useAiStudio }

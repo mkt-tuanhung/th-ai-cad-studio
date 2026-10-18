@@ -1,5 +1,5 @@
 import { Box, Camera, Expand, Focus, Hand, Home, Maximize2, Minimize2, RefreshCcw, ScanSearch, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { toast } from '../../state/toast'
 import { useInterior, type InteriorMode } from '../../state/interior'
@@ -9,6 +9,9 @@ import { useHost } from '../../services/host'
 import { interiorScene, interiorSceneId } from '../../interior/scene'
 import { explodeScene } from '../../engine3d/scene'
 import { useSceneTools } from '../../components/workspace/sceneTools'
+import { useRenders } from '../../state/renders'
+import { bookmarksOf, restoreBookmark, saveBookmark, sourceRevision } from '../../renders/bookmarks'
+import { LIGHTING_PRESETS, type LightingPreset } from '../../renders/provenance'
 import s from './Interior.module.css'
 
 const MODES: { key: InteriorMode; w: number }[] = [
@@ -102,6 +105,35 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, live])
   const camOr = (action: string, label: string, ...args: number[]) => () => (live && cam.current ? cam.current(action, ...args) : native(label))
+  // v2.4: realtime Day / Golden / Night lighting (lights only) and camera bookmarks, in the camera menu
+  const R = T.render24
+  const [lighting, setLighting] = useState<LightingPreset>('standard')
+  const bookmarks = (useRenders((q) => q.doc.bookmarks) ?? []).filter((b) => b.source === 'interior')
+  const onCameraMenu = async (v: string) => {
+    if (!live) return native(t.views[v as 'exploded' | 'walk'] ?? R.bookmarks.desktop)
+    if (v === 'perspective' || v === 'exploded' || v === 'walk') return (set({ view: v }), v === 'perspective' && cam.current?.('home'))
+    if (v.startsWith('light:')) {
+      const p = v.slice(6) as LightingPreset
+      setLighting(p)
+      return toast(fmt(R.lighting.applied, { name: R.lighting.names[p] }))
+    }
+    if (v === 'bm:save') {
+      const bm = await saveBookmark(tools.ctl.current, 'interior', { level, hidden: tools.hidden, keep: tools.keep, section: tools.section, mode, lighting })
+      return bm ? toast(fmt(R.bookmarks.saved, { name: bm.name }), 'success') : toast(R.bookmarks.desktop)
+    }
+    const bm = bookmarksOf('interior').find((b) => `bm:${b.id}` === v)
+    if (!bm) return
+    const ok = await restoreBookmark(tools.ctl.current, bm, (st) => {
+      if (view !== 'perspective') set({ view: 'perspective' })
+      if (st.level && st.level !== level) set({ level: st.level })
+      tools.setVisibility(st.hidden, st.keep)
+      tools.setSection(st.section)
+      if (st.lighting) setLighting(st.lighting)
+    })
+    if (!ok) return
+    const cur = sourceRevision('interior')
+    toast(cur.rev === bm.sceneRev ? fmt(R.bookmarks.restored, { name: bm.name }) : fmt(R.bookmarks.stale, { name: bm.name, rev: bm.sceneRev }), cur.rev === bm.sceneRev ? 'success' : 'warning')
+  }
   const removeSel = () => {
     if (sel?.kind !== 'item') return native(t.remove)
     const it = doc.items.find((i) => i.id === sel.id)
@@ -127,6 +159,7 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
           selected={interiorSceneId(doc, sel)}
           cameraRef={cam}
           {...tools.props}
+          lighting={lighting}
           onToolDone={() => (view === 'walk' ? (set({ view: 'perspective' }), cam.current?.('home')) : tools.setTool('orbit'))}
           label={t.label}
           onLoaded={onLoaded}
@@ -142,8 +175,13 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
       <Select
         label={t.camera}
         value={view}
-        onChange={(v) => (live ? (set({ view: v }), v === 'perspective' && cam.current?.('home')) : native(t.views[v as 'exploded' | 'walk']))}
-        options={(['perspective', 'exploded', 'walk'] as const).map((v) => ({ value: v, label: t.views[v] }))}
+        onChange={(v) => void onCameraMenu(v)}
+        options={[
+          ...(['perspective', 'exploded', 'walk'] as const).map((v) => ({ value: v, label: t.views[v] })),
+          ...(['standard', ...LIGHTING_PRESETS] as LightingPreset[]).map((p) => ({ value: `light:${p}` as typeof view, label: (lighting === p ? '✓ ' : '') + fmt(R.lighting.label, { name: R.lighting.names[p] }) })),
+          { value: 'bm:save' as typeof view, label: R.bookmarks.save },
+          ...bookmarks.map((b) => ({ value: `bm:${b.id}` as typeof view, label: fmt(R.bookmarks.item, { name: b.name }) })),
+        ]}
         style={{ left: 15, top: 12, width: 146 }}
       />
       <ToolStrip

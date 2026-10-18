@@ -7,6 +7,8 @@ import { AiSparkIcon, CubeSolidIcon, ExportToolIcon, PlanViewIcon } from '../../
 import { MenuList, PopoverPanel, useDismissable } from '../../components/ui/Popover'
 import { downloadFile } from '../../components/workspace/Workspace'
 import { toIfc } from '../../bim/ifc'
+import { getHost } from '../../services/host'
+import { bimSpec, exportGlb } from '../../renders/snapshot'
 import s from './BimHeader.module.css'
 
 export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
@@ -19,6 +21,14 @@ export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
     const r = toIfc(useBim.getState().model, 'Villa Riverside')
     downloadFile(file, r.text, 'application/x-step')
     toast(fmt(t.toast.ifcSaved, { file, summary: Object.entries(r.counts).map(([k, n]) => `${n} ${k}`).join(', ') }), 'success')
+  }
+  // v2.4 SP38: glTF binary of the BIM building (presentation geometry from the exact OCCT solids)
+  const exportGlbFile = async () => {
+    const host = await getHost()
+    if (!host) return toast(T.render24.glb.desktop)
+    const r = await exportGlb(host, bimSpec(useBim.getState().model, { architecture: true, landscape: false }), 'Villa Riverside.glb')
+    if (r.ok) toast(fmt(T.render24.glb.saved, { file: (r.path ?? '').split(/[\\/]/).pop() ?? '', n: r.nodes ?? 0, m: r.materials?.length ?? 0 }), 'success')
+    else if (!('cancelled' in r && r.cancelled)) toast(fmt(T.render24.glb.failed, { why: r.error ?? '' }), 'warning')
   }
   const [discOpen, setDiscOpen, discRef] = useDismissable<HTMLDivElement>()
   const [expOpen, setExpOpen, expRef] = useDismissable<HTMLDivElement>()
@@ -89,6 +99,7 @@ export function BimHeader({ onExportCsv }: { onExportCsv: () => void }) {
                 items={[
                   { label: t.exportCsv, onSelect: onExportCsv },
                   { label: t.exportIfc, onSelect: exportIfc },
+                  { label: T.render24.glb.export, onSelect: () => void exportGlbFile() },
                 ]}
               />
             </PopoverPanel>

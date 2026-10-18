@@ -18,6 +18,8 @@ import { InteriorRight } from './InteriorRight'
 import { CabinetDialog } from './CabinetDialog'
 import { NestingDialog } from './NestingDialog'
 import { FromCadDialog } from '../bim/FromCadDialog'
+import { getHost } from '../../services/host'
+import { exportGlb, interiorSpec } from '../../renders/snapshot'
 import s from './Interior.module.css'
 
 /** Interior workspace — mockup 09 (Design). */
@@ -47,6 +49,15 @@ export function InteriorScreen() {
     const file = `Villa Riverside - ${t.exportItems[kind].replace(/ \(CSV\)$/, '')}.csv`
     downloadFile(file, csv(rows))
     toast(fmt(t.toast.exported, { file }), 'success')
+  }
+
+  // v2.4 SP38: glTF binary of the interior (rooms, walls to the ceiling, furniture, cabinets)
+  const exportGlbFile = async () => {
+    const host = await getHost()
+    if (!host) return toast(T.render24.glb.desktop)
+    const r = await exportGlb(host, interiorSpec(useInterior.getState().doc, { furniture: true }), 'Villa Riverside - interior.glb')
+    if (r.ok) toast(fmt(T.render24.glb.saved, { file: (r.path ?? '').split(/[\\/]/).pop() ?? '', n: r.nodes ?? 0, m: r.materials?.length ?? 0 }), 'success')
+    else if (!('cancelled' in r && r.cancelled)) toast(fmt(T.render24.glb.failed, { why: r.error ?? '' }), 'warning')
   }
 
   const tabs = [
@@ -84,7 +95,7 @@ export function InteriorScreen() {
                 icon={<ExportToolIcon size={19} strokeWidth={1.5} />}
                 label={t.export}
                 width={104}
-                menu={(['furniture', 'cutlist', 'quantities'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) }))}
+                menu={[...(['furniture', 'cutlist', 'quantities'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) })), { label: T.render24.glb.export, onSelect: () => void exportGlbFile() }]}
               />
               <WsButton primary icon={<AiSparkIcon size={19} strokeWidth={1.7} />} label={t.ai} width={130} onClick={() => st.set({ right: 'ai' })} />
             </>

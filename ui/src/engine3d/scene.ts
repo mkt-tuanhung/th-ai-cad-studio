@@ -29,6 +29,8 @@ export interface SceneItem {
   cuts?: Prim[]
   /** Feature-based part evaluated natively instead of parts / cuts (mech/part.ts). */
   part?: object
+  /** Presentation material group (render material options, renders/provenance.ts); never geometry. */
+  group?: string
 }
 
 export interface Scene {

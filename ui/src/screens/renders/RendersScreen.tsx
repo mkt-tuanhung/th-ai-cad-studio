@@ -23,7 +23,8 @@ import { rendersAi } from '../../ai/disciplines/renders'
 import { interiorScene } from '../../interior/scene'
 import { useInterior } from '../../state/interior'
 import { useBim } from '../../state/bim'
-import { dims as dimsOf, viewOf } from '../../renders/model'
+import { dims as dimsOf, isBlender, viewOf } from '../../renders/model'
+import { CompareDialog } from './CompareDialog'
 import s from './Renders.module.css'
 
 const MODES: { key: RenderMode; w: number }[] = [
@@ -56,6 +57,10 @@ export function RendersScreen() {
   const lowRes = !realJob && img !== '/assets/v2/renders/viewport.png'
   const clock = (ms = 0) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`
   const fileName = (p?: string) => (p ? (p.split(/[\\/]/).pop() ?? p) : '')
+  const R = T.render24
+  const [compare, setCompare] = useState<string | null>(null)
+  /** Render errors in the user's words (stale snapshot, memory guard); others as the host said. */
+  const why = (err: string) => (err === 'stale' ? R.blender.stale : /not enough memory/i.test(err) ? fmt(R.blender.memory, { why: err }) : err)
 
   useEffect(() => {
     const onKey = undoKeys(st.undo, st.redo, (label, redo) => toast(label ? fmt(redo ? t.toast.redone : t.toast.undone, { label }) : t.toast.nothing))
@@ -75,16 +80,16 @@ export function RendersScreen() {
   const queue = async (ids: string[]) => {
     const n = st.enqueue(ids)
     if (!host) return toast(fmt(t.toast.queued, { n }))
-    toast(fmt(t.toast.started, { n }))
+    toast(fmt(isBlender(st.doc.settings) ? R.blender.started : t.toast.started, { n }))
     // the view just asked for renders first; the rest of the queue follows
     const fresh = useRenders.getState().doc.queue.slice(-n)[0]
     const err = fresh ? await startJob(host, fresh.id) : await startNext(host)
-    if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: err }), 'warning')
+    if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: why(err) }), 'warning')
   }
   const startOne = async (id: string) => {
     if (!host) return native(t.queue.start)
     const err = await startJob(host, id)
-    if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: err }), 'warning')
+    if (err && err !== 'busy') toast(fmt(t.toast.renderFailed, { error: why(err) }), 'warning')
   }
   const reveal = (path?: string) => host && path && host.revealFolder(path.replace(/[\\/][^\\/]*$/, ''))
   const x = t.extra
@@ -139,6 +144,7 @@ export function RendersScreen() {
                 { label: t.saveItems.camera, onSelect: () => addCamera() },
                 { label: t.saveItems.settings, onSelect: () => { downloadFile('Villa Riverside - render settings.json', JSON.stringify({ camera: cam, settings: st.doc.settings, post: st.doc.fx }, null, 2), 'application/json'); toast(fmt(t.toast.exported, { file: 'Villa Riverside - render settings.json' }), 'success') } },
                 { label: t.saveItems.image, onSelect: () => { const a = document.createElement('a'); a.href = img; a.download = realJob ? `${cam.name} - preview.jpg` : `${cam.name} - DEMO preview.png`; a.click() } },
+                { label: R.compare.open, onSelect: () => setCompare(cam.id) },
               ]} />
               <WsButton primary icon={<Play size={16} strokeWidth={1.8} />} label={t.render} width={120} onClick={() => queue([cam.id])} />
             </>
@@ -257,10 +263,12 @@ export function RendersScreen() {
           {st.tab === 'video' && <VideoPanel cam={cam} />}
           {st.mode === 'rendered' && !realJob && st.doc.fx.vignette > 0 && <div className={s.vignette} style={{ opacity: st.doc.fx.vignette / 100 }} />}
           {live ? null : realJob && realRun ? (
-            <span className={w.demoBadge} style={{ left: 10, top: 10, background: 'rgba(16, 92, 96, 0.9)', color: '#fff', borderColor: 'transparent' }}>
+            <span className={w.demoBadge} data-testid="render-badge" title={[realRun.note === 'blender-missing' ? R.blender.missing : realRun.note === 'blender-stills-only' ? R.blender.stillsOnly : realRun.note === 'no-snapshot' ? R.blender.noSnapshot : '', R.presentationOnly].filter(Boolean).join(' · ')} style={{ left: 10, top: 10, background: 'rgba(16, 92, 96, 0.9)', color: '#fff', borderColor: 'transparent' }}>
               {realRun.status === 'rendering'
-                ? fmt(t.viewer.rendering, { s: realRun.samples ?? 0, n: realRun.total ?? 0, time: clock(realRun.ms) })
-                : fmt(t.viewer.rendered, { s: realRun.samples ?? 0, time: clock(realRun.ms), file: fileName(realRun.path) })}
+                ? fmt(realRun.engine === 'blender' ? R.blender.rendering : t.viewer.rendering, { s: realRun.samples ?? 0, n: realRun.total ?? 0, time: clock(realRun.ms) })
+                : fmt(realRun.engine === 'blender' ? R.blender.rendered : t.viewer.rendered, { s: realRun.samples ?? 0, time: clock(realRun.ms), file: fileName(realRun.path) })}
+              {realRun.note === 'blender-missing' ? ` · ${R.blender.missing}` : ''}
+              {` · ${R.presentationOnly}`}
             </span>
           ) : (
             <span className={w.demoBadge} style={{ left: 10, top: 10 }}>{host ? t.viewer.demoDesktop : t.viewer.demo}</span>
@@ -361,7 +369,7 @@ export function RendersScreen() {
               {[t.queue.n, t.queue.camera, t.queue.settings, t.queue.file, t.queue.time, '', t.queue.actions].map((h, k) => <span key={k} role="columnheader">{h}</span>)}
             </div>
             {st.history.map((h, i) => (
-              <div key={h.jobId + h.finished} className={s.qrow} role="row">
+              <div key={h.jobId + h.finished} className={s.qrow} role="row" onDoubleClick={() => setCompare(h.cameraId ?? cam.id)} title={R.compare.open}>
                 <span role="cell">{i + 1}</span>
                 <span role="cell">{h.camera}</span>
                 <span role="cell">{h.w} × {h.h} · {h.samples}</span>
@@ -393,9 +401,14 @@ export function RendersScreen() {
         />
       )}
       {gallery && <VariationsGallery cam={cam} onClose={() => setGallery(false)} />}
+      {compare && <CompareDialog cameraId={compare} onClose={() => setCompare(null)} />}
       {/* ---------- right ---------- */}
       <div className={s.right}>
-        <RenderSettingsPanel onRender={() => queue([cam.id])} onRenderAll={() => queue(st.doc.cameras.map((c) => c.id))} />
+        <RenderSettingsPanel onRender={() => queue([cam.id])} onRenderAll={() => queue(st.doc.cameras.map((c) => c.id))} onRenderMaterials={() => {
+          const n = st.enqueueMaterialOptions(cam.id, Object.fromEntries(Object.entries(R.materials.names)))
+          toast(fmt(R.materials.queued, { n }))
+          if (host) void startNext(host).then((err) => err && err !== 'busy' && toast(fmt(t.toast.renderFailed, { error: why(err) }), 'warning'))
+        }} />
       </div>
     </div>
   )
