@@ -343,6 +343,11 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
             {(['wall', 'curtain', 'door', 'window', 'opening', 'column', 'room', 'furniture'] as const).map((k) => <span key={k}><i className={s[`lg_${k}`]} />{t.legend[k]}</span>)}
           </div>
           {built && <p className={s.note}>{built.align.method === 'grid' && built.align.grid ? fmt(t.align.grid, { v: built.align.grid[0], h: built.align.grid[1] }) : t.align.extent}</p>}
+          {built && built.problems.length > 0 && (
+            <ul className={s.warn} role="alert" data-testid="fromcad-stack">
+              {built.problems.map((x, i) => { const [code, ...rest] = x.split(':'); return <li key={i}>{fmt((t.stack as Record<string, string>)[code] ?? x, { what: rest.join(':').replace('|', ' / ') })}</li> })}
+            </ul>
+          )}
           {allWarnings.length > 0 && <ul className={s.warn}>{allWarnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
         </div>
       </div>
@@ -355,7 +360,7 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
           {applyErr && !preBim && !preInt && <><br /><span role="alert">{applyErr}</span></>}
         </span>
         <ActionButton onClick={onClose}>{t.cancel}</ActionButton>
-        <ActionButton variant="primary" onClick={() => void approve()} disabled={!built || (!withBim && !withInterior) || applying || !!preBim || !!preInt} data-testid="fromcad-approve">{t.approve}</ActionButton>
+        <ActionButton variant="primary" onClick={() => void approve()} disabled={!built || built.problems.length > 0 || (!withBim && !withInterior) || applying || !!preBim || !!preInt} data-testid="fromcad-approve">{t.approve}</ActionButton>
       </div>
     </Modal>
   )
@@ -363,8 +368,11 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
 
 /** The plan with what was recognised drawn over it (drawing coordinates, Y up). */
 function PlanPreview({ doc, rec, roles }: { doc: CadDocument; rec: Recognition; roles: Record<string, LayerRole> }) {
-  const b = rec.region.box
-  const pad = Math.max(800, 0.05 * Math.max(b.x1 - b.x0, b.y1 - b.y0))
+  // a drawing in m / cm is recognised in mm (region.unit): the box and the overlay are in mm, the drawing in its units
+  const u = rec.region.unit && rec.region.unit > 0 ? rec.region.unit : 1
+  const b0 = rec.region.box
+  const b = { x0: b0.x0 / u, y0: b0.y0 / u, x1: b0.x1 / u, y1: b0.y1 / u }
+  const pad = Math.max(800 / u, 0.05 * Math.max(b.x1 - b.x0, b.y1 - b.y0))
   const vb = { x: b.x0 - pad, y: b.y0 - pad, w: b.x1 - b.x0 + 2 * pad, h: b.y1 - b.y0 + 2 * pad }
   const src = useMemo(() => {
     const paths: string[] = []
@@ -398,19 +406,21 @@ function PlanPreview({ doc, rec, roles }: { doc: CadDocument; rec: Recognition; 
     <svg className={s.preview} viewBox={`${vb.x} ${-(vb.y + vb.h)} ${vb.w} ${vb.h}`} data-testid="fromcad-preview" role="img" aria-label={rec.region.title ?? rec.region.id}>
       <g transform="scale(1,-1)">
         <path d={src} className={s.src} strokeWidth={lw} />
+        <g transform={u !== 1 ? `scale(${1 / u})` : undefined}>
         <g transform={turn}>
-        {rec.rooms.map((r, i) => <polygon key={`r${i}`} points={pts(r.outline)} className={s.room} strokeWidth={lw * 1.5} />)}
-        {rec.walls.map((w, i) => <polygon key={`w${i}`} points={pts(wallRect(w))} className={w.curtain ? s.curtain : s.wall} strokeWidth={lw} />)}
+        {rec.rooms.map((r, i) => <polygon key={`r${i}`} points={pts(r.outline)} className={s.room} strokeWidth={lw * 1.5 * u} />)}
+        {rec.walls.map((w, i) => <polygon key={`w${i}`} points={pts(wallRect(w))} className={w.curtain ? s.curtain : s.wall} strokeWidth={lw * u} />)}
         {rec.openings.map((o, i) => { const w = rec.walls[o.wall]; return w ? <polygon key={`o${i}`} points={pts(wallRect(w, o.s0, o.s1, 25))} className={s[o.kind]} /> : null })}
         {rec.columns.map((c, i) => <rect key={`c${i}`} x={c.x - c.w / 2} y={c.y - c.d / 2} width={c.w} height={c.d} className={s.column} />)}
         {rec.furniture.map((f, i) => (
-          <rect key={`f${i}`} x={-f.w / 2} y={-f.d / 2} width={f.w} height={f.d} className={s.furn} strokeWidth={lw} transform={`translate(${f.x} ${f.y}) rotate(${f.rot})`} />
+          <rect key={`f${i}`} x={-f.w / 2} y={-f.d / 2} width={f.w} height={f.d} className={s.furn} strokeWidth={lw * u} transform={`translate(${f.x} ${f.y}) rotate(${f.rot})`} />
         ))}
+        </g>
         </g>
       </g>
       {rec.rooms.map((r, i) => {
         const [cx, cy] = back([r.outline.reduce((a, p) => a + p[0], 0) / r.outline.length, r.outline.reduce((a, p) => a + p[1], 0) / r.outline.length])
-        return <text key={`t${i}`} x={cx} y={-cy} className={s.rlabel} fontSize={vb.w / 75} textAnchor="middle">{`${r.name ?? '?'} · ${r.area.toFixed(2)} m²`}</text>
+        return <text key={`t${i}`} x={cx / u} y={-cy / u} className={s.rlabel} fontSize={vb.w / 75} textAnchor="middle">{`${r.name ?? '?'} · ${r.area.toFixed(2)} m²`}</text>
       })}
     </svg>
   )

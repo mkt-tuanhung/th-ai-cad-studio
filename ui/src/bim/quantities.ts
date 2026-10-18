@@ -19,7 +19,7 @@
  */
 import { levelOf, typeOf, wallHeight, type BimModel, type P2 } from './model'
 import { polyArea, segDist, wallEnds } from './geometry'
-import { stairFlight } from './scene'
+import { STAIR_WAIST, stairFlight, stairProfile } from './scene'
 import { norm } from './fromCad'
 import { roofQuantities } from './roof'
 
@@ -297,20 +297,19 @@ function inPoly(p: P2, o: P2[]): boolean {
   return inside
 }
 
-/** Waist slab of a flight (mm, measured square to its slope). */
-export const STAIR_WAIST = 150
+/** Waist slab of a flight (mm, measured square to its slope) — the one the 3D / IFC flight is built with. */
+export { STAIR_WAIST }
 
 /**
- * Concrete of a straight flight (m³), by formula — independent of how the flight is drawn: the steps
- * n × ½ · riser · going · width, plus the waist slab t × its sloping length √(run² + rise²) × width. Landings are
- * slabs of their own (the "landing" line). Lengths in mm.
+ * Concrete of a straight flight (m³): the area of the flight's side profile — the steps on the waist slab, exactly
+ * the section the 3D scene and the IFC stair are built from (`stairProfile`) — × its width. Landings are slabs of
+ * their own (the "landing" line). Lengths in mm. Close to the textbook n·½·r·g·w + t·√(run²+rise²)·w, but exact at
+ * both ends (the soffit meets the floor, a short flight is solid down to it).
  */
 export function stairConcrete(n: number, riser: number, run: number, width: number, waist = STAIR_WAIST): number {
   if (!(n > 0 && riser > 0 && run > 0 && width > 0)) return 0
-  const going = run / n
-  const steps = n * 0.5 * riser * going * width
-  const slab = waist * Math.hypot(run, n * riser) * width
-  return (steps + slab) / 1e9
+  const flight = { id: 'q', category: 'stair', mark: 'q', baseLevel: '', topLevel: '', x: 0, y: 0, angle: 0, length: run, width } as BimModel['stairs'][number]
+  return (polyArea(stairProfile(flight, n, riser, waist)) * width) / 1e9
 }
 
 /** A row of a price list that could not be read (shown in the review and the report, never dropped silently). */

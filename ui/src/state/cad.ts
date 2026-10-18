@@ -57,8 +57,10 @@ interface CadState {
 
   activeDoc: () => CadDocument | null
   exec: (op: CadOp) => ValidationError | null
-  /** Several ops validated progressively and committed as ONE undo step (AI proposals). */
-  execBatch: (ops: CadOp[], label: string) => ValidationError | null
+  /** Several ops validated progressively and committed as ONE undo step (AI proposals). `patch` changes document
+   *  properties in the same step (calibration: underlay scale + provenance; review decisions) — undo restores them
+   *  with the geometry. With no ops the patch is a plain property change (not an undo step, like setLayouts). */
+  execBatch: (ops: CadOp[], label: string, patch?: (doc: CadDocument) => CadDocument) => ValidationError | null
   undo: () => string | null
   redo: () => string | null
   newDrawing: (name?: string) => CadDocument
@@ -138,7 +140,7 @@ export const useCad = create<CadState>()(
         return null
       },
 
-      execBatch: (ops, label) => {
+      execBatch: (ops, label, patch) => {
         const doc = get().activeDoc()
         if (!doc) return { code: 'unknown-entity', detail: 'no document' }
         let next = doc
@@ -146,6 +148,12 @@ export const useCad = create<CadState>()(
           const err = validate(next, op)
           if (err) return err
           next = preview(next, op)
+        }
+        if (patch) next = { ...patch(next), dirty: true }
+        // a property-only change is not mirrored to the engine, so it must not be an undo step either
+        if (!ops.length && patch) {
+          set({ docs: { ...get().docs, [doc.id]: next } })
+          return null
         }
         const h = get().history[doc.id] ?? emptyHistory()
         const history = capUndo({ undo: [...h.undo, { label, before: doc, after: next }], redo: [] })

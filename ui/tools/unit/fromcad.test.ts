@@ -5,11 +5,13 @@
 //   ifc      IFC 4 text of the model built from a DXF (checked with tools/check_ifc.py)
 import { decodeDxf, importDxf } from '../../src/cad/dxfImport'
 import type { CadDocument } from '../../src/cad/types'
-import { dominantAngle, findFlights, findSpirals, findPlans, layerStats, norm, parseElevation, parseMark, parseSize, recognize, ruleRole, segsOf, type LayerRole } from '../../src/bim/fromCad'
-import { balconiesAndVoids, buildBimModel, buildInterior, DEFAULT_BUILD, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
+import { dominantAngle, findFlights, findSpirals, findPlans, isRoofPlanTitle, layerStats, norm, parseElevation, parseMark, parseSize, recognize, rotateEntity, ruleRole, scaleDoc, segsOf, shoelace, storeyOf, type LayerRole } from '../../src/bim/fromCad'
+import { balconiesAndVoids, buildBimModel, buildInterior, DEFAULT_BUILD, inferElevations, mergeModels, stairsFrom, type BuildNames } from '../../src/bim/fromCadBuild'
 import { boq, openingSchedule, priceOf, readPrices } from '../../src/bim/quantities'
 import { applyStructure, readRebar, readStructure } from '../../src/bim/structure'
-import { parseSlope, readRoofs, roofQuantities } from '../../src/bim/roof'
+import { parseSlope, readRoofs, roofFrame, roofQuantities } from '../../src/bim/roof'
+import { stairProfile, STAIR_WAIST } from '../../src/bim/scene'
+import type { BimModel, PitchedRoof } from '../../src/bim/model'
 import { mepRole, readMep } from '../../src/auto/mep'
 import { buildMepModel } from '../../src/auto/mepModel'
 import { findClashes } from '../../src/mep/model'
@@ -43,13 +45,27 @@ const NAMES: BuildNames = {
   door: 'Door', doubleDoor: 'Double door', opening: 'Opening', window: 'Window', furniture: fromCadEn.furniture,
 }
 
-function analyse(doc: CadDocument) {
-  const roles = Object.fromEntries(layerStats(doc).map((s) => [s.name, s.role])) as Record<string, LayerRole>
+function analyse(doc: CadDocument, override: Record<string, LayerRole> = {}) {
+  const roles = { ...Object.fromEntries(layerStats(doc).map((s) => [s.name, s.role])), ...override } as Record<string, LayerRole>
   const plans = findPlans(doc, roles).filter((p) => p.kind !== 'other')
   const recs = plans.map((p) => recognize(doc, roles, p))
   const built = buildBimModel(recs.map((r, i) => ({ rec: r, levelName: r.region.levelName ?? `L${i + 1}`, elevation: r.region.elevation ?? i * 3300, roof: r.region.kind === 'roof' })), DEFAULT_BUILD, NAMES)
   return { roles, plans, recs, built }
 }
+const docOf = (entities: Entity[], name = 't.dxf'): CadDocument => ({ id: name, name, entities, layers: [], currentLayer: '0', underlay: null, blocks: [], dirty: false, createdAt: 0, savedAt: null, source: 'dxf-import' }) as unknown as CadDocument
+/** Entity makers for the synthetic cases (ids numbered per maker). */
+function maker(tag: string) {
+  let k = 0
+  const base = (layer: string) => ({ color: 'ByLayer', linetype: 'ByLayer', lineweight: 'ByLayer', transparency: 0, layer, id: `${tag}${++k}` }) as const
+  return {
+    L: (layer: string, ax: number, ay: number, bx: number, by: number): Entity => ({ ...base(layer), kind: 'line', a: { x: ax, y: ay }, b: { x: bx, y: by } }),
+    R: (layer: string, x0: number, y0: number, x1: number, y1: number): Entity => ({ ...base(layer), kind: 'polyline', closed: true, pts: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] }),
+    PL: (layer: string, pts: [number, number][], closed = false): Entity => ({ ...base(layer), kind: 'polyline', closed, pts: pts.map(([x, y]) => ({ x, y })) }),
+    C: (layer: string, x: number, y: number, r: number): Entity => ({ ...base(layer), kind: 'circle', c: { x, y }, r }),
+    Tx: (layer: string, x: number, y: number, value: string, height = 250): Entity => ({ ...base(layer), kind: 'text', p: { x, y }, height, value, rotation: 0, align: 'left' }),
+  }
+}
+const areaOf = (o: [number, number][]) => Math.abs(shoelace(o)) / 1e6
 
 export function run(file?: string) {
   const out: string[] = []
@@ -122,6 +138,20 @@ export function run(file?: string) {
   roofChecks(check)
   rebarChecks(check)
   mepChecks(check)
+  // the review of 2026-10-18 (qa/REVIEW_2026-10-18.md): one synthetic case per bug
+  titleChecks(check)
+  deepRoofChecks(check)
+  stairSectionChecks(check)
+  uniqueIdChecks(check)
+  mergeChecks(check)
+  wideOpeningChecks(check)
+  rotatedProjectChecks(check)
+  capLevelChecks(check)
+  coreChecks(check)
+  bigSiteChecks(check)
+  storeyStackChecks(check)
+  unitChecks(check)
+  ifcProjectChecks(check)
   if (file) out.push(...villa(file).lines)
   out.push(fails ? `FAILED ${fails}` : 'ALL PASS')
   return out.join('\n')
@@ -400,4 +430,333 @@ function mepChecks(check: (name: string, ok: boolean, extra?: string) => void) {
   const cl = findClashes(mm.model)
   check('MEP model: pipes under the usual beams (300 deep) — only the deeper beam (600) is in the way; the tee is no clash', mm.pipes === 2 && cl.length === 1 && cl[0].kind === 'pipe-beam' && /D3/.test(cl[0].b) && mm.fixtures === 1 && mm.pipeBeam === 1, JSON.stringify({ pipes: mm.model.pipes, cl }))
   check('MEP: pipes measured and sized by the label next to them (cold D25 4 m, waste D90 3 m), a floor drain', Math.abs((row('mep:cold:25')?.total ?? 0) - 4) < 1e-9 && Math.abs((row('mep:waste:90')?.total ?? 0) - 3) < 1e-9 && row('mep:fixture')?.total === 1 && !r.rows.some((x) => x.role === 'cold' && x.total > 4.001), JSON.stringify(r.rows))
+}
+
+/* ================================================================ review 2026-10-18 */
+
+type Check = (name: string, ok: boolean, extra?: string) => void
+const near1 = (a: number, b: number, tol = 1) => Math.abs(a - b) <= tol
+
+/** B9 / B10: elevations in titles and texts, roof plans against storeys with a roof part. */
+function titleChecks(check: Check) {
+  const cases: [string, number | null][] = [
+    ['MẶT BẰNG TẦNG 2 - 3.900', 3900], ['MẶT BẰNG TẦNG 2  +3.900', 3900], ['±0.000', 0], ['COS -0,450', -450], ['-0.950 ĐỈNH ĐÀI', -950],
+    ['ĐỈNH ĐÀI −0.950', -950], ['ĐỈNH ĐÀI − 0.950', -950], ['CỐT +3.900', 3900], ['COS 3.900', 3900], ['EL. 3.9 m', 3900], ['EL +3.90', 3900],
+    ['COS - 0.450', -450], ['TẦNG 2-3.900', 3900], ['MẶT SÀN KC +3.550', 3550], ['EL. -1.2 m', -1200], ['MẶT BẰNG TẦNG 1   COS ±0.000', 0],
+    ['Phòng 12', null], ['D2-1 220x400', null], ['3.6 m', null], ['12000', null],
+  ]
+  const bad = cases.filter(([s, v]) => parseElevation(s) !== v).map(([s, v]) => `${s} → ${parseElevation(s)} ≠ ${v}`)
+  check('elevations: a spaced dash after a word or number separates ("TẦNG 2 - 3.900" = +3.900); "−" or a dash on the number is a minus; CỐT / COS / EL. 3.9 m', !bad.length, bad.join('; '))
+  const roofT = ['MẶT BẰNG MÁI', 'MB MÁI', 'ROOF PLAN', 'MẶT BẰNG MÁI +11.100', 'MẶT BẰNG TẦNG MÁI']
+  const storeys: [string, number, string][] = [['MẶT BẰNG TẦNG 4 + MÁI', 4, 'Tầng 4'], ['MẶT BẰNG TẦNG ÁP MÁI', 98, 'Tầng áp mái'], ['MẶT BẰNG TẦNG TUM', 98, 'Tầng tum'], ['LEVEL 3 + ROOF', 3, 'Level 3']]
+  const wrong = [...roofT.filter((t) => !isRoofPlanTitle(t) || storeyOf(t)[0] !== 99), ...storeys.filter(([t, o, n]) => isRoofPlanTitle(t) || storeyOf(t)[0] !== o || storeyOf(t)[1] !== n).map(([t]) => t)]
+  check('roof plans: only a roof plan title ("MẶT BẰNG MÁI", "MB MÁI", "ROOF PLAN"); "TẦNG 4 + MÁI", "TẦNG ÁP MÁI", "TẦNG TUM" stay storeys; a roof note is no title', !wrong.length && !isRoofPlanTitle('MÁI DỐC i = 35%', true) && isRoofPlanTitle('MẶT BẰNG MÁI', true), wrong.join('; '))
+}
+
+/** A6: a deep plot (its long side along plan Y), outlines both ways round: the ridge above the eaves in 3D and IFC. */
+function deepRoofChecks(check: Check) {
+  const mk = (id: string, outline: [number, number][], kind: PitchedRoof['kind']): PitchedRoof => ({ id, category: 'roof', mark: id, level: 'L2', outline, kind, slope: 30 })
+  const deep: [number, number][] = [[0, 0], [8000, 0], [8000, 14000], [0, 14000]], wide: [number, number][] = [[0, 0], [14000, 0], [14000, 8000], [0, 8000]]
+  const roofs = [mk('deep-gable', deep, 'gable'), mk('deep-hip', deep, 'hip'), mk('deep-cw', [...deep].reverse(), 'gable'), mk('wide-hip', wide, 'hip'), mk('wide-cw', [...wide].reverse(), 'hip')]
+  const m = { levels: [{ id: 'L1', name: '1', elevation: 0 }, { id: 'L2', name: '2', elevation: 3600 }], wallTypes: [], walls: [], doors: [], windows: [], rooms: [], columns: [], slabs: [], stairs: [], railings: [], components: [], grids: [], annotations: [], roofs } as unknown as BimModel
+  const sc = bimExtras(m)
+  type V = [number, number, number]
+  const crs = (a: V, b: V): V => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+  const world = (o: V, z: V, x: V, u: number, v: number, w = 0): V => { const y = crs(z, x); return [o[0] + x[0] * u + y[0] * v + z[0] * w, o[1] + x[1] * u + y[1] * v + z[1] * w, o[2] + x[2] * u + y[2] * v + z[2] * w] }
+  const corners = (r: PitchedRoof, pts: V[]) => pts.every((p) => r.outline.some((q) => near1(p[0], q[0]) && near1(p[1], q[1])))
+  const bad: string[] = []
+  for (const r of roofs) {
+    const it = sc.items.find((x) => x.id === r.id)!, p = it.parts[0], f = roofFrame(r)
+    const z = (p.z ?? [0, 0, 1]) as V, x = (p.x ?? [1, 0, 0]) as V
+    const apex = world(p.o, z, x, f.W / 2, f.h), e = [world(p.o, z, x, 0, 0), world(p.o, z, x, f.W, 0), world(p.o, z, x, 0, 0, f.L), world(p.o, z, x, f.W, 0, f.L)]
+    const cutsUp = (it.cuts ?? []).every((c) => crs((c.z ?? [0, 0, 1]) as V, (c.x ?? [1, 0, 0]) as V)[2] > 0.999)
+    if (!(apex[2] > 3600 + 1000 && e.every((q) => near1(q[2], 3600)) && corners(r, e) && cutsUp)) bad.push(`3D ${r.id}: apex z ${apex[2].toFixed(0)}, eaves ${e.map((q) => q.map(Math.round).join(',')).join(' ')}`)
+  }
+  // IFC: the roof's extruded triangle through its placement — the profile's apex above its eaves
+  const txt = toIfc(m, 'roofs').text
+  const ent = new Map<string, string>()
+  for (const l of txt.split('\n')) { const mm = /^(#\d+)=(.*);$/.exec(l); if (mm) ent.set(mm[1], mm[2]) }
+  const refs = (s: string) => [...s.matchAll(/#\d+/g)].map((x) => x[0])
+  const vec = (id: string) => /\(\(([^)]*)\)\)/.exec(ent.get(id)!)![1].split(',').map(Number) as number[]
+  const roofEls = [...ent.entries()].filter(([, s]) => s.startsWith('IFCROOF('))
+  for (const [, s] of roofEls) {
+    const rep = refs(ent.get(refs(s)[1])!)[0]
+    let item = refs(ent.get(rep)!).pop()!
+    while (ent.get(item)!.startsWith('IFCBOOLEANCLIPPINGRESULT')) item = refs(ent.get(item)!)[0]
+    const [prof, ax] = refs(ent.get(item)!)
+    const [o, zd, xd] = refs(ent.get(ax)!).map(vec)
+    const pts = refs(ent.get(refs(ent.get(prof)!)[0])!).map(vec)
+    const top = pts.reduce((a, q) => (q[1] > a[1] ? q : a))
+    const W = (q: number[]) => world([o[0], o[1], o[2] ?? 0], zd as V, xd as V, q[0], q[1])[2]
+    if (!(W(top) > 1000 && pts.filter((q) => Math.abs(q[1]) < 1e-6).every((q) => Math.abs(W(q)) < 1e-6))) bad.push(`IFC ${s.slice(0, 60)}: apex z ${W(top)}`)
+  }
+  check('roof frame right-handed for every outline: deep plot (long side along Y) and both ways round — ridge above the eaves in the 3D mass, its hip cuts and the IFC placement', !bad.length && roofEls.length === roofs.length, bad.join('; '))
+}
+
+/** A9: the flight's section — steps on a waist slab 150 mm thick square to the pitch line under the step roots. */
+function stairSectionChecks(check: Check) {
+  const st = { id: 's', category: 'stair', mark: 'S', baseLevel: 'L1', topLevel: 'L2', x: 0, y: 0, angle: 0, length: 2900, width: 1100, rise: 1800, risers: 10 } as BimModel['stairs'][number]
+  const n = 10, r = 180, g = 290, L = 2900
+  const prof = stairProfile(st, n, r)
+  const k = r / g, drop = STAIR_WAIST * Math.hypot(1, k), xs = drop / k
+  const exp = (g * r * n * (n + 1)) / 2 - ((k * (L * L - xs * xs)) / 2 - drop * (L - xs))
+  // thickness under each root ((i+1) g, (i+1) r) to the soffit edge of the profile
+  const soffit = prof.filter((q, i) => i > 0 && (q[1] < (q[0] / g) * r - 1 || (q[1] === 0 && q[0] > 0)))
+  const [s1, s2] = soffit.length >= 2 ? [soffit[0], soffit[soffit.length - 1]] : [[0, 0], [1, 0]]
+  const dist = (p: [number, number]) => Math.abs((s2[1] - s1[1]) * p[0] - (s2[0] - s1[0]) * p[1] + s2[0] * s1[1] - s2[1] * s1[0]) / Math.hypot(s2[1] - s1[1], s2[0] - s1[0])
+  const th = Array.from({ length: n - 1 }, (_, i) => dist([(i + 1) * g, (i + 1) * r]))
+  const area = areaOf(prof) * 1e6
+  const m = { levels: [{ id: 'L1', name: '1', elevation: 0 }, { id: 'L2', name: '2', elevation: 1800 }], wallTypes: [], walls: [], doors: [], windows: [], rooms: [], columns: [], slabs: [], stairs: [st], railings: [], components: [], grids: [], annotations: [] } as unknown as BimModel
+  const v = boq(m, autoEn.boq.words).find((x) => x.key === 'stair')?.total ?? 0
+  // a flight too short for the slab to leave the floor is solid down to it
+  const short = stairProfile({ ...st, length: 300 }, 1, 150)
+  check('stair section: riser 180 / going 290 — waist 150 mm square to the pitch under every step root (not ~5 mm), area = steps + waist, the bill of quantities uses it', near1(area, exp, 1) && th.every((t) => near1(t, STAIR_WAIST, 0.01)) && near1(v, (exp * 1100) / 1e9, 1e-6) && short.some((q) => q[0] === 300 && q[1] === 0) && areaOf(short) > 0,
+    `area ${area.toFixed(0)} vs ${exp.toFixed(0)}; thickness ${th.map((t) => t.toFixed(1)).join('/')}; boq ${v}; ${JSON.stringify(prof.slice(-3))}`)
+}
+
+/* ---------- the project fixture: the SYNTHETIC house + a U stair + its structural plans + its roof plan ---------- */
+
+/** Structural plans of the SYNTHETIC house (grids 1 / 2 / 3 at x 110 / 6000 / 11890, A / B at y 110 / 8890): a
+ *  foundation plan (3 pile caps on grid A, a tie beam 1–2) and the floor beam plan of Tầng 2 (beams on A and B, slab
+ *  h=150 with an opening), each with its grids and its title. */
+function houseStruct(): Entity[] {
+  const { L, R, Tx } = maker('st')
+  const grids = (ox: number, oy: number) => [
+    ...([['1', 110], ['2', 6000], ['3', 11890]] as const).flatMap(([lab, x]) => [L('S-GRID', ox + x, oy - 2000, ox + x, oy + 11000), Tx('S-GRID', ox + x, oy + 11300, lab, 350)]),
+    ...([['A', 110], ['B', 8890]] as const).flatMap(([lab, y]) => [L('S-GRID', ox - 2000, oy + y, ox + 14000, oy + y), Tx('S-GRID', ox + 14300, oy + y, lab, 350)]),
+  ]
+  const fo = [0, -40000], fl = [30000, -40000]
+  const caps = [110, 6000, 11890].flatMap((x) => [R('S-FOUND', fo[0] + x - 300, fo[1] + 110 - 675, fo[0] + x + 300, fo[1] + 110 + 675), R('S-PILE', fo[0] + x - 125, fo[1] + 110 - 500, fo[0] + x + 125, fo[1] + 110 - 250), R('S-PILE', fo[0] + x - 125, fo[1] + 110 + 250, fo[0] + x + 125, fo[1] + 110 + 500), Tx('S-TAG', fo[0] + x - 250, fo[1] + 110 + 750, 'M1 (2 cọc)')])
+  return [
+    ...grids(fo[0], fo[1]), ...caps,
+    L('S-TIE', fo[0] + 410, fo[1] - 15, fo[0] + 5700, fo[1] - 15), L('S-TIE', fo[0] + 410, fo[1] + 235, fo[0] + 5700, fo[1] + 235), Tx('S-TAG', fo[0] + 2500, fo[1] + 300, 'GM 250×450'), L('S-TIE', fo[0] + 6300, fo[1] - 15, fo[0] + 11590, fo[1] - 15), L('S-TIE', fo[0] + 6300, fo[1] + 235, fo[0] + 11590, fo[1] + 235),
+    Tx('S-TEXT', fo[0] + 2000, fo[1] + 4000, 'ĐÁY ĐÀI -1.600'), Tx('S-LEVEL', fo[0] + 2000, fo[1] + 4500, '-0.950 ĐỈNH ĐÀI'),
+    Tx('S-TEXT', fo[0] + 3000, fo[1] - 3500, 'MẶT BẰNG MÓNG + GIẰNG MÓNG', 380),
+    ...grids(fl[0], fl[1]),
+    L('S-BEAM', fl[0] + 110, fl[1], fl[0] + 11890, fl[1]), L('S-BEAM', fl[0] + 110, fl[1] + 220, fl[0] + 11890, fl[1] + 220), Tx('S-TAG', fl[0] + 3000, fl[1] + 260, 'D1 220x400'),
+    L('S-BEAM', fl[0] + 110, fl[1] + 8780, fl[0] + 11890, fl[1] + 8780), L('S-BEAM', fl[0] + 110, fl[1] + 9000, fl[0] + 11890, fl[1] + 9000),
+    R('S-SLAB', fl[0] + 110, fl[1] + 110, fl[0] + 11890, fl[1] + 8890), Tx('S-TAG', fl[0] + 8000, fl[1] + 6000, 'h=150'),
+    R('S-OPEN', fl[0] + 7000, fl[1] + 4000, fl[0] + 8000, fl[1] + 5500),
+    Tx('S-TEXT', fl[0] + 3000, fl[1] - 3500, 'MẶT BẰNG KẾT CẤU SÀN TẦNG 2  (MẶT SÀN KC +3.550)', 380),
+  ]
+}
+/** The roof plan of the house: its grids, the eaves 500 mm past the walls, a hip roof "i = 35%". */
+function houseRoof(ox: number): Entity[] {
+  const { L, R, Tx } = maker('rf')
+  return [
+    ...([['1', 110], ['2', 6000], ['3', 11890]] as const).flatMap(([lab, x]) => [L('TRUC', ox + x, -2500, ox + x, 11500), Tx('TRUC', ox + x - 120, -3020, lab, 300)]),
+    ...([['A', 110], ['B', 8890]] as const).flatMap(([lab, y]) => [L('TRUC', ox - 2500, y, ox + 14500, y), Tx('TRUC', ox - 3020, y - 120, lab, 300)]),
+    R('MAI', ox - 500, -500, ox + 12500, 9500), Tx('MAI', ox + 4000, 3000, 'MÁI DỐC i = 35% - LỢP NGÓI'), Tx('CHU', ox + 4000, -4500, 'MẶT BẰNG MÁI', 400),
+  ]
+}
+/** The U stair of uStairPlan moved into the living room of the house (x 1200…3500, y 300…3000), on plan 1 and 2. */
+function houseStairs(): Entity[] {
+  const mv = (e: Entity, dx: number, dy: number): Entity => { const r = rotateEntity(e, 0, { x: 0, y: 0 }); const T = (p: { x: number; y: number }) => ({ x: p.x + dx, y: p.y + dy }); return r.kind === 'line' ? { ...r, a: T(r.a), b: T(r.b) } : r.kind === 'polyline' ? { ...r, pts: r.pts.map(T) } : r.kind === 'circle' ? { ...r, c: T(r.c) } : r }
+  return [...uStairPlan(true).map((e) => ({ ...mv(e, -6300, -7300), id: `l${e.id}` })), ...uStairPlan(false).map((e) => ({ ...mv(e, 20000 - 6300, -7300), id: `u${e.id}` }))]
+}
+const STRUCT_ROLES: Record<string, LayerRole> = { 'S-BEAM': 'ignore', 'S-TIE': 'ignore', 'S-FOUND': 'ignore', 'S-PILE': 'ignore', 'S-SLAB': 'ignore', 'S-OPEN': 'ignore', 'S-GRID': 'ignore', 'S-TAG': 'ignore', 'S-TEXT': 'ignore', 'S-LEVEL': 'ignore', MAI: 'ignore' }
+/** The whole project read as the one-command pipeline does: plans → model, structure applied, roofs read. */
+function project(doc: CadDocument) {
+  const a = analyse(doc, STRUCT_ROLES)
+  const s = readStructure(doc, a.built.model, a.built.align.grid)
+  let m = applyStructure(a.built.model, s)
+  const rr = readRoofs(doc, m, a.built.align.grid)
+  m = { ...m, roofs: rr.roofs }
+  return { a, s, m, rr }
+}
+function projectDoc(ang = 0): CadDocument {
+  const house = load(readFileSync(FX + 'house_vn_SYNTHETIC.dxf', 'latin1')).entities
+  const all = [...house, ...houseStairs(), ...houseStruct(), ...houseRoof(60000)]
+  return docOf(ang ? all.map((e) => rotateEntity(e, ang, { x: 0, y: 0 })) : all, ang ? 'rot.dxf' : 'straight.dxf')
+}
+
+/** A8: the structure of several drawings applied one after the other — beam / footing ids stay unique; IFC GlobalIds
+ *  stay unique even for a model with a repeated id. */
+function uniqueIdChecks(check: Check) {
+  const { a } = project(projectDoc())
+  const sdoc = docOf(houseStruct(), 's.dxf')
+  let m = a.built.model
+  for (let i = 0; i < 2; i++) m = applyStructure(m, readStructure(sdoc, m, a.built.align.grid))
+  const ids = [...(m.beams ?? []), ...(m.footings ?? [])].map((x) => x.id)
+  // a result read against the model before the first one was applied (a stale read) is re-numbered when applied
+  const stale = readStructure(sdoc, a.built.model, a.built.align.grid)
+  const m2 = applyStructure(applyStructure(a.built.model, stale), stale)
+  const ids2 = [...(m2.beams ?? []), ...(m2.footings ?? [])].map((x) => x.id)
+  const dup = { ...m, beams: [...(m.beams ?? []), { ...m.beams![0] }] }
+  const guids = [...toIfc(dup, 'dup').text.matchAll(/^#\d+=IFC\w+\('([0-9A-Za-z_$]{22})'/gm)].map((x) => x[1])
+  const health = runModelChecks(dup).find((c) => c.key === 'health')!
+  check('structure of two drawings applied in turn: beam / footing ids unique (also for a stale read); IFC GlobalIds unique with a repeated id; the repeated id flagged by the model checks',
+    ids.length === 2 * (4 + 3) && new Set(ids).size === ids.length && new Set(ids2).size === ids2.length && ids2.length === ids.length && guids.length > 100 && new Set(guids).size === guids.length && health.items.some((x) => /id used twice/.test(x.message)),
+    `${ids.join(',')} | ${ids2.join(',')} | guids ${guids.length}/${new Set(guids).size}`)
+}
+
+/** A7: "Add to the current model" keeps every list of the imported model, with new ids where taken and the references
+ *  following them. */
+function mergeChecks(check: Check) {
+  const { m } = project(projectDoc())
+  const base: BimModel = { ...m, annotations: [{ id: 'A1', category: 'annotation', kind: 'tag', level: 'L1', a: [0, 0], target: 'W1' }] }
+  const mg = mergeModels(base, base)
+  const keys = ['walls', 'doors', 'windows', 'rooms', 'columns', 'slabs', 'stairs', 'railings', 'components', 'annotations', 'beams', 'footings', 'roofs'] as const
+  const len = (x: BimModel, k: (typeof keys)[number]) => ((x[k] ?? []) as unknown[]).length
+  const doubled = keys.filter((k) => len(mg, k) !== 2 * len(base, k))
+  const all = keys.flatMap((k) => ((mg[k] ?? []) as { id: string }[]).map((x) => x.id)).concat(mg.grids.map((g) => g.id))
+  const wallIds = new Set(mg.walls.map((w) => w.id)), lv = new Set(mg.levels.map((l) => l.id)), types = new Set(mg.wallTypes.map((t) => t.id))
+  const refsOk = [...mg.doors, ...mg.windows].every((o) => wallIds.has(o.hostWall)) && mg.walls.every((w) => lv.has(w.baseLevel) && lv.has(w.topLevel) && types.has(w.typeId))
+    && [...mg.rooms, ...mg.slabs, ...mg.railings, ...mg.components, ...(mg.beams ?? []), ...(mg.footings ?? []), ...(mg.roofs ?? [])].every((x) => lv.has(x.level)) && mg.stairs.every((s) => lv.has(s.baseLevel) && lv.has(s.topLevel)) && mg.columns.every((c) => lv.has(c.level) && lv.has(c.topLevel))
+  const copyTag = mg.annotations[1]
+  const nonEmpty = keys.filter((k) => len(base, k) > 0)
+  check('add to the model: every list of the imported model kept (stairs, railings, beams, footings, roofs, annotations, landings with openings…), ids unique, references follow, shared levels and grids not doubled',
+    !doubled.length && nonEmpty.length === keys.length && new Set(all).size === all.length && refsOk && mg.levels.length === base.levels.length && mg.grids.length === base.grids.length && !!copyTag && copyTag.target !== 'W1' && wallIds.has(copyTag.target!) && runModelChecks(mg).find((c) => c.key === 'health')!.status === 'ok' && !!mg.rebar === !!base.rebar,
+    `doubled ✗ ${doubled.join(',')}; empty ✗ ${keys.filter((k) => !len(base, k)).join(',')}; ids ${all.length}/${new Set(all).size}; refs ${refsOk}; tag ${copyTag?.target}`)
+}
+
+/** B7: a 3.6 m gap in the front wall drawn only as a line on the door layer (a rolling shutter), or with "CỬA CUỐN"
+ *  written by it, or with nothing; a 7 m gap with nothing. The room and the footprint stay closed. */
+function wideOpeningChecks(check: Check) {
+  const shop = (W: number, gap: [number, number], extra: (m: ReturnType<typeof maker>) => Entity[]) => {
+    const mk = maker('sh'), { L, Tx } = mk, H = 9000, T = 220
+    return docOf([
+      L('TUONG', 0, 0, gap[0], 0), L('TUONG', gap[1], 0, W, 0), L('TUONG', T, T, gap[0], T), L('TUONG', gap[1], T, W - T, T), L('TUONG', gap[0], 0, gap[0], T), L('TUONG', gap[1], 0, gap[1], T),
+      L('TUONG', 0, H, W, H), L('TUONG', T, H - T, W - T, H - T), L('TUONG', 0, 0, 0, H), L('TUONG', T, T, T, H - T), L('TUONG', W, 0, W, H), L('TUONG', W - T, T, W - T, H - T),
+      Tx('TEN PHONG', W / 2, H / 2, 'GARA + SHOWROOM'), Tx('CHU', 2000, -3500, 'MẶT BẰNG TẦNG 1  ±0.000', 400), ...extra(mk),
+    ])
+  }
+  const run1 = (doc: CadDocument) => { const a = analyse(doc); const r = a.recs[0]; return { r, fp: r?.footprint ? areaOf(r.footprint) : 0, ops: r?.openings.filter((o) => o.s1 - o.s0 > 2500) ?? [], codes: r?.warnings.map((w) => w.code) ?? [] } }
+  const line = run1(shop(10000, [3000, 6600], ({ L }) => [L('CUA', 3000, 110, 6600, 110)]))
+  const text = run1(shop(10000, [3000, 6600], ({ Tx }) => [Tx('CHU', 4000, -700, 'CỬA CUỐN', 200)]))
+  const none = run1(shop(10000, [3000, 6600], () => []))
+  const wide = run1(shop(12000, [2000, 9000], () => []))
+  const room = (x: ReturnType<typeof run1>, a: number) => x.r?.rooms.length === 1 && near1(x.r.rooms[0].area, a, 0.011)
+  const s = (x: ReturnType<typeof run1>) => `fp ${x.fp.toFixed(2)} ops ${x.ops.map((o) => `${o.kind}:${Math.round(o.s1 - o.s0)}:${o.why}`).join('/')} rooms ${x.r?.rooms.map((q) => q.area).join('/')} ${x.codes.join(',')}`
+  check('wide opening: a door-layer line across a 3.6 m gap → a 3.6 m door; footprint 90 m², the room closed', line.ops.length === 1 && line.ops[0].kind === 'door' && line.ops[0].why.includes('line') && near1(line.ops[0].s1 - line.ops[0].s0, 3600) && near1(line.fp, 90, 0.01) && room(line, 81.83), s(line))
+  check('wide opening: "CỬA CUỐN" written by the gap → a door', text.ops.length === 1 && text.ops[0].kind === 'door' && text.ops[0].why.includes('text') && near1(text.fp, 90, 0.01) && room(text, 81.83), s(text))
+  check('wide opening: nothing drawn in a 3.6 m gap of the outer wall → a wide plain opening (flagged), footprint and room closed', none.ops.length === 1 && none.ops[0].kind === 'opening' && none.ops[0].why.includes('wallLine') && none.codes.includes('wideOpenings') && near1(none.fp, 90, 0.01) && room(none, 81.83), s(none))
+  check('wide gap: 7 m with nothing → no opening built, the outline closed along the wall line for the room and the footprint (flagged)', wide.ops.length === 0 && wide.codes.includes('gapsClosedVirtual') && near1(wide.fp, 108, 0.01) && room(wide, 98.95), s(wide))
+}
+
+/** B11: the whole project drawn at 30° — house, U stair, structure, roof — gives the model of the square drawing. */
+function rotatedProjectChecks(check: Check) {
+  const A = project(projectDoc()), B = project(projectDoc(Math.PI / 6))
+  const ang = (a: number, b: number, mod = 360) => { const d = (((a - b) % mod) + mod) % mod; return Math.min(d, mod - d) < 0.01 }
+  const sameXY = (p: [number, number][], q: [number, number][]) => p.length === q.length && p.every((v) => q.some((w) => near1(v[0], w[0]) && near1(v[1], w[1])))
+  const byXY = <T extends { x: number; y: number }>(xs: T[]) => [...xs].sort((a, b) => a.x - b.x || a.y - b.y)
+  const st = (x: BimModel) => byXY(x.stairs)
+  const stairsEq = st(A.m).length === 2 && st(A.m).length === st(B.m).length && st(A.m).every((s, i) => { const t = st(B.m)[i]; return near1(s.x, t.x) && near1(s.y, t.y) && ang(s.angle, t.angle) && near1(s.length, t.length) && near1(s.width, t.width) && s.risers === t.risers })
+  const bm = (x: BimModel) => byXY(x.beams ?? [])
+  const beamsEq = bm(A.m).length === 4 && bm(B.m).length === 4 && bm(A.m).every((b, i) => { const c = bm(B.m)[i]; return near1(b.x, c.x) && near1(b.y, c.y) && near1(b.length, c.length) && ang(b.angle, c.angle, 180) && b.b === c.b && b.h === c.h && b.topOffset === c.topOffset })
+  const ft = (x: BimModel) => byXY(x.footings ?? [])
+  const capsEq = ft(A.m).length === 3 && ft(A.m).every((f, i) => { const g = ft(B.m)[i]; return !!g && near1(f.x, g.x) && near1(f.y, g.y) && near1(f.w, g.w) && near1(f.d, g.d) && f.piles === g.piles && f.pileSize === g.pileSize && f.top === g.top })
+  const ops = (x: BimModel) => x.slabs.flatMap((s) => s.openings ?? [])
+  const opsEq = ops(A.m).length === ops(B.m).length && ops(A.m).length >= 2 && ops(A.m).every((o, i) => sameXY(o, ops(B.m)[i]))
+  const [ra, rb] = [A.m.roofs?.[0], B.m.roofs?.[0]]
+  const fa = ra && roofFrame(ra), fb = rb && roofFrame(rb)
+  const roofEq = !!ra && !!rb && A.m.roofs!.length === 1 && B.m.roofs!.length === 1 && ra.kind === rb.kind && sameXY(ra.outline, rb.outline) && !!fa && !!fb && near1(fa.L, fb.L) && near1(fa.W, fb.W) && Math.abs(fa.u[0] * fb.u[1] - fa.u[1] * fb.u[0]) < 1e-3 && !rb.approx && sameXY(ra.outline, [[-610, -610], [12390, -610], [12390, 9390], [-610, 9390]])
+  const counts = JSON.stringify(A.a.built.counts) === JSON.stringify(B.a.built.counts)
+  check('drawn at 30°: the same model as square — counts, the U stair (both flights, every tread), beams / tie (place, length, direction), pile caps (size, piles), slab openings, the roof (outline, orientation), no warnings',
+    counts && stairsEq && beamsEq && capsEq && opsEq && roofEq && !B.s.warnings.length && !B.rr.warnings.length,
+    JSON.stringify({ counts: [A.a.built.counts, B.a.built.counts], stairs: [st(A.m), st(B.m)].map((l) => l.map((s) => [s.x, s.y, s.angle, s.length, s.risers])), beams: [bm(A.m), bm(B.m)].map((l) => l.map((b) => [b.x, b.y, b.angle, b.length])), caps: [ft(A.m), ft(B.m)].map((l) => l.map((f) => [f.x, f.y, f.w, f.d])), roof: [ra?.outline, rb?.outline], w: [B.s.warnings, B.rr.warnings] }))
+  // a long building (30 × 6 m) at 30° with a flight at its far end: the treads are kept (filtered in the squared frame)
+  const { L } = maker('lg'), T = 220
+  const walls = [L('TUONG', 0, 0, 30000, 0), L('TUONG', T, T, 30000 - T, T), L('TUONG', 0, 6000, 30000, 6000), L('TUONG', T, 6000 - T, 30000 - T, 6000 - T), L('TUONG', 0, 0, 0, 6000), L('TUONG', T, T, T, 6000 - T), L('TUONG', 30000, 0, 30000, 6000), L('TUONG', 30000 - T, T, 30000 - T, 6000 - T)]
+  const treads = Array.from({ length: 10 }, (_, i) => L('CAU THANG', 27300 + 270 * i, 1000, 27300 + 270 * i, 2100))
+  const fl = (ents: Entity[]) => { const a = analyse(docOf(ents)); return a.recs[0]?.flights ?? [] }
+  const f0 = fl([...walls, ...treads]), f1 = fl([...walls, ...treads].map((e) => rotateEntity(e, Math.PI / 6, { x: 0, y: 0 })))
+  check('drawn at 30°: a flight at the far end of a long building keeps all its treads', f0.length === 1 && f1.length === 1 && f0[0].lines === 10 && f1[0].lines === 10 && near1(f0[0].run, f1[0].run), JSON.stringify([f0, f1].map((l) => l.map((f) => [f.lines, Math.round(f.run)]))))
+}
+
+/** B15: "ĐỈNH ĐÀI −0.950" is an elevation: the caps' top from their level when the lowest level is not ±0.000. */
+function capLevelChecks(check: Check) {
+  const { a } = project(projectDoc())
+  const sdoc = docOf(houseStruct(), 's.dxf')
+  const raised = { ...a.built.model, levels: a.built.model.levels.map((l) => (l.id === 'L1' ? { ...l, elevation: 450 } : l)) }
+  const s1 = readStructure(sdoc, raised, a.built.align.grid)
+  const c1 = s1.footings[0], tie1 = s1.beams.find((b) => b.tie)
+  const base = { ...a.built.model, levels: [{ id: 'B1', name: 'Tầng hầm', elevation: -3000 }, ...a.built.model.levels] }
+  const s2 = readStructure(sdoc, base, a.built.align.grid)
+  const c2 = s2.footings[0]
+  check('pile caps: ĐỈNH ĐÀI −0.950 / ĐÁY ĐÀI −1.600 from ±0.000 — ground floor at +0.450: top −1400 / bottom −2050 from it (tie beam too); a basement at −3.000: +2050 from it, flagged',
+    !!c1 && c1.level === 'L1' && c1.top === -1400 && c1.bottom === -2050 && tie1?.topOffset === -1400 && !!c2 && c2.level === 'B1' && c2.top === 2050 && c2.bottom === 1400 && s2.warnings.some((w) => w.startsWith('capAboveLevel')),
+    JSON.stringify({ c1, tie: tie1?.topOffset, c2, w: s2.warnings }))
+}
+
+/** B16: a hall running round a core (a shaft in walls 110 thick): the core is not its floor; the shaft is a room. */
+function coreChecks(check: Check) {
+  const { R, Tx } = maker('co')
+  const doc = docOf([
+    R('TUONG', 0, 0, 10000, 8000), R('TUONG', 220, 220, 9780, 7780), R('TUONG', 4000, 3000, 6000, 5000), R('TUONG', 4110, 3110, 5890, 4890),
+    Tx('TEN PHONG', 1500, 1500, 'SẢNH'), Tx('TEN PHONG', 4300, 3900, 'HỘP KT', 150), Tx('CHU', 2000, -3000, 'MẶT BẰNG TẦNG 1  ±0.000', 400),
+  ])
+  const a = analyse(doc)
+  const r = a.recs[0]
+  const hall = r?.rooms.find((x) => x.name === 'SẢNH'), shaft = r?.rooms.find((x) => x.name === 'HỘP KT')
+  const sp = toIfc(a.built.model, 'core').text
+  check('room round a core: area = outline − the core (68.27 m², not 72.27), the core its hole (4 m²), the shaft its own room (3.17 m²); IFC space with the void',
+    !!hall && hall.area === 68.27 && hall.holes?.length === 1 && near1(areaOf(hall.holes[0]), 4, 0.001) && !!shaft && shaft.area === 3.17 && !!a.built.model.rooms.find((x) => x.name === 'SẢNH')?.holes && /IFCSPACE[^\n]*/.test(sp) && sp.includes('IFCARBITRARYPROFILEDEFWITHVOIDS'),
+    JSON.stringify(r?.rooms.map((x) => [x.name, x.area, x.holes?.map(areaOf)])))
+}
+
+/** B18: a 400 m site boundary on a wall layer round one plan: the rooms as without it, in well under 2 s. */
+function bigSiteChecks(check: Check) {
+  const truth = JSON.parse(readFileSync(FX + 'house_vn_SYNTHETIC.truth.json', 'utf8')) as { floors: { rooms: { name: string; area: number }[] }[] }
+  const want = truth.floors[0].rooms.map((x) => `${x.name}:${x.area}`).sort().join(', ')
+  const floor1 = load(readFileSync(FX + 'house_vn_SYNTHETIC.dxf', 'latin1')).entities.filter((e) => boxOf2(e) < 16000)
+  const { PL } = maker('site')
+  const site = PL('TUONG', [[-200000, -200000], [200000, -200000], [200000, 200000], [-200000, 200000]], true)
+  const fence = [PL('TUONG', [[-200000, -200000], [200000, -200000], [200000, 200000], [-200000, 200000]], true), PL('TUONG', [[-199800, -199800], [199800, -199800], [199800, 199800], [-199800, 199800]], true)]
+  const t0 = Date.now()
+  const a = analyse(docOf([...floor1, site]))
+  const dt = Date.now() - t0
+  const got = a.recs[0]?.rooms.map((x) => `${x.name}:${x.area}`).sort().join(', ')
+  const t1 = Date.now()
+  const b = analyse(docOf([...floor1, ...fence]))
+  const dt2 = Date.now() - t1
+  const named = b.recs[0]?.rooms.filter((x) => x.name).map((x) => `${x.name}:${x.area}`).sort().join(', ')
+  check('a 400 m site boundary on the wall layer: rooms exactly as without it, < 2 s; a 400 m site wall (a pair of lines): the grid grows its cells, < 2 s, the house rooms found', got === want && dt < 2000 && dt2 < 2000 && named === want, `${dt} ms / ${dt2} ms; ${got} | ${named}`)
+}
+const boxOf2 = (e: Entity) => (e.kind === 'line' ? Math.max(e.a.x, e.b.x) : e.kind === 'polyline' ? Math.max(...e.pts.map((p) => p.x)) : e.kind === 'text' ? e.p.x : e.kind === 'circle' || e.kind === 'arc' ? e.c.x : Math.max(e.a.x, e.b.x))
+
+/** The IFC of the whole project (stairs as their section, roof, beams, caps, spaces): every reference defined, no
+ *  GlobalId twice, each stair one swept section with the waist slab. */
+function ifcProjectChecks(check: Check) {
+  const { m } = project(projectDoc())
+  const r = toIfc(m, 'project')
+  const lines = new Map([...r.text.matchAll(/^(#\d+)=(.*);$/gm)].map((x) => [x[1], x[2]]))
+  const used = [...r.text.matchAll(/#\d+/g)].map((x) => x[0])
+  const guids = [...r.text.matchAll(/^#\d+=IFC\w+\('([0-9A-Za-z_$]{22})'/gm)].map((x) => x[1])
+  const refs = (id: string) => [...(lines.get(id) ?? '').matchAll(/#\d+/g)].map((x) => x[0])
+  const stairs = [...lines.entries()].filter(([, s]) => s.startsWith('IFCSTAIR('))
+  const swept = stairs.every(([id]) => { const rep = refs(refs(id)[1])[0]; const items = refs(rep).slice(1); return items.length === 1 && lines.get(items[0])!.startsWith('IFCEXTRUDEDAREASOLID') })
+  check('IFC of the project: references all defined, GlobalIds unique, each stair one swept section, roof / beams / caps exported', used.every((x) => lines.has(x)) && new Set(guids).size === guids.length && stairs.length === 2 && swept && r.counts.IfcRoof === 1 && r.counts.IfcBeam === 4 && r.counts.IfcFooting === 3,
+    JSON.stringify(r.counts))
+}
+
+/** B8: elevations not written inferred from the storey order; two storeys at one elevation reported. */
+function storeyStackChecks(check: Check) {
+  const r1 = inferElevations([{ elevation: 0, order: 1, name: 'Tầng 1' }, { elevation: null, order: 2, name: 'Tầng 2' }, { elevation: 7200, order: 3 }, { elevation: null, order: 0, name: 'Tầng hầm' }, { elevation: null, order: 99, roof: true, name: 'Mái' }])
+  const r2 = inferElevations([{ elevation: null, order: 1 }, { elevation: null, order: 2 }])
+  const r3 = inferElevations([{ elevation: 3900, order: 2, name: 'Tầng 2' }, { elevation: 3900, order: 3, name: 'Tầng 3' }])
+  const r4 = inferElevations([{ elevation: 7200, order: 2, name: 'Tầng 2' }, { elevation: 3600, order: 3, name: 'Tầng 3' }])
+  const a = analyse(load(readFileSync(FX + 'house_vn_SYNTHETIC.dxf', 'latin1')))
+  const b = buildBimModel([{ rec: a.recs[0], levelName: 'Tầng 1', elevation: 0, order: 1, roof: false }, { rec: a.recs[1], levelName: 'Tầng 2', elevation: null, order: 2, roof: false }], DEFAULT_BUILD, NAMES)
+  const d = buildBimModel([{ rec: a.recs[0], levelName: 'Tầng 1', elevation: 0, roof: false }, { rec: a.recs[1], levelName: 'Tầng 2', elevation: 0, roof: false }], DEFAULT_BUILD, NAMES)
+  check('storey stack: a missing elevation between written ones / below (basement) / above (roof) by the typical storey; none written: ±0 and the storey height; the build infers and notes it',
+    JSON.stringify(r1.elevations) === '[0,3600,7200,-3600,10800]' && JSON.stringify(r1.inferred) === '[false,true,false,true,true]' && !r1.problems.length && JSON.stringify(r2.elevations) === '[0,3300]'
+    && JSON.stringify(b.model.levels.map((l) => l.elevation)) === '[0,3300,6600]' && b.notes.some((n) => n.startsWith('elevationInferred:Tầng 2')) && !b.problems.length && runModelChecks(b.model).every((c) => c.key !== 'health' || c.status === 'ok'),
+    JSON.stringify({ r1, r2, b: b.model.levels, notes: b.notes }))
+  check('storey stack: two storeys at one elevation, a storey written above the next one — reported (build problems, model check), not built silently',
+    r3.problems.some((p) => p === 'sameElevation:Tầng 2|Tầng 3') && r4.problems.some((p) => p === 'orderElevation:Tầng 2|Tầng 3') && d.problems.some((p) => p.startsWith('sameElevation')) && runModelChecks(d.model).find((c) => c.key === 'health')!.items.some((x) => /same elevation/.test(x.message)),
+    JSON.stringify({ r3: r3.problems, r4: r4.problems, d: d.problems }))
+}
+
+/** Units: the SYNTHETIC house drawn in metres and in centimetres (no INSUNITS) reads as in millimetres, flagged. */
+function unitChecks(check: Check) {
+  const truth = JSON.parse(readFileSync(FX + 'house_vn_SYNTHETIC.truth.json', 'utf8')) as { floors: { rooms: { name: string; area: number }[] }[] }
+  const doc = load(readFileSync(FX + 'house_vn_SYNTHETIC.dxf', 'latin1'))
+  const bad: string[] = []
+  for (const [k, unit] of [[0.001, 1000], [0.1, 10]] as const) {
+    const a = analyse(scaleDoc(doc, k))
+    const ok = a.plans.length === 2 && a.plans.every((p) => p.unit === unit) && a.recs.every((r, i) => r.warnings.some((w) => w.code === 'unitsScaled' && w.n === unit) && r.rooms.map((x) => `${x.name}:${x.area}`).sort().join() === truth.floors[i].rooms.map((x) => `${x.name}:${x.area}`).sort().join() && r.walls.every((w) => w.t === 220 || w.t === 110))
+    if (!ok) bad.push(`×${k}: ${a.plans.length} plans ${a.recs.map((r) => r.rooms.map((x) => `${x.name}:${x.area}`).join('/')).join(' | ')}`)
+  }
+  check('units: the house drawn in metres / centimetres — the walls 0.22 / 22 units thick say so: read in millimetres (rooms, walls exact), flagged; a millimetre drawing untouched', !bad.length && analyse(doc).plans.every((p) => !p.unit), bad.join('; '))
 }
