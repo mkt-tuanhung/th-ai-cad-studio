@@ -1,4 +1,4 @@
-// Interaction smoke test — Renders workspace (mockup 12). Fresh profile, dev server :5173.
+// Interaction smoke test — Renders workspace (mockup 12) + v2.4 render pipeline UI. Fresh profile, dev server :5173 (THCAD_UI overrides).
 import { chromium } from 'playwright'
 import assert from 'node:assert/strict'
 
@@ -102,11 +102,44 @@ await step('Save View → render settings JSON', async () => {
   assert.equal(json.settings.resolution, '3840x2160')
 })
 
+await step('v2.4: Render Engine offers Blender Cycles (local) next to the OCCT engines; render memory is estimated', async () => {
+  const sel = page.getByRole('combobox', { name: 'Render Engine' })
+  const labels = await sel.locator('option').allInnerTexts()
+  assert.ok(labels.includes('Blender Cycles (local)') && labels.includes('OCCT Path Tracing (Physically Based)'), labels.join(' | '))
+  assert.ok(await page.getByText(/render memory ≈ 1\.1 GB/).isVisible())
+  await sel.selectOption('Blender Cycles (local)')
+  assert.equal((await doc()).settings.engine, 'Blender Cycles (local)')
+  assert.ok(await page.getByText(/render memory ≈ 1\.8 GB/).isVisible())
+  await blank(); await page.keyboard.press('Meta+z')
+  assert.equal((await doc()).settings.engine, 'Path Tracing (Physically Based)')
+})
+
+await step('v2.4: Warm Lighting = Golden preset; material options queue 4 jobs of the same camera', async () => {
+  await page.getByRole('button', { name: 'Warm Lighting' }).click()
+  assert.equal((await doc()).settings.lighting, 'golden')
+  const before = await queueRows().count()
+  await page.getByRole('button', { name: 'Queue all cameras' }).click()
+  await page.getByRole('menuitem', { name: 'Render material options (4)' }).click()
+  assert.equal(await queueRows().count(), before + 4)
+  const q = (await doc()).queue.slice(-4)
+  assert.deepEqual(q.map((j) => j.variant.key), ['design', 'timber', 'concrete', 'marble'])
+  assert.ok(q.every((j) => j.cameraId === q[0].cameraId))
+})
+
+await step('v2.4: Save View → Compare live 3D ↔ render opens the before / after dialog (nothing rendered in a browser)', async () => {
+  await page.getByRole('button', { name: 'Save View' }).click()
+  await page.getByRole('menuitem', { name: 'Compare live 3D ↔ render…' }).click()
+  assert.ok(await page.getByRole('dialog', { name: 'Before / after — live 3D vs render' }).isVisible())
+  assert.ok(await page.getByTestId('compare-none').isVisible())
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click()
+})
+
 await step('VI: tabs, settings and queue status are translated', async () => {
   await page.getByRole('radio', { name: 'VI', exact: true }).click()
   assert.ok(await page.getByRole('tab', { name: 'Phòng kết xuất' }).isVisible())
   assert.ok(await page.getByText('Độ phân giải').isVisible())
   assert.ok(await page.getByText('Đang chờ — chưa kết nối bộ kết xuất').first().isVisible())
+  assert.ok((await page.getByRole('combobox', { name: 'Bộ kết xuất' }).locator('option').allInnerTexts()).includes('Blender Cycles (trên máy)'))
   await page.getByRole('radio', { name: 'EN', exact: true }).click()
 })
 

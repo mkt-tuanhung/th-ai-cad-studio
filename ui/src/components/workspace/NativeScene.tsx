@@ -51,6 +51,7 @@ export function NativeScene({
   keep,
   onVisible,
   section,
+  lighting,
   label,
 }: {
   host: HostApi
@@ -73,6 +74,8 @@ export function NativeScene({
   /** Items drawn after hide / isolate. */
   onVisible?: (n: number) => void
   section?: { on: boolean; around: string[]; top?: number; planes?: number[][] }
+  /** Realtime lighting preset (v2.4): standard | day | golden | night — lights and background only. */
+  lighting?: string
   label: string
 }) {
   const t = useT().view3d
@@ -143,6 +146,7 @@ export function NativeScene({
     if (r.visible !== undefined) onVisible?.(r.visible)
     if (section?.on && section.planes) await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'clip', planes: section.planes }))
     else await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'section', on: !!section?.on, around: section?.around ?? [], ...(section?.top !== undefined ? { top: section.top } : {}) }))
+    if (lighting) await host.scene3dCommand(sceneKey, JSON.stringify({ cmd: 'lighting', preset: lighting }))
   }
   const applyRef = useRef(applyView)
   applyRef.current = applyView
@@ -168,7 +172,7 @@ export function NativeScene({
   useEffect(() => {
     if (!loaded.current) return
     applyRef.current().then(() => frameRef.current())
-  }, [hiddenKey, sectionKey])
+  }, [hiddenKey, sectionKey, lighting])
   useEffect(() => {
     frameRef.current()
   }, [mode, selected, hi])

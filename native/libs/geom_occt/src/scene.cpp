@@ -59,6 +59,7 @@
 #include <map>
 #include <set>
 
+#include "gltf_impl.hpp"
 #include "platform_window.hpp"
 #include "solid_impl.hpp"
 #include "part_impl.hpp"
@@ -272,6 +273,7 @@ std::vector<SceneItem> sceneFromJson(const json::Value& v) {
     if (const json::Value* t = io.get("transparency"); t && t->num()) it.transparency = *t->num();
     if (const json::Value* f = io.get("fuse"); f && f->boolean()) it.fuse = *f->boolean();
     if (const json::Value* m = io.get("mat"); m && m->str()) it.mat = *m->str();
+    if (const json::Value* g = io.get("group"); g && g->str()) it.group = *g->str();
     if (const json::Value* ps = io.get("parts"); ps && ps->arr())
       for (const auto& p : *ps->arr()) it.parts.push_back(primFromJson(p));
     if (const json::Value* cs = io.get("cuts"); cs && cs->arr())
@@ -333,6 +335,7 @@ struct SceneView::Impl {
   bool ok = false, fitted = false;
   std::vector<Handle(Graphic3d_ClipPlane)> clips;
   std::vector<std::string> errors;
+  std::string lighting = "standard";
   // final render state
   Handle(Standard_Transient) fbo;
   RenderParams rp;
@@ -416,12 +419,13 @@ int SceneView::setItems(const std::vector<SceneItem>& items) {
 }
 
 int SceneView::addBuilding(const bim::Model& m, bool ground) {
-  auto add = [&](const std::string& id, const TopoDS_Shape& s, std::array<double, 3> rgb, const char* mat) {
+  auto add = [&](const std::string& id, const TopoDS_Shape& s, std::array<double, 3> rgb, const char* mat, const char* group) {
     if (s.IsNull()) return;
     Impl::Entry e;
     e.item.id = id;
     e.item.rgb = rgb;
     e.item.mat = mat;
+    e.item.group = group;
     if (std::string(mat) == "glass") e.item.transparency = 0.6;
     e.shape = s;
     e.ais = new AIS_Shape(s);
@@ -441,13 +445,13 @@ int SceneView::addBuilding(const bim::Model& m, bool ground) {
     Solid s = wallWithOpenings(m, w);
     if (s.isNull()) continue;
     const bool ext = th >= 200;
-    add(w.id, BRepBuilderAPI_Transform(s.impl->shape, place, true).Shape(), ext ? std::array<double, 3>{0.88, 0.87, 0.84} : std::array<double, 3>{0.93, 0.93, 0.92}, "matte");
+    add(w.id, BRepBuilderAPI_Transform(s.impl->shape, place, true).Shape(), ext ? std::array<double, 3>{0.88, 0.87, 0.84} : std::array<double, 3>{0.93, 0.93, 0.92}, "matte", ext ? "wall-exterior" : "wall");
     ++n;
     // glazing: a 20 mm pane in the middle of each window opening
     for (const auto& o : m.windows)
       if (o.hostWall == w.id) {
         TopoDS_Shape pane = BRepPrimAPI_MakeBox(gp_Pnt(o.offset, th / 2 - 10, o.sill), o.width, 20, o.height).Shape();
-        add("glass:" + o.id, BRepBuilderAPI_Transform(pane, place, true).Shape(), {0.55, 0.7, 0.78}, "glass");
+        add("glass:" + o.id, BRepBuilderAPI_Transform(pane, place, true).Shape(), {0.55, 0.7, 0.78}, "glass", "glass");
       }
   }
   // a default floor / roof slab spanning each level's exterior walls, unless the drawn slabs make that floor
@@ -483,9 +487,9 @@ int SceneView::addBuilding(const bim::Model& m, bool ground) {
       failed = true;
     }
     if (failed || shape.IsNull()) shape = BRepPrimAPI_MakeBox(gp_Pnt(box[0], box[1], l->elevation - 200), box[2] - box[0], box[3] - box[1], 200).Shape();
-    add("slab:" + lv, shape, {0.8, 0.79, 0.77}, "matte");
+    add("slab:" + lv, shape, {0.8, 0.79, 0.77}, "matte", "floor");
   }
-  if (ground) add("ground", BRepPrimAPI_MakeBox(gp_Pnt(-40000, -40000, -350), 94000, 90000, 200).Shape(), {0.5, 0.56, 0.42}, "matte");
+  if (ground) add("ground", BRepPrimAPI_MakeBox(gp_Pnt(-40000, -40000, -350), 94000, 90000, 200).Shape(), {0.5, 0.56, 0.42}, "matte", "ground");
   d->applyStyle();
   return n;
 }
@@ -732,14 +736,29 @@ void SceneView::setClipPlanes(const std::vector<std::array<double, 4>>& planes) 
 
 
 void SceneView::setCamera(const std::array<double, 3>& eye, const std::array<double, 3>& at, double fovDeg) {
+  setCamera(eye, at, fovDeg, {0, 0, 1});
+}
+
+void SceneView::setCamera(const std::array<double, 3>& eye, const std::array<double, 3>& at, double fovDeg, const std::array<double, 3>& up) {
   const Handle(Graphic3d_Camera)& cam = d->view->Camera();
   cam->SetProjectionType(Graphic3d_Camera::Projection_Perspective);
   cam->SetEye(gp_Pnt(eye[0], eye[1], eye[2]));
   cam->SetCenter(gp_Pnt(at[0], at[1], at[2]));
-  cam->SetUp(gp::DZ());
+  // an up vector parallel to the view direction is meaningless: fall back to world Z (or Y looking straight down)
+  gp_Vec dir(gp_Pnt(eye[0], eye[1], eye[2]), gp_Pnt(at[0], at[1], at[2]));
+  gp_Vec u(up[0], up[1], up[2]);
+  if (u.Magnitude() < 1e-9 || dir.Magnitude() < 1e-9 || u.Crossed(dir).Magnitude() < 1e-6 * u.Magnitude() * dir.Magnitude())
+    u = std::abs(dir.Z()) > 0.999 * dir.Magnitude() ? gp_Vec(0, 1, 0) : gp_Vec(0, 0, 1);
+  cam->SetUp(gp_Dir(u));
+  cam->OrthogonalizeUp();
   cam->SetFOVy(fovDeg);
   d->fitted = true;
   d->view->AutoZFit();
+}
+
+std::array<double, 3> SceneView::cameraUp() const {
+  const gp_Dir u = d->view->Camera()->Up();
+  return {u.X(), u.Y(), u.Z()};
 }
 
 std::array<double, 7> SceneView::camera() const {
@@ -882,6 +901,104 @@ std::string SceneView::writeStep(const std::string& path) const {
   if (w.Transfer(c, STEPControl_AsIs) != IFSelect_RetDone) return "STEP transfer failed";
   if (w.Write(path.c_str()) != IFSelect_RetDone) return "cannot write " + path;
   return {};
+}
+
+std::string SceneView::writeGlb(const std::string& path, bool visibleOnly, GlbStats* stats) const {
+  std::vector<GlbItem> items;
+  for (const auto& [id, e] : d->items) {
+    if (e.shape.IsNull()) continue;
+    if (visibleOnly && !d->ctx->IsDisplayed(e.ais)) continue;
+    items.push_back({id, e.item.mat, e.item.group, e.item.rgb, e.item.mat == "glass" ? std::max(0.6, e.item.transparency) : e.item.transparency, e.shape});
+  }
+  return writeGlbFile(items, path, stats);
+}
+
+void SceneView::setLighting(const std::string& preset) {
+  // lights and background only: the shapes, their colours and materials are not touched
+  const std::string p = preset == "day" || preset == "golden" || preset == "night" ? preset : "standard";
+  d->lighting = p;
+  std::vector<Handle(Graphic3d_CLight)> old;
+  for (const auto& l : d->viewer->DefinedLights()) old.push_back(l);
+  for (const auto& l : old) d->viewer->DelLight(l);
+  if (p == "standard") {
+    d->viewer->SetDefaultLights();
+    d->viewer->SetLightOn();
+    d->view->SetBgGradientColors(Quantity_Color(0.933, 0.945, 0.957, Quantity_TOC_RGB), Quantity_Color(0.86, 0.88, 0.9, Quantity_TOC_RGB), Aspect_GradientFillMethod_Vertical);
+    d->view->Update();
+    return;
+  }
+  struct L { double az, el, sun, amb; Quantity_Color sunC, ambC, top, bottom; };
+  const L l = p == "day"
+                  ? L{320, 45, 1.0, 0.45, Quantity_Color(1.0, 0.97, 0.92, Quantity_TOC_sRGB), Quantity_Color(0.78, 0.85, 1.0, Quantity_TOC_sRGB), Quantity_Color(0.45, 0.66, 0.92, Quantity_TOC_sRGB), Quantity_Color(0.86, 0.92, 0.98, Quantity_TOC_sRGB)}
+              : p == "golden"
+                  ? L{250, 9, 1.1, 0.35, Quantity_Color(1.0, 0.68, 0.38, Quantity_TOC_sRGB), Quantity_Color(0.75, 0.62, 0.62, Quantity_TOC_sRGB), Quantity_Color(0.36, 0.42, 0.62, Quantity_TOC_sRGB), Quantity_Color(0.98, 0.72, 0.46, Quantity_TOC_sRGB)}
+                  : L{200, 35, 0.18, 0.12, Quantity_Color(0.62, 0.7, 1.0, Quantity_TOC_sRGB), Quantity_Color(1.0, 0.78, 0.52, Quantity_TOC_sRGB), Quantity_Color(0.02, 0.03, 0.08, Quantity_TOC_sRGB), Quantity_Color(0.09, 0.11, 0.2, Quantity_TOC_sRGB)};
+  const double az = l.az * M_PI / 180, el = l.el * M_PI / 180;
+  const gp_Dir toSun(std::cos(el) * std::sin(az), std::cos(el) * std::cos(az), std::sin(el));
+  Handle(V3d_DirectionalLight) sun = new V3d_DirectionalLight(toSun.Reversed(), l.sunC);
+  sun->SetIntensity(float(l.sun));
+  d->viewer->AddLight(sun);
+  d->viewer->SetLightOn(sun);
+  Handle(V3d_AmbientLight) amb = new V3d_AmbientLight(l.ambC);
+  amb->SetIntensity(float(l.amb));
+  d->viewer->AddLight(amb);
+  d->viewer->SetLightOn(amb);
+  if (p == "night") {
+    // warm interior glow: a soft head light (follows the camera) stands in for the room lights
+    Handle(V3d_DirectionalLight) head = new V3d_DirectionalLight(gp_Dir(0, 0, -1), Quantity_Color(1.0, 0.8, 0.55, Quantity_TOC_sRGB), true);
+    head->SetIntensity(0.35f);
+    d->viewer->AddLight(head);
+    d->viewer->SetLightOn(head);
+  }
+  d->view->SetBgGradientColors(l.top, l.bottom, Aspect_GradientFillMethod_Vertical);
+  d->view->Update();
+}
+
+std::string SceneView::lighting() const { return d->lighting; }
+
+std::string SceneView::geometryHash(int* nItems, double* totalM3) const {
+  // FNV-1a 64 over "id|volume|bounds" of every item (sorted map order); colours / materials excluded
+  uint64_t h = 1469598103934665603ULL;
+  auto mix = [&](const std::string& s) {
+    for (unsigned char c : s) h = (h ^ c) * 1099511628211ULL;
+  };
+  double vol = 0;
+  int n = 0;
+  for (const auto& [id, e] : d->items) {
+    if (e.shape.IsNull()) continue;
+    const double v = volumeM3(id);
+    Bnd_Box b;
+    BRepBndLib::AddOptimal(e.shape, b, false, false);
+    double x0 = 0, y0 = 0, z0 = 0, x1 = 0, y1 = 0, z1 = 0;
+    if (!b.IsVoid()) b.Get(x0, y0, z0, x1, y1, z1);
+    char buf[256];
+    std::snprintf(buf, sizeof buf, "|%.9f|%.2f,%.2f,%.2f,%.2f,%.2f,%.2f;", std::max(0.0, v), x0, y0, z0, x1, y1, z1);
+    mix(id);
+    mix(buf);
+    vol += std::max(0.0, v);
+    ++n;
+  }
+  if (nItems) *nItems = n;
+  if (totalM3) *totalM3 = vol;
+  char out[20];
+  std::snprintf(out, sizeof out, "%016llx", static_cast<unsigned long long>(h));
+  return out;
+}
+
+int SceneView::applyOverrides(const std::map<std::string, MaterialOverride>& byGroup) {
+  int n = 0;
+  for (auto& [id, e] : d->items) {
+    auto it = byGroup.find(e.item.group);
+    if (it == byGroup.end()) continue;
+    const bool wasGlass = e.item.mat == "glass";
+    e.item.rgb = it->second.rgb;
+    e.item.mat = it->second.mat;
+    if (e.item.mat == "glass" && e.item.transparency < 0.6) e.item.transparency = 0.6;
+    else if (wasGlass && e.item.mat != "glass") e.item.transparency = 0;
+    ++n;
+  }
+  if (n) d->applyStyle();
+  return n;
 }
 
 namespace {

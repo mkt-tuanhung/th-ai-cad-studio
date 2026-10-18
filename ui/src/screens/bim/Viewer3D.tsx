@@ -9,6 +9,9 @@ import { fmt, useT } from '../../i18n'
 import { useBim, type DisplayMode } from '../../state/bim'
 import { toast } from '../../state/toast'
 import { CroppedImage } from '../../components/ui/CroppedImage'
+import { useRenders } from '../../state/renders'
+import { bookmarksOf, restoreBookmark, saveBookmark, sourceRevision } from '../../renders/bookmarks'
+import { LIGHTING_PRESETS, type LightingPreset } from '../../renders/provenance'
 import s from './Viewer3D.module.css'
 
 const MODES: DisplayMode[] = ['realistic', 'shaded', 'wireframe', 'hidden']
@@ -42,7 +45,40 @@ export function Viewer3D() {
   const cutAt = (lvl?.elevation ?? 0) + 1500
   const boxOn = tools.section.on && tools.section.top === undefined
   const viewSection = (v: 'section' | 'exterior') => tools.setSection(v === 'section' ? { on: true, around: [], top: cutAt } : { on: false, around: [] })
+  // v2.4: realtime Day / Golden / Night lighting (lights only) and camera bookmarks, in the view menu
+  const R = T.render24
+  const [lighting, setLighting] = useState<LightingPreset>('standard')
+  const bookmarks = (useRenders((q) => q.doc.bookmarks) ?? []).filter((b) => b.source === 'bim')
+  const skipCut = useRef(false)
+  const onViewMenu = async (v: string) => {
+    if (!live) return native('3D view')
+    if (v === 'section' || v === 'exterior') return setView3d(v)
+    if (v.startsWith('light:')) {
+      const p = v.slice(6) as LightingPreset
+      setLighting(p)
+      return toast(fmt(R.lighting.applied, { name: R.lighting.names[p] }))
+    }
+    if (v === 'bm:save') {
+      const bm = await saveBookmark(tools.ctl.current, 'bim', { level, hidden: tools.hidden, keep: tools.keep, section: tools.section, mode: display, lighting })
+      return bm ? toast(fmt(R.bookmarks.saved, { name: bm.name }), 'success') : native('3D view')
+    }
+    const bm = bookmarksOf('bim').find((b) => `bm:${b.id}` === v)
+    if (!bm) return
+    const ok = await restoreBookmark(tools.ctl.current, bm, (st) => {
+      skipCut.current = true
+      if (st.level && st.level !== level) set({ level: st.level })
+      tools.setVisibility(st.hidden, st.keep)
+      tools.setSection(st.section)
+      setView3d(st.section.on && st.section.top !== undefined ? 'section' : 'exterior')
+      if (st.lighting) setLighting(st.lighting)
+    })
+    if (!ok) return
+    const cur = sourceRevision('bim')
+    toast(cur.rev === bm.sceneRev ? fmt(R.bookmarks.restored, { name: bm.name }) : fmt(R.bookmarks.stale, { name: bm.name, rev: bm.sceneRev }), cur.rev === bm.sceneRev ? 'success' : 'warning')
+  }
   useEffect(() => {
+    // a bookmark restore sets its own section state
+    if (skipCut.current) return void (skipCut.current = false)
     if (!boxOn) viewSection(view3d)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view3d, cutAt])
@@ -128,6 +164,7 @@ export function Viewer3D() {
           cameraRef={camRef}
           onLoaded={() => setLoadedTick((n) => n + 1)}
           {...tools.props}
+          lighting={lighting}
           hidden={discipline === 'structure' ? [...tools.hidden, ...nonStructuralIds(model)] : tools.hidden}
           label="Villa Riverside — live OCCT model"
           onPick={(raw) => {
@@ -147,9 +184,16 @@ export function Viewer3D() {
       <label className={s.viewSelect}>
         <span>{view3d === 'section' ? t.sectionView : '3D - Exterior'}</span>
         <ChevronDown size={15} strokeWidth={1.8} />
-        <select aria-label={t.sectionView} value={view3d} onChange={(e) => (live ? setView3d(e.target.value as 'section' | 'exterior') : native('3D view'))}>
+        <select aria-label={t.sectionView} value={view3d} onChange={(e) => void onViewMenu(e.target.value)}>
           <option value="section">{t.sectionView}</option>
           <option value="exterior">3D - Exterior</option>
+          <optgroup label={R.lighting.label.replace(': {name}', '')}>
+            {(['standard', ...LIGHTING_PRESETS] as LightingPreset[]).map((p) => <option key={p} value={`light:${p}`}>{(lighting === p ? '✓ ' : '') + fmt(R.lighting.label, { name: R.lighting.names[p] })}</option>)}
+          </optgroup>
+          <optgroup label="★">
+            <option value="bm:save">{R.bookmarks.save}</option>
+            {bookmarks.map((b) => <option key={b.id} value={`bm:${b.id}`}>{fmt(R.bookmarks.item, { name: b.name })}</option>)}
+          </optgroup>
         </select>
       </label>
 

@@ -10,7 +10,7 @@ import { sessionFiles } from '../screens/projects/ProjectFiles'
 export interface SystemStatus {
   ai: LocalAiStatus
   host: HostSystemInfo | null
-  info: { engine: string; occt: string | null; aiBackend: string; dwgReader?: string } | null
+  info: { engine: string; occt: string | null; aiBackend: string; dwgReader?: string; blender?: import('./host').BlenderInfo } | null
   webgl2: boolean
   /** Bytes used by Cache Storage (thumbnails / downloads) — what "Clear Cache" removes. */
   cacheBytes: number

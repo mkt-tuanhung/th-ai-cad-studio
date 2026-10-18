@@ -678,6 +678,7 @@ export function PrivacyCard() {
 
 export function IntegrationsCard(p: CardProps) {
   const I = useT().settings.integrations
+  const B = useT().render24.settingsCard
   const i = p.sys?.info
   const desktop = !!p.sys?.host
   return (
@@ -686,6 +687,7 @@ export function IntegrationsCard(p: CardProps) {
         [I.dwg, desktop ? i?.dwgReader || I.notInstalled : I.browser],
         [I.occt, desktop ? (i?.occt ?? I.notInstalled) : I.browser],
         [I.llama, desktop ? (i?.aiBackend ?? I.notInstalled) : I.browser],
+        [B.blender, !desktop ? B.browser : i?.blender?.found ? fmt(B.value, { version: i.blender.version ?? '', path: i.blender.path ?? '' }) : B.notFound],
         [I.cloud, I.none],
       ]} />
     </Card>

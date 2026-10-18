@@ -89,6 +89,14 @@ export function MechanicalScreen() {
     else if (!r.cancelled) toast(fmt(t.toast.invalid, { why: r.error ?? 'STEP' }), 'warning')
   }
 
+  // v2.4 SP38: glTF binary of the live assembly scene (presentation geometry, never BOM / CNC)
+  const exportGlb = async () => {
+    if (!host) return native('GLB')
+    const r = await host.scene3dExportGlb('mech', 'Centrifugal_Pump_Assembly.glb')
+    if (r.ok) toast(fmt(T.render24.glb.saved, { file: r.path ?? '', n: r.nodes ?? 0, m: r.materials?.length ?? 0 }), 'success')
+    else if (!r.cancelled) toast(fmt(T.render24.glb.failed, { why: r.error ?? 'GLB' }), 'warning')
+  }
+
   // Browser → datum plane / origin view
   useEffect(() => {
     const r = st.camReq
@@ -137,7 +145,7 @@ export function MechanicalScreen() {
           actions={
             <>
               <WsButton icon={<Share size={15} strokeWidth={1.7} />} label={t.share} width={79} onClick={() => toast(t.toast.shareOffline)} />
-              <WsButton icon={<ExportToolIcon size={19} strokeWidth={1.5} />} label={t.export} width={106} menu={[...(['bom', 'params', 'checks'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) })), { label: t.exportItems.step, onSelect: () => void exportStep() }]} />
+              <WsButton icon={<ExportToolIcon size={19} strokeWidth={1.5} />} label={t.export} width={106} menu={[...(['bom', 'params', 'checks'] as const).map((k) => ({ label: t.exportItems[k], onSelect: () => exportCsv(k) })), { label: t.exportItems.step, onSelect: () => void exportStep() }, { label: T.render24.glb.export, onSelect: () => void exportGlb() }]} />
               <WsButton primary icon={<AiSparkIcon size={19} strokeWidth={1.7} />} label={t.ai} width={130} onClick={() => { st.set({ bottom: 'checks' }); setAskAi(true) }} />
             </>
           }

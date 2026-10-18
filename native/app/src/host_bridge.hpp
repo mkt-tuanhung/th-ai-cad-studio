@@ -27,6 +27,7 @@ namespace thcad::app {
 class NativeViewport;
 class DwgReader;
 class ModelDownloader;
+class BlenderWorker;
 
 class HostBridge : public QObject {
   Q_OBJECT
@@ -113,6 +114,18 @@ class HostBridge : public QObject {
    *  format:'png'|'png16'|'jpg'|'tiff', dpi}. Progress and the result arrive on 'renderProgress'. */
   Q_INVOKABLE QJsonObject renderStart(const QString& jobJson);
   Q_INVOKABLE void renderCancel(const QString& id);
+  /** Save dialog → glTF binary (GLB) of the scene (THCAD_GLB_OUT skips the dialog): {ok, path, bytes, nodes,
+   *  triangles, materials, boundsMm} (see SceneView::writeGlb). */
+  Q_INVOKABLE QJsonObject scene3dExportGlb(const QString& key, const QString& suggestedName);
+  /** Local Blender (external process, never bundled): {found, path, version, script, sandbox, reason?}. */
+  Q_INVOKABLE QJsonObject blenderInfo(bool refresh);
+  /** Render memory pre-check (SP44): {ok, needBytes, budgetBytes, physicalBytes, reason?}. engine: occt | blender. */
+  Q_INVOKABLE QJsonObject renderMemoryCheck(int w, int h, const QString& engine);
+  /** A render output or queued 3D frame as a JPEG data URL (only files inside the Renders folder or the render
+   *  cache): {ok, url, w, h}. */
+  Q_INVOKABLE QJsonObject renderReadImage(const QString& path, int maxWidth);
+  /** The provenance sidecar of a render in the Renders folder: {ok, sidecar}. */
+  Q_INVOKABLE QJsonObject renderReadSidecar(const QString& imagePath);
   /** DWG bytes (base64) → DXF bytes via the bundled LibreDWG helper. Async: emits dwgResult
    *  ({id, ok, dxf: base64, ms, warnings, error}); returns the id. */
   Q_INVOKABLE QString dwgToDxf(const QString& base64, const QString& name);
@@ -201,6 +214,10 @@ class HostBridge : public QObject {
   std::unique_ptr<SpeechInput> speech_;
   void renderTick();
   void renderFinish(bool ok, const QString& error);
+  // Blender Cycles worker (separate process)
+  BlenderWorker* blender_ = nullptr;
+  QJsonObject renderStartBlender(const QJsonObject& job);
+  void blenderDone(const QJsonObject& r);
 };
 
 }  // namespace thcad::app

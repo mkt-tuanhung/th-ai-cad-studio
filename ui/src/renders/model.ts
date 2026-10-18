@@ -10,6 +10,8 @@ export interface CameraView {
   eye: [number, number, number]
   at: [number, number, number]
   fov: number
+  /** Up vector (default +Z) — camera bookmarks keep it. */
+  up?: [number, number, number]
 }
 
 export interface Camera {
@@ -21,6 +23,8 @@ export interface Camera {
   h: number
   thumb: string
   view?: CameraView
+  /** Camera bookmark this camera was saved from (BIM / Interior 3D views, v2.4). */
+  bookmarkId?: string
 }
 
 /** Camera placements of the sample project (mm; BIM origin at the front-left corner, interior plan origin at the living room). */
@@ -50,7 +54,10 @@ export const FORMATS: { key: FileFormat; label: string; ext: string; bytesPerPix
   { key: 'exr', label: 'OpenEXR (32-bit float)', ext: 'EXR', bytesPerPixel: 16, compress: 0.5 },
   { key: 'tiff', label: 'TIFF (8-bit)', ext: 'TIFF', bytesPerPixel: 3, compress: 1 },
 ]
-export const ENGINES = ['Path Tracing (Physically Based)', 'Rasterized Preview', 'Hybrid (Path Traced GI)'] as const
+export const ENGINES = ['Path Tracing (Physically Based)', 'Rasterized Preview', 'Hybrid (Path Traced GI)', 'Blender Cycles (local)'] as const
+/** The user's own Blender, run as a separate process (v2.4); the other engines are the in-app OCCT tracer. */
+export const BLENDER_ENGINE = 'Blender Cycles (local)' as const
+export const isBlender = (s: { engine: string }) => s.engine === BLENDER_ENGINE
 export const QUALITIES = ['Draft', 'Medium', 'High', 'Ultra'] as const
 export const HDRIS = [
   { name: 'Outdoor - Clear Sky', thumb: '/assets/v2/renders/hdri.png' },
@@ -74,6 +81,8 @@ export interface RenderSettings {
   sunDirection: number
   /** Sun height above the horizon (°); default 40. */
   sunElevation?: number
+  /** Day / Golden / Night preset (v2.4; Blender lighting + realtime viewport); absent = derived from sun / sky. */
+  lighting?: 'day' | 'golden' | 'night'
   ai: { denoise: boolean; lighting: boolean; material: boolean; style: boolean }
 }
 
@@ -100,6 +109,12 @@ export interface Job {
   special?: { face?: number; samples?: number; fps?: number; w?: number; h?: number; frames?: { eye: number[]; at: number[]; fov: number }[] }
   /** Thumbnail render of a custom variation: its preview becomes the variation's picture. */
   thumbFor?: string
+  /** Scene snapshot captured when the job was queued (revision, geometry hash, GLB, live frame). */
+  snap?: import('./provenance').JobSnapshot
+  /** Camera bookmark the job renders (v2.4). */
+  bookmarkId?: string
+  /** Presentation material option (batch of the same model, geometry identical). */
+  variant?: { key: string; name: string; overrides: Record<string, import('./provenance').MaterialOverride> }
 }
 
 /** Lighting / look variation proposed by the local AI (or edited): applied to the settings and post-processing. */
@@ -186,6 +201,11 @@ export interface JobRun {
   path?: string
   error?: string
   finished?: number
+  /** Engine that produced it ('blender' | 'occt'), device, provenance sidecar, and a note (e.g. Blender missing → OCCT). */
+  engine?: 'blender' | 'occt'
+  device?: string
+  sidecar?: string
+  note?: string
 }
 
 /** Quality presets: choosing one sets samples and bounces (both stay editable). */
@@ -204,10 +224,10 @@ export interface Variation {
 }
 
 export const VARIATIONS: Variation[] = [
-  { key: 'original', img: '/assets/v2/renders/var-original.png', patch: { hdri: 'Outdoor - Clear Sky', sunIntensity: 1.2, sunDirection: 320 } },
-  { key: 'warm', img: '/assets/v2/renders/var-warm.png', patch: { hdri: 'Outdoor - Clear Sky', sunIntensity: 0.8, sunDirection: 250 } },
-  { key: 'overcast', img: '/assets/v2/renders/var-overcast.png', patch: { hdri: 'Outdoor - Overcast', sunSky: false } },
-  { key: 'night', img: '/assets/v2/renders/var-night.png', patch: { hdri: 'Outdoor - Clear Sky', sunIntensity: 0, sunSky: false } },
+  { key: 'original', img: '/assets/v2/renders/var-original.png', patch: { hdri: 'Outdoor - Clear Sky', sunIntensity: 1.2, sunDirection: 320, lighting: 'day' } },
+  { key: 'warm', img: '/assets/v2/renders/var-warm.png', patch: { hdri: 'Outdoor - Clear Sky', sunIntensity: 0.8, sunDirection: 250, lighting: 'golden' } },
+  { key: 'overcast', img: '/assets/v2/renders/var-overcast.png', patch: { hdri: 'Outdoor - Overcast', sunSky: false, lighting: undefined } },
+  { key: 'night', img: '/assets/v2/renders/var-night.png', patch: { hdri: 'Outdoor - Clear Sky', sunIntensity: 0, sunSky: false, lighting: 'night' } },
 ]
 
 export const MATERIALS = ['concrete', 'wood', 'marble', 'metal', 'glass', 'fabric', 'stone', 'vegetation'] as const

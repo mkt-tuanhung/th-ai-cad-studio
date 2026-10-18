@@ -50,6 +50,15 @@
       const fr = await h.scene3dFrame('selftest', 320, 240, 'shaded', '', '')
       check('3D scene: offscreen frame', fr.ok && fr.url.startsWith('data:image/'))
       check('3D scene: pick at the centre hits a box', ['a', 'b'].includes(await h.scene3dPick('selftest', 160, 120)))
+      // v2.4 GLB writer (render cache): 2 nodes, box bounds 1.5 × 1 × 1 m, lighting presets keep the geometry
+      const glb = await h.scene3dCommand('selftest', JSON.stringify({ cmd: 'exportGlb' }))
+      const bb = glb.boundsMm || []
+      check('3D scene: GLB export (2 nodes, bounds 1500 × 1000 × 1000 mm)', glb.ok && glb.nodes === 2 && Math.abs(bb[3] - bb[0] - 1500) < 1e-6 && Math.abs(bb[4] - bb[1] - 1000) < 1e-6 && Math.abs(bb[5] - bb[2] - 1000) < 1e-6)
+      const gh0 = await h.scene3dCommand('selftest', JSON.stringify({ cmd: 'geomHash' }))
+      await h.scene3dCommand('selftest', JSON.stringify({ cmd: 'lighting', preset: 'night' }))
+      const gh1 = await h.scene3dCommand('selftest', JSON.stringify({ cmd: 'geomHash' }))
+      await h.scene3dCommand('selftest', JSON.stringify({ cmd: 'lighting', preset: 'standard' }))
+      check('3D scene: lighting preset leaves the geometry hash unchanged', gh0.ok && gh0.hash === gh1.hash && gh0.items === 2)
       // final renderer (OCCT ray / path tracing), tiny job, nothing written to disk
       let rdone = null
       h.on('renderProgress', (p) => { if (p.done && p.id === 'selftest-render') rdone = p })

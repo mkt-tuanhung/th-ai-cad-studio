@@ -13,6 +13,7 @@ import { interiorScene } from '../../interior/scene'
 import { bimExtras, nativeBuildingModel } from '../../bim/scene'
 import { VARIATIONS, applyCustom, videoFrames, viewOf, type Camera, type CustomVariation } from '../../renders/model'
 import { startJob } from '../../renders/runner'
+import { lightingOf } from '../../renders/provenance'
 import s from './Renders.module.css'
 
 const fileName = (p?: string) => (p ? (p.split(/[\\/]/).pop() ?? p) : '')
@@ -194,7 +195,7 @@ export function LiveCameraView({ host, cam, mode, camRef, ctlRef, tools }: { hos
     const key = `${cam.id}:${v.eye.join(',')}:${v.at.join(',')}`
     if (placed.current === key) return
     placed.current = key
-    void ctlRef.current?.command({ cmd: 'camera', eye: v.eye, at: v.at, fov: v.fov })
+    void ctlRef.current?.command({ cmd: 'camera', eye: v.eye, at: v.at, fov: v.fov, ...(v.up ? { up: v.up } : {}) })
   }
   const placeRef = useRef(place)
   placeRef.current = place
@@ -212,6 +213,7 @@ export function LiveCameraView({ host, cam, mode, camRef, ctlRef, tools }: { hos
         mode={mode}
         cameraRef={camRef}
         {...tools}
+        lighting={(() => { const l = lightingOf(st.doc.settings); return l === 'day' || l === 'golden' || l === 'night' ? l : 'standard' })()}
         label={T.renders.viewer.label}
         onLoaded={() => setTimeout(place, 50)}
       />

@@ -4,6 +4,7 @@ import { mepVi } from './ws/mep'
 import { civilVi } from './ws/civil'
 import { mechVi } from './ws/mechanical'
 import { rendersVi } from './ws/renders'
+import { render24Vi } from './ws/render24'
 import { fromCadVi } from './ws/fromCad'
 import { autoVi } from './ws/auto'
 import { cncVi } from './ws/cnc'
@@ -1079,6 +1080,7 @@ export const vi: Messages = {
   civil: civilVi,
   mechanical: mechVi,
   renders: rendersVi,
+  render24: render24Vi,
   components: {
     title: 'Thư viện cấu kiện',
     subtitle: 'Tài nguyên thiết kế dùng chung cho mọi bộ môn. Tìm, duyệt và dùng các cấu kiện, block và family.',

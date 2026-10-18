@@ -1,0 +1,120 @@
+{
+    "camera": {
+        "at": [
+            6900,
+            4900,
+            3800
+        ],
+        "eye": [
+            -7000,
+            -15500,
+            1700
+        ],
+        "fov": 50,
+        "lens": 25.73,
+        "up": [
+            0,
+            0,
+            1
+        ]
+    },
+    "cameraId": "cam1",
+    "cameraName": "Cam 01 - e2e after memory",
+    "engine": {
+        "name": "occt-path-tracing",
+        "occt": "7.9.3",
+        "offline": true,
+        "process": "in-app (GUI thread, 25 ms slices)"
+    },
+    "enqueuedAt": "2026-10-18T06:45:38.215Z",
+    "fallback": null,
+    "feedsBom": false,
+    "feedsCnc": false,
+    "frame3d": "/private/tmp/claude-501/-Users-mac-Downloads-TH-AI-CAD-Studio-UI-Handoff-v1/aa7cf3d6-234f-4ab3-89a4-30970fddf811/scratchpad/cacheFB/frames/frame-1792305938256-9b438a71.png",
+    "image": {
+        "bytes": 35769,
+        "file": "Cam 01 - e2e after memory.png",
+        "format": "png",
+        "h": 180,
+        "sha256": "fc72771adb24bcd21d8ab6c3b2662324f30e2a200f646dd16f08e57a1cdfe618",
+        "w": 320
+    },
+    "job": {
+        "id": "e2e-1792305938215-2",
+        "kind": "still",
+        "name": "Cam 01 - e2e after memory"
+    },
+    "label": "PRESENTATION ONLY - not for dimensions, BOM, quantities or CNC (MD CAD AI STUDIO)",
+    "labelVi": "CHỈ ĐỂ TRÌNH BÀY - không dùng cho kích thước, BOM, khối lượng hay CNC",
+    "materialOption": null,
+    "ms": 41,
+    "params": {
+        "bounces": 8,
+        "camera": {
+            "at": [
+                6900,
+                4900,
+                3800
+            ],
+            "eye": [
+                -7000,
+                -15500,
+                1700
+            ],
+            "fov": 50,
+            "up": [
+                0,
+                0,
+                1
+            ]
+        },
+        "engine": "path",
+        "exposure": 0,
+        "h": 180,
+        "samples": 16,
+        "sky": "clear",
+        "sun": true,
+        "sunAzimuth": 320,
+        "sunElevation": 40,
+        "sunIntensity": 1.2,
+        "w": 320
+    },
+    "presentationOnly": true,
+    "renderedAt": "2026-10-18T06:45:38Z",
+    "requestedEngine": "occt",
+    "scene": {
+        "capturedAt": "2026-10-18T06:45:38.257Z",
+        "geometryHash": "c17355497ef96f42",
+        "id": "bim:villa-riverside",
+        "revision": "58d46b8ef034"
+    },
+    "schema": "md-cad-ai-studio/render-provenance@1",
+    "settings": {
+        "ai": {
+            "denoise": true,
+            "lighting": true,
+            "material": true,
+            "style": false
+        },
+        "bounces": 8,
+        "denoise": true,
+        "dpi": 300,
+        "engine": "Path Tracing (Physically Based)",
+        "format": "png",
+        "fx": {
+            "contrast": 100,
+            "exposure": 0,
+            "saturation": 100,
+            "temperature": 0,
+            "vignette": 0
+        },
+        "hdri": "Outdoor - Clear Sky",
+        "quality": "High",
+        "resolution": "3840x2160",
+        "rotation": 120,
+        "samples": 16,
+        "sunDirection": 320,
+        "sunIntensity": 1.2,
+        "sunSky": true
+    }
+}

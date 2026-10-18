@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { CAMERAS, DEFAULT_FX, DEFAULT_PANO, DEFAULT_SETTINGS, DEFAULT_VIDEO, settingsSummary, FORMATS, videoFrames, type Camera, type CustomVariation, type Job, type JobRun, type PanoSettings, type PostFx, type RenderSettings, type Variation, type VideoSettings } from '../renders/model'
 import { undoableActions, type Undoable } from './undoable'
 import { migrateRenders } from './migrations'
+import { MATERIAL_OPTIONS } from '../renders/provenance'
 
 export type RenderTab = 'studio' | 'panorama' | 'video' | 'ai' | 'batch'
 export type RenderMode = 'wireframe' | 'clay' | 'shaded' | 'rendered'
@@ -16,6 +17,8 @@ export interface RenderDoc {
   queue: Job[]
   /** AI-proposed / custom lighting variations. */
   custom?: CustomVariation[]
+  /** Camera bookmarks saved from the BIM / Interior 3D views and Renders (v2.4). */
+  bookmarks?: import('../renders/provenance').CameraBookmark[]
 }
 
 interface RenderState extends Undoable<RenderDoc> {
@@ -33,7 +36,7 @@ interface RenderState extends Undoable<RenderDoc> {
   open: Record<string, boolean>
   /** Desktop renderer: live state per job id, finished renders (history) and in-memory previews. */
   runs: Record<string, JobRun>
-  history: { jobId: string; camera: string; cameraId?: string; path: string; ms: number; samples: number; finished: number; w: number; h: number }[]
+  history: { jobId: string; camera: string; cameraId?: string; path: string; ms: number; samples: number; finished: number; w: number; h: number; engine?: 'blender' | 'occt'; sidecar?: string; sceneRev?: string; frame?: string }[]
   previews: Record<string, string>
   pano: PanoSettings
   video: VideoSettings
@@ -44,11 +47,13 @@ interface RenderState extends Undoable<RenderDoc> {
   customSel: string | null
   /** Queues a 360° panorama or a video of a camera; returns the job id. */
   enqueueSpecial: (kind: 'panorama' | 'video', cameraId: string) => string
+  /** Queues the camera once per presentation material option (same model, materials only); returns the count. */
+  enqueueMaterialOptions: (cameraId: string, names: Record<string, string>) => number
   setRun: (id: string, patch: Partial<JobRun>) => void
   edit: (label: string, fn: (d: RenderDoc) => RenderDoc) => string | null
   undo: () => string | null
   redo: () => string | null
-  set: (p: Partial<Omit<RenderState, 'doc' | 'undoStack' | 'redoStack' | 'edit' | 'undo' | 'redo' | 'set' | 'reset' | 'enqueue' | 'setRun' | 'enqueueSpecial'>>) => void
+  set: (p: Partial<Omit<RenderState, 'doc' | 'undoStack' | 'redoStack' | 'edit' | 'undo' | 'redo' | 'set' | 'reset' | 'enqueue' | 'setRun' | 'enqueueSpecial' | 'enqueueMaterialOptions'>>) => void
   enqueue: (cameraIds: string[]) => number
   reset: () => void
 }
@@ -121,6 +126,14 @@ export const useRenders = create<RenderState>()(
             : { id, cameraId, kind, camera: `${c.name} - ${s.video.path === 'orbit' ? 'orbit' : 'fly-through'} video`, settings: `${s.video.resolution.replace('x', ' × ')} · ${s.video.seconds} s @ ${s.video.fps} fps · ${s.video.samples} samples`, output: 'MP4', status: 'waiting', created: Date.now(), cfg: { settings: d.settings, fx: d.fx }, special: { fps: s.video.fps, samples: s.video.samples, w: vw, h: vh, frames: videoFrames(d.cameras, c, s.video) } }
         get().edit(`Queue ${job.camera}`, (x) => ({ ...x, queue: [...x.queue, job] }))
         return id
+      },
+      enqueueMaterialOptions: (cameraId, names) => {
+        const d = get().doc
+        const c = d.cameras.find((x) => x.id === cameraId)!
+        const fmtx = FORMATS.find((f) => f.key === d.settings.format)!
+        const jobs: Job[] = MATERIAL_OPTIONS.map((o) => ({ id: `job-${Date.now()}-${seq++}`, cameraId, camera: `${c.name} - ${names[o.key] ?? o.key}`, settings: settingsSummary(d.settings), output: fmtx.ext, status: 'waiting', created: Date.now(), cfg: { settings: d.settings, fx: d.fx }, variant: { key: o.key, name: names[o.key] ?? o.key, overrides: o.overrides } }))
+        get().edit(`Queue ${jobs.length} material option(s)`, (x) => ({ ...x, queue: [...x.queue, ...jobs] }))
+        return jobs.length
       },
       reset: () => set({ doc: initial(), undoStack: [], redoStack: [], camera: 'cam1', variation: 'original' }),
     }),

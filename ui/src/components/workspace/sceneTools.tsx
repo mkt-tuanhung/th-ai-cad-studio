@@ -34,6 +34,8 @@ export function useSceneTools(fileBase: string) {
   const ctl = useRef<SceneCtl | null>(null)
   const toggleTool = (k: SceneTool) => setTool((cur) => (cur === k ? 'orbit' : k))
   const showAll = () => (setHidden([]), setKeep([]))
+  /** Exact hidden / isolated sets (camera bookmark restore). */
+  const setVisibility = (h: string[], k: string[]) => (setHidden([...h]), setKeep([...k]))
   /** Isolate the given items (toggle: a second isolate shows everything again). */
   const isolate = (keepIds: string[]) => {
     if (isolated) return showAll()
@@ -76,6 +78,8 @@ export function useSceneTools(fileBase: string) {
     setTool,
     toggleTool,
     hidden,
+    keep,
+    setVisibility,
     isolated,
     section,
     ctl,

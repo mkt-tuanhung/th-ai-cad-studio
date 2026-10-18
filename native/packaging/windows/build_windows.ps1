@@ -46,6 +46,9 @@ Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $Stage | Out-Null
 Copy-Item "$Build\app\MD CAD AI STUDIO.exe" $Stage
 Copy-Item -Recurse "$Build\app\ui" "$Stage\ui"
+# Blender render worker script (the user's own Blender runs it; Blender itself is not bundled)
+New-Item -ItemType Directory -Force "$Stage\resources" | Out-Null
+Copy-Item "$Native\app\resources\md_render.py" "$Stage\resources\md_render.py"
 Write-Host "== Stage (windeployqt)"
 & "$QtDir\bin\windeployqt.exe" --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$Stage\MD CAD AI STUDIO.exe"; Check "windeployqt"
 Copy-Item "$VcpkgPrefix\bin\*.dll" $Stage
