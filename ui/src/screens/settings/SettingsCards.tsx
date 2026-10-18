@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { AssetLibraryDialog } from '../interior/AssetLibraryDialog'
+import { STARTER_HDRIS, STARTER_MATERIALS, STARTER_MODELS } from '../../library/polyhaven'
 import {
   ChevronDown, ChevronUp, CircleHelp, Cpu, FileText, Folder, FolderOpen, Gauge, Globe, Keyboard, Monitor, Moon, Plug,
   Settings as Gear, ShieldCheck, Sun, Trash2, CloudUpload, Ruler, History,
@@ -177,6 +179,7 @@ export function AiModelCard(p: CardProps) {
           <p className={s.modalPath}>{folderPath('modelsDir', p.draft.modelsDir, sys)}</p>
           {!demo && <ModelDownload onDone={p.refresh} />}
           <SpeechModel />
+          <InteriorLibrary />
           <ul className={s.modelList}>
             {models.map((m) => (
               <li key={m.path}>
@@ -276,6 +279,23 @@ function ModelDownload({ onDone }: { onDone: () => void }) {
           )
         )}
       </div>
+    </div>
+  )
+}
+
+/** The 3D interior library (Poly Haven CC0 sample set, the user's pieces): opens the library dialog. */
+function InteriorLibrary() {
+  const L = useT().assetLib
+  const [open, setOpen] = useState<null | 'browse' | 'online'>(null)
+  return (
+    <div className={s.speech} data-testid="interior-library">
+      <b>{L.settings.title}</b>
+      <p>{fmt(L.online.starterText, { models: STARTER_MODELS.length, materials: STARTER_MATERIALS.length, hdris: STARTER_HDRIS.length })}</p>
+      <div className={s.dlActions}>
+        <ActionButton variant="primary" onClick={() => setOpen('online')}>{L.online.starterButton}</ActionButton>
+        <ActionButton onClick={() => setOpen('browse')}>{L.settings.open}</ActionButton>
+      </div>
+      {open && <AssetLibraryDialog initialTab={open} onClose={() => setOpen(null)} />}
     </div>
   )
 }

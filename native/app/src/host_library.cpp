@@ -64,7 +64,12 @@ QJsonObject HostBridge::libraryThumbs(const QString& idsJson) { return library_-
 
 QJsonObject HostBridge::libraryImport(const QString& path) {
   QString p = path;
-  if (p.isEmpty()) p = qEnvironmentVariable("THCAD_PICK_FILE");  // QA: skip the dialog
+  if (p.isEmpty()) {
+    // QA: skip the dialog — THCAD_PICK_FILE = "a.obj|b.glb" answers the successive picks in turn
+    static int next = 0;
+    const QStringList picks = qEnvironmentVariable("THCAD_PICK_FILE").split('|', Qt::SkipEmptyParts);
+    if (!picks.isEmpty()) p = picks.at(next++ % picks.size());
+  }
   if (p.isEmpty())
     p = QFileDialog::getOpenFileName(nullptr, QStringLiteral("3D model"), QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
                                      QStringLiteral("3D models (*.glb *.gltf *.obj *.fbx *.blend *.stl *.dae)"));

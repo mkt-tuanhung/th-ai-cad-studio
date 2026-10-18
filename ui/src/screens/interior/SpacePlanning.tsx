@@ -20,6 +20,7 @@ import type { InteriorDoc } from '../../state/interior'
 import type { ItemCategory } from '../../interior/model'
 import { commit, fixText, issueText, rulesOf } from './spaceKit'
 import s from './SpacePlanning.module.css'
+import { AssetLibraryDialog } from './AssetLibraryDialog'
 
 /**
  * Interior → Space Planning (bottom card tab): view modes, furniture library, clearance checks with fixes,
@@ -100,6 +101,7 @@ function LibraryPanel() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState<ItemCategory | 'all'>('all')
   const [style, setStyle] = useState<Style | 'all'>('all')
+  const [lib3d, setLib3d] = useState(false)
   const list = useMemo(() => searchCatalog(q, cat, style), [q, cat, style])
   const rn = (id: string) => {
     const r = doc.rooms.find((x) => x.id === id)
@@ -118,7 +120,9 @@ function LibraryPanel() {
         <Select label={t.lib.all} value={cat} onChange={(v) => setCat(v)} options={[{ value: 'all' as const, label: t.lib.all }, ...(Object.keys(T.interior.cats) as ItemCategory[]).map((k) => ({ value: k, label: T.interior.cats[k] }))]} className={s.fsel} />
         <Select label={t.lib.allStyles} value={style} onChange={(v) => setStyle(v)} options={[{ value: 'all' as const, label: t.lib.allStyles }, ...STYLES.map((k) => ({ value: k, label: t.lib.styles[k] }))]} className={s.fsel} />
         <small className={s.count}>{fmt(t.lib.count, { n: list.length })}</small>
+        <button type="button" className={s.primary} onClick={() => setLib3d(true)} data-testid="open-asset-library">{T.assetLib.open}</button>
       </div>
+      {lib3d && <AssetLibraryDialog onClose={() => setLib3d(false)} />}
       <ul className={s.assets} aria-label={t.subs.library}>
         {list.map((a) => (
           <li key={a.key} draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-md-asset', a.key); e.dataTransfer.effectAllowed = 'copy' }} data-asset={a.key}>

@@ -82,7 +82,8 @@ def guess_unit(size):
     if 0.1 <= size <= 6:
         return 'm', 1.0
     best = None
-    for unit, k in (('m', 1.0), ('cm', 0.01), ('mm', 0.001), ('in', 0.0254)):
+    # metric only: a file in inches is rare for furniture and would be confused with centimetres (45 in ≈ 45 cm × 2.5)
+    for unit, k in (('m', 1.0), ('cm', 0.01), ('mm', 0.001)):
         s = size * k
         if s <= 0:
             continue

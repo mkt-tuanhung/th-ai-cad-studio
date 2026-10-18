@@ -12,7 +12,42 @@ import { useSceneTools } from '../../components/workspace/sceneTools'
 import { useRenders } from '../../state/renders'
 import { bookmarksOf, restoreBookmark, saveBookmark, sourceRevision } from '../../renders/bookmarks'
 import { LIGHTING_PRESETS, type LightingPreset } from '../../renders/provenance'
+import { addAutoCameras } from '../../renders/autoCameras'
+import { viewOf } from '../../renders/model'
+import { ROOMS } from '../../interior/model'
+import type { InteriorDoc } from '../../state/interior'
+import type { HostApi } from '../../services/host'
+
 import s from './Interior.module.css'
+
+/** The sample project (Villa Riverside rooms) — its DEMO render is only ever shown for it. */
+const SAMPLE_ROOMS = new Set(ROOMS.map((r) => r.id))
+const isSampleInterior = (d: InteriorDoc) => d.rooms.every((r) => SAMPLE_ROOMS.has(r.id))
+
+/** The latest finished render of an interior camera of this project (the current room's first), as an image. */
+function useLatestInteriorRender(host: HostApi | null, on: boolean, room: string, roomIds: string) {
+  const history = useRenders((q) => q.history)
+  const cameras = useRenders((q) => q.doc.cameras)
+  const [got, setGot] = useState<{ path: string; url: string } | null>(null)
+  const pick = useMemo(() => {
+    if (!on) return null
+    const interior = history.filter((h) => {
+      const c = cameras.find((x) => x.id === h.cameraId)
+      // cameras made for a room of THIS project (auto views carry their room)
+      return c && viewOf(c).scene === 'interior' && !!c.view?.room && roomIds.split('|').includes(c.view.room)
+    })
+    const inRoom = interior.filter((h) => cameras.find((x) => x.id === h.cameraId)?.view?.room === room)
+    return (inRoom[0] ?? interior[0])?.path ?? null
+  }, [on, history, cameras, room, roomIds])
+  useEffect(() => {
+    let live = true
+    if (host && pick) void host.renderReadImage(pick, 1600).then((r) => live && r.ok && r.url && setGot({ path: pick, url: r.url }))
+    return () => {
+      live = false
+    }
+  }, [host, pick])
+  return got && got.path === pick ? got.url : null
+}
 
 const MODES: { key: InteriorMode; w: number }[] = [
   { key: 'realistic', w: 77 },
@@ -34,7 +69,12 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
   const doc = preview?.doc ?? model
   const native = (what: string) => toast(fmt(T.interior.toast.native, { what }))
   const host = useHost()
-  const live = !!host && mode !== 'realistic'
+  // Realistic: the approved DEMO image belongs to the sample project only. A real project shows its latest real
+  // render, else the live OCCT model (Shaded) — never a stock picture as if it were the user's design.
+  const real = !isSampleInterior(model)
+  const latest = useLatestInteriorRender(host, real && mode === 'realistic', room, model.rooms.map((r) => r.id).join('|'))
+  const showRender = !!host && real && mode === 'realistic' && !!latest
+  const live = !!host && (mode !== 'realistic' || (real && !latest))
   const cam = useRef<SceneCamera | null>(null)
   // the walkthrough needs walls to the ceiling; the other views cut them at plan-section height
   const base = useMemo(() => interiorScene(doc, { fullWalls: view === 'walk' || !!cut }), [doc, view, cut])
@@ -119,6 +159,15 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
       setLighting(p)
       return toast(fmt(R.lighting.applied, { name: R.lighting.names[p] }))
     }
+    if (v === 'auto:views') {
+      const A = T.assetLib.render
+      const roomName = doc.rooms.find((r) => r.id === room)?.name ?? room
+      const { cameras, views } = addAutoCameras(useInterior.getState().doc, room, (n) => fmt(A.view, { n, room: roomName }))
+      if (!cameras.length) return toast(A.none, 'warning')
+      const v1 = views[0]
+      tools.ctl.current?.command({ cmd: 'camera', eye: v1.eye, at: v1.at, fov: v1.fov, up: [0, 0, 1] })
+      return toast(fmt(A.added, { n: cameras.length, room: roomName, lens: v1.lensEq }), 'success')
+    }
     if (v === 'bm:save') {
       const bm = await saveBookmark(tools.ctl.current, 'interior', { level, hidden: tools.hidden, keep: tools.keep, section: tools.section, mode, lighting })
       return bm ? toast(fmt(R.bookmarks.saved, { name: bm.name }), 'success') : toast(R.bookmarks.desktop)
@@ -147,11 +196,12 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
   return (
     <Viewport
       mode={live ? 'shaded' : mode}
-      img={live ? undefined : '/assets/v2/interior/viewport.png'}
-      alt="Villa Riverside — living room (DEMO render)"
+      img={live ? undefined : showRender ? latest! : '/assets/v2/interior/viewport.png'}
+      alt={showRender ? T.assetLib.render.realLatest : 'Villa Riverside — living room (DEMO render)'}
       label={t.label}
-      demo={live ? undefined : { text: host ? t.demoRealistic : t.demo, style: { right: 52, bottom: 50 } }}
+      demo={live || showRender ? undefined : { text: host ? t.demoRealistic : t.demo, style: { right: 52, bottom: 50 } }}
     >
+      {showRender && <span className={s.cutLabel} data-testid="interior-real-render">{T.assetLib.render.realLatest}</span>}
       {live && host && (
         <NativeScene
           host={host}
@@ -183,6 +233,7 @@ export function InteriorViewport({ max, onMax, onLoaded }: { max: boolean; onMax
         options={[
           ...(['perspective', 'exploded', 'walk'] as const).map((v) => ({ value: v, label: t.views[v] })),
           ...(['standard', ...LIGHTING_PRESETS] as LightingPreset[]).map((p) => ({ value: `light:${p}` as typeof view, label: (lighting === p ? '✓ ' : '') + fmt(R.lighting.label, { name: R.lighting.names[p] }) })),
+          { value: 'auto:views' as typeof view, label: T.assetLib.render.views },
           { value: 'bm:save' as typeof view, label: R.bookmarks.save },
           ...bookmarks.map((b) => ({ value: `bm:${b.id}` as typeof view, label: fmt(R.bookmarks.item, { name: b.name }) })),
         ]}
