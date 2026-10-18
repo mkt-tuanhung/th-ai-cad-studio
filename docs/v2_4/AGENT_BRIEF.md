@@ -27,6 +27,8 @@ You are in an isolated git worktree. The main checkout is at `/Users/mac/Downloa
 
 Setup (run once):
 ```bash
+# the worktree may start from origin/main — bring in the local main first (reviewed fixes live there)
+git merge main
 M=/Users/mac/Downloads/TH_AI_CAD_Studio_UI_Handoff_v1/th-ai-cad-studio
 ln -s $M/ui/node_modules ui/node_modules
 [ -e ui/public/ocr ] || ln -s $M/ui/public/ocr ui/public/ocr
@@ -36,6 +38,7 @@ cmake -S native -B native/build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --b
 ```
 
 Checks:
+- **Vite in a worktree:** it returns 403 for files under the symlinked `node_modules`. Use a scratch Vite config (not committed) whose `server.fs.allow` includes the main checkout's `ui/node_modules`.
 - **Type check (the real one):** `cd ui && npx tsc --noEmit -p tsconfig.app.json`. Note that `-p .` checks NOTHING.
 - **Unit tests:** `cd ui && UNIT=<name> node tools/test-cam.mjs <exportedFn>`. Test files live in `ui/tools/unit/<name>.test.ts`; make new ones assert and return `{all: boolean, ...}`.
 - **Smoke tests:** start your OWN dev server on a free port, e.g. `cd ui && npx vite --port 52XX --strictPort --host 127.0.0.1 &`, then `THCAD_UI=http://127.0.0.1:52XX node tools/smoke-<x>.mjs`. Kill the server when done. Port 5173 belongs to the main checkout.
