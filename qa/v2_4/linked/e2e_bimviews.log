@@ -1,0 +1,12 @@
+E2E PASS South Elevation: 2D drawing by hidden-line removal — 68 edges · 0 cut faces · 65 ms · A3 1:100
+E2E PASS annotated: level names and elevations, dimensions, title — Level 1 | ±0.000 | Level 2 | +3.000 | Level 3 | +6.000 | Roof | +9.000 | 14000 | 3000 | 3000 | 3000 | 9000 | +0.900 | +2.400 | +0.900 | +2.400 | +0.900 | +2.400 | +3.900 | +5.400 | +3.900 | +5.400 | +6.900 | +8.400 | SOUTH ELEVATION | 1:100 | Villa Riverside - South Elevation.dwg | Scale 1:100 · A3 
+E2E PASS East Elevation: 2D drawing by hidden-line removal — 56 edges · 0 cut faces · 37 ms · A3 1:100
+E2E PASS North Elevation: 2D drawing by hidden-line removal — 54 edges · 0 cut faces · 46 ms · A3 1:100
+E2E PASS West Elevation: 2D drawing by hidden-line removal — 41 edges · 0 cut faces · 34 ms · A3 1:100
+E2E PASS Section 1: cut faces (walls, slabs) are filled — 104 edges · 14 cut faces · 120 ms · A3 1:100
+E2E PASS Section 2 drawn — 97 edges · 13 cut faces · 131 ms · A3 1:100
+E2E PASS 3D view: Section 2 seen from the west — [-1,0,0]
+E2E PASS sheet A201 shows the South Elevation drawing
+E2E PASS CAD 2D drawing: elevation lines, level texts, dimensions; layout A3 1:100 — {"line":73,"polyline":4,"text":22,"dimension":5}
+E2E PASS DWG of the elevation with its layout — saved (AutoCAD 2000) — read back: 123 entities, 16 layers, 1 layouts
+E2E DONE OK

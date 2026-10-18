@@ -53,6 +53,8 @@ export interface HostApi {
   modelDownload(id: string): Promise<{ ok: boolean; error?: string; dir?: string; bytes?: number; needBytes?: number; freeBytes?: number }>
   modelDownloadCancel(): Promise<void>
   scene3dLoadBim(key: string, modelJson: string, extrasJson: string): Promise<{ ok: boolean; items?: number; failures?: number; ms?: number; error?: string }>
+  /** v2.4 incremental BIM scene update (absent in older hosts): see ui/src/bim/live3d.ts. */
+  scene3dPatch?(key: string, upsertsJson: string, removeIdsJson: string): Promise<{ ok: boolean; rebuilt?: string[]; removed?: string[]; items?: number; ms?: number; built?: number; error?: string }>
   scene3dCommand(key: string, json: string): Promise<{ ok: boolean; error?: string; url?: string; w?: number; h?: number; bytes?: number; bounds?: number[]; visible?: number; path?: string; sha256?: string; hash?: string; items?: number; volumeM3?: number; nodes?: number; materials?: string[]; boundsMm?: number[]; eye?: number[]; at?: number[]; up?: number[]; fov?: number; lighting?: string; changed?: number }>
   scene3dCommon(key: string, a: string, b: string): Promise<number>
   scene3dOverlaps(key: string): Promise<{ a: string; b: string; m3: number }[]>

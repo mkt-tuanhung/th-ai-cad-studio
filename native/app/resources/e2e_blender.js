@@ -199,8 +199,10 @@
       await sleep(1500)
       select('3D - Section View', 'light:golden')
       await sleep(400)
+      // the bookmark this run saves (earlier runs may have left others in the QA profile)
+      const had = new Set((R.getState().doc.bookmarks ?? []).map((b) => b.id))
       select('3D - Section View', 'bm:save')
-      const bm = await until(() => (R.getState().doc.bookmarks ?? []).find((b) => b.source === 'bim'), 8000)
+      const bm = await until(() => (R.getState().doc.bookmarks ?? []).find((b) => b.source === 'bim' && !had.has(b.id)), 8000)
       const camA = await h.scene3dCommand('bim', JSON.stringify({ cmd: 'getCamera' }))
       check('Bookmark saved from the BIM view menu (also a Renders camera)', !!live && !!bm && R.getState().doc.cameras.some((c) => c.bookmarkId === bm.id) && bm.lens > 0 && bm.lighting === 'golden', JSON.stringify(bm && { eye: bm.eye, fov: bm.fov, lens: bm.lens, level: bm.level, section: bm.section, rev: bm.sceneRev, lighting: bm.lighting }))
       // move away: orbit, another level, section off, standard lighting

@@ -80,7 +80,7 @@ const ADAPTERS: Record<ModelStore, Adapter> = {
     get: () => useBim.getState().model,
     apply: (doc, label) => {
       const st = useBim.getState()
-      const err = st.edit(label, () => doc as typeof st.model)
+      const err = st.edit(label, () => doc as typeof st.model, { restore: true, rules: false })
       if (!err) { const m = useBim.getState().model; st.set({ level: m.levels.some((l) => l.id === st.level) ? st.level : (m.levels[0]?.id ?? 'L1'), selection: null, drawing: null }); st.runChecks() }
       return err
     },

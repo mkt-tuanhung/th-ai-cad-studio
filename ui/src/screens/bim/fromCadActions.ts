@@ -65,7 +65,8 @@ export async function applyBim(model: BimModel, mode: 'replace' | 'merge', label
   const backedUp = await backupModel('bim', label)
   const st = useBim.getState()
   const next = mode === 'merge' ? mergeModels(st.model, model) : model
-  const err = st.edit(label, () => next)
+  // an import: its elements are marked "imported"; what it brings in is reported by the model checks, not blocked
+  const err = st.edit(label, () => next, { src: { kind: 'imported' }, rules: false })
   if (err) return { error: err, backedUp }
   st.set({ level: next.levels[0]?.id ?? 'L1', selection: null, view: '3d', tool: 'select', drawing: null })
   st.runChecks()

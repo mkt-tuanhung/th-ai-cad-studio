@@ -6,7 +6,7 @@ import { useCad } from '../../state/cad'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { useHost } from '../../services/host'
-import { bimExtras, nativeBuildingModel } from '../../bim/scene'
+import { syncBim3d } from '../../bim/live3d'
 import { drawingDocument, nativeRequest, type NativeDrawing } from '../../bim/drawing2d'
 import { pageSvg, plotPage } from '../../cad/plot'
 import type { CadDocument } from '../../cad/types'
@@ -26,8 +26,6 @@ export function BimDrawing() {
   const [doc, setDoc] = useState<CadDocument | null>(null)
   const [info, setInfo] = useState<{ lines: number; cut: number; ms: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const modelJson = useMemo(() => JSON.stringify(nativeBuildingModel(model)), [model])
-  const extrasJson = useMemo(() => JSON.stringify(bimExtras(model)), [model])
   // the whole A3 sheet fits the area (title block included)
   const area = useRef<HTMLDivElement>(null)
   const [box, setBox] = useState({ w: 0, h: 0 })
@@ -51,7 +49,8 @@ export function BimDrawing() {
     setDoc(null)
     setError(null)
     void (async () => {
-      const load = await host.scene3dLoadBim('bim2d', modelJson, extrasJson)
+      // v2.4: the drawing's scene is patched like the 3D view (only what the edit made dirty is rebuilt)
+      const load = await syncBim3d(host, 'bim2d', model)
       if (!load.ok) return live && setError(load.error ?? 'scene')
       const b = (await host.scene3dCommand('bim2d', JSON.stringify({ cmd: 'bounds' }))).bounds ?? [0, 0, 0, 0, 0, 0]
       const req = nativeRequest(drawing, b)
@@ -64,7 +63,7 @@ export function BimDrawing() {
     return () => {
       live = false
     }
-  }, [host, drawing, modelJson, extrasJson, model])
+  }, [host, drawing, model])
 
   const page = useMemo(() => (doc ? plotPage(doc, 'A3', 100) : null), [doc])
   const svg = useMemo(() => (page ? pageSvg(page).replace(/width="[^"]+mm" height="[^"]+mm"/, 'width="100%" height="100%"') : ''), [page])

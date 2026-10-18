@@ -53,6 +53,8 @@ export function NativeScene({
   section,
   lighting,
   label,
+  collide,
+  onWalk,
 }: {
   host: HostApi
   sceneKey: string
@@ -77,6 +79,10 @@ export function NativeScene({
   /** Realtime lighting preset (v2.4): standard | day | golden | night — lights and background only. */
   lighting?: string
   label: string
+  /** Walk tool: stop this many mm short of solids in the way (walls, closed doors, furniture); off when absent. */
+  collide?: number
+  /** After each walk step with collision: what stopped it ('' = moved freely). */
+  onWalk?: (r: { blocked: string; eye?: number[] }) => void
 }) {
   const t = useT().view3d
   const ref = useRef<HTMLDivElement>(null)
@@ -88,6 +94,19 @@ export function NativeScene({
   const loaded = useRef(false)
   const drag = useRef<{ x: number; y: number; x0: number; y0: number; pan: boolean } | null>(null)
   const hi = (highlighted ?? []).join(',')
+  // quality fallback (V24-016): a slow GPU renders at half resolution while the view moves (full again on release);
+  // 'thcad.view3d.quality' = 'low' forces it (QA, very slow machines). `q` = scale of the last frame, so picks and
+  // camera moves in device pixels match what the engine rendered.
+  const slow = useRef(false)
+  const q = useRef(1)
+  const [quality, setQuality] = useState<'high' | 'low'>('high')
+  const forcedLow = () => {
+    try {
+      return localStorage.getItem('thcad.view3d.quality') === 'low'
+    } catch {
+      return false
+    }
+  }
 
   const frame = async () => {
     const el = ref.current
@@ -98,9 +117,13 @@ export function NativeScene({
     }
     busy.current = true
     const dpr = window.devicePixelRatio || 1
-    const r = await host.scene3dFrame(sceneKey, Math.round(el.clientWidth * dpr), Math.round(el.clientHeight * dpr), mode, selected ?? '', hi)
+    const scale = forcedLow() || (slow.current && drag.current) ? 0.5 : 1
+    const r = await host.scene3dFrame(sceneKey, Math.max(8, Math.round(el.clientWidth * dpr * scale)), Math.max(8, Math.round(el.clientHeight * dpr * scale)), mode, selected ?? '', hi)
     busy.current = false
     if (r.ok && r.url) {
+      q.current = scale
+      setQuality(scale < 1 ? 'low' : 'high')
+      if (scale === 1 && r.ms !== undefined) slow.current = r.ms > 120
       setUrl(r.url)
       setStats((st) => ({ ...st, frame: r.ms }))
     }
@@ -189,10 +212,15 @@ export function NativeScene({
 
   const dev = (e: React.PointerEvent | React.WheelEvent | React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const dpr = window.devicePixelRatio || 1
+    const dpr = (window.devicePixelRatio || 1) * q.current
     return { x: (e.clientX - r.left) * dpr, y: (e.clientY - r.top) * dpr, cx: e.clientX - r.left, cy: e.clientY - r.top }
   }
-  const walk = (forward: number, right: number, yaw = 0, pitch = 0) => command({ cmd: 'walk', forward, right, yaw, pitch })
+  const walk = async (forward: number, right: number, yaw = 0, pitch = 0) => {
+    if (!collide) return command({ cmd: 'walk', forward, right, yaw, pitch })
+    const r = (await command({ cmd: 'walkc', forward, right, yaw, pitch, radius: collide })) as { blocked?: string; eye?: number[] }
+    onWalk?.({ blocked: r.blocked ?? '', eye: r.eye })
+    return r
+  }
   const hint = tool === 'pan' ? t.pan : tool === 'zoomRegion' ? t.zoomRegion : tool === 'walk' ? t.walk : ''
 
   return (
@@ -201,6 +229,7 @@ export function NativeScene({
       className={`${s.view} ${tool === 'pan' ? s.pan : tool === 'zoomRegion' ? s.region : tool === 'walk' ? s.walk : ''}`}
       data-testid="native-scene"
       data-tool={tool}
+      data-quality={quality}
       aria-label={label}
       tabIndex={0}
       onKeyDown={(e) => {
@@ -241,20 +270,22 @@ export function NativeScene({
         drag.current = null
         if (!d) return
         const p = dev(e)
+        // back to full resolution once the view stops moving (after a pick, which reads the last frame's pixels)
+        const sharpen = () => q.current < 1 && !forcedLow() && frameRef.current()
         if (tool === 'zoomRegion') {
           setRect(null)
           if (Math.hypot(p.x - d.x0, p.y - d.y0) >= 8) {
             await command({ cmd: 'window', x0: Math.round(d.x0), y0: Math.round(d.y0), x1: Math.round(p.x), y1: Math.round(p.y) })
             onToolDone?.()
           }
-          return
+          return void sharpen()
         }
-        if (!onPick) return
         // a click (not a drag): pick the solid under the cursor
-        if (Math.hypot(p.x - d.x0, p.y - d.y0) < 4) {
+        if (onPick && Math.hypot(p.x - d.x0, p.y - d.y0) < 4) {
           const id = await host.scene3dPick(sceneKey, Math.round(p.x), Math.round(p.y))
           if (id) onPick(id)
         }
+        sharpen()
       }}
       onWheel={(e) => {
         const p = dev(e)

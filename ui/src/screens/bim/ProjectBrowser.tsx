@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { Box, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Folder, FolderClosed, Home, Search, Sheet, Table2 } from 'lucide-react'
+import { Box, Camera, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Folder, FolderClosed, Home, Plus, Search, Sheet, Table2 } from 'lucide-react'
+import { useLinkedT } from '../../i18n/ws/linked'
 import { fmt, useT } from '../../i18n'
 import { useBim, type BimView, type ScheduleCat } from '../../state/bim'
 import { toast } from '../../state/toast'
@@ -22,7 +23,8 @@ const I = { size: 17, strokeWidth: 1.6 }
 export function ProjectBrowser() {
   const T = useT()
   const t = T.bim.browser
-  const { browserCollapsed, browserOpen, toggleBrowser, set, browserSel, model, requestView } = useBim()
+  const { browserCollapsed, browserOpen, toggleBrowser, set, browserSel, model, requestView, bookmarks } = useBim()
+  const L = useLinkedT().view3d
   const [q, setQ] = useState('')
 
   const tree: Node = {
@@ -45,7 +47,12 @@ export function ProjectBrowser() {
             key: '3d',
             label: t.views3d,
             icon: <FolderClosed {...I} />,
-            children: (['home', 'sectionBox', 'exterior'] as const).map((kind, i) => ({ key: `3d-${i}`, label: ['{3D}', '3D - Section Box', '3D - Exterior'][i], icon: <Box {...I} fill={i === 2 ? '#cfd6de' : 'none'} />, open: { view: '3d' as const, req: { kind } } })),
+            children: [
+              ...(['home', 'sectionBox', 'exterior'] as const).map((kind, i) => ({ key: `3d-${i}`, label: ['{3D}', '3D - Section Box', '3D - Exterior'][i], icon: <Box {...I} fill={i === 2 ? '#cfd6de' : 'none'} />, open: { view: '3d' as const, req: { kind } } })),
+              // saved viewpoints (camera, level, visibility, section, model revision) and saving the current one
+              ...bookmarks.filter((b) => b.scene === 'bim').map((b) => ({ key: `bm-${b.id}`, label: b.name, icon: <Camera {...I} />, open: { view: '3d' as const, req: { kind: 'bookmark' as const, id: b.id } } })),
+              { key: '3d-save', label: L.save, icon: <Plus {...I} />, open: { view: '3d' as const, req: { kind: 'saveView' as const } } },
+            ],
           },
           {
             key: 'elev',

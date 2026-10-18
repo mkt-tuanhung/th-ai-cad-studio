@@ -6,15 +6,35 @@
  * src/bim/scene.ts). Quantities (area, volume) are COMPUTED from parameters, never typed in.
  * Plan coordinates: mm, X east, Y north; a wall starts at (x, y) and runs `length` along `angle` (degrees).
  */
+import { ensureIdentity } from './identity'
+
 export type P2 = [number, number]
 
-export interface Level {
+/** Where an element came from (v2.4): drawn by hand, imported from a CAD / PDF file, proposed by the local AI and
+ *  approved, from a survey, or traced from an image. Imported / image data may need a review before production. */
+export interface Provenance {
+  kind: 'drawn' | 'imported' | 'ai' | 'survey' | 'image'
+  /** 0…1 (recognition confidence) */
+  confidence?: number
+  reviewRequired?: boolean
+}
+
+/** Identity every BIM entity carries (schema v3): a UUID v4 kept for the life of the element (edits and moves keep
+ *  it, a copy gets a new one), a revision bumped whenever the element changes, and its provenance. Optional in the
+ *  type so older code and fixtures still type-check; `edit()` and the v2→v3 migration fill them in. */
+export interface Identity {
+  guid?: string
+  rev?: number
+  src?: Provenance
+}
+
+export interface Level extends Identity {
   id: string
   name: string
   elevation: number // mm
 }
 
-export interface WallType {
+export interface WallType extends Identity {
   id: string
   family: 'Basic Wall' | 'Curtain Wall'
   name: string
@@ -25,7 +45,7 @@ export interface WallType {
   description: string
 }
 
-export interface Wall {
+export interface Wall extends Identity {
   id: string
   category: 'wall'
   mark: string
@@ -40,9 +60,15 @@ export interface Wall {
   x?: number
   y?: number
   angle?: number
+  /** An arc wall (v2.4): the centre line is a circular arc through the start and end points (`length` stays the
+   *  chord); signed radius — positive bulges to the left of start → end, |radius| ≥ length / 2 (the minor arc). */
+  arc?: { radius: number }
+  /** A sloped top (v2.4): the wall's height at its end (mm); the height at its start is the level-to-level height
+   *  with the offsets. The top runs straight from one to the other. */
+  heightEnd?: number
 }
 
-export interface Opening {
+export interface Opening extends Identity {
   id: string
   category: 'door' | 'window'
   mark: string
@@ -54,9 +80,12 @@ export interface Opening {
   width: number
   height: number
   sill: number
+  /** Door hinge side seen from the wall's start → end direction, and the side the leaf opens to (v2.4, SP06). */
+  hinge?: 'left' | 'right'
+  swing?: 'in' | 'out'
 }
 
-export interface Room {
+export interface Room extends Identity {
   id: string
   category: 'room'
   number: string
@@ -69,9 +98,16 @@ export interface Room {
   holes?: P2[][]
   /** A double-height void (no floor of its own: the slab is cut out under it). */
   void?: boolean
+  /** Bounding walls in order round the room, counter-clockwise (v2.4): each edge lies on that wall's centre line
+   *  (`rev`: the edge runs from the wall's end to its start). With them the outline (inside faces), the net and gross
+   *  areas and the perimeter are computed from the walls on every edit — a room follows its walls. */
+  edges?: { wall: string; rev?: boolean }[]
+  /** Gross area to the wall centre lines (m², computed) and the net perimeter along the inside faces (mm, computed). */
+  areaGross?: number
+  perimeter?: number
 }
 
-export interface Column {
+export interface Column extends Identity {
   id: string
   category: 'column'
   mark: string
@@ -85,7 +121,7 @@ export interface Column {
 }
 
 /** Floor slab (top at level + offset), roof (bottom at level + offset) or ceiling (at level + offset). */
-export interface Slab {
+export interface Slab extends Identity {
   id: string
   category: 'slab'
   mark: string
@@ -103,7 +139,7 @@ export interface Slab {
 /** Straight-run stair from its base level to its top level; risers follow the storey height.
  *  A flight of a stair with landings climbs only `rise` mm from `baseOffset` above its base level, in `risers`
  *  risers (a U stair: two flights and the landing between them). */
-export interface Stair {
+export interface Stair extends Identity {
   id: string
   category: 'stair'
   mark: string
@@ -119,9 +155,13 @@ export interface Stair {
   risers?: number
   /** a spiral stair: (x, y) is its centre, width = r1 − r0; treads from angle a0 (deg) through sweep (deg, signed) */
   spiral?: { r0: number; r1: number; a0: number; sweep: number }
+  /** An L or U stair from the authoring tool (v2.4): flight 1 from (x, y) along `angle` (length = its run), a landing
+   *  `landing` mm deep, flight 2 turning left or right (L: at 90°, U: back alongside, `gap` mm between the flights).
+   *  `split` = risers in flight 1 (half when absent). Risers follow the storey height, so a level change re-shapes it. */
+  run?: { kind: 'L' | 'U'; turn: 'left' | 'right'; landing: number; length2: number; gap?: number; split?: number }
 }
 
-export interface Railing {
+export interface Railing extends Identity {
   id: string
   category: 'railing'
   mark: string
@@ -133,7 +173,7 @@ export interface Railing {
 }
 
 /** Loadable component placed as its bounding box (furniture, equipment). */
-export interface Component {
+export interface Component extends Identity {
   id: string
   category: 'component'
   mark: string
@@ -147,7 +187,7 @@ export interface Component {
   rot: number
 }
 
-export interface GridLine {
+export interface GridLine extends Identity {
   id: string
   category: 'grid'
   label: string
@@ -156,7 +196,7 @@ export interface GridLine {
 }
 
 /** Plan annotations: model text, aligned dimension (a → b), tag (shows the target's mark). */
-export interface Annotation {
+export interface Annotation extends Identity {
   id: string
   category: 'annotation'
   kind: 'text' | 'dimension' | 'tag'
@@ -176,7 +216,7 @@ export interface Comment {
 
 /** A beam (or a foundation tie beam) from the structural plans: its top `topOffset` from its level (structural
  *  slab top), centre line from (x, y) along `angle`, section b × h (h counted from its top, the slab included). */
-export interface Beam {
+export interface Beam extends Identity {
   id: string
   category: 'beam'
   mark: string
@@ -195,7 +235,7 @@ export interface Beam {
 }
 
 /** A pile cap / pad footing from the foundation plan: centre, size, top and bottom from its level, its piles. */
-export interface Footing {
+export interface Footing extends Identity {
   id: string
   category: 'footing'
   mark: string
@@ -213,7 +253,7 @@ export interface Footing {
 
 /** A pitched roof over a rectangle (plan corners in order), its eaves on its level: hip (four slopes) or gable
  *  (two slopes, a ridge end to end), slope in degrees. */
-export interface PitchedRoof {
+export interface PitchedRoof extends Identity {
   id: string
   category: 'roof'
   mark: string
@@ -254,6 +294,10 @@ export interface BimModel {
   footings?: Footing[]
   roofs?: PitchedRoof[]
   rebar?: RebarSpec
+  /** Schema version of the saved model (3 = identities on every element) and the model revision, bumped by every
+   *  committed edit (a render / bookmark records the revision it was made from). */
+  schema?: number
+  rev?: number
 }
 
 export type ElementCategory = 'wall' | 'door' | 'window' | 'room' | 'level' | 'column' | 'slab' | 'stair' | 'railing' | 'component' | 'grid' | 'annotation'
@@ -283,10 +327,12 @@ export const WALL_PLACEMENTS: Record<string, [number, number, number]> = {
   W21: [1200, 1200, 0], W22: [12600, 1200, 90], W23: [12600, 8600, 180], W24: [1200, 8600, 270],
 }
 
-/** Fills in what older saved models lack (placements, the element lists added later). */
-export function upgradeModel(m: BimModel): BimModel {
+/** Fills in what older saved models lack (placements, the element lists added later) and — schema v3 — a guid,
+ *  rev 1 and provenance on every element (data otherwise untouched). `seeded`: guids derived from the element ids
+ *  (the sample model, so it keeps the same GlobalIds); else random UUID v4s. */
+export function upgradeModel(m: BimModel, seeded = false): BimModel {
   const types = m.wallTypes.some((t) => t.id === 'CW100') ? m.wallTypes : [...m.wallTypes, WALL_TYPES.find((t) => t.id === 'CW100')!]
-  return {
+  return ensureIdentity({
     ...m,
     wallTypes: types,
     walls: m.walls.map((w) => (w.x === undefined && WALL_PLACEMENTS[w.id] ? { ...w, x: WALL_PLACEMENTS[w.id][0], y: WALL_PLACEMENTS[w.id][1], angle: WALL_PLACEMENTS[w.id][2] } : w)),
@@ -297,7 +343,7 @@ export function upgradeModel(m: BimModel): BimModel {
     components: m.components ?? [],
     grids: m.grids ?? [],
     annotations: m.annotations ?? [],
-  }
+  }, { kind: 'drawn' }, seeded)
 }
 
 // Walls W1–W5 are exactly the rows visible in mockup 04; W6–W24 complete the 24-wall model.
@@ -389,7 +435,7 @@ export function createVillaBim(): BimModel {
       sill: 900,
     })),
     rooms: ROOM_ROWS.map(([number, name, level, area]) => ({ id: `room-${number}`, category: 'room', number, name, level, area })),
-  } as BimModel)
+  } as BimModel, true)
 }
 
 /* ---------- derived quantities ---------- */
@@ -404,7 +450,15 @@ export function wallHeight(m: BimModel, w: Wall): number {
   return top - base
 }
 
-export const wallArea = (m: BimModel, w: Wall) => (w.length * wallHeight(m, w)) / 1e6 // m²
+/** Centre-line run of a wall: its length, or the arc length of an arc wall (|R| · sweep). */
+export function wallRunLength(w: Wall): number {
+  const R = Math.abs(w.arc?.radius ?? 0)
+  return R > 0 && R >= w.length / 2 ? R * 2 * Math.asin(Math.min(1, w.length / (2 * R))) : w.length
+}
+/** Mean height of a wall (a sloped top: the mean of its start and end heights). */
+export const wallMeanHeight = (m: BimModel, w: Wall) => (w.heightEnd !== undefined && w.heightEnd > 0 ? (wallHeight(m, w) + w.heightEnd) / 2 : wallHeight(m, w))
+/** Side area (m²) = centre-line run × mean height (an arc wall's arc length, a sloped wall's mean height). */
+export const wallArea = (m: BimModel, w: Wall) => (wallRunLength(w) * wallMeanHeight(m, w)) / 1e6 // m²
 export const wallVolume = (m: BimModel, w: Wall) => (wallArea(m, w) * typeOf(m, w).thickness) / 1000 // m³
 
 /* ---------- model checks (deterministic, local) ---------- */

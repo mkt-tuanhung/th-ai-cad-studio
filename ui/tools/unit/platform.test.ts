@@ -194,7 +194,8 @@ export function migrations() {
 /* ------------------------------------------------------------------ project JSON + snapshots */
 
 function editAll(tag: string) {
-  useBim.getState().edit(`QA ${tag}`, (m) => ({ ...m, walls: m.walls.filter((w) => w.id !== 'W13') }))
+  // a wall deleted with its doors / windows (the BIM edit rules refuse an opening left without its host wall)
+  useBim.getState().edit(`QA ${tag}`, (m) => ({ ...m, walls: m.walls.filter((w) => w.id !== 'W13'), doors: m.doors.filter((o) => o.hostWall !== 'W13'), windows: m.windows.filter((o) => o.hostWall !== 'W13') }))
   useInterior.getState().edit(`QA ${tag}`, (d) => ({ ...d, items: d.items.map((i) => (i.id === 'i1' ? { ...i, qty: 2 } : i)) }))
   useCivil.getState().edit(`QA ${tag}`, (d) => ({ ...d, params: { ...d.params, bottomWidth: 9 } }))
   useMech.getState().edit(`QA ${tag}`, (d) => ({ ...d, params: d.params.map((p) => (p.name === 'Speed' ? { ...p, value: 1500 } : p)) }))

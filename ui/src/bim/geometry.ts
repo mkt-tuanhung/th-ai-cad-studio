@@ -3,6 +3,7 @@
  * found from the surrounding walls, and the next free marks. Units: mm, X east, Y north.
  */
 import { levelOf, typeOf, type BimModel, type ElementRef, type Level, type Opening, type P2, type Wall } from './model'
+import { pointAt, wallOutline, wallRun } from './walls'
 
 const rad = (d: number) => (d * Math.PI) / 180
 export const dist = (a: P2, b: P2) => Math.hypot(b[0] - a[0], b[1] - a[1])
@@ -34,19 +35,14 @@ export function nextLevel(m: BimModel, id: string): Level | undefined {
   return sorted[i + 1]
 }
 
-/** Footprint polygon of a wall (centred on its line). */
+/** Footprint polygon of a wall (centred on its line; an arc wall's faces sampled every 5°). */
 export function wallPoly(m: BimModel, w: Wall): P2[] {
-  const { a, b, dir } = wallEnds(w)
-  const h = (typeOf(m, w)?.thickness ?? 200) / 2
-  const n: P2 = [-dir[1] * h, dir[0] * h]
-  return [[a[0] + n[0], a[1] + n[1]], [b[0] + n[0], b[1] + n[1]], [b[0] - n[0], b[1] - n[1]], [a[0] - n[0], a[1] - n[1]]]
+  return wallOutline(m, w)
 }
 
-/** Point on the host wall line at an opening's offset + t·width. */
+/** Point on the host wall's centre line at an opening's offset + t·width (along the arc of an arc wall). */
 export function openingPoint(w: Wall, o: Opening, t: number): P2 {
-  const { a, dir } = wallEnds(w)
-  const s = o.offset + o.width * t
-  return [a[0] + dir[0] * s, a[1] + dir[1] * s]
+  return pointAt(w, o.offset + o.width * t).p
 }
 
 /** Distance from p to segment ab and the parameter along it (0…1). */
@@ -133,8 +129,7 @@ export function centreOf(m: BimModel, ref: ElementRef): P2 | null {
     case 'wall': {
       const w = m.walls.find((x) => x.id === ref.id)
       if (!w) return null
-      const { a, b } = wallEnds(w)
-      return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+      return pointAt(w, wallRun(w) / 2).p
     }
     case 'door':
     case 'window': {

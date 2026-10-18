@@ -1,0 +1,11 @@
+E2E PASS Realistic keeps the approved render
+E2E PASS Shaded shows a live OCCT frame (JPEG from the engine) — 29 KB
+E2E PASS web overlays stay on top (plan preview, level bar, modes visible)
+E2E PASS Wireframe re-renders
+E2E PASS Hidden Line re-renders (HLR)
+E2E PASS view cube TOP changes the camera
+E2E PASS selecting W7 in the schedule highlights it in the 3D model
+E2E PASS editing W1 Top Level → Level 3 rebuilds the OCCT solids
+E2E PASS ⌘Z restores the model and the 3D view
+E2E render time OCCT · 58 solids · build 9 ms · frame 1 ms
+E2E DONE OK

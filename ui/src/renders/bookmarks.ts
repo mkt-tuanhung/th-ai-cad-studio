@@ -65,9 +65,19 @@ export const bookmarksOf = (source: BookmarkSource) => (useRenders.getState().do
 export async function restoreBookmark(ctl: SceneCtl | null, bm: CameraBookmark, apply: (v: ViewState) => void): Promise<boolean> {
   if (!ctl) return false
   apply({ level: bm.level, hidden: bm.visibility.hidden, keep: bm.visibility.keep, section: bm.section, mode: bm.mode, lighting: bm.lighting })
-  // after the view state has re-applied (a level change re-cuts the section), set the camera last
-  await new Promise((r) => setTimeout(r, 120))
+  // after the view state has re-applied (a level change re-cuts the section), set the camera last — and once more
+  // when the view has settled: a level / section change may re-apply the view a moment later and move it again
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const put = () => ctl.command({ cmd: 'camera', eye: bm.eye, at: bm.at, fov: bm.fov, up: bm.up })
+  await sleep(150)
   await ctl.command({ cmd: 'lighting', preset: bm.lighting ?? 'standard' })
-  const r = await ctl.command({ cmd: 'camera', eye: bm.eye, at: bm.at, fov: bm.fov, up: bm.up })
+  let r = await put()
+  for (let i = 0; i < 4; i++) {
+    await sleep(250)
+    const c = await ctl.command({ cmd: 'getCamera' })
+    const off = (a?: number[], b?: number[]) => !a || !b || a.some((v, k) => Math.abs(v - b[k]) > 0.5)
+    if (!c.ok || (!off(c.eye, bm.eye) && !off(c.at, bm.at))) break
+    r = await put()
+  }
   return r.ok
 }

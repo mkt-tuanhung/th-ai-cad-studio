@@ -1,0 +1,38 @@
+E2E PASS first load builds the whole scene (scene3dLoadBim) — 36 solids in 187 ms
+E2E PASS V24-001 Smart Room: 4 walls, room 4000 × 3400 net = 13.60 m² (semantic, mm) — 13.6 m²
+E2E PASS door added on the south wall
+E2E PASS adding the room + door patched the scene (no full reload) — 7 rebuilt in 12 ms
+E2E PASS native item carries the element guid — a7e86acb-31e0-42cf-8cbc-76c8d2bc583a
+E2E PASS Properties: wall Length edited to 4500
+E2E PASS V24-005 the wall is 4500 mm, same guid, rev + 1, one undo step — rev 1 → 2
+E2E PASS V24-005 room area follows: 13.60 → 14.62 m² (4300 × 3400) — 14.62
+E2E PASS V24-005 patched, not reloaded: only the edited wall, the walls it carries / stretches, their openings and leaf rebuilt — rebuilt 5/63: W25, W26, W27, slab:L1, slab:L2 in 11.0 ms (full load 187 ms)
+E2E PASS V24-005 every other solid untouched (same build serial and B-rep address) — 58 of 63 kept, 5 new
+E2E PASS V24-005 the native wall keeps its guid
+E2E PASS V24-005 the 3D frame changed
+E2E PASS V24-005 the elevation / section scene patched: the building 300 mm longer — x1 24300 → 24600, 5 rebuilt
+E2E PASS V24-006 one ⌘Z: wall 4200, room 13.60 m², same guid and rev as before
+E2E PASS V24-006 3D after undo: patched back, frame identical to before the edit — rebuilt 5, frame identical
+E2E PASS V24-006 elevation back to its extent — x1 24300
+E2E PASS V24-007 a click on the wall in 3D selects it (exact ray pick) — {"category":"wall","id":"W25"}
+E2E PASS V24-007 Properties: Unconnected Height → 3600
+E2E PASS V24-007 the model wall is 3600 high (top offset +600 over Level 2)
+E2E PASS V24-007 the 3D solid is 3600 high — 3600
+E2E PASS V24-007 2D Properties show the same height — Unconnected Height3600.0 mm
+E2E PASS V24-007 the elevation scene has the 3600 mm wall
+E2E PASS V24-008 Properties: door Width → 900
+E2E PASS V24-008 door 900 wide, centre kept (offset 950), type 900 x 2100mm
+E2E PASS V24-008 the host wall rebuilt with the wider cut (−0.042 m³) — 2.1840 → 2.1420 m³; rebuilt W25, leaf:door-e2e
+E2E PASS V24-009 a door 20 mm from the wall end is refused, nothing changed — rule:D98 would come closer than 50 mm to the end of its host wall
+E2E PASS V24-009 moving the door to 50 mm from the end… refused in Properties too (offset 3650 + 900 > 4200 − 50)
+E2E PASS V24-012 low walls: the view changes, every wall volume and the model unchanged — 28 walls
+E2E PASS V24-013 see-through: model, volumes and the selected wall stable under opacity changes — opacity 0.5
+E2E PASS SP22 doors open: a view state — only the door leaves rebuilt (all of them), model unchanged — 1 patch(es), 13/13 leaves in 12.7 ms
+E2E PASS V24-014 collision on: the walk stops 300 mm short of the wall — blocked by W26, eye x 23800.0
+E2E PASS V24-014 collision off: the same walk goes through the wall — eye x 27500
+E2E PASS V24-014 keyboard walk stops at the wall (chip: Blocked by …) — Blocked by W26Collision onDoors closedOff · eye x 23800
+E2E PASS SP20 room focus: camera looks at the room, its level selected — at 22100,1800,800
+E2E PASS V24-015 saved view restores position, target, fov, level and records the model revision — eye Δ 0.000 mm, fov 40, lens 33 mm, rev 6
+E2E PASS V24-016 low quality: half-resolution frames, model unchanged — 373px of 746
+E2E timings: full load 187 ms; patches 7@12.2ms 5@11.0ms 5@11.6ms 1@8.1ms 1@8.8ms 2@8.5ms 13@12.7ms 13@11.8ms
+E2E DONE OK

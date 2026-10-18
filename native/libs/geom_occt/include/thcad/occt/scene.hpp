@@ -113,6 +113,40 @@ class SceneView {
   /** Adds the BIM building (walls with their openings cut, glazing in the windows, floor / roof
    *  slabs spanning each level's walls) and optionally a ground plane. Returns the walls added. */
   int addBuilding(const bim::Model& m, bool ground);
+  // ---- v2.4 linked model: incremental BIM updates and view-only states -----------------------------------
+  /** What a patch rebuilt (ids of the solids built again), removed, and how long it took. */
+  struct PatchResult {
+    std::vector<std::string> rebuilt, removed;
+    double ms = 0;
+    int items = 0;
+  };
+  /** Replaces only the given solids: building walls (each rebuilt with its openings cut and its window panes, from
+   *  `m`), primitive items (by id), removes `remove` (and what they own), and with `levelSlabs` rebuilds only the
+   *  default level slabs whose extent changed. Everything else keeps its solid and its presentation. */
+  PatchResult patchBuilding(const bim::Model* m, const std::vector<std::string>& walls, const std::vector<SceneItem>& items, const std::vector<std::string>& remove, bool levelSlabs);
+  /** Element guid of each item id (instrumentation: a patched wall keeps its guid). */
+  void setGuids(const std::vector<std::pair<std::string, std::string>>& idGuid);
+  struct ItemInfo {
+    std::string id, guid, owner, shape;  // shape: address of the B-rep (unchanged = not rebuilt)
+    unsigned long long serial = 0;       // build number (unchanged = not rebuilt)
+  };
+  std::vector<ItemInfo> itemInfo() const;
+  /** Solids built since the view was created (setItems, addBuilding and patches). */
+  unsigned long long builtCount() const;
+  /** View-only opacity of some items (0…1; empty = none): see-through walls. The model is not touched. */
+  void setViewAlpha(const std::vector<std::pair<std::string, double>>& alpha);
+  /** View-only cut of some items above a height (id → z, mm; empty = none): low walls. */
+  void setLowWalls(const std::vector<std::pair<std::string, double>>& cutZ);
+  /** Device pixel (x, y) and depth of a world point in the last frame. */
+  std::array<double, 3> project(const std::array<double, 3>& p) const;
+  /** First-person walk that stops `radius` mm short of solid items in the way (glass panes and ground excluded);
+   *  returns the id of what stopped it (empty: moved freely). */
+  std::string walkCollide(double forward, double right, double yawDeg, double pitchDeg, double radius);
+  /** Camera with its up vector and projection (bookmarks): eye, at, up, fov, orthographic. */
+  void setCameraFull(const std::array<double, 3>& eye, const std::array<double, 3>& at, const std::array<double, 3>& up, double fovDeg, bool ortho);
+  std::array<double, 11> cameraFull() const;
+  // ---------------------------------------------------------------------------------------------------------
+
   /** "shaded" | "wireframe" | "hidden" | "clay" */
   void setMode(const std::string& mode);
   void setSelected(const std::string& id);

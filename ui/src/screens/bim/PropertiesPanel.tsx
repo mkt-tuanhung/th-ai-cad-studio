@@ -1,7 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import { Check, ChevronDown, DoorOpen, Ellipsis, Lightbulb, Pencil, SquareDashed } from 'lucide-react'
 import { fmt, useLang, useT } from '../../i18n'
-import { useBim, type BimRightTab } from '../../state/bim'
+import { ruleMessage, useBim, type BimRightTab } from '../../state/bim'
+import { linkedT, useLinkedT } from '../../i18n/ws/linked'
+import { arcOf, ends, faceLengths, heightsOf, moveWall, setEnds, stretchWall } from '../../bim/walls'
+import { roomFigures } from '../../bim/rooms'
 import { useRouter } from '../../state/router'
 import { toast } from '../../state/toast'
 import { levelOf, typeOf, wallArea, wallHeight, wallVolume, type BimModel, type ElementRef, type Wall } from '../../bim/model'
@@ -40,7 +43,7 @@ export function PropertiesPanel() {
   )
 }
 
-type RowDef = { label: string; value: string; edit?: { kind: 'text' | 'level'; apply: (v: string) => string | null }; muted?: boolean }
+type RowDef = { label: string; value: string; edit?: { kind: 'text' | 'level' | 'choice'; options?: [string, string][]; apply: (v: string) => string | null }; muted?: boolean }
 
 type ListKey = 'columns' | 'slabs' | 'stairs' | 'railings' | 'components' | 'grids' | 'annotations'
 
@@ -126,10 +129,49 @@ function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']
       : [{ label: t.mark, value: x.target ? markOf(m, { category: 'wall', id: x.target }) : '—', muted: true }]
     return { kind: t.kinds.annotation[x.kind], title: t.kinds.annotation[x.kind], subtitle: lvl(x.level), icon: 'room' as const, sections: [{ title: t.identity, rows }] }
   }
+  // v2.4: identity of the element (guid / revision / provenance)
+  const L = linkedT().props
+  const idSection = (e: { guid?: string; rev?: number; src?: { kind: keyof typeof L.srcKind; reviewRequired?: boolean } }) => ({
+    title: L.identity,
+    rows: [
+      { label: L.guid, value: e.guid ?? '—', muted: true },
+      { label: L.rev, value: String(e.rev ?? 1), muted: true },
+      { label: L.src, value: e.src ? `${L.srcKind[e.src.kind] ?? e.src.kind}${e.src.reviewRequired ? ` · ${L.review}` : ''}` : '—', muted: true },
+    ] as RowDef[],
+  })
+  /** An editable number: `apply` gets the parsed value (mm unless stated). */
+  const numEdit = (label: string, value: number, apply: (n: number) => string | null, o: { unit?: string; zero?: boolean; negative?: boolean; digits?: number } = {}): RowDef => ({
+    label,
+    value: o.unit ? `${value.toFixed(o.digits ?? 1)} ${o.unit}` : mm(value),
+    edit: {
+      kind: 'text',
+      apply: (v: string) => {
+        const n = Number(v.replace(',', '.').replace(/[^\d.-]/g, ''))
+        if (!Number.isFinite(n) || (!o.negative && n < 0) || (!o.zero && !o.negative && n === 0)) return t.badNumber
+        return apply(n)
+      },
+    },
+  })
+  const editWall = (_id: string, label: string, fn: (m: BimModel) => BimModel) => edit(label, fn)
   if (sel.category === 'wall') {
     const w = m.walls.find((x) => x.id === sel.id)
     if (!w) return null
     const ty = typeOf(m, w)
+    const arc = arcOf(w)
+    const hs = heightsOf(m, w)
+    const faces = faceLengths(m, w)
+    const base = (levelOf(m, w.baseLevel)?.elevation ?? 0) + w.baseOffset
+    const topLv = levelOf(m, w.topLevel)?.elevation ?? 0
+    /** wall thickness: a type of the same family with that thickness, else a copy of this type with it */
+    const setThickness = (th: number) =>
+      editWall(w.id, L.thickness, (x) => {
+        const same = x.wallTypes.find((q) => q.family === ty.family && q.thickness === th && q.structure === ty.structure) ?? x.wallTypes.find((q) => q.family === ty.family && q.thickness === th)
+        if (same) return { ...x, walls: x.walls.map((q) => (q.id === w.id ? { ...q, typeId: same.id } : q)) }
+        const id = `${ty.id}-${th}`
+        const nt = { ...ty, id, name: ty.name.replace(/\d+\s*mm/, `${th}mm`) === ty.name ? `${ty.name} (${th}mm)` : ty.name.replace(/\d+\s*mm/, `${th}mm`), thickness: th, guid: undefined, rev: undefined, src: undefined }
+        return { ...x, wallTypes: [...x.wallTypes.filter((q) => q.id !== id), nt], walls: x.walls.map((q) => (q.id === w.id ? { ...q, typeId: id } : q)) }
+      })
+    const e = ends(w)
     return {
       kind: t.wallKind,
       title: ty.family,
@@ -148,21 +190,33 @@ function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']
         {
           title: t.constraints,
           rows: [
-            { label: t.baseLevel, value: lvl(w.baseLevel) },
-            { label: t.baseOffset, value: mm(w.baseOffset) },
+            { label: t.baseLevel, value: lvl(w.baseLevel), edit: { kind: 'level', apply: (v: string) => updateWall(w.id, { baseLevel: v }, 'Base Constraint') } },
+            numEdit(t.baseOffset, w.baseOffset, (n) => updateWall(w.id, { baseOffset: n }, 'Base Offset'), { negative: true }),
             { label: t.topLevel, value: lvl(w.topLevel), edit: { kind: 'level', apply: (v: string) => updateWall(w.id, { topLevel: v }, 'Top Level') } },
-            { label: t.topOffset, value: mm(w.topOffset) },
-            { label: t.unconnected, value: mm(wallHeight(m, w)), muted: true },
+            numEdit(t.topOffset, w.topOffset, (n) => updateWall(w.id, { topOffset: n }, 'Top Offset'), { negative: true }),
+            // the height sets the top offset (the top level stays)
+            numEdit(t.unconnected, wallHeight(m, w), (n) => updateWall(w.id, { topOffset: Math.round((base + n - topLv) * 100) / 100 }, 'Unconnected Height')),
           ] as RowDef[],
         },
         {
           title: t.dimensions,
           rows: [
-            { label: t.length, value: mm(w.length) },
-            { label: t.thickness, value: mm(ty.thickness) },
-            { label: t.height, value: mm(wallHeight(m, w)) },
-            { label: t.area, value: `${wallArea(m, w).toFixed(2)} m²` },
-            { label: t.volume, value: `${wallVolume(m, w).toFixed(2)} m³` },
+            // the end moves along the wall; walls joined there move / stretch with it (the room stays closed)
+            numEdit(t.length, w.length, (n) => editWall(w.id, `Length ${w.mark}`, (x) => stretchWall(x, w.id, n))),
+            numEdit(L.angle, w.angle ?? 0, (n) => editWall(w.id, L.angle, (x) => ({ ...x, walls: x.walls.map((q) => (q.id === w.id ? setEnds(q, e.a, [e.a[0] + Math.cos((n * Math.PI) / 180) * q.length, e.a[1] + Math.sin((n * Math.PI) / 180) * q.length]) : q)) })), { unit: '°', zero: true, negative: true, digits: 2 }),
+            numEdit(L.startX, e.a[0], (n) => editWall(w.id, L.startX, (x) => moveWall(x, w.id, [n - e.a[0], 0])), { zero: true, negative: true }),
+            numEdit(L.startY, e.a[1], (n) => editWall(w.id, L.startY, (x) => moveWall(x, w.id, [0, n - e.a[1]])), { zero: true, negative: true }),
+            numEdit(t.thickness, ty.thickness, setThickness),
+            numEdit(t.height, hs.h0, (n) => updateWall(w.id, { topOffset: Math.round((base + n - topLv) * 100) / 100 }, 'Height')),
+            // sloped top: the height at the end (0 = flat again)
+            numEdit(L.heightEnd, hs.h1, (n) => updateWall(w.id, { heightEnd: n > 0 && Math.abs(n - hs.h0) > 0.5 ? n : undefined }, L.heightEnd), { zero: true }),
+            // arc wall: the signed radius (0 = straight)
+            numEdit(L.radius, w.arc?.radius ?? 0, (n) => updateWall(w.id, { arc: n ? { radius: n } : undefined }, L.radius), { zero: true, negative: true }),
+            ...(arc ? [{ label: L.arcLength, value: mm(arc.len), muted: true }] : []),
+            { label: L.faceLeft, value: mm(faces.left), muted: true },
+            { label: L.faceRight, value: mm(faces.right), muted: true },
+            { label: t.area, value: `${wallArea(m, w).toFixed(2)} m²`, muted: true },
+            { label: t.volume, value: `${wallVolume(m, w).toFixed(2)} m³`, muted: true },
           ] as RowDef[],
         },
         {
@@ -173,49 +227,109 @@ function rowsFor(m: BimModel, sel: ElementRef, t: ReturnType<typeof useT>['bim']
             { label: t.finishInt, value: ty.finishInt },
           ] as RowDef[],
         },
+        idSection(w),
       ],
     }
   }
   if (sel.category === 'door' || sel.category === 'window') {
-    const o = (sel.category === 'door' ? m.doors : m.windows).find((x) => x.id === sel.id)
+    const key = sel.category === 'door' ? ('doors' as const) : ('windows' as const)
+    const o = m[key].find((x) => x.id === sel.id)
     if (!o) return null
     const host = m.walls.find((w) => w.id === o.hostWall)
+    const po = (label: string, p: Partial<typeof o>) => edit(`${label} ${o.mark || o.id}`, (x) => ({ ...x, [key]: x[key].map((q) => (q.id === o.id ? { ...q, ...p, ...('width' in p || 'height' in p ? { type: `${p.width ?? q.width} x ${p.height ?? q.height}mm` } : {}) } : q)) }))
+    const choice = (label: string, value: string, options: [string, string][], apply: (v: string) => string | null): RowDef => ({ label, value: options.find(([v]) => v === value)?.[1] ?? value, edit: { kind: 'choice', options, apply } })
     return {
       kind: sel.category === 'door' ? t.doorKind : t.windowKind,
       title: o.family,
       subtitle: o.type,
       icon: sel.category,
       sections: [
-        { title: t.identity, rows: [{ label: t.family, value: o.family }, { label: t.type, value: o.type }, { label: t.typeMark, value: o.mark || '—' }] as RowDef[] },
-        { title: t.constraints, rows: [{ label: t.level, value: host ? lvl(host.baseLevel) : '—' }, { label: t.host, value: o.hostWall }, { label: t.offset, value: mm(o.offset) }, { label: t.sill, value: mm(o.sill) }] as RowDef[] },
-        { title: t.dimensions, rows: [{ label: t.width, value: mm(o.width) }, { label: t.height, value: mm(o.height) }] as RowDef[] },
+        { title: t.identity, rows: [{ label: t.family, value: o.family }, { label: t.type, value: o.type }, { label: t.typeMark, value: o.mark || '—', edit: { kind: 'text' as const, apply: (v: string) => po(t.typeMark, { mark: v.trim() }) } }] as RowDef[] },
+        {
+          title: t.constraints,
+          rows: [
+            { label: t.level, value: host ? lvl(host.baseLevel) : '—' },
+            { label: t.host, value: host?.mark ?? o.hostWall },
+            numEdit(L.offset, o.offset, (n) => po(L.offset, { offset: n }), { zero: true }),
+            numEdit(t.sill, o.sill, (n) => po(t.sill, { sill: n }), { zero: true }),
+            ...(sel.category === 'door'
+              ? [
+                  choice(L.hinge, o.hinge ?? 'left', [['left', L.hingeL], ['right', L.hingeR]], (v) => po(L.hinge, { hinge: v as 'left' | 'right' })),
+                  choice(L.swing, o.swing ?? 'in', [['in', L.swingIn], ['out', L.swingOut]], (v) => po(L.swing, { swing: v as 'in' | 'out' })),
+                ]
+              : []),
+          ] as RowDef[],
+        },
+        {
+          title: t.dimensions,
+          rows: [
+            // a new width keeps the opening's centre on the wall
+            numEdit(t.width, o.width, (n) => po(t.width, { width: n, offset: Math.round((o.offset + (o.width - n) / 2) * 10) / 10 })),
+            numEdit(t.height, o.height, (n) => po(t.height, { height: n })),
+          ] as RowDef[],
+        },
+        idSection(o),
       ],
     }
   }
   if (sel.category === 'room') {
     const r = m.rooms.find((x) => x.id === sel.id)
     if (!r) return null
+    const f = roomFigures(m, r)
+    const pr = (label: string, p: Partial<typeof r>) => edit(`${label} ${r.number}`, (x) => ({ ...x, rooms: x.rooms.map((q) => (q.id === r.id ? { ...q, ...p } : q)) }))
     return {
       kind: t.roomKind,
       title: r.name,
       subtitle: `${t.number} ${r.number}`,
       icon: 'room' as const,
       sections: [
-        { title: t.identity, rows: [{ label: t.number, value: r.number }, { label: t.name, value: r.name }] as RowDef[] },
+        { title: t.identity, rows: [{ label: t.number, value: r.number, edit: { kind: 'text' as const, apply: (v: string) => pr(t.number, { number: v.trim() || r.number }) } }, { label: t.name, value: r.name, edit: { kind: 'text' as const, apply: (v: string) => pr(t.name, { name: v.trim() || r.name }) } }] as RowDef[] },
         { title: t.constraints, rows: [{ label: t.level, value: lvl(r.level) }] as RowDef[] },
-        { title: t.dimensions, rows: [{ label: t.area, value: `${r.area.toFixed(2)} m²` }] as RowDef[] },
+        {
+          title: t.dimensions,
+          rows: [
+            { label: L.net, value: `${f.net.toFixed(2)} m²`, muted: true },
+            ...(f.gross !== null ? [{ label: L.gross, value: `${f.gross.toFixed(2)} m²`, muted: true }] : []),
+            ...(f.perimeter !== null ? [{ label: L.perimeter, value: mm(f.perimeter), muted: true }] : []),
+            { label: t.area, value: f.live ? L.liveArea : L.storedArea, muted: true },
+          ] as RowDef[],
+        },
+        idSection(r),
       ],
     }
   }
   const l = m.levels.find((x) => x.id === sel.id)
   if (!l) return null
-  return { kind: 'Level', title: l.name, subtitle: 'Level', icon: 'room' as const, sections: [{ title: t.constraints, rows: [{ label: t.elevation, value: mm(l.elevation) }] as RowDef[] }] }
+  // a level elevation change moves everything on it and re-shapes the stairs between levels (V24-010)
+  const sorted = [...m.levels].sort((a, b) => a.elevation - b.elevation)
+  return {
+    kind: 'Level',
+    title: l.name,
+    subtitle: 'Level',
+    icon: 'room' as const,
+    sections: [
+      {
+        title: t.constraints,
+        rows: [
+          { label: L.name, value: l.name, edit: { kind: 'text' as const, apply: (v: string) => edit(`Level name ${l.name}`, (x) => ({ ...x, levels: x.levels.map((q) => (q.id === l.id ? { ...q, name: v.trim() || l.name } : q)) })) } },
+          numEdit(t.elevation, l.elevation, (n) => {
+            const i = sorted.findIndex((q) => q.id === l.id)
+            // levels keep their order
+            if ((i > 0 && n <= sorted[i - 1].elevation) || (i < sorted.length - 1 && n >= sorted[i + 1].elevation)) return t.badNumber
+            return edit(`Elevation ${l.name}`, (x) => ({ ...x, levels: x.levels.map((q) => (q.id === l.id ? { ...q, elevation: n } : q)) }))
+          }, { zero: true, negative: true }),
+        ] as RowDef[],
+      },
+      idSection(l),
+    ],
+  }
 }
 
 function PropertiesTab() {
   const T = useT()
   const t = T.bim.props
-  const { model, selection, updateWall, set, edit, deleteSelection } = useBim()
+  const { model, selection, updateWall, set, edit, deleteSelection, focusRoom, live3d, setLive3d } = useBim()
+  const LP = useLinkedT().props
   const [menuOpen, setMenuOpen, menuRef] = useDismissable<HTMLDivElement>()
   if (!selection) return <p className={s.empty}>{t.noSelection}</p>
   const data = rowsFor(model, selection, t, updateWall, edit)
@@ -243,6 +357,8 @@ function PropertiesTab() {
                 items={[
                   { label: t.showInSchedule, onSelect: () => set({ view: 'schedule', scheduleCat: selection.category === 'wall' ? 'walls' : selection.category === 'door' ? 'doors' : selection.category === 'window' ? 'windows' : 'rooms' }) },
                   { label: t.copyMark, onSelect: () => navigator.clipboard?.writeText(data.sections[0].rows.find((r) => r.label === t.typeMark || r.label === t.mark)?.value ?? '') },
+                  ...(selection.category === 'room' ? [{ label: LP.focus3d, onSelect: () => focusRoom(selection.id) }] : []),
+                  ...(selection.category === 'door' ? [{ label: live3d.doorsOpen ? LP.doorClosed : LP.doorOpen, onSelect: () => setLive3d({ doorsOpen: !live3d.doorsOpen }) }] : []),
                   ...(selection.category === 'level' ? [] : [{ label: t.delete, onSelect: () => { const l = deleteSelection(); if (l) toast(fmt(t.deleted, { what: l.replace(/^Delete /, '') })) } }]),
                 ]}
               />
@@ -281,7 +397,7 @@ function PropRow({ row, levels }: { row: RowDef; levels: BimModel['levels'] }) {
   const [val, setVal] = useState(row.value)
   const commit = (v: string) => {
     const err = row.edit!.apply(v)
-    if (err) toast(err === T.bim.props.badNumber ? err : fmt(T.bim.props.invalid, { mark: err }), 'warning')
+    if (err) toast(err === T.bim.props.badNumber ? err : (ruleMessage(err) ?? fmt(T.bim.props.invalid, { mark: err })), 'warning')
     setEditing(false)
   }
   return (
@@ -300,6 +416,15 @@ function PropRow({ row, levels }: { row: RowDef; levels: BimModel['levels'] }) {
               if (e.key === 'Escape') setEditing(false)
             }}
           />
+        )}
+        {editing && row.edit?.kind === 'choice' && (
+          <select className={s.input} autoFocus aria-label={row.label} defaultValue={row.edit.options?.find(([, l]) => l === row.value)?.[0]} onChange={(e) => commit(e.target.value)} onBlur={() => setEditing(false)}>
+            {row.edit.options?.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
         )}
         {editing && row.edit?.kind === 'level' && (
           <select className={s.input} autoFocus defaultValue={levels.find((l) => l.name === row.value)?.id} onChange={(e) => commit(e.target.value)} onBlur={() => setEditing(false)}>
@@ -411,7 +536,7 @@ function AiTab() {
   const { model, edit } = useBim()
   return (
     <div className={s.aiTab}>
-      <AiAssist d={bimAi} model={model} apply={(label, next) => edit(label, () => next)} example={T.aiAssist.examples.bim} />
+      <AiAssist d={bimAi} model={model} apply={(label, next) => edit(label, () => next, { src: { kind: 'ai' } })} example={T.aiAssist.examples.bim} />
       <ActionButton onClick={() => navigate('ai-studio')}>
         {t.open}
       </ActionButton>

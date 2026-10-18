@@ -5,9 +5,10 @@
  * built here as glass + mullions. Item ids are the element ids, so a click in 3D selects the element.
  */
 import { boxAt, cylBetween, hex, prism, vcyl, type Prim, type Scene, type SceneItem, type V3 } from '../engine3d/scene'
-import { levelOf, typeOf, type BimModel } from './model'
+import { levelOf, typeOf, type BimModel, type Opening, type Wall } from './model'
 import { wallEnds } from './geometry'
 import { roofFrame } from './roof'
+import { arcOf, heightsOf, pointAt, wallRun } from './walls'
 
 const elev = (m: BimModel, id: string) => levelOf(m, id)?.elevation ?? 0
 const CONCRETE = hex('#c9c6c0'), STEEL = hex('#5b6370'), GLASS = hex('#9cc3d5'), TIMBER = hex('#b98d5f')
@@ -51,6 +52,63 @@ export function stairProfile(st: BimModel['stairs'][number], n: number, riser: n
   return prof.filter((q, i, a) => i === 0 || q[0] !== a[i - 1][0] || q[1] !== a[i - 1][1])
 }
 
+/** One straight flight of a stair (plan start, direction, run, width), its base height, risers and riser height. */
+export interface FlightGeom {
+  x: number
+  y: number
+  angle: number
+  length: number
+  width: number
+  z: number
+  n: number
+  riser: number
+}
+
+/**
+ * The flights and landings of a stair element. A straight stair is one flight; an L / U stair from the authoring
+ * tool (`run`) is flight 1, a landing (150 mm slab, top at flight 1's top) and flight 2 — the risers split between
+ * them and follow the storey height, so a level elevation change re-shapes the stair (V24-010).
+ */
+export function stairGeometry(m: BimModel, st: BimModel['stairs'][number]): { flights: FlightGeom[]; landings: { pts: [number, number][]; z: number }[] } {
+  const { z, n, riser } = stairFlight(m, st)
+  if (!st.run) return { flights: [{ x: st.x, y: st.y, angle: st.angle, length: st.length, width: st.width, z, n, riser }], landings: [] }
+  const r = st.run, W = st.width
+  const n1 = Math.min(n - 1, Math.max(1, r.split ?? Math.floor(n / 2))), n2 = n - n1
+  const t = (st.angle * Math.PI) / 180
+  const u: [number, number] = [Math.cos(t), Math.sin(t)]
+  const side = r.turn === 'left' ? 1 : -1
+  const v: [number, number] = [-u[1] * side, u[0] * side] // towards the turn
+  const P = (a: number, b: number): [number, number] => [st.x + u[0] * a + v[0] * b, st.y + u[1] * a + v[1] * b]
+  const z1 = z + n1 * riser
+  const L1 = st.length, D = r.landing
+  const f1: FlightGeom = { x: st.x, y: st.y, angle: st.angle, length: L1, width: W, z, n: n1, riser }
+  if (r.kind === 'L') {
+    // landing D deep past flight 1 (as wide as the flights), flight 2 leaving it towards the turn
+    const land = [P(L1, -W / 2), P(L1 + D, -W / 2), P(L1 + D, W / 2), P(L1, W / 2)]
+    const s2 = P(L1 + D / 2, W / 2)
+    const a2 = (Math.atan2(v[1], v[0]) * 180) / Math.PI
+    return { flights: [f1, { x: s2[0], y: s2[1], angle: a2, length: r.length2, width: Math.min(W, D), z: z1, n: n2, riser }], landings: [{ pts: ccw(land), z: z1 }] }
+  }
+  // U: the landing across both flights; flight 2 back alongside flight 1, `gap` between them
+  const g = r.gap ?? 100
+  const land = [P(L1, -W / 2), P(L1 + D, -W / 2), P(L1 + D, W / 2 + g + W), P(L1, W / 2 + g + W)]
+  const s2 = P(L1, W + g)
+  return { flights: [f1, { x: s2[0], y: s2[1], angle: st.angle + 180, length: r.length2, width: W, z: z1, n: n2, riser }], landings: [{ pts: ccw(land), z: z1 }] }
+}
+
+function ccw(p: [number, number][]): [number, number][] {
+  const a = p.reduce((s, q, i) => s + q[0] * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * q[1], 0)
+  return a < 0 ? [...p].reverse() : p
+}
+
+/** One flight as its side profile extruded across the width (towards the right of the run). */
+function flightPrim(f: FlightGeom): Prim {
+  const t = (f.angle * Math.PI) / 180
+  const ux = Math.cos(t), uy = Math.sin(t)
+  const nx = -uy * (f.width / 2), ny = ux * (f.width / 2)
+  return { ...prism([f.x + nx, f.y + ny, f.z], stairProfile({ length: f.length } as BimModel['stairs'][number], f.n, f.riser), f.width), z: [uy, -ux, 0], x: [ux, uy, 0] }
+}
+
 /** A tread of a spiral stair: the ring sector between two radii and two angles (rad), as a polygon. */
 export function wedge(cx: number, cy: number, r0: number, r1: number, a: number, b: number): [number, number][] {
   const k = Math.max(2, Math.ceil(Math.abs(b - a) / (Math.PI / 24)))
@@ -61,8 +119,102 @@ export function wedge(cx: number, cy: number, r0: number, r1: number, a: number,
   return area < 0 ? p.reverse() : p
 }
 
-export function bimExtras(m: BimModel): Scene {
+/** View-only options of the 3D scene (never part of the model): doors drawn open (90°, to their swing side) or closed. */
+export interface SceneView {
+  doorsOpen?: boolean
+}
+
+/** Arc walls and walls with a sloped top are built here (the native builder makes straight, flat-topped walls). */
+export const isSpecialWall = (w: Wall) => !!arcOf(w) || (w.heightEnd !== undefined && w.heightEnd > 0)
+
+const WALL_EXT: V3 = [0.88, 0.87, 0.84], WALL_INT: V3 = [0.93, 0.93, 0.92], PANE: V3 = [0.55, 0.7, 0.78], LEAF = hex('#a9764b')
+const degOf = (r: number) => (r * 180) / Math.PI
+
+/**
+ * An arc wall (exact: the wall section revolved about the arc centre) or a straight wall with a sloped top (its side
+ * profile extruded across the thickness), with its openings cut and a pane in each window.
+ */
+function specialWall(m: BimModel, w: Wall): SceneItem[] {
+  const t = typeOf(m, w)?.thickness ?? 200
+  const z0 = elev(m, w.baseLevel) + w.baseOffset
+  const { h0, h1 } = heightsOf(m, w)
+  if (h0 <= 0 || h1 <= 0) return []
+  const rgb = t >= 200 ? WALL_EXT : WALL_INT
+  const openings = [...m.doors, ...m.windows].filter((o) => o.hostWall === w.id)
+  const out: SceneItem[] = []
+  const arc = arcOf(w)
+  if (arc) {
+    const ri = arc.r - t / 2, ro = arc.r + t / 2
+    // counter-clockwise from the start of the sweep
+    const start = arc.sweep >= 0 ? arc.a0 : arc.a0 + arc.sweep
+    const sweep = Math.abs(arc.sweep)
+    const sector = (a: number, da: number, z: number, h: number, r0 = ri, r1 = ro): Prim => ({ k: 'revolve', o: [arc.c[0], arc.c[1], z], z: [0, 0, 1], x: [Math.cos(a), Math.sin(a), 0], s: [degOf(da), 0, 0], pts: [[r0, 0], [r1, 0], [r1, h], [r0, h]] })
+    const parts: Prim[] = []
+    if (Math.abs(h1 - h0) < 0.5) parts.push(sector(start, sweep, z0, h0))
+    else {
+      // a sloped top on an arc: 5° sectors, each at its mean height
+      const k = Math.max(2, Math.ceil(sweep / ((5 * Math.PI) / 180)))
+      for (let i = 0; i < k; i++) {
+        const sMid = ((i + 0.5) / k) * arc.len
+        const hMid = h0 + ((h1 - h0) * (arc.sweep >= 0 ? sMid : arc.len - sMid)) / arc.len
+        parts.push(sector(start + (sweep * i) / k, sweep / k, z0, hMid))
+      }
+    }
+    const ang = (sAlong: number) => arc.a0 + (arc.sweep >= 0 ? 1 : -1) * (sAlong / arc.r)
+    const cuts = openings.map((o) => {
+      const a = Math.min(ang(o.offset), ang(o.offset + o.width))
+      return sector(a, o.width / arc.r, z0 + o.sill, o.height, ri - 20, ro + 20)
+    })
+    out.push({ id: w.id, rgb, parts, ...(cuts.length ? { cuts } : {}) })
+    for (const o of openings.filter((x) => x.category === 'window')) {
+      const a = Math.min(ang(o.offset), ang(o.offset + o.width))
+      out.push({ id: `glass:${o.id}`, rgb: PANE, transparency: 0.6, mat: 'glass', parts: [sector(a, o.width / arc.r, z0 + o.sill, o.height, arc.r - 10, arc.r + 10)] })
+    }
+    return out
+  }
+  const { a, dir } = wallEnds(w)
+  const n = [-dir[1], dir[0]]
+  // frame: x along the wall, local z = the wall's right normal, so local y is up; the profile from the left face
+  const part: Prim = { ...prism([a[0] + (n[0] * t) / 2, a[1] + (n[1] * t) / 2, z0], [[0, 0], [w.length, 0], [w.length, h1], [0, h0]], t), z: [dir[1], -dir[0], 0], x: [dir[0], dir[1], 0] }
+  const at = (o: Opening) => pointAt(w, o.offset + o.width / 2).p
+  const cuts = openings.map((o) => { const c = at(o); return boxAt(c[0], c[1], z0 + o.sill, o.width, t + 40, o.height, w.angle ?? 0) })
+  out.push({ id: w.id, rgb, parts: [part], ...(cuts.length ? { cuts } : {}) })
+  for (const o of openings.filter((x) => x.category === 'window')) {
+    const c = at(o)
+    out.push({ id: `glass:${o.id}`, rgb: PANE, transparency: 0.6, mat: 'glass', parts: [boxAt(c[0], c[1], z0 + o.sill, o.width, 20, o.height, w.angle ?? 0)] })
+  }
+  return out
+}
+
+/** A door leaf (40 mm), hinged on its hinge side at the face it opens to: closed in the opening, or open at 90°. */
+export function doorLeaf(m: BimModel, o: Opening, open: boolean): SceneItem | null {
+  const w = m.walls.find((x) => x.id === o.hostWall)
+  if (!w || typeOf(m, w)?.family === 'Curtain Wall' || o.width <= 60 || o.height <= 30) return null
+  const t = typeOf(m, w)?.thickness ?? 200
+  const z = elev(m, w.baseLevel) + w.baseOffset + o.sill
+  const hingeAt = o.hinge === 'right' ? o.offset + o.width : o.offset
+  const { p: hp, t: tan } = pointAt(w, Math.min(wallRun(w), Math.max(0, hingeAt)))
+  const toward = o.hinge === 'right' ? -1 : 1 // from the hinge along the wall to the other jamb
+  const side = o.swing === 'out' ? -1 : 1 // the face the leaf opens to: left (+) / right (−) of the wall
+  const nx = -tan[1] * side, ny = tan[0] * side
+  const L = o.width - 20, T = 40, H = o.height - 10
+  const H0: [number, number] = [hp[0] + (nx * t) / 2, hp[1] + (ny * t) / 2]
+  const ang = degOf(Math.atan2(tan[1], tan[0]))
+  const part = open
+    ? boxAt(H0[0] + nx * (L / 2) + tan[0] * toward * (T / 2 + 10), H0[1] + ny * (L / 2) + tan[1] * toward * (T / 2 + 10), z, L, T, H, ang + 90)
+    : boxAt(H0[0] + tan[0] * toward * (L / 2 + 10) - nx * (T / 2), H0[1] + tan[1] * toward * (L / 2 + 10) - ny * (T / 2), z, L, T, H, ang)
+  return { id: `leaf:${o.id}`, rgb: LEAF, parts: [part] }
+}
+
+export function bimExtras(m: BimModel, view: SceneView = {}): Scene {
   const items: SceneItem[] = []
+  // arc walls and sloped walls with their openings (straight walls come from the native builder)
+  for (const w of m.walls) if (isSpecialWall(w) && typeOf(m, w)?.family !== 'Curtain Wall') items.push(...specialWall(m, w))
+  // door leaves: open or closed (a view state)
+  for (const o of m.doors) {
+    const leaf = doorLeaf(m, o, !!view.doorsOpen)
+    if (leaf) items.push(leaf)
+  }
   for (const c of m.columns) {
     const z = elev(m, c.level), h = elev(m, c.topLevel) - z
     if (h <= 0) continue
@@ -87,11 +239,9 @@ export function bimExtras(m: BimModel): Scene {
       items.push({ id: st.id, rgb: CONCRETE, parts })
       continue
     }
-    const t = (st.angle * Math.PI) / 180
-    const ux = Math.cos(t), uy = Math.sin(t)
-    // one flight = its side profile extruded across the width (towards the right of the run)
-    const nx = -uy * (st.width / 2), ny = ux * (st.width / 2)
-    const parts: Prim[] = [{ ...prism([st.x + nx, st.y + ny, z], stairProfile(st, n, riser), st.width), z: [uy, -ux, 0], x: [ux, uy, 0] }]
+    // each flight = its side profile extruded across the width; an L / U stair adds its landing (150 mm)
+    const g = stairGeometry(m, st)
+    const parts: Prim[] = [...g.flights.map(flightPrim), ...g.landings.map((l) => prism([0, 0, l.z - 150], l.pts, 150))]
     items.push({ id: st.id, rgb: CONCRETE, parts })
   }
   for (const r of m.railings) {
@@ -162,9 +312,9 @@ export function bimExtras(m: BimModel): Scene {
   return { items }
 }
 
-/** The model the native builder gets: curtain walls (built above) and their openings left out. */
+/** The model the native builder gets: curtain walls, arc walls and sloped walls (built above) and their openings left out. */
 export function nativeBuildingModel(m: BimModel): BimModel {
-  const cw = new Set(m.walls.filter((w) => typeOf(m, w)?.family === 'Curtain Wall').map((w) => w.id))
+  const cw = new Set(m.walls.filter((w) => typeOf(m, w)?.family === 'Curtain Wall' || isSpecialWall(w)).map((w) => w.id))
   if (!cw.size) return m
   return { ...m, walls: m.walls.filter((w) => !cw.has(w.id)), doors: m.doors.filter((o) => !cw.has(o.hostWall)), windows: m.windows.filter((o) => !cw.has(o.hostWall)) }
 }
@@ -176,7 +326,7 @@ export const isStructuralWall = (m: BimModel, w: BimModel['walls'][number]) => /
 export function nonStructuralIds(m: BimModel): string[] {
   const ids: string[] = []
   for (const w of m.walls) if (!isStructuralWall(m, w)) ids.push(w.id, `${w.id}:frame`)
-  for (const o of [...m.doors, ...m.windows]) ids.push(`glass:${o.id}`)
+  for (const o of [...m.doors, ...m.windows]) ids.push(`glass:${o.id}`, `leaf:${o.id}`)
   for (const s of m.slabs) if (s.kind === 'ceiling') ids.push(s.id)
   for (const x of [...m.railings, ...m.components]) ids.push(x.id)
   return ids
