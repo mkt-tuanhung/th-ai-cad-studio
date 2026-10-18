@@ -251,7 +251,7 @@ export async function snapshots() {
   useSettings.getState().apply({ autoRecover: true, backup: true })
   useWorkspace.setState({ currentId: 'villa-riverside' })
   const m = await saveSnapshot(makeSnapshot('QA manual', 'manual'))
-  out.saved = !!m && m.appVersion === '0.1.0' && m.schema === 1 && m.project?.id === 'villa-riverside' && Object.keys(m.revisions).length === 7
+  out.saved = !!m && m.appVersion === '0.1.1' && m.schema === 1 && m.project?.id === 'villa-riverside' && Object.keys(m.revisions).length === 7
   out.countsRecorded = m!.counts.bim.walls === 24 && m!.counts.interior.rooms === 9 && m!.counts.cad.drawings >= 1
   // nothing changed → an interval / save snapshot is skipped
   out.skipUnchanged = (await snapshotOn('interval', 'QA tick')) === null && (await snapshotOn('save', 'QA save')) === null

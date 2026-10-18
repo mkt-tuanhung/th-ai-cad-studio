@@ -1,6 +1,6 @@
 ﻿; Inno Setup script — MD CAD AI STUDIO for Windows (x64). Built by build_windows.ps1.
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.1"
 #endif
 #ifndef StageDir
   #define StageDir "..\..\dist-win\MD CAD AI STUDIO"
@@ -49,10 +49,18 @@ vi.FinishedHeadingLabel=Đã cài đặt xong MD CAD AI STUDIO
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
+[InstallDelete]
+; updating over an earlier version: the bundled web UI is replaced as a whole (old hashed assets removed).
+; The user's data is never here: projects, settings, the licence key, AI models and the 3D library live in the
+; user's own folders (%APPDATA% / %LOCALAPPDATA%) and are kept by an update.
+Type: filesandordirs; Name: "{app}\ui"
+
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Dirs]
+; the 3D interior library (Poly Haven CC0 starter set, user imports): %LOCALAPPDATA%\MD CAD AI STUDIO\library
+Name: "{localappdata}\MD CAD AI STUDIO\library"
 ; local AI models live per user: %LOCALAPPDATA%\MD CAD AI STUDIO\models (never in Program Files)
 Name: "{localappdata}\MD CAD AI STUDIO\models"
 

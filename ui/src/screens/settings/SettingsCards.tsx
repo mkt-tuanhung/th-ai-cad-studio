@@ -677,7 +677,7 @@ export function UpdatesCard(p: CardProps) {
   return (
     <Card icon={<CloudUpload size={22} strokeWidth={1.5} />} title={U.title} text={U.text}>
       <Facts rows={[
-        [U.app, '0.1.0'],
+        [U.app, '0.1.1'],
         [U.engine, i?.engine ?? U.browser],
         [U.occt, i?.occt ?? '—'],
         [U.ai, i?.aiBackend ?? '—'],

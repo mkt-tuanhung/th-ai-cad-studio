@@ -6,7 +6,7 @@ export const BRAND = {
   name: 'MD CAD AI STUDIO',
   /** Must appear exactly like this in the app intro and the installer intro. Never translated or edited. */
   credit: 'Xây dựng và phát triển bởi Minh Dũng',
-  version: '0.1.0',
+  version: '0.1.1',
 } as const
 
 const B = '/assets/branding/'

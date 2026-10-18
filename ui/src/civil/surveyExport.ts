@@ -32,7 +32,7 @@ export function landXml(name: string, t: Tin, plan?: Polyline, alignmentName = '
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<LandXML xmlns="http://www.landxml.org/schema/LandXML-1.2" version="1.2" date="${new Date().toISOString().slice(0, 10)}" time="${new Date().toISOString().slice(11, 19)}">`,
     '<Units><Metric linearUnit="meter" areaUnit="squareMeter" volumeUnit="cubicMeter" angularUnit="decimal degrees" directionUnit="decimal degrees"/></Units>',
-    `<Application name="MD CAD AI STUDIO" manufacturer="MD CAD AI STUDIO" version="0.1.0"/>`,
+    `<Application name="MD CAD AI STUDIO" manufacturer="MD CAD AI STUDIO" version="0.1.1"/>`,
     `<Surfaces><Surface name="${esc(name)}"><Definition surfType="TIN" area2DSurf="${t.area.toFixed(3)}" elevMin="${f3(t.zmin)}" elevMax="${f3(t.zmax)}"><Pnts>`,
   ]
   for (let i = 0; i < t.x.length; i++) o.push(`<P id="${i + 1}">${f3(t.y[i])} ${f3(t.x[i])} ${f3(t.z[i])}</P>`)

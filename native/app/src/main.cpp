@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
   QApplication::setApplicationName(QStringLiteral("TH AI CAD Studio"));
   QApplication::setApplicationDisplayName(QStringLiteral("MD CAD AI STUDIO"));
   QApplication::setOrganizationName(QStringLiteral("TH"));
-  QApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+  QApplication::setApplicationVersion(QStringLiteral("0.1.1"));
   // licence CLI (--licence-info, --licence-activate=<file>) answers without opening a window
   if (const int rc = thcad::app::licence::handleCommandLine(argc, argv); rc >= 0) return rc;
   argc = thcad::app::licence::sanitiseArguments(argc, argv);

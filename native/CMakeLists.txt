@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(THAICADStudio VERSION 0.1.0 LANGUAGES CXX)
+project(THAICADStudio VERSION 0.1.1 LANGUAGES CXX)
 if(APPLE)
   enable_language(OBJCXX)  # AppKit glue (unified title bar, offscreen GL context)
 endif()

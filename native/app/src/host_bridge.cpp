@@ -165,7 +165,7 @@ bool HostBridge::nativeViewport() const { return viewport_ != nullptr; }
 
 QJsonObject HostBridge::info() const {
   return {
-      {"engine", "0.1.0"},
+      {"engine", "0.1.1"},
       {"licence", licence::toJson(licence::check())},
       {"platform", QSysInfo::prettyProductName() + " " + QSysInfo::currentCpuArchitecture()},
       {"commands", static_cast<int>(commandTable().size())},

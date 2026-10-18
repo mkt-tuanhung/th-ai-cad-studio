@@ -26,7 +26,7 @@ import { useSettings } from '../state/settings'
 import { useWorkspace } from '../state/workspace'
 import type { CadDocument } from '../cad/types'
 
-export const APP_VERSION = '0.1.0'
+export const APP_VERSION = '0.1.1'
 export const SNAPSHOT_SCHEMA = 1
 /** how many snapshots are kept (interval snapshots: at most INTERVAL_KEEP of them) */
 export const KEEP = 20
