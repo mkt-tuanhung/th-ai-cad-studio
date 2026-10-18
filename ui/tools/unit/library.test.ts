@@ -9,6 +9,7 @@ import { composedDims } from '../../src/library/assets'
 import { frontOf, orientItems, rayToOutline } from '../../src/interior/orient'
 import { autoViews, diningSet, isDiningSet, materialTable, renderDressing, vfovForLens } from '../../src/renders/interiorRender'
 import { interiorScene } from '../../src/interior/scene'
+import '../../src/library/assetService'
 import type { InteriorDoc } from '../../src/state/interior'
 import type { Item, Room } from '../../src/interior/model'
 
@@ -143,6 +144,12 @@ export function run() {
   const tableD = ds.items.find((d) => d.item === 'dining')!
   const facesTable = chairs.at.every((c) => { const [ax, ay] = frontOf(c.rot); return ax * (2000 - c.x) + ay * (1500 - c.y) > 0 })
   t('dining set: chairs along the long sides, each facing the table; the table fits inside the block', chairs.at.length === 4 && facesTable && tableD.box.w <= 1800 && tableD.box.d <= 1900, { chairs: chairs.at, box: tableD.box })
+
+  /* ---------------- live 3D of composed pieces */
+  const composedDoc: InteriorDoc = { rooms: [room('living', 0, 0, 4000, 4000)], items: [item('cb', { category: 'beds', w: 1600, d: 2000, h: 1000, asset: 'preset-bed' }, [{ x: 2000, y: 2000, rot: 0 }])], cabinets: [] }
+  const live = interiorScene(composedDoc, { furniture: true }).items.filter((x) => x.id.startsWith('cb'))
+  const nPrims = live.reduce((a, x) => a + x.parts.length, 0)
+  t('live 3D: an item using a composed piece draws its parts (not the plain box)', nPrims === partsFor(presetAssets().find((a) => a.id === 'preset-bed')!, 1600, 2000, 1000).length, nPrims)
 
   /* ---------------- auto views */
   const views = autoViews(doc, 'living', 3)

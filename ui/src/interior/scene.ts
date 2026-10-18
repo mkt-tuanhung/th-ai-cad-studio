@@ -182,8 +182,20 @@ const lift = (ps: PartPrim[], dz: number): PartPrim[] => (dz ? ps.map(({ part, p
 /** Tagged primitives of every instance of an item (cabinet panels or parametric furniture) at its elevation. */
 export function itemPartPrims(doc: InteriorDoc, i: Item, room: Room, at: Place[]): PartPrim[] {
   const cab = i.cabinet ? doc.cabinets.find((c) => c.id === i.cabinet) : undefined
+  // a composed library piece ("Tự vẽ" / parametric preset) chosen for the item: its parts in the live 3D too
+  const composed = !cab && i.asset ? composedPrimsOf(i.asset, i, at) : null
+  if (composed) return composed
   return at.flatMap((p) => lift(cab ? cabinetPartsTagged(cab, p) : furnitureParts(i, p, room.ceilingHeight), i.category === 'lighting' ? 0 : i.elev ?? 0))
 }
+
+/**
+ * Live-3D primitives of composed library pieces (set by the asset library once its manifest is loaded; mesh models
+ * from files keep the parametric box shape in the live view — they are drawn in renders only). Returns null when the
+ * asset is not a composed piece.
+ */
+let composedResolver: ((assetId: string, i: Item, at: Place[]) => PartPrim[] | null) | null = null
+export const setComposedResolver = (fn: typeof composedResolver) => void (composedResolver = fn)
+const composedPrimsOf = (assetId: string, i: Item, at: Place[]) => composedResolver?.(assetId, i, at) ?? null
 
 /** Where each item instance stands in plan: its own placement (moved in Space Planning, or built from a CAD plan),
  *  else the sample layout, else a 1.2 m grid around its room centre. */

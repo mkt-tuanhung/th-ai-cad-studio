@@ -238,6 +238,12 @@ export function stagingProps(placed: ReturnType<typeof itemPlacements>, assets: 
           out.push({ item: `${item.id}#pendants`, name: lamp.nameVi, hide: [], asset: lamp.id, kind: 'model', file: `${lamp.dir}/${lamp.files.main}`, dims: lamp.dims, box: { ...lamp.dims }, at: [-1, 1].map((sx) => ({ ...p, ...local(p, (sx * Math.max(b.w, b.d)) / 4, 0), z: 0 })), hang: room.ceilingHeight, finish: 'Metal - Brass', keepModel: true, prop: true })
       }
     if (kind === 'nightstand') for (const p of at) decor(item, p, ['ceramic_vase_04', 'potted_plant_04'], k++)
+    if (item.category === 'beds' && !rugRooms.has(room.id))
+      for (const p of at) {
+        const w = Math.min(3000, b.w + 1000), d = Math.min(2400, b.d * 0.62 + 600)
+        const c = local(p, 0, -b.d / 2 - 600 + d / 2)
+        out.push({ item: `${item.id}#rug${k++}`, name: 'Rug', hide: [], asset: 'preset-rug', kind: 'composed', parts: [{ shape: 'rbox', x: 0, y: 0, z: 0, w, d, h: 10, r: 3, material: 'Fabric - Taupe', name: 'rug' }], box: { w, d, h: 10 }, at: [{ x: c.x, y: c.y, rot: p.rot, z: 1 }], finish: 'Fabric - Taupe', keepModel: true, prop: true })
+      }
   }
   return out
 }
@@ -442,7 +448,7 @@ export function autoViews(doc: InteriorDoc, roomId: string, n = 3, aspect = 16 /
         const edge = Math.hypot(Math.max(0, Math.abs(vx) - f.w / 2), Math.max(0, Math.abs(vy) - f.d / 2))
         const ang = Math.acos(Math.max(-1, Math.min(1, (vx * dx + vy * dy) / ((L || 1) * (dist || 1)))))
         if (ang > half + 0.25 || (f.main && facing > 0.3 && ang < half * 0.6)) continue
-        block = Math.max(block, edge < 1000 ? 4000 : edge < 1600 ? 800 : 0)
+        block = Math.max(block, edge < 1000 ? 4000 : edge < 1700 ? 1800 : 0)
       }
       return { ...c, dist, dir: Math.atan2(dy, dx), score: dist + (c.door ? 1500 : 0) + facing * 2500 + seen * 700 - (nearest < 900 ? 2500 : 0) - block }
     })

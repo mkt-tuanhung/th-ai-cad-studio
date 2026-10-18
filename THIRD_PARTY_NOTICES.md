@@ -36,3 +36,13 @@ and checked by `ui/tools/check-sbom.mjs` (fails when anything shipped has no ent
   - **Qwen2.5-3B-Instruct** is under the *Qwen Research License*, which restricts commercial use.
   - **Whisper large-v3-turbo** (`ggml-large-v3-turbo-q5_0.bin`, speech) is under MIT; it is downloaded from Settings → Manage Models when the user asks.
   - Check the model license before shipping a model, or before using it commercially.
+- **3D interior library** (furniture / decor models, PBR materials, HDRI skies) is downloaded only when the user
+  presses “Tải thư viện nội thất mẫu (Poly Haven, CC0)” or downloads one asset in the 3D library dialog, into
+  `<app data>/library/` (next to the AI models folder). Nothing of it is in the repository or the installers.
+  - **Poly Haven** assets (https://polyhaven.com) are **CC0 1.0** (public domain dedication): free for any use, no
+    attribution required. Each asset's page, author(s) and licence are kept in `library/library.json` (`source`,
+    `license`) and shown in the library dialog.
+  - Pieces the user imports from other sites (Sketchfab, 3dsky, manufacturers…) keep the source / licence text the
+    user entered (a required field); the user is responsible for their licence.
+- **Blender** (GPL) is not bundled: the user's own installation runs `md_render.py` (renders) and `md_library.py`
+  (3D file import / measuring) as separate background processes.

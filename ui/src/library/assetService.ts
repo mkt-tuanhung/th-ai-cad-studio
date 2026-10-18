@@ -6,6 +6,20 @@
 import type { HostApi } from '../services/host'
 import { parseManifest, useAssetLibrary, type LibAsset, type LibraryProgress } from './assets'
 import { PH_API, STARTER_HDRIS, STARTER_MATERIALS, STARTER_MODELS, planAsset, type PhInfo, type PlanAsset } from './polyhaven'
+import { composedPrims, partsFor, presetAssets } from './composer'
+import { itemBox } from './assets'
+import { PARTS } from '../interior/materials'
+import { setComposedResolver } from '../interior/scene'
+
+// the live OCCT view draws composed pieces (presets, "Tự vẽ") from their parts, scaled into the item's box
+setComposedResolver((assetId, i, at) => {
+  const a = assetId.startsWith('preset-') ? presetAssets().find((x) => x.id === assetId) : useAssetLibrary.getState().assets.find((x) => x.id === assetId)
+  if (!a || a.files.main || !a.parts?.length) return null
+  const b = itemBox(i)
+  const parts = partsFor(a, b.w, b.d, b.h)
+  const tag = PARTS[i.category]?.[0] ?? 'body'
+  return at.flatMap((p) => composedPrims(parts, p, i.elev ?? 0).map((prim) => ({ part: tag, prim })))
+})
 
 export interface LibraryEvent extends LibraryProgress {
   type: 'fetch' | 'download' | 'import' | 'probe'
