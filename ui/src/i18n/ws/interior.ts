@@ -109,11 +109,11 @@ export const interiorEn = {
   rowMenu: { select: 'Show properties', placed: 'Mark as placed', planned: 'Mark as planned', duplicate: 'Duplicate', remove: 'Remove', components: 'Find in Components' },
   cam: {
     title: 'Nesting & CNC', stock: 'Stock sheets (length along the grain × width, mm)', trim: 'Edge trim (mm)', web: 'Web between cuts (mm)', grain: 'Keep the grain direction (no rotation of wood décors)',
-    cnc: 'CNC router', dialect: 'G-code', grbl: 'GRBL (one program per tool)', iso: 'ISO / Fanuc (T… M6)', cutter: 'Profile cutter Ø (mm)', feed: 'Feed (mm/min)', plunge: 'Plunge (mm/min)', rpm: 'Spindle (rpm)', stepdown: 'Depth per pass (mm)',
+    cnc: 'CNC router', dialect: 'G-code', grbl: 'GRBL 1.1 (one program per tool, M0 to load)', iso: 'ISO generic (T… M6 + G43 H…)', linuxcnc: 'LinuxCNC (T… M6 + G43 H…)', ncstudio: 'NcStudio-style (profile codes only)', cutter: 'Profile cutter Ø (mm)', feed: 'Feed (mm/min)', plunge: 'Plunge (mm/min)', rpm: 'Spindle (rpm)', stepdown: 'Depth per pass (mm)',
     tabs: 'Tabs on the last pass', hinge: 'Hinge cups Ø35 in doors', pins: 'Shelf-pin rows Ø5 (32 mm system)', toolpaths: 'Show toolpaths',
     summary: '{parts} parts on {sheets} sheets', yield: 'yield {y} %', sheet: 'Sheet {n}', unplaced: '{n} part(s) larger than the stock — choose a longer sheet or split them: {list}',
-    programs: 'Programs', lines: '{n} lines', cut: 'cut {m} m', time: '≈ {min} min', verified: 'verified: inside the sheet, depth ≤ {d} mm, no rapid in material', failed: 'verification failed: {e}',
-    zip: 'G-code (ZIP)', dxf: 'Sheet layouts (DXF)', labels: 'Part labels (CSV)', exported: '{file} saved', zero: 'Zero: sheet lower-left corner, Z0 = top of the board.',
+    programs: 'Programs', lines: '{n} lines', cut: 'cut {m} m', time: '≈ {min} min', verified: 'simulated (preview only): inside the sheet, depth ≤ {d} mm, no rapid in material', failed: 'simulation found problems: {e}',
+    zip: 'Engineering preview (ZIP)', dxf: 'Sheet layouts (DXF)', labels: 'Part labels (CSV)', exported: '{file} saved', zero: 'Zero: sheet lower-left corner, Z0 = top of the board.',
     total: 'All sheets: {min} min machining (estimate: feeds + rapids + 20 s per tool change)', nested: 'Sheets (nested, {stock}): {list}',
   },
   cut: {
@@ -316,11 +316,11 @@ export const interiorVi: typeof interiorEn = {
   rowMenu: { select: 'Xem thuộc tính', placed: 'Đánh dấu đã đặt', planned: 'Đánh dấu dự kiến', duplicate: 'Nhân bản', remove: 'Xoá', components: 'Tìm trong Thư viện cấu kiện' },
   cam: {
     title: 'Xếp tấm & CNC', stock: 'Khổ tấm (dài theo thớ × rộng, mm)', trim: 'Lề xén (mm)', web: 'Khoảng giữa hai đường cắt (mm)', grain: 'Giữ hướng thớ (không xoay ván vân gỗ)',
-    cnc: 'Máy CNC router', dialect: 'G-code', grbl: 'GRBL (mỗi dao một chương trình)', iso: 'ISO / Fanuc (T… M6)', cutter: 'Dao cắt biên Ø (mm)', feed: 'Tốc độ cắt (mm/phút)', plunge: 'Tốc độ xuống dao (mm/phút)', rpm: 'Tốc độ trục chính (v/ph)', stepdown: 'Chiều sâu mỗi lớp (mm)',
+    cnc: 'Máy CNC router', dialect: 'G-code', grbl: 'GRBL 1.1 (mỗi dao một chương trình, M0 để lắp dao)', iso: 'ISO chung (T… M6 + G43 H…)', linuxcnc: 'LinuxCNC (T… M6 + G43 H…)', ncstudio: 'Kiểu NcStudio (chỉ mã trong hồ sơ)', cutter: 'Dao cắt biên Ø (mm)', feed: 'Tốc độ cắt (mm/phút)', plunge: 'Tốc độ xuống dao (mm/phút)', rpm: 'Tốc độ trục chính (v/ph)', stepdown: 'Chiều sâu mỗi lớp (mm)',
     tabs: 'Cầu giữ phôi ở lớp cuối', hinge: 'Khoan chén bản lề Ø35 trên cánh', pins: 'Lỗ chốt kệ Ø5 (hệ 32 mm)', toolpaths: 'Hiện đường dao',
     summary: '{parts} chi tiết trên {sheets} tấm', yield: 'hiệu suất {y} %', sheet: 'Tấm {n}', unplaced: '{n} chi tiết lớn hơn khổ tấm — chọn tấm dài hơn hoặc chia chi tiết: {list}',
-    programs: 'Chương trình', lines: '{n} dòng', cut: 'cắt {m} m', time: '≈ {min} phút', verified: 'đã kiểm: trong tấm, sâu ≤ {d} mm, không chạy nhanh trong vật liệu', failed: 'kiểm tra lỗi: {e}',
-    zip: 'G-code (ZIP)', dxf: 'Sơ đồ tấm (DXF)', labels: 'Nhãn chi tiết (CSV)', exported: 'Đã lưu {file}', zero: 'Gốc: góc dưới trái tấm, Z0 = mặt trên ván.',
+    programs: 'Chương trình', lines: '{n} dòng', cut: 'cắt {m} m', time: '≈ {min} phút', verified: 'đã mô phỏng (chỉ xem trước): trong tấm, sâu ≤ {d} mm, không chạy nhanh trong vật liệu', failed: 'mô phỏng có lỗi: {e}',
+    zip: 'Bản xem trước kỹ thuật (ZIP)', dxf: 'Sơ đồ tấm (DXF)', labels: 'Nhãn chi tiết (CSV)', exported: 'Đã lưu {file}', zero: 'Gốc: góc dưới trái tấm, Z0 = mặt trên ván.',
     total: 'Tất cả tấm: {min} phút gia công (ước tính: tốc độ cắt + chạy nhanh + 20 s mỗi lần thay dao)', nested: 'Số tấm (đã xếp, {stock}): {list}',
   },
   cut: {

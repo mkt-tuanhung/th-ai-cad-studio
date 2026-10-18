@@ -14,13 +14,13 @@ import { getHost } from '../../services/host'
 import { readDrawing } from '../../cad/batch'
 import type { CadDocument } from '../../cad/types'
 import { runAuto, withRoute, type AutoResult, type AutoStep } from '../../auto/pipeline'
-import { allCabinets, machineShare, makePackage, writePackage, type Written } from '../../auto/package'
+import { allCabinets, cncPreview, machineShare, makePackage, writePackage, type Written } from '../../auto/package'
+import { useMachines } from '../../state/machines'
 import { houseViews } from '../../auto/views'
 import { reportHtml } from '../../auto/report'
 import { cutList } from '../../interior/model'
 import { boq, priceOf, readPrices } from '../../bim/quantities'
 import { roofQuantities } from '../../bim/roof'
-import { nest, piecesOf } from '../../cam/nesting'
 import { nestSettings } from '../interior/NestingDialog'
 import { applyBim, applyInterior, buildNames } from '../bim/fromCadActions'
 import s from './Auto.module.css'
@@ -103,11 +103,14 @@ export function AutoDialog() {
 
   // the package and the numbers shown before approval (same code as the files written)
   const cam = useInterior((st) => st.cam)
-  const camSetup = useMemo(() => ({ nest: nestSettings(cam), cnc: cam.cnc }), [cam])
+  const machineRec = useMachines((st) => st.records.find((x) => x.profile.profile_id === cam.machineProfileId) ?? null)
+  const camSetup = useMemo(() => ({ nest: nestSettings(cam), cnc: cam.cnc, prefs: cam, machine: machineRec?.profile ?? null, machineProfileId: cam.machineProfileId ?? null }), [cam, machineRec])
   const pkgText = useMemo(() => ({ plan: (lv: string) => fmt(t.plan, { level: lv }).trim(), views: t.viewsPdf, boq: { ...t.boq, prices }, mep: t.mep, profile: t.profile, sections: t.sections, words: t.words, report: (b: string) => b }), [t, prices])
   const files = useMemo(() => (res ? makePackage(res, camSetup, pkgText, keep) : []), [res, camSetup, pkgText, keep])
   const cabinets = useMemo(() => (res ? allCabinets(res) : []), [res])
-  const nesting = useMemo(() => (cabinets.length ? nest(piecesOf(cabinets), camSetup.nest) : null), [cabinets, camSetup])
+  // the CNC previews of the package (same code as the files written): sheets, oversize parts, release blockers
+  const cncInfo = useMemo(() => (res && cabinets.length ? cncPreview(cabinets, camSetup, res.file.replace(/\.(dwg|dxf)$/i, '')).cnc : null), [res, cabinets, camSetup])
+  const nesting = cncInfo?.nest ?? null
 
   const summary = useMemo(() => {
     if (!res) return null
@@ -121,7 +124,12 @@ export function AutoDialog() {
       if (it) {
         house.push(fmt(t.interior, { level: res.house.built.model.levels[res.house.interiorLevel ?? 0]?.name ?? '', rooms: it.rooms.length, items: it.items.length, cabinets: it.cabinets.length }))
         const parts = cabinets.flatMap(cutList).reduce((a, p) => a + p.qty, 0)
-        if (cabinets.length) house.push(fmt(t.production, { n: res.house.interiors.filter((x) => x.build.cabinets.length).length || 1, cabinets: cabinets.length, parts, sheets: nesting?.sheets.length ?? 0, programs: files.filter((f) => / - CNC /.test(f.name)).length }))
+        if (cabinets.length) house.push(fmt(t.production, { n: res.house.interiors.filter((x) => x.build.cabinets.length).length || 1, cabinets: cabinets.length, parts, sheets: nesting?.sheets.length ?? 0, programs: files.filter((f) => / - CNC .*\.NOT_FOR_MACHINE\.txt$/.test(f.name)).length }))
+        if (cncInfo) {
+          warnings.push(fmt(t.cncPreviewOnly, { machine: camSetup.machine ? `${camSetup.machine.profile_id} (${camSetup.machine.status})` : 'NONE' }))
+          if (cncInfo.nest.unplaced.length) warnings.push(fmt(t.cncUnplaced, { n: cncInfo.nest.unplaced.length, list: cncInfo.nest.unplaced.map((p) => `${p.label} ${p.l}×${p.w}`).join(', ') }))
+          warnings.push(fmt(t.cncBlockers, { list: cncInfo.blockers.join(', ') }))
+        }
       } else house.push(t.noInterior)
       const roofs = res.house.built.model.roofs ?? []
       if (roofs.length) house.push(fmt(t.roof, { n: roofs.length, kinds: roofs.map((r) => `${r.kind === 'hip' ? T.auto.roofKinds.hip : T.auto.roofKinds.gable} ${r.slope.toFixed(0)}°`).join(', '), area: n0(roofs.reduce((a, r) => a + roofQuantities(r).area, 0)) }))
@@ -172,7 +180,7 @@ export function AutoDialog() {
     if (mepL.length) warnings.push(t.mepNote)
     const ai = !res.ai ? (aiOn ? t.aiNotNeeded : t.noAi) : res.ai.set.length ? fmt(t.aiDone, { n: res.ai.set.length, m: res.ai.asked, s: res.ai.seconds.toFixed(1) }) : fmt(t.aiNone, { m: res.ai.asked, s: res.ai.seconds.toFixed(1) })
     return { house, route, mep: mepL, warnings, checks, ai }
-  }, [res, t, T, files, nesting, cabinets, aiOn, desktop, prices])
+  }, [res, t, T, files, nesting, cncInfo, camSetup, cabinets, aiOn, desktop, prices])
 
   const approve = async () => {
     if (!res || !summary) return

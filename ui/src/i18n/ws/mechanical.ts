@@ -79,8 +79,8 @@ export const mechEn = {
     props: { title: 'Part', material: 'Material', density: 'Density', volume: 'Volume', mass: 'Mass', bounds: 'Bounding box', features: 'Features', errors: 'Failed features', desktopOnly: 'Exact volume, mass and the 3D solid come from the OCCT kernel in the desktop app.', preview: 'Sketch preview (top view) — the 3D solid is built by OCCT in the desktop app' },
     added: 'Added {what}', updated: 'Updated {what}', deleted: 'Deleted {what}', step: 'Exported {file} ({kb} KB)',
     cam: {
-      title: 'CAM Prep — {part}', stock: 'Stock {x} × {y} × {z} mm (zero: lower-left corner, Z0 = stock top)', ops: 'Operations', tools: 'Tools', dialect: 'Controller', iso: 'ISO / Fanuc (T… M6)', grbl: 'GRBL (pause for tool change)',
-      mill: 'End mill Ø (mm)', stepdown: 'Stepdown (mm)', stepover: 'Stepover (% of Ø)', sim: 'Independent simulation: {lines} lines, cut {cut} m, est. {min} min', simOk: 'no errors', download: 'Download G-code', saved: 'Saved {file}', noStock: 'Nothing to machine: the part needs an XY extrude.',
+      title: 'CAM Prep — {part}', stock: 'Stock {x} × {y} × {z} mm (zero: lower-left corner, Z0 = stock top)', ops: 'Operations', tools: 'Tools', dialect: 'Controller', iso: 'ISO generic (T… M6 + G43 H…)', grbl: 'GRBL 1.1 (one program per tool)',
+      mill: 'End mill Ø (mm)', stepdown: 'Stepdown (mm)', stepover: 'Stepover (% of Ø)', sim: 'Independent simulation: {lines} lines, cut {cut} m, est. {min} min', simOk: 'no errors', download: 'Engineering preview (ZIP)', saved: 'Saved {file}', noStock: 'Nothing to machine: the part needs an XY extrude.',
     },
   },
   toast: {
@@ -179,8 +179,8 @@ export const mechVi: typeof mechEn = {
     props: { title: 'Chi tiết', material: 'Vật liệu', density: 'Khối lượng riêng', volume: 'Thể tích', mass: 'Khối lượng', bounds: 'Hộp bao', features: 'Đặc trưng', errors: 'Đặc trưng lỗi', desktopOnly: 'Thể tích, khối lượng chính xác và khối 3D do kernel OCCT trong app desktop dựng.', preview: 'Xem trước phác thảo (nhìn từ trên) — khối 3D do OCCT dựng trong app desktop' },
     added: 'Đã thêm {what}', updated: 'Đã cập nhật {what}', deleted: 'Đã xoá {what}', step: 'Đã xuất {file} ({kb} KB)',
     cam: {
-      title: 'Chuẩn bị CAM — {part}', stock: 'Phôi {x} × {y} × {z} mm (gốc: góc dưới trái, Z0 = mặt trên phôi)', ops: 'Nguyên công', tools: 'Dao', dialect: 'Bộ điều khiển', iso: 'ISO / Fanuc (T… M6)', grbl: 'GRBL (dừng để thay dao)',
-      mill: 'Ø dao phay (mm)', stepdown: 'Bước xuống (mm)', stepover: 'Bước ngang (% Ø)', sim: 'Mô phỏng độc lập: {lines} dòng, cắt {cut} m, ước tính {min} phút', simOk: 'không lỗi', download: 'Tải G-code', saved: 'Đã lưu {file}', noStock: 'Không có gì để gia công: chi tiết cần một lệnh đùn trên XY.',
+      title: 'Chuẩn bị CAM — {part}', stock: 'Phôi {x} × {y} × {z} mm (gốc: góc dưới trái, Z0 = mặt trên phôi)', ops: 'Nguyên công', tools: 'Dao', dialect: 'Bộ điều khiển', iso: 'ISO chung (T… M6 + G43 H…)', grbl: 'GRBL 1.1 (mỗi dao một chương trình)',
+      mill: 'Ø dao phay (mm)', stepdown: 'Bước xuống (mm)', stepover: 'Bước ngang (% Ø)', sim: 'Mô phỏng độc lập: {lines} dòng, cắt {cut} m, ước tính {min} phút', simOk: 'không lỗi', download: 'Bản xem trước kỹ thuật (ZIP)', saved: 'Đã lưu {file}', noStock: 'Không có gì để gia công: chi tiết cần một lệnh đùn trên XY.',
     },
   },
   toast: {

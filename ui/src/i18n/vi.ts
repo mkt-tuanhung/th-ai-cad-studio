@@ -6,6 +6,7 @@ import { mechVi } from './ws/mechanical'
 import { rendersVi } from './ws/renders'
 import { fromCadVi } from './ws/fromCad'
 import { autoVi } from './ws/auto'
+import { cncVi } from './ws/cnc'
 
 export const vi: Messages = {
   app: {
@@ -1068,6 +1069,7 @@ export const vi: Messages = {
     },
   },
   interior: interiorVi,
+  cnc: cncVi,
   mep: mepVi,
   civil: civilVi,
   mechanical: mechVi,

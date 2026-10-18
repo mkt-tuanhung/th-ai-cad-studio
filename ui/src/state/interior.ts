@@ -27,9 +27,15 @@ export interface CamPrefs {
   web: number
   grain: boolean
   cnc: CamSettings
+  /**
+   * Machine profile chosen for this project's manufacturing job (state/machines.ts). undefined = saved before
+   * machine profiles existed → LEGACY_UNASSIGNED (kept open and editable; nesting / CAM wait for a choice and
+   * production NC stays blocked). null = not chosen yet.
+   */
+  machineProfileId?: string | null
 }
 
-export const DEFAULT_CAM_PREFS: CamPrefs = { stock: {}, trim: 10, web: 4, grain: true, cnc: DEFAULT_CAM }
+export const DEFAULT_CAM_PREFS: CamPrefs = { stock: {}, trim: 10, web: 4, grain: true, cnc: DEFAULT_CAM, machineProfileId: null }
 
 export type Selection = { kind: 'item' | 'room' | 'cabinet'; id: string } | null
 

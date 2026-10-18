@@ -462,5 +462,5 @@ export function releaseBlockers(machine: MachineProfile | null, job: JobGateInpu
   else if (job.stale.stale) out.push(`JOB_STALE:${job.stale.from}`)
   if (!job.approvals || !job.approvals.operator.trim() || !job.approvals.engineer.trim()) out.push('JOB_SIGNOFF_MISSING')
   if (job.firstArticle === 'FAIL') out.push('JOB_FIRST_ARTICLE_QC_FAILED')
-  return out
+  return [...new Set(out)]
 }

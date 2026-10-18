@@ -10,6 +10,17 @@ import { downloadFile } from '../../components/workspace/Workspace'
 import { MATERIALS } from '../../mech/model'
 import { density, featureErrors, holeInstances, partScene, shapeBounds, type EdgeSet, type Feature, type FeatureKind, type Part, type Plane, type Sketch, type SketchShape } from '../../mech/part'
 import { DEFAULT_PART_CAM, outline, partCam, type PartCamSettings } from '../../mech/partCam'
+import { capabilities, profileContentHash, releaseBlockers, toolsHash, type JobGateInput, type OperationKind } from '../../cam/machine'
+import { approveJob, chainOf, isStale, jobStatus, markReviewed, newJob, selectMachine, validApproval, type StockRecord } from '../../cam/job'
+import { parseSequence } from '../../cam/ncparse'
+import { POSTS, getPost } from '../../cam/posts'
+import { ProductionBlocked, previewFiles, productionFiles, type NcProgram, type ReleaseMeta } from '../../cam/release'
+import { hashOf } from '../../lib/sha256'
+import { zip } from '../../lib/zip'
+import { currentCommissioning, useMachines } from '../../state/machines'
+import { BlockerList, MachinePicker } from '../cnc/MachinePanel'
+import { MachinesDialog } from '../cnc/MachinesDialog'
+import cs from '../cnc/Cnc.module.css'
 import s from './PartStudio.module.css'
 
 const ICON = { extrude: Layers, revolve: Disc, hole: CircleDot, fillet: Circle, chamfer: Triangle, pattern: Grid2x2 } as const
@@ -449,15 +460,110 @@ export function FeatureDialog({ kind, id, onClose }: { kind: FeatureKind; id?: s
 export function PartCamDialog({ onClose }: { onClose: () => void }) {
   const T = useT()
   const t = T.mechanical.partStudio.cam
+  const c = T.cnc
   const { part } = usePart()
+  const records = useMachines((st) => st.records)
+  const mid = useMachines((st) => st.partMachineId)
+  const setPartMachine = useMachines((st) => st.setPartMachine)
+  const jobs = useMachines((st) => st.jobs)
+  const setJob = useMachines((st) => st.setJob)
   const [cfg, setCfg] = useState<PartCamSettings>(DEFAULT_PART_CAM)
-  const r = useMemo(() => (part ? partCam(part, cfg) : null), [part, cfg])
-  if (!part || !r) return null
-  const file = `${part.file.replace(/\.prt$/, '')}.nc`
+  const [mgr, setMgr] = useState(false)
+  const [who, setWho] = useState({ operator: '', engineer: '' })
+  const rec = records.find((x) => x.profile.profile_id === mid) ?? null
+  const machine = rec?.profile ?? null
+  const profilePost = machine ? getPost(machine.postprocessor.id) : null
+  const dialect: PartCamSettings['dialect'] = profilePost ? (profilePost.id === 'grbl11' ? 'grbl' : 'iso') : cfg.dialect
+  const post = profilePost ?? (dialect === 'grbl' ? POSTS.grbl11 : POSTS.iso_generic)
+  const r = useMemo(() => {
+    if (!part || !machine) return null
+    const caps = capabilities(machine)
+    const allow = (op: OperationKind) => {
+      const x = caps.find((k) => k.op === op)
+      return x && x.state === 'unsupported' ? x.reason ?? 'NO_HEAD_FOR_OPERATION' : null
+    }
+    return partCam(part, { ...cfg, dialect, atc: machine.atc.supported, allow })
+  }, [part, cfg, machine, dialect])
+  const key = `part:${part?.file ?? ''}`
+  const pin = machine ? { profile_id: machine.profile_id, revision: machine.revision, hash: profileContentHash(machine) } : null
+  const job = useMemo(() => jobs[key] ?? newJob(`PART-${part?.file ?? ''}`, pin), [jobs, key, machine]) // eslint-disable-line react-hooks/exhaustive-deps
+  const cnc = useMemo(() => {
+    if (!part || !machine || !r || 'error' in r) return null
+    const programs: NcProgram[] = r.programs.map((p) => ({
+      name: p.name,
+      text: p.text,
+      ctx: { dialect: post.dialect, dialectName: post.label, profileCodes: machine.controller.supported_codes, atc: machine.atc.supported, requireTlo: post.tlo, sheet: { l: r.stock.x, w: r.stock.y }, margin: cfg.millD / 2 + 2, envelope: machine.work_envelope_mm, maxDepth: r.stock.z + 0.3 + 13 * 0.3, rapid: 6000 },
+    }))
+    const parses = parseSequence(programs)
+    const st = job.stocks[0]
+    const chain = chainOf({ parts: hashOf(part), stock: { stock: r.stock, measured: st?.measured_thickness_mm ?? null, lot: st?.lot ?? null }, machine: pin, tools: toolsHash(machine), nest: null, cam: cfg, post: { id: post.id, version: post.version, sha256: post.sha256 }, nc: programs.map((p) => p.text) })
+    const recorded = job.approval?.chain ?? job.reviewed?.chain ?? null
+    const stale = isStale(recorded, chain)
+    const approval = validApproval(job, chain)
+    const gate: JobGateInput = {
+      machineProfileId: job.machine_profile_id ?? machine.profile_id,
+      machineProfileRevision: job.machine_profile_revision,
+      machineProfileHash: job.machine_profile_hash,
+      stocks: [{ material: part.material, nominal_mm: r.stock.z, measured_thickness_mm: st?.measured_thickness_mm ?? null, lot: st?.lot ?? null }],
+      edgeBandConfirmed: true,
+      stale: recorded ? stale : null,
+      approvals: approval ? { operator: approval.operator, engineer: approval.engineer } : null,
+      ncIssues: parses.flatMap((x) => x.issues),
+      unsupported: r.skipped.map((k) => ({ op: k.op, reason: k.reason })),
+      unplaced: [],
+      nestErrors: [],
+      post: { id: post.id, version: post.version, sha256: post.sha256 },
+    }
+    const blockers = releaseBlockers(machine, gate, currentCommissioning(rec))
+    const meta: ReleaseMeta = { app: 'MD CAD AI STUDIO', job: { job_id: job.job_id, revision: job.revision, part_revision_hash: hashOf(part), chain }, parts: [{ id: part.id, rev: hashOf(part).slice(0, 8) }] }
+    return { programs, parses, chain, stale, gate, blockers, meta, status: jobStatus(job, chain, programs.length > 0) }
+  }, [part, machine, r, job, cfg, post, rec]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!part) return null
+  const base = part.file.replace(/\.prt$/, '')
+  const choose = (id: string | null) => {
+    setPartMachine(id)
+    const m = records.find((x) => x.profile.profile_id === id)?.profile ?? null
+    setJob(key, selectMachine(job, m ? { profile_id: m.profile_id, revision: m.revision, hash: profileContentHash(m) } : null))
+  }
+  const setStock = (patch: Partial<StockRecord>) => {
+    const cur: StockRecord = job.stocks[0] ?? { material: part.material, nominal_mm: r && !('error' in r) ? r.stock.z : 0, measured_thickness_mm: null, lot: null, length_mm: null, width_mm: null, grain_axis: 'NONE', face_a: 'top' }
+    const next = { ...cur, ...patch }
+    setJob(key, { ...job, stocks: [next], stock: next })
+  }
+  const preview = () => {
+    if (!cnc || !machine) return
+    const out = previewFiles(cnc.programs, { machine, machineHash: profileContentHash(machine), post, blockers: cnc.blockers, meta: cnc.meta })
+    const file = `${base} - CNC engineering preview (NOT FOR MACHINE).zip`
+    downloadFile(file, zip(out.files), 'application/zip')
+    setJob(key, markReviewed(job, cnc.chain))
+    toast(fmt(c.previewSaved, { file }), 'success')
+  }
+  const production = () => {
+    if (!cnc || !machine) return
+    try {
+      const out = productionFiles(cnc.programs, { machine, machineHash: profileContentHash(machine), commissioning: currentCommissioning(rec), post, gate: cnc.gate, meta: cnc.meta })
+      const file = `${base} - CNC production r${job.revision}.zip`
+      downloadFile(file, zip(out.files), 'application/zip')
+      toast(fmt(c.productionSaved, { file }), 'success')
+    } catch (e) {
+      toast(fmt(c.productionBlocked, { list: e instanceof ProductionBlocked ? e.blockers.join(', ') : String(e) }), 'warning')
+    }
+  }
+  const approve = () => {
+    if (!cnc) return
+    try {
+      setJob(key, approveJob(job, cnc.chain, who))
+      toast(c.approvedToast, 'success')
+    } catch (e) {
+      toast(String(e instanceof Error ? e.message : e), 'warning')
+    }
+  }
   return (
     <Modal title={fmt(t.title, { part: part.name })} onClose={onClose} width={980}>
-      {'error' in r ? (
-        <p className={s.note}>{t.noStock}</p>
+      <MachinePicker value={mid} onChange={choose} onManage={() => setMgr(true)} />
+      {machine && machine.status !== 'VERIFIED' && <p className={cs.danger} data-testid="not-for-machine">{fmt(c.warnUnverified, { status: c.status[machine.status] ?? machine.status })}</p>}
+      {!machine ? null : !r || 'error' in r ? (
+        <p className={s.note}>{r && 'error' in r && r.error.startsWith('machine') ? r.error : t.noStock}</p>
       ) : (
         <div className={s.cam} data-testid="cam-dialog">
           <div>
@@ -469,11 +575,18 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
             <p className={r.sim.errors.length ? s.bad : s.good} data-testid="cam-sim">
               {fmt(t.sim, { lines: r.sim.lines.toLocaleString('en-US'), cut: (r.sim.cutLength / 1000).toFixed(1), min: (r.sim.seconds / 60).toFixed(1) })} — {r.sim.errors.length ? r.sim.errors.slice(0, 3).join('; ') : t.simOk}
             </p>
+            {cnc && (
+              <p className={s.note} data-testid="job-status">
+                {c.job} {cnc.meta.job.job_id} r{cnc.meta.job.revision}: <span className={`${cs.badge} ${cnc.status === 'STALE' ? cs.stale : ''}`}>{c.jobState[cnc.status] ?? cnc.status}</span>
+                {cnc.status === 'STALE' && cnc.stale.from ? ` — ${fmt(c.stale, { stage: c.stages[cnc.stale.from] ?? cnc.stale.from })}` : ''}
+              </p>
+            )}
+            {cnc && <BlockerList blockers={cnc.blockers} />}
           </div>
           <div>
             <label className={s.row}>
-              <span>{t.dialect}</span>
-              <select aria-label={t.dialect} value={cfg.dialect} onChange={(e) => setCfg({ ...cfg, dialect: e.target.value as 'iso' | 'grbl' })}>
+              <span>{t.dialect}{profilePost ? ` (${c.postLocked})` : ''}</span>
+              <select aria-label={t.dialect} value={dialect} disabled={!!profilePost} onChange={(e) => setCfg({ ...cfg, dialect: e.target.value as 'iso' | 'grbl' })}>
                 <option value="iso">{t.iso}</option>
                 <option value="grbl">{t.grbl}</option>
               </select>
@@ -481,6 +594,8 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
             <label className={s.row}><span>{t.mill}</span><input aria-label={t.mill} type="number" value={cfg.millD} onChange={(e) => Number(e.target.value) >= 2 && setCfg({ ...cfg, millD: Number(e.target.value) })} /></label>
             <label className={s.row}><span>{t.stepdown}</span><input aria-label={t.stepdown} type="number" value={cfg.stepdown} onChange={(e) => Number(e.target.value) > 0.1 && setCfg({ ...cfg, stepdown: Number(e.target.value) })} /></label>
             <label className={s.row}><span>{t.stepover}</span><input aria-label={t.stepover} type="number" value={Math.round(cfg.stepover * 100)} onChange={(e) => Number(e.target.value) >= 10 && Number(e.target.value) <= 90 && setCfg({ ...cfg, stepover: Number(e.target.value) / 100 })} /></label>
+            <label className={s.row}><span>{c.measured}</span><input aria-label={c.measured} placeholder={r.stock.z.toFixed(1)} value={job.stocks[0]?.measured_thickness_mm ?? ''} onChange={(e) => setStock({ measured_thickness_mm: e.target.value.trim() === '' || !Number.isFinite(Number(e.target.value)) ? null : Number(e.target.value) })} /></label>
+            <label className={s.row}><span>{c.lot}</span><input aria-label={c.lot} value={job.stocks[0]?.lot ?? ''} onChange={(e) => setStock({ lot: e.target.value || null })} /></label>
             <h5>{t.ops}</h5>
             <table className={s.table} data-testid="cam-ops">
               <tbody>
@@ -493,10 +608,15 @@ export function PartCamDialog({ onClose }: { onClose: () => void }) {
                 {r.tools.map((x) => <tr key={x.n}><td>T{x.n}</td><td>{x.name}</td><td>S{x.rpm}</td><td>F{x.feed}</td></tr>)}
               </tbody>
             </table>
-            <button type="button" className={s.btn} onClick={() => (downloadFile(file, r.gcode, 'text/plain'), toast(fmt(t.saved, { file }), 'success'))}><Download size={14} />{t.download}</button>
+            <label className={s.row}><span>{c.operator}</span><input aria-label={c.operator} value={who.operator} onChange={(e) => setWho({ ...who, operator: e.target.value })} /></label>
+            <label className={s.row}><span>{c.engineer}</span><input aria-label={c.engineer} value={who.engineer} onChange={(e) => setWho({ ...who, engineer: e.target.value })} /></label>
+            <button type="button" className={s.btn} disabled={!who.operator.trim() || !who.engineer.trim() || !cnc} onClick={approve}>{c.approve}</button>
+            <button type="button" className={s.btn} onClick={preview} data-testid="export-preview"><Download size={14} />{t.download}</button>
+            <button type="button" className={s.btn} onClick={production} disabled={!cnc || cnc.blockers.length > 0} title={cnc?.blockers.length ? fmt(c.productionBlocked, { list: cnc.blockers.slice(0, 8).join(', ') }) : undefined} data-testid="export-production"><Download size={14} />{c.production}</button>
           </div>
         </div>
       )}
+      {mgr && <MachinesDialog initial={mid} onClose={() => setMgr(false)} />}
     </Modal>
   )
 }

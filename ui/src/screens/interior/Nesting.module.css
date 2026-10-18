@@ -157,6 +157,29 @@
   fill: #e07b1f;
 }
 
+/* the main column scrolls: its rows keep their height */
+.main > * {
+  flex: none;
+}
+
+.groove {
+  fill: #1f6fe0;
+  fill-opacity: 0.35;
+}
+
+.clamp {
+  fill: #b42d2d;
+  fill-opacity: 0.25;
+  stroke: #b42d2d;
+  stroke-width: 3;
+  stroke-dasharray: 12 8;
+}
+
+.foot button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .pin {
   fill: #2a3340;
 }

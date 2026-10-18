@@ -18,9 +18,12 @@ import { toBase64 } from '../services/dwg'
 import { zip } from '../lib/zip'
 import { toIfc } from '../bim/ifc'
 import { wallsCsv, levelOf } from '../bim/model'
-import { cutList, type Cabinet } from '../interior/model'
-import { DEFAULT_NEST, layoutDxf, nest, piecesOf, type NestSettings } from '../cam/nesting'
-import { camSheet, type CamSettings } from '../cam/gcode'
+import type { Cabinet } from '../interior/model'
+import { DEFAULT_NEST, cutListRows, labelRows, layoutDxf, type NestSettings } from '../cam/nesting'
+import type { CamSettings } from '../cam/gcode'
+import { profileContentHash, type MachineProfile } from '../cam/machine'
+import { interiorCnc, type CamPrefsLike, type InteriorCnc } from '../cam/interiorJob'
+import { previewFiles, type PreviewResult } from '../cam/release'
 import { earthwork, interp, sta, type CivilModel } from '../civil/model'
 import { planDocument, profileDocument, roofPlanDocument, sectionDocuments, structurePlanDocument, tableDocuments, type RouteWords, type TableRow } from './drawings'
 import { boq, openingSchedule, priceOf, type BoqRow, type BoqWords } from '../bim/quantities'
@@ -77,8 +80,26 @@ const csv = (rows: (string | number)[][]) => rows.map((r) => r.map((c) => (/[",\
 export interface CamSetup {
   nest: NestSettings
   cnc: CamSettings
+  /** Interior → Nesting & CNC settings (stock sizes, trim, web, grain). */
+  prefs?: CamPrefsLike
+  /** The machine profile chosen in Interior (null / absent = none: the previews say machine=NONE). */
+  machine?: MachineProfile | null
+  machineProfileId?: string | null
 }
 export const defaultCam = (cnc: CamSettings): CamSetup => ({ nest: DEFAULT_NEST, cnc })
+
+/**
+ * CNC of the package's cabinets: the same machine-aware pipeline as Interior → Nesting & CNC, written ONLY as
+ * engineering previews (.NOT_FOR_MACHINE.txt + manifest). The one-command package never writes production NC;
+ * oversize parts and every release blocker go into the report.
+ */
+export function cncPreview(cabinets: Cabinet[], cam: CamSetup, base: string): { cnc: InteriorCnc; preview: PreviewResult } {
+  const prefs: CamPrefsLike = cam.prefs ?? { stock: cam.nest.stock ?? {}, trim: cam.nest.trim, web: Math.max(0, cam.nest.gap - cam.cnc.cutterD), grain: cam.nest.grained('Wood - Oak'), cnc: cam.cnc }
+  const machine = cam.machine ?? null
+  const cnc = interiorCnc({ cabinets, cam: prefs, machine, machineProfileId: machine ? machine.profile_id : (cam.machineProfileId ?? null), job: null, jobName: base })
+  const preview = previewFiles(cnc.sheets.flatMap((s) => s.programs), { machine, machineHash: machine ? profileContentHash(machine) : null, post: cnc.post, blockers: cnc.blockers, meta: cnc.meta })
+  return { cnc, preview }
+}
 
 /** The cabinets of every level for the cut list, nesting and CNC (named "<level> · <cabinet>" when several
  *  levels have some, so parts and programs say where they go). */
@@ -161,18 +182,16 @@ export function makePackage(r: AutoResult, cam: CamSetup, t: PackageText, includ
     // every level with rooms: the furniture schedule, cut list, nesting and CNC of the whole house
     const ints = r.house.interiors?.length ? r.house.interiors : [{ level: '', build: r.house.interior }]
     add('Interior furniture.csv', csv([['Level', 'Item', 'Category', 'Room', 'W (mm)', 'D (mm)', 'H (mm)', 'Material', 'Qty'], ...ints.flatMap(({ level, build: d }) => d.items.map((i) => [level, i.name, i.category, d.rooms.find((x) => x.id === i.room)?.name ?? i.room, i.w ?? '', i.d ?? '', i.h, i.material, i.qty]))]))
-    const d = { cabinets: allCabinets(r) }
-    const parts = d.cabinets.flatMap((c) => cutList(c))
-    add('Cut list.csv', csv([['Cabinet', 'Part', 'Qty', 'Length (mm)', 'Width (mm)', 'Thickness (mm)', 'Material', 'Edge banding (mm/pc)'], ...parts.map((p) => [p.cabinet, p.part, p.qty, p.l, p.wd, p.t, p.material, p.edge])]))
-    if (d.cabinets.length) {
-      const n = nest(piecesOf(d.cabinets), cam.nest)
-      const shelves = (name: string) => (d.cabinets.find((c: Cabinet) => c.name === name)?.shelves ?? 0) > 0
-      const cams = n.sheets.map((sh) => camSheet(sh, cam.cnc, shelves, base))
-      // programs are named "<job> - <material> #<sheet> T<tool>.nc": the package adds its own prefix
-      add('Nesting.dxf', layoutDxf(n.sheets, cam.nest.trim, cams.flatMap((c, i) => c.holes.map((h) => ({ sheet: i, x: h.x, y: h.y, d: h.d })))))
-      add('Part labels.csv', csv([['Sheet', 'Material', 'Part', 'Length (mm)', 'Width (mm)', 'Thickness (mm)', 'X (mm)', 'Y (mm)', 'Rotated'], ...n.sheets.flatMap((sh) => sh.parts.map((p) => [`${sh.material} #${sh.index}`, p.material, p.label, p.l, p.w, p.t, p.x.toFixed(1), p.y.toFixed(1), p.rotated ? 'yes' : 'no']))]))
-      for (const c of cams) for (const p of c.programs) add(`CNC ${p.name.startsWith(`${base} - `) ? p.name.slice(base.length + 3) : p.name}`, p.text)
-    }
+    const cabinets = allCabinets(r)
+    if (cabinets.length) {
+      const { cnc, preview } = cncPreview(cabinets, cam, base)
+      add('Cut list.csv', csv(cutListRows(cnc.parts)))
+      const n = cnc.nest
+      add('Nesting.dxf', layoutDxf(n.sheets, cnc.nestSettings.trim, cnc.sheets.flatMap((c, i) => c.cam.holes.map((h) => ({ sheet: i, x: h.x, y: h.y, d: h.d })))))
+      add('Part labels.csv', csv(labelRows(n.sheets)))
+      // previews are named "<job> - <material> #<sheet> T<tool>.NOT_FOR_MACHINE.txt": the package adds its own prefix
+      for (const f of preview.files) add(`CNC ${f.name.startsWith(`${base} - `) ? f.name.slice(base.length + 3) : f.name}`, f.text)
+    } else add('Cut list.csv', csv(cutListRows([])))
   }
   if (r.route && include.route) {
     // every route of the drawing; with several, each file is named after its route

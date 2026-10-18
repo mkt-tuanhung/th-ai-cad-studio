@@ -10,6 +10,7 @@ import { undoKeys } from '../../state/undoable'
 import { AiSparkIcon, DimensionToolIcon, ExportToolIcon, TagToolIcon } from '../../components/icons'
 import { WsButton, WsHeader, WsRibbon, csv, downloadFile } from '../../components/workspace/Workspace'
 import { cutList, dimsLabel, roomQuantities } from '../../interior/model'
+import { cutListRows } from '../../cam/nesting'
 import { InteriorBrowser } from './InteriorBrowser'
 import { InteriorViewport } from './InteriorViewport'
 import { InteriorPlan } from './InteriorPlan'
@@ -42,7 +43,7 @@ export function InteriorScreen() {
     const room = (id: string) => d.rooms.find((r) => r.id === id)?.name ?? id
     let rows: (string | number)[][]
     if (kind === 'furniture') rows = [['Name', 'Category', 'Room', 'Dimensions (mm)', 'Material', 'Qty', 'Status'], ...d.items.map((i) => [i.name, i.category, room(i.room), dimsLabel(i), i.material, i.qty, i.status])]
-    else if (kind === 'cutlist') rows = [['Cabinet', 'Part', 'Qty', 'Length (mm)', 'Width (mm)', 'Thickness (mm)', 'Material', 'Edge banding per piece (mm)'], ...d.cabinets.flatMap(cutList).map((p) => [p.cabinet, p.part, p.qty, p.l, p.wd, p.t, p.material, p.edge])]
+    else if (kind === 'cutlist') rows = cutListRows(d.cabinets.flatMap(cutList))
     else rows = [['Room', 'Floor (m2)', 'Perimeter (m)', 'Walls gross (m2)', 'Ceiling (m2)', 'Ceiling height (mm)', 'Floor finish', 'Wall finish'], ...d.rooms.map(roomQuantities).map((q) => [q.room.name, q.floor.toFixed(2), q.perimeter.toFixed(2), q.wall.toFixed(2), q.ceiling.toFixed(2), q.room.ceilingHeight, q.room.floorFinish, q.room.wallFinish])]
     const file = `Villa Riverside - ${t.exportItems[kind].replace(/ \(CSV\)$/, '')}.csv`
     downloadFile(file, csv(rows))
