@@ -13,7 +13,7 @@ export interface PrepOptions {
 
 export const DEFAULT_PREP: PrepOptions = { normalize: true, denoise: true }
 
-export function inkOf(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number, opt: PrepOptions = DEFAULT_PREP): { gray: Gray; ink: Mask; threshold: number } {
+export function inkOf(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number, opt: PrepOptions = DEFAULT_PREP): { gray: Gray; ink: Mask; threshold: number; dark: Mask } {
   let g = grayOf(rgba, w, h)
   if (opt.normalize) g = normalizeBackground(g)
   if (opt.denoise) g = median3(g)
@@ -24,5 +24,22 @@ export function inkOf(rgba: Uint8ClampedArray | Uint8Array, w: number, h: number
   // the picture's border (scanner edge, the paper's edge after a warp) is not ink
   for (let x = 0; x < w; x++) { ink.d[x] = 0; ink.d[(h - 1) * w + x] = 0 }
   for (let y = 0; y < h; y++) { ink.d[y * w] = 0; ink.d[y * w + w - 1] = 0 }
-  return { gray: g, ink, threshold }
+  return { gray: g, ink, threshold, dark: darkOf(g, ink) }
+}
+
+/**
+ * The darkest part of the ink: grey below the midpoint between black (the 2nd percentile of the ink) and the
+ * threshold — in a sharp scan nearly all the ink; in a blurred photo the solid walls but not the thin lines.
+ */
+export function darkOf(g: Gray, ink: Mask): Mask {
+  const hist = new Float64Array(256)
+  let n = 0
+  for (let i = 0; i < ink.d.length; i++) if (ink.d[i]) { hist[g.d[i]]++; n++ }
+  let acc = 0, lo = 0, t = 0
+  for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= 0.02 * n) { lo = v; break } }
+  for (let v = 255; v >= 0; v--) if (hist[v]) { t = v; break }
+  const cut = (lo + t) / 2
+  const m: Mask = { w: ink.w, h: ink.h, d: new Uint8Array(ink.d.length) }
+  for (let i = 0; i < m.d.length; i++) m.d[i] = ink.d[i] && g.d[i] <= cut ? 1 : 0
+  return m
 }

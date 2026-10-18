@@ -15,15 +15,22 @@ export interface LineBox { x0: number; y0: number; x1: number; y1: number; h: nu
  * together (run-length smoothing: gaps ≤ `gapH` along a row, ≤ `gapV` down a column — letters into words, words
  * into lines, accents onto their letters); each smeared blob is a block of one or a few text lines.
  */
-export function textLineBoxes(textInk: Mask, minH: number, maxH: number): { lines: LineBox[]; letters: Mask } {
+export function textLineBoxes(textInk: Mask, minH: number, maxH: number): { lines: LineBox[]; letters: Mask; letterH: number } {
   const { label, stats } = components(textInk, 8)
   const H = (i: number) => stats[i].y1 - stats[i].y0 + 1, Wd = (i: number) => stats[i].x1 - stats[i].x0 + 1
   const ok = stats.map((st, i) => st.area >= 2 && H(i) <= maxH && Wd(i) <= 1.6 * maxH && !(Wd(i) > 6 * H(i) && H(i) <= 3))
   const letters: Mask = { w: textInk.w, h: textInk.h, d: new Uint8Array(textInk.d.length) }
   for (let i = 0; i < label.length; i++) if (label[i] >= 0 && ok[label[i]]) letters.d[i] = 1
   // typical letter height: the median of the components of letter size
-  const hs = stats.filter((_, i) => ok[i] && H(i) >= minH).map((_, i) => i).length ? stats.map((_, i) => i).filter((i) => ok[i] && H(i) >= minH).map(H).sort((a, b) => a - b) : [minH * 2]
-  const th = hs[Math.floor(hs.length / 2)]
+  // typical letter height: the ink-weighted median height of the letter-sized components (slivers left by the
+  // line removal weigh little)
+  const cand = stats.map((_, i) => i).filter((i) => ok[i] && H(i) >= minH).sort((a, b) => H(a) - H(b))
+  let th = minH * 2
+  if (cand.length) {
+    const total = cand.reduce((a, i) => a + stats[i].area, 0)
+    let acc = 0
+    for (const i of cand) { acc += stats[i].area; if (acc >= total / 2) { th = H(i); break } }
+  }
   const gapH = Math.max(3, Math.round(0.8 * th)), gapV = Math.max(1, Math.round(0.3 * th))
   const sm: Mask = { w: letters.w, h: letters.h, d: letters.d.slice() }
   const W = sm.w, Hh = sm.h
@@ -47,7 +54,7 @@ export function textLineBoxes(textInk: Mask, minH: number, maxH: number): { line
     if (n < 0.08 * bw * bh || n < 12) continue
     lines.push({ x0: st.x0, y0: st.y0, x1: st.x1 + 1, y1: st.y1 + 1, h: Math.min(bh, th) })
   }
-  return { lines, letters }
+  return { lines, letters, letterH: th }
 }
 
 /** Ink of the text only: the wall bands (with a margin) and every long straight run (dimension lines, room

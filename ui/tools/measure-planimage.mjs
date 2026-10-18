@@ -35,12 +35,16 @@ for (const f of list) {
     const cor = pipeline.correct(pic, { corners, paper: true, deskew: true })
     // nominal: 150 dpi, 1:100 (what the dialog proposes for a picture)
     const nominalK = (25.4 / 150) * 100
-    const g = await pipeline.analyse(cor, { pxPerM: 1000 / nominalK, ocr: true })
-    const sug = scale.suggestScale(g)
-    // the calibration: the consensus of the suggestions when there is one (what "Use the suggestion" does), else
-    // the truth's known scale for an uncorrected scan (reported as such)
-    const k = sug.k ?? (corners ? null : truth.mmPerPx) ?? nominalK
-    const kHow = sug.k ? `suggested (${sug.agreeing.length} agreeing refs of ${sug.refs.length})` : corners ? 'nominal (no suggestion)' : 'known sheet scale'
+    const g0 = await pipeline.analyse(cor, { pxPerM: 1000 / nominalK, ocr: true, photo: !!corners })
+    const sug = scale.suggestScale(g0)
+    // the calibration, as the user would make it: the consensus of the suggestions when there is one ("Use the
+    // suggestion"), else the known sheet scale of a scan, else two points on the building's overall extent (the
+    // outer walls' centre lines, a distance the truth gives — what a user picks on the overall dimension)
+    const ext = (gg) => { const xs = gg.walls.flatMap((w) => [w.a[0], w.b[0]]); return Math.max(...xs) - Math.min(...xs) }
+    const k = sug.k ?? (corners ? (truth.wallBox.x1 - truth.wallBox.x0) / ext(g0) : truth.mmPerPx)
+    const kHow = sug.k ? `suggested (${sug.agreeing.length} agreeing refs of ${sug.refs.length})` : corners ? 'two points on the overall wall extent (simulated user calibration)' : 'known sheet scale'
+    // recognised again at the calibrated scale (the dialog does the same after a calibration)
+    const g = Math.abs(1000 / k / g0.pxPerM - 1) > 0.05 ? { ...pipeline.recognizeAt(g0.ink, g0.dark, g0.words, 1000 / k), words: g0.words } : g0
     const rec = toModel.toRecognition({ graph: g, k, levelName: 'Tầng 1' })
     const names = { roofLevel: 'Mái', room: (n) => `Phòng ${n}`, wallExt: (t) => `Tường ngoài ${t}`, wallInt: (t) => `Tường trong ${t}`, curtain: (t) => `Vách kính ${t}`, door: 'Cửa đi', doubleDoor: 'Cửa đi 2 cánh', opening: 'Lỗ mở', window: 'Cửa sổ', furniture: new Proxy({}, { get: (_, p) => String(p) }) }
     const res = build.autoFromPlan(rec, { names, levelName: 'Tầng 1', file: name })

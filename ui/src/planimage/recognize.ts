@@ -22,7 +22,7 @@
 import { fitCircle, rdp, thin, trace } from '../cad/vectorize'
 import type { Vec2 } from '../cad/types'
 import { isLexicon, lexiconWord } from './roomWords'
-import { cloneMask, components, dilate, distanceToBackground, fillPoly, fillRect, mask, minus, open, or, runLengths, type CompStat, type Mask } from './raster'
+import { and, cloneMask, components, dilate, distanceToBackground, fillPoly, fillRect, mask, minus, open, or, runLengths, type CompStat, type Mask } from './raster'
 
 export type Pt = [number, number]
 
@@ -593,6 +593,9 @@ export interface InkInput {
   /** ink mask of the (corrected) picture */
   ink: Mask
   words: PWord[]
+  /** the darkest ink (solid wall cores): the bands are looked for in it when given — a blurred photo's bold thin
+   *  lines are grey, its poured walls black */
+  dark?: Mask
 }
 
 /** Typical thin-line width (px): the most common short run across the ink. */
@@ -659,7 +662,7 @@ export function recognizePlan(input: InkInput, opt: RecogOptions): PlanGraph {
   // ---- 1. bands
   const k = opt.kernel ?? Math.max(3, lw + 2, Math.min(15, Math.round(0.08 * pxM)))
   let style: PlanGraph['style'] = 'filled'
-  let wm = open(noText, k)
+  let wm = open(input.dark ? and(noText, input.dark) : noText, k)
   const L0 = Math.max(8, Math.round(0.4 * pxM))
   const longPieces = (m: Mask) => piecesOf(m, 'h', L0, Math.round(0.6 * pxM)).length + piecesOf(m, 'v', L0, Math.round(0.6 * pxM)).length
   if (opt.style === 'outline' || (opt.style !== 'filled' && longPieces(wm) < 4)) {
@@ -800,16 +803,19 @@ export function recognizePlan(input: InkInput, opt: RecogOptions): PlanGraph {
     let best = 0
     for (const side of [-1, 1])
       for (const off of [0, t / 2])
-        for (const k of [0.9, 0.95, 1, 1.05]) {
+        for (const back of [0, t / 2])
+        for (const k of [0.9, 0.95, 1, 1.05, 1.1, 1.15, 1.2, 1.25]) {
+          // a hand-drawn wall stroke ends round, over the hinge: the hinge may sit half a wall back
           const R = r * k
-          const [cx, cy] = o === 'h' ? [s, c + side * off] : [c + side * off, s]
+          const sh = s - dir * back
+          const [cx, cy] = o === 'h' ? [sh, c + side * off] : [c + side * off, sh]
           const arc = o === 'h' ? quarter(cx, cy, R, dir, side) : quarter(cx, cy, R, side, dir)
           if (arc < 0.6 || arc <= best) continue
           // open leaf: from the hinge across the wall; closed: from the hinge along the wall line
           const leaf = o === 'h' ? along(cx, cy, 0, side, R) : along(cx, cy, side, 0, R)
           // the closed position anywhere across the wall band (a leaf is drawn on a face, not on the centre line)
           let shut = 0
-          for (const so of [-t / 2, 0, t / 2]) shut = Math.max(shut, o === 'h' ? along(s, c + so, dir, 0, R) : along(c + so, s, 0, dir, R))
+          for (const so of [-t / 2, 0, t / 2]) shut = Math.max(shut, o === 'h' ? along(sh, c + so, dir, 0, R) : along(c + so, sh, 0, dir, R))
           if (shut > 0.5) continue
           if (leaf < 0.5 && (strict || arc < 0.85)) continue
           best = arc
