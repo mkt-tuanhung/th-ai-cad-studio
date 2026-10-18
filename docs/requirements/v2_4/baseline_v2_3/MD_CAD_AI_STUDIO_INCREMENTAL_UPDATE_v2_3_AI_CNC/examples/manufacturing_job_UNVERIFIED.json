@@ -1,0 +1,31 @@
+{
+  "job_id": "JOB_DEMO_NOT_FOR_MACHINE",
+  "part_revision_hash": "UNSET",
+  "machine_profile_id": "DEMO_3_HEADS_NOT_FOR_MACHINE",
+  "machine_profile_revision": 1,
+  "machine_selected": true,
+  "status": "DRAFT",
+  "stock": {
+    "material_code": null,
+    "length_mm": null,
+    "width_mm": null,
+    "measured_thickness_mm": null,
+    "grain_axis": "UNSPECIFIED",
+    "face_a": null
+  },
+  "head_assignments": [],
+  "controller_dialect": null,
+  "post_hash": null,
+  "validation": {
+    "fixture_collision_pass": false,
+    "safe_z_pass": false,
+    "dialect_parse_pass": false,
+    "nc_backplot_pass": false,
+    "revision_current": false
+  },
+  "nc_release": {
+    "allowed": false,
+    "approval_state": "BLOCKED",
+    "sha256": null
+  }
+}

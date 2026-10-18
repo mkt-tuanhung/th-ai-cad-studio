@@ -1,0 +1,21 @@
+{
+  "product": "MD CAD AI STUDIO",
+  "version": "v2.2 incrementally updated CNC machine-aware manufacturing",
+  "base_version": "v2.1 UPDATE ONLY",
+  "not_a_rebuild": true,
+  "feature": "P0 Interior Manufacturing - 1/2/3 head CNC machine selection, cut list, nesting, machine-aware CAM, controller-specific NC",
+  "examples_are_not_production_ready": true,
+  "tested_machine_profiles": 0,
+  "acceptance_test_count": 82,
+  "schema_files": [
+    "schemas/machine_profile.schema.json",
+    "schemas/manufacturing_job.schema.json"
+  ],
+  "main_instructions": "00_UPDATE_ONLY_READ_FIRST.md",
+  "docs_new": [
+    "docs/06_CNC_MACHINE_AWARE_MANUFACTURING_MASTER_SPEC.md",
+    "docs/07_MACHINE_SELECTION_UX_AND_ARCHITECTURE_DELTA.md",
+    "docs/08_CLAUDE_CNC_UPDATE_ONLY_MANDATE.md",
+    "docs/09_MACHINE_COMMISSIONING_AND_QC.md"
+  ]
+}
