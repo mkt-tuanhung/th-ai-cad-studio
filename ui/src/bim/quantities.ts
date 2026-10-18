@@ -3,7 +3,8 @@
  * its report). Per level and in total:
  *  - foundations (from the structural drawings): pile caps, tie beams — m³; piles — number;
  *  - reinforced concrete: floor slabs net of their openings, the roof, landings, columns, beams under the slab
- *    (b × (h − slab) × clear span between the columns), stair flights (step profile with its waist × width) — m³;
+ *    (b × (h − the slab they carry, floor or roof) × clear span between the columns), stair flights (steps
+ *    n × ½ riser × going × width + the waist slab t × its sloping length × width; landings are slabs) — m³;
  *  - formwork: slab soffits (the lowest floor lies on the ground: edges only) and edges, beam sides and bottoms,
  *    tie beam sides, column faces, pile cap sides, stair soffits and risers — m²;
  *  - reinforcement: an ESTIMATE, concrete volume × a usual steel ratio per kind of element (REBAR, kg/m³), said
@@ -18,7 +19,7 @@
  */
 import { levelOf, typeOf, wallHeight, type BimModel, type P2 } from './model'
 import { polyArea, segDist, wallEnds } from './geometry'
-import { stairFlight, stairProfile } from './scene'
+import { STAIR_WAIST, stairFlight, stairProfile } from './scene'
 import { norm } from './fromCad'
 import { roofQuantities } from './roof'
 
@@ -49,14 +50,20 @@ export interface BoqWords {
   }
   units: { m3: string; m2: string; m: string; pcs: string; kg: string }
   all: string
+  /** the column of quantities whose level is not in the model (so the level columns add up to the total) */
+  unassigned?: string
 }
+
+/** Key of the "no level" column in `byLevel` when the words do not name it. */
+export const UNASSIGNED = 'Unassigned'
 
 export interface BoqRow {
   key: string
   group: string
   item: string
   unit: string
-  /** quantity per level name, in level order; `total` their sum */
+  /** quantity per level name, in level order, then the unassigned column (words.unassigned) for quantities of
+   *  elements whose level is not in the model; the columns add up to `total` */
   byLevel: Record<string, number>
   total: number
 }
@@ -108,7 +115,13 @@ export function boq(m: BimModel, w: BoqWords, params: BoqParams = {}): BoqRow[] 
   const stirN = (L: number, s: { aEnd: number; aMid: number }, zone: number) => Math.ceil((2 * zone) / s.aEnd) + Math.ceil(Math.max(0, L - 2 * zone) / s.aMid) + 1
   // a mesh over a rectangle (cover c): bars both ways at spacing a
   const meshM = (w: number, d: number, a: number, c: number) => ((Math.ceil((d - 2 * c) / a) + 1) * (w - 2 * c) + (Math.ceil((w - 2 * c) / a) + 1) * (d - 2 * c)) / 1000
-  const slabT = (lv: string) => m.slabs.find((s) => s.level === lv && s.kind === 'floor' && !s.landing)?.thickness ?? 0
+  // the slab a beam carries: any slab of its level (floor or roof — the automatic roof slab too) over the beam's
+  // middle; else the thickest of the level (the beam is under the slab's edge)
+  const slabT = (lv: string, at: P2) => {
+    const own = m.slabs.filter((s) => s.level === lv && s.kind !== 'ceiling' && !s.landing && s.outline.length >= 3)
+    const over = own.filter((s) => inPoly(at, s.outline) && !(s.openings ?? []).some((o) => inPoly(at, o)))
+    return Math.max(0, ...(over.length ? over : own).map((s) => s.thickness))
+  }
   // foundations
   for (const f of m.footings ?? []) {
     const lv = lvName(f.level), H = f.top - f.bottom
@@ -143,7 +156,7 @@ export function boq(m: BimModel, w: BoqWords, params: BoqParams = {}): BoqRow[] 
       conc('tie', lv, v)
       add('fw:tie', G.formwork, I.fwTie, U.m2, lv, (2 * b.h * L) / 1e6)
     } else {
-      const d = Math.max(0, b.h - slabT(b.level))
+      const d = Math.max(0, b.h - slabT(b.level, [b.x + (u[0] * b.length) / 2, b.y + (u[1] * b.length) / 2]))
       const v = (b.b * d * L) / 1e9
       add('beam', G.concrete, I.beam, U.m3, lv, v)
       // the detail of its depth (else the next deeper one, else the deepest): bars anchored 30 d into the columns
@@ -192,7 +205,7 @@ export function boq(m: BimModel, w: BoqWords, params: BoqParams = {}): BoqRow[] 
       conc('stair', lv, v)
       continue
     }
-    const v = (polyArea(stairProfile(st, n, riser)) * st.width) / 1e9
+    const v = stairConcrete(n, riser, st.length, st.width)
     add('stair', G.concrete, I.stair, U.m3, lv, v)
     if (spec?.stair) {
       // the waist slab: bars along the slope (anchored 30 d at both ends), across the width at their spacing
@@ -262,37 +275,177 @@ export function boq(m: BimModel, w: BoqWords, params: BoqParams = {}): BoqRow[] 
   }
   // in the order of the groups, then as found
   const order = [G.foundation, G.concrete, G.formwork, G.rebar, G.masonry, G.roof, G.finishes, G.openings, G.railings]
-  return [...rows.values()].sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group)).map((r) => ({ ...r, byLevel: Object.fromEntries(levels.map((l) => [l.name, r.byLevel[l.name] ?? 0]).filter(([, v]) => (v as number) > 0)) }))
+  // the level columns, then what is on no level of the model (an element whose level was deleted or never set):
+  // the columns add up to the total
+  const names = [...new Set(levels.map((l) => l.name))]
+  const UN = w.unassigned ?? UNASSIGNED
+  return [...rows.values()].sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group)).map((r) => {
+    const byLevel: Record<string, number> = Object.fromEntries(names.map((n) => [n, r.byLevel[n] ?? 0]).filter(([, v]) => (v as number) > 0))
+    const rest = r.total - Object.values(byLevel).reduce((a, v) => a + v, 0)
+    if (rest > 1e-9 * Math.max(1, r.total)) byLevel[UN] = (byLevel[UN] ?? 0) + rest
+    return { ...r, byLevel }
+  })
 }
 
-/** A price list read from a CSV: per BOQ key (or item text) the unit price. Columns found by their header
- *  (key / mã, item / hạng mục, price / đơn giá); numbers with "." or "," thousands are read. */
-export function readPrices(text: string): Map<string, number> {
-  const rows = text.split(/\r?\n/).filter((l) => l.trim()).map((l) => {
-    const out: string[] = []
-    let cur = '', q = false
-    for (const ch of l) {
-      if (ch === '"') q = !q
-      else if ((ch === ',' || ch === ';') && !q) { out.push(cur); cur = '' }
-      else cur += ch
-    }
-    out.push(cur)
-    return out.map((c) => c.trim())
-  })
-  const head = (rows[0] ?? []).map((h) => h.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd'))
-  const kc = head.findIndex((h) => /^(key|ma)$/.test(h)), ic = head.findIndex((h) => /(item|hang muc)/.test(h)), pc = head.findIndex((h) => /(price|don gia)/.test(h))
-  const out = new Map<string, number>()
-  if (pc < 0) return out
-  for (const r of rows.slice(1)) {
-    const raw = (r[pc] ?? '').replace(/\s/g, '')
-    if (!raw) continue
-    // "1.250.000" / "1,250,000" thousands; "1250000.5" decimals
-    const v = /^\d{1,3}([.,]\d{3})+$/.test(raw) ? Number(raw.replace(/[.,]/g, '')) : Number(raw.replace(',', '.'))
-    if (!Number.isFinite(v)) continue
-    if (kc >= 0 && r[kc]) out.set(r[kc], v)
-    if (ic >= 0 && r[ic]) out.set(`item:${r[ic].toLowerCase()}`, v)
+/** A point inside a polygon (even–odd). */
+function inPoly(p: P2, o: P2[]): boolean {
+  let inside = false
+  for (let i = 0, j = o.length - 1; i < o.length; j = i++) {
+    const [xi, yi] = o[i], [xj, yj] = o[j]
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) inside = !inside
   }
+  return inside
+}
+
+/** Waist slab of a flight (mm, measured square to its slope) — the one the 3D / IFC flight is built with. */
+export { STAIR_WAIST }
+
+/**
+ * Concrete of a straight flight (m³): the area of the flight's side profile — the steps on the waist slab, exactly
+ * the section the 3D scene and the IFC stair are built from (`stairProfile`) — × its width. Landings are slabs of
+ * their own (the "landing" line). Lengths in mm. Close to the textbook n·½·r·g·w + t·√(run²+rise²)·w, but exact at
+ * both ends (the soffit meets the floor, a short flight is solid down to it).
+ */
+export function stairConcrete(n: number, riser: number, run: number, width: number, waist = STAIR_WAIST): number {
+  if (!(n > 0 && riser > 0 && run > 0 && width > 0)) return 0
+  const flight = { id: 'q', category: 'stair', mark: 'q', baseLevel: '', topLevel: '', x: 0, y: 0, angle: 0, length: run, width } as BimModel['stairs'][number]
+  return (polyArea(stairProfile(flight, n, riser, waist)) * width) / 1e9
+}
+
+/** A row of a price list that could not be read (shown in the review and the report, never dropped silently). */
+export interface PriceBad { line: number; text: string; why: 'price' | 'columns' | 'noKey' }
+export interface PriceList {
+  map: Map<string, number>
+  delimiter: ',' | ';' | '\t'
+  /** data rows read with a price */
+  read: number
+  bad: PriceBad[]
+  /** the header had no price column (nothing could be read) */
+  noPriceColumn: boolean
+}
+
+/** Splits CSV text into rows of cells: quotes ("a;b", "say ""x""") and line breaks inside quotes kept. */
+export function csvRows(text: string, delim: string): { cells: string[]; line: number }[] {
+  const out: { cells: string[]; line: number }[] = []
+  let row: string[] = [], cur = '', q = false, line = 1, start = 1
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++ } else q = false }
+      else { if (ch === '\n') line++; cur += ch }
+      continue
+    }
+    if (ch === '"') q = true
+    else if (ch === delim) { row.push(cur); cur = '' }
+    else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++
+      row.push(cur)
+      if (row.some((c) => c.trim())) out.push({ cells: row.map((c) => c.trim()), line: start })
+      row = []; cur = ''; line++; start = line
+    } else cur += ch
+  }
+  row.push(cur)
+  if (row.some((c) => c.trim())) out.push({ cells: row.map((c) => c.trim()), line: start })
   return out
+}
+
+/** Delimiter of a CSV: an Excel "sep=;" first line, else the one the header line (outside quotes) has most of. */
+export function csvDelimiter(text: string): { delim: ',' | ';' | '\t'; body: string } {
+  const t = text.replace(/^\uFEFF/, '')
+  const sep = /^sep=(.)\s*\r?\n/i.exec(t)
+  if (sep && [',', ';', '\t'].includes(sep[1])) return { delim: sep[1] as ',' | ';' | '\t', body: t.slice(sep[0].length) }
+  const head = t.split(/\r?\n/).find((l) => l.trim()) ?? ''
+  const n: Record<string, number> = { ',': 0, ';': 0, '\t': 0 }
+  let q = false
+  for (const ch of head) { if (ch === '"') q = !q; else if (!q && ch in n) n[ch]++ }
+  const delim = (['\t', ';', ','] as const).reduce((a, d) => (n[d] > n[a] ? d : a), ',' as ',' | ';' | '\t')
+  return { delim, body: t }
+}
+
+/**
+ * A number as written in Vietnamese or English spreadsheets: "1.250.000", "1 250 000", "1.250.000 đ",
+ * "1.234,5", "1,234.5", "12,50", "90%", "-3.5". With one separator only and three digits after it ("1.250",
+ * "1,250"), the list's locale decides: a ";" list (Vietnamese Excel) uses "." for thousands and "," for decimals,
+ * a "," list the other way round. Null when it is not a number.
+ */
+export function parseNumber(raw: string, vn = false): number | null {
+  let s = raw.normalize('NFC').replace(/[\s\u00a0\u202f']/g, '')
+  s = s.replace(/^(VND|VNĐ|USD|\$|₫)/i, '').replace(/(%|đ|₫|d|VND|VNĐ|đồng|dong|USD|\$|\/m3|\/m2|\/m)+$/i, '')
+  if (!/^[+-]?[\d.,]*\d[\d.,]*$/.test(s)) return null
+  const neg = s.startsWith('-')
+  s = s.replace(/^[+-]/, '')
+  const dots = (s.match(/\./g) ?? []).length, commas = (s.match(/,/g) ?? []).length
+  let int = s, dec = ''
+  const split = (sep: string, thou: string) => {
+    const i = s.lastIndexOf(sep)
+    const a = s.slice(0, i), b = s.slice(i + 1)
+    if (thou && a.includes(thou) && !new RegExp(`^\\d{1,3}(\\${thou}\\d{3})+$`).test(a)) return false
+    int = thou ? a.split(thou).join('') : a
+    dec = b
+    return true
+  }
+  const grouped = (sep: string) => new RegExp(`^\\d{1,3}(\\${sep}\\d{3})+$`).test(s)
+  if (dots && commas) {
+    // the last one is the decimal mark
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) { if (!split(',', '.')) return null } else if (!split('.', ',')) return null
+  } else if (dots > 1 || commas > 1) {
+    const sep = dots ? '.' : ','
+    if (!grouped(sep)) return null
+    int = s.split(sep).join('')
+  } else if (dots === 1 || commas === 1) {
+    const sep = dots ? '.' : ','
+    const three = /^\d{1,3}[.,]\d{3}$/.test(s)
+    // "1.250" / "1,250": thousands when the locale writes that mark between thousands
+    const thousands = three && (sep === '.' ? vn : !vn)
+    if (thousands) int = s.replace(sep, '')
+    else { const i = s.indexOf(sep); int = s.slice(0, i) || '0'; dec = s.slice(i + 1) }
+  }
+  if (!/^\d+$/.test(int) || (dec && !/^\d+$/.test(dec))) return null
+  const v = Number(`${int}${dec ? `.${dec}` : ''}`)
+  return Number.isFinite(v) ? (neg ? -v : v) : null
+}
+
+/** Header cell → plain words (no BOM, diacritics, case, brackets). */
+const headWord = (h: string) => h.replace(/^\uFEFF/, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
+
+/**
+ * A price list read from a CSV: per BOQ key (or item text) the unit price. The delimiter is found (",", ";", tab,
+ * an Excel "sep=" line), the BOM stripped; columns by their header with or without diacritics, in English or
+ * Vietnamese (key / mã / mã hiệu / code, item / hạng mục / tên công việc / nội dung, price / đơn giá / unit price);
+ * numbers in Vietnamese or English writing. Rows whose price cannot be read are listed in `bad`.
+ */
+export function readPriceList(text: string): PriceList {
+  const { delim, body } = csvDelimiter(text)
+  const rows = csvRows(body, delim)
+  const head = (rows[0]?.cells ?? []).map(headWord)
+  const kc = head.findIndex((h) => /^(key|ma|ma hieu|ma so|ma cv|ma cong viec|code|id)$/.test(h))
+  const ic = head.findIndex((h) => /(^item|hang muc|ten cong viec|noi dung|mo ta|description|^ten$|^name$)/.test(h))
+  const pc = head.findIndex((h) => /(don gia|unit price|^price|^gia$|^gia )/.test(h) && !/(thanh tien|amount|total)/.test(h))
+  const out = new Map<string, number>()
+  const res: PriceList = { map: out, delimiter: delim, read: 0, bad: [], noPriceColumn: pc < 0 }
+  if (pc < 0) return res
+  const vn = delim === ';'
+  for (const r of rows.slice(1)) {
+    const c = r.cells
+    const raw = c[pc] ?? ''
+    const key = kc >= 0 ? c[kc] ?? '' : '', item = ic >= 0 ? c[ic] ?? '' : ''
+    const text = c.join(delim === '\t' ? ' | ' : delim).slice(0, 120)
+    if (c.length < pc + 1 && (key || item)) { res.bad.push({ line: r.line, text, why: 'columns' }); continue }
+    // an empty price is a line left to fill in (the template), not an error
+    if (!raw.trim()) continue
+    const v = parseNumber(raw, vn)
+    if (v === null) { res.bad.push({ line: r.line, text, why: 'price' }); continue }
+    if (!key && !item) { res.bad.push({ line: r.line, text, why: 'noKey' }); continue }
+    if (key) out.set(key, v)
+    if (item) out.set(`item:${item.toLowerCase()}`, v)
+    res.read++
+  }
+  return res
+}
+
+/** The prices of a price list (see readPriceList; rows that could not be read are not in it). */
+export function readPrices(text: string): Map<string, number> {
+  return readPriceList(text).map
 }
 
 export const priceOf = (prices: Map<string, number>, r: BoqRow) => prices.get(r.key) ?? prices.get(`item:${r.item.toLowerCase()}`)

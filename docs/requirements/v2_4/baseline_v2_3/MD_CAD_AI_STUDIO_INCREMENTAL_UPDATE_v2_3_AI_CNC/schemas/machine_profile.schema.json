@@ -1,0 +1,527 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MD CAD AI STUDIO - CNC Machine Profile v2.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "revision",
+    "status",
+    "machine_type",
+    "manufacturer",
+    "machine_model",
+    "controller",
+    "axes",
+    "work_envelope_mm",
+    "heads",
+    "atc",
+    "fixtures",
+    "origin",
+    "postprocessor",
+    "qualification",
+    "production_export_allowed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.2.0"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "enum": [
+        "DRAFT",
+        "UNVERIFIED",
+        "IN_QUALIFICATION",
+        "VERIFIED",
+        "SUSPENDED"
+      ]
+    },
+    "machine_type": {
+      "enum": [
+        "CNC_ROUTER",
+        "CNC_SAW",
+        "PANEL_SAW",
+        "CNC_DRILL",
+        "HYBRID"
+      ]
+    },
+    "manufacturer": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "machine_model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "serial_reference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "model",
+        "firmware",
+        "manual_reference",
+        "supported_codes"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "firmware": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manual_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "supported_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "axes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "X",
+          "Y",
+          "Z",
+          "A",
+          "B",
+          "C",
+          "U",
+          "V",
+          "W"
+        ]
+      },
+      "minItems": 3,
+      "uniqueItems": true
+    },
+    "work_envelope_mm": {
+      "$ref": "#/$defs/xyzNullable"
+    },
+    "origin": {
+      "type": "object",
+      "required": [
+        "stock_corner",
+        "z_reference",
+        "work_offset",
+        "home_calibrated"
+      ],
+      "properties": {
+        "stock_corner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "z_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "work_offset": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "home_calibrated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "heads": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/head"
+      }
+    },
+    "motion_policy": {
+      "enum": [
+        "SEQUENTIAL_ONLY",
+        "PARALLEL_QUALIFIED"
+      ],
+      "default": "SEQUENTIAL_ONLY"
+    },
+    "atc": {
+      "type": "object",
+      "required": [
+        "supported",
+        "magazine_slots"
+      ],
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "magazine_slots": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "fixtures": {
+      "type": "object",
+      "required": [
+        "bed_type",
+        "vacuum_zones",
+        "clamp_no_go_shapes",
+        "safe_clearance_mm"
+      ],
+      "properties": {
+        "bed_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vacuum_zones": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "clamp_no_go_shapes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "safe_clearance_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "postprocessor": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "sha256",
+        "approved_for_controller"
+      ],
+      "properties": {
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "approved_for_controller": {
+          "type": "boolean"
+        }
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "required": [
+        "parser_pass",
+        "post_backplot_pass",
+        "air_cut_pass",
+        "first_article_pass",
+        "operator_signed",
+        "engineer_signed"
+      ],
+      "properties": {
+        "parser_pass": {
+          "type": "boolean"
+        },
+        "post_backplot_pass": {
+          "type": "boolean"
+        },
+        "air_cut_pass": {
+          "type": "boolean"
+        },
+        "first_article_pass": {
+          "type": "boolean"
+        },
+        "operator_signed": {
+          "type": "boolean"
+        },
+        "engineer_signed": {
+          "type": "boolean"
+        },
+        "qualified_at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "production_export_allowed": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "xyzNullable": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "z": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "xyzOffset": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "z": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "head": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "head_id",
+        "type",
+        "offset_mm",
+        "offset_calibrated",
+        "activation_mapping_verified",
+        "kinematics_group",
+        "tools",
+        "supported_operations",
+        "simultaneous_qualified"
+      ],
+      "properties": {
+        "head_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "ROUTER_SPINDLE",
+            "SAW_BLADE",
+            "DRILL_BANK",
+            "KNIFE"
+          ]
+        },
+        "offset_mm": {
+          "$ref": "#/$defs/xyzOffset"
+        },
+        "offset_calibrated": {
+          "type": "boolean"
+        },
+        "activation_mapping_verified": {
+          "type": "boolean"
+        },
+        "kinematics_group": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "tool_id",
+              "kind",
+              "diameter_mm",
+              "actual_calibrated"
+            ],
+            "properties": {
+              "tool_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "diameter_mm": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "exclusiveMinimum": 0
+              },
+              "actual_calibrated": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "supported_operations": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "PROFILE",
+              "POCKET",
+              "DRILL_VERTICAL",
+              "DRILL_HORIZONTAL",
+              "SLOT",
+              "SAW_CUT",
+              "ENGRAVE",
+              "KNIFE_CUT"
+            ]
+          }
+        },
+        "simultaneous_qualified": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "VERIFIED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "parser_pass": {
+                "const": true
+              },
+              "post_backplot_pass": {
+                "const": true
+              },
+              "air_cut_pass": {
+                "const": true
+              },
+              "first_article_pass": {
+                "const": true
+              },
+              "operator_signed": {
+                "const": true
+              },
+              "engineer_signed": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "production_export_allowed": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "VERIFIED"
+          },
+          "postprocessor": {
+            "properties": {
+              "approved_for_controller": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

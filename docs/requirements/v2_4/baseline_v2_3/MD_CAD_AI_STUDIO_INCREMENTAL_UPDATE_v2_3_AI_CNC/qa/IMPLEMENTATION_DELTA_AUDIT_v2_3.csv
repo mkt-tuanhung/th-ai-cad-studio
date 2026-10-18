@@ -1,0 +1,26 @@
+﻿module,existing_code_location,current_state_(WORKING/PARTIAL/UI_ONLY/MISSING/BLOCKED),evidence_test_path,delta_needed,risk,owner,priority
+Survey/Measurement Intake,,UNASSESSED,,,,,P0
+Vision OCR,,UNASSESSED,,,,,P0
+Image Calibration,,UNASSESSED,,,,,P0
+PDF Vector Parse,,UNASSESSED,,,,,P0
+DXF Entity Renderer,,UNASSESSED,,,,,P0
+DWG Adapter,,UNASSESSED,,,,,P0
+2D Geometry Validation,,UNASSESSED,,,,,P0
+2D Semantic Recognizer,,UNASSESSED,,,,,P0
+2D to 3D Wall/Floor,,UNASSESSED,,,,,P0
+Parametric Cabinet Part Generator,,UNASSESSED,,,,,P0
+Hardware Catalog,,UNASSESSED,,,,,P0
+Cut List and Edge Banding,,UNASSESSED,,,,,P0
+Nesting Grain/Clamp,,UNASSESSED,,,,,P0
+Machine Profile/Head Capabilities,,UNASSESSED,,,,,P0
+Tool Calibration Registry,,UNASSESSED,,,,,P0
+CAM Deterministic Operations,,UNASSESSED,,,,,P0
+Controller-specific Postprocessor,,UNASSESSED,,,,,P0
+NC Parser & Backplot,,UNASSESSED,,,,,P0
+Fixture Collision Checks,,UNASSESSED,,,,,P0
+Machine Commissioning & QC,,UNASSESSED,,,,,P0
+Production Release Gate,,UNASSESSED,,,,,P0
+Autonomous AI Orchestrator,,UNASSESSED,,,,,P0
+VI/EN Translation,,UNASSESSED,,,,,P0_CONTINUOUS
+Manual CAD Keyboard Parity,,UNASSESSED,,,,,P0_CONTINUOUS
+UI Pixel Lock Regression,,UNASSESSED,,,,,P0

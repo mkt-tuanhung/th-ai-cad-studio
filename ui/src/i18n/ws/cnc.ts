@@ -161,6 +161,8 @@ export const cncEn = {
     JOB_STALE: 'job STALE',
     JOB_SIGNOFF_MISSING: 'operator / engineer sign-off missing',
     JOB_FIRST_ARTICLE_QC_FAILED: 'first article QC failed',
+    SOURCE_DRAWING_NOT_FABRICATION_READY: 'source drawing not calibrated / review items open',
+    NC_BYTES_NOT_APPROVED: 'NC bytes differ from the approved revision',
   } as Record<string, string>,
   // Part Studio
   partFile: 'Engineering preview (ZIP)',
@@ -327,6 +329,8 @@ export const cncVi: typeof cncEn = {
     JOB_STALE: 'lệnh lỗi thời (STALE)',
     JOB_SIGNOFF_MISSING: 'thiếu chữ ký người vận hành / kỹ sư',
     JOB_FIRST_ARTICLE_QC_FAILED: 'mẫu đầu tiên không đạt QC',
+    SOURCE_DRAWING_NOT_FABRICATION_READY: 'bản vẽ nguồn chưa hiệu chỉnh tỷ lệ / còn mục cần xem lại',
+    NC_BYTES_NOT_APPROVED: 'file NC khác bản đã duyệt',
   },
   partFile: 'Bản xem trước kỹ thuật (ZIP)',
 }

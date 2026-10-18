@@ -409,6 +409,11 @@ export interface JobGateInput {
   firstArticle?: 'PASS' | 'FAIL' | null
   /** The post that wrote the NC (must be the profile's approved one). */
   post?: { id: string; version: string; sha256: string } | null
+  /**
+   * The source drawing the parts come from, when known: cad/provenance fabricationAllowed(doc). An uncalibrated
+   * image / PDF import or an open review item blocks manufacturing.
+   */
+  sourceDrawing?: { file: string; ok: boolean } | null
 }
 
 const MEASURED_TOLERANCE = 0.3 // mm: a measured board further than this from nominal changes the part rules
@@ -462,5 +467,6 @@ export function releaseBlockers(machine: MachineProfile | null, job: JobGateInpu
   else if (job.stale.stale) out.push(`JOB_STALE:${job.stale.from}`)
   if (!job.approvals || !job.approvals.operator.trim() || !job.approvals.engineer.trim()) out.push('JOB_SIGNOFF_MISSING')
   if (job.firstArticle === 'FAIL') out.push('JOB_FIRST_ARTICLE_QC_FAILED')
+  if (job.sourceDrawing && !job.sourceDrawing.ok) out.push(`SOURCE_DRAWING_NOT_FABRICATION_READY:${job.sourceDrawing.file}`)
   return [...new Set(out)]
 }

@@ -35,6 +35,8 @@ export interface InteriorCncInput {
   commissioning?: CommissioningRecord | null
   job: ManufacturingJob | null
   jobName: string
+  /** Source drawing gate (cad/provenance fabricationAllowed), when the parts come from a known drawing. */
+  sourceDrawing?: { file: string; ok: boolean } | null
 }
 
 export interface SheetCnc {
@@ -158,6 +160,7 @@ export function interiorCnc(inp: InteriorCncInput): InteriorCnc {
     nestErrors,
     firstArticle: approval?.firstArticle ?? null,
     post: { id: post.id, version: post.version, sha256: post.sha256 },
+    sourceDrawing: inp.sourceDrawing ?? null,
   }
   const blockers = releaseBlockers(m, gate, inp.commissioning ?? null)
   const simErrors = sheets.reduce((acc, s) => acc + s.parses.reduce((b, r) => b + r.issues.filter((i) => MOTION_ISSUES.has(i.code)).length, 0), 0)

@@ -77,10 +77,14 @@ function drawnScene(m: CivilModel, ve: number): Scene & { stats: { stations: num
     const p = f.at(st)
     return [(p.x + p.dy * o - ox) * 1000, (p.y - p.dx * o - oy) * 1000, (z - zRef) * ve * 1000]
   }
-  const zAt = (line: [number, number][], o: number) => {
-    if (o <= line[0][0]) return line[0][1]
-    for (let i = 1; i < line.length; i++) if (o <= line[i][0]) { const [a, za] = line[i - 1], [b, zb] = line[i]; return b - a < 1e-9 ? Math.max(za, zb) : za + ((zb - za) * (o - a)) / (b - a) }
-    return line[line.length - 1][1]
+  // the line just left (side −1) or right (+1) of an offset: a vertical wall (two points at one offset) has both
+  const zSide = (line: [number, number][], o: number, side: -1 | 1) => {
+    for (let i = 1; i < line.length; i++) {
+      const [a, za] = line[i - 1], [b, zb] = line[i]
+      if (b - a < 1e-9) continue
+      if (side < 0 ? o > a + 1e-9 && o <= b + 1e-9 : o >= a - 1e-9 && o < b - 1e-9) return za + ((zb - za) * (Math.min(b, Math.max(a, o)) - a)) / (b - a)
+    }
+    return o <= line[0][0] ? line[0][1] : line[line.length - 1][1]
   }
   const range = (l: [number, number][]) => [Math.min(...l.map(([o]) => o)), Math.max(...l.map(([o]) => o))] as const
   const terrain: number[] = [], design: number[] = []
@@ -95,7 +99,12 @@ function drawnScene(m: CivilModel, ve: number): Scene & { stats: { stations: num
     for (let j = 1; j < cuts.length; j++) {
       const o = cuts[j - 1], o2 = cuts[j]
       if (o2 - o < 1e-3) continue
-      quad(out, world(A.station, o, zAt(la, o) + dz), world(B.station, o, zAt(lb, o) + dz), world(B.station, o2, zAt(lb, o2) + dz), world(A.station, o2, zAt(la, o2) + dz))
+      quad(out, world(A.station, o, zSide(la, o, 1) + dz), world(B.station, o, zSide(lb, o, 1) + dz), world(B.station, o2, zSide(lb, o2, -1) + dz), world(A.station, o2, zSide(la, o2, -1) + dz))
+    }
+    // vertical walls: the face between the left and the right limits where either section jumps
+    for (const o of cuts.slice(1, -1)) {
+      const al = zSide(la, o, -1), ar = zSide(la, o, 1), bl = zSide(lb, o, -1), br = zSide(lb, o, 1)
+      if (Math.abs(al - ar) > 1e-3 || Math.abs(bl - br) > 1e-3) quad(out, world(A.station, o, al + dz), world(B.station, o, bl + dz), world(B.station, o, br + dz), world(A.station, o, ar + dz))
     }
   }
   for (let i = 1; i < secs.length; i++) {
@@ -114,7 +123,9 @@ export function civilScene(m: CivilModel, ve = 3, step = 10): Scene & { stats: {
   const tin = tinOf(m)
   const f = corridorFrame(m, tin)
   const [ox, oy] = f.origin
-  const zRef = Math.min(...m.invert.map(([, z]) => z)) - 1
+  // no design invert (a model stored before it was required): the ground only, no corridor is invented
+  const noDesign = m.invert.length < 2
+  const zRef = Math.min(...(noDesign ? groundOf(m) : m.invert).map(([, z]) => z)) - 1
   const P = (x: number, y: number, z: number): [number, number, number] => [(x - ox) * 1000, (y - oy) * 1000, (z - zRef) * ve * 1000]
   const stations: number[] = []
   for (let s = m.alignment.start; s < m.alignment.end; s += step) stations.push(s)
@@ -127,7 +138,7 @@ export function civilScene(m: CivilModel, ve = 3, step = 10): Scene & { stats: {
   }
   const lining: number[] = [], banks: number[] = [], water: number[] = []
   const quad = (out: number[], a: number[], bq: number[], c: number[], d: number[]) => out.push(...a, ...bq, ...c, ...a, ...c, ...d)
-  for (let i = 1; i < stations.length; i++) {
+  for (let i = 1; i < stations.length && !noDesign; i++) {
     const s0 = stations[i - 1], s1 = stations[i]
     const t0 = template(m, s0, f), t1 = template(m, s1, f)
     for (let j = 1; j < t0.length; j++) {
@@ -140,6 +151,7 @@ export function civilScene(m: CivilModel, ve = 3, step = 10): Scene & { stats: {
   // existing ground, opened where the corridor (daylight to daylight) replaces it
   const terrain: number[] = []
   const daylight = stations.map((x) => {
+    if (noDesign) return [0, 0] as const
     const tp = template(m, x, f)
     return [tp[0].o, tp[tp.length - 1].o] as const
   })

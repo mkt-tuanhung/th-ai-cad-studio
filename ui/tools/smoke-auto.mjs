@@ -59,6 +59,8 @@ await step('a house DXF: read, recognised and built by itself — building summa
   // elevations and sections are drawn by the OCCT kernel: the browser says so instead of pretending
   assert.match(h, /Elevations and sections need the desktop app/)
   assert.match(await page.getByTestId('auto-files').innerText(), /files in one ZIP/)
+  // replacing the current models is said, with the backup
+  assert.match(await page.getByTestId('auto-replace-note').innerText(), /Replaces the current model \(BIM model, Interior data\) — it is backed up first/)
   await page.getByRole('dialog').screenshot({ path: SHOTS + 'auto_house_review.png' })
 })
 
@@ -72,6 +74,7 @@ await step('Approve & build everything: BIM + Interior applied, the ZIP holds IF
   // the one-command package only ever writes engineering previews
   assert.ok(!names.some((n) => /\.nc$/i.test(n)), `production-looking .nc in ${names.filter((n) => /\.nc$/i.test(n)).join(' | ')}`)
   await page.getByTestId('auto-done').waitFor()
+  assert.match(await page.getByTestId('auto-applied').innerText(), /Applied \(one Undo step each\): BIM, Interior/)
   const bim = (await store('thcad.bim')).model
   assert.equal(bim.walls.length, 18)
   const int = (await store('thcad.interior')).doc
@@ -111,6 +114,14 @@ await step('a canal DXF from the Dashboard actions: route found, volumes, packag
   for (const re of [/Earthwork\.csv$/, /Cross sections\.csv$/, /Long profile\.csv$/, /Long profile\.dxf$/, /Cross sections 1\.dxf$/, /\.svg$/]) assert.ok(names.some((n) => re.test(n)), `missing ${re}`)
   const civil = (await store('thcad.civil')).doc
   assert.equal(civil.sections.length, 4)
+})
+
+await step('the replaced model was backed up: "Restore the previous Civil route" brings it back (an undoable edit)', async () => {
+  await page.getByTestId('auto-done').waitFor()
+  await page.getByTestId('auto-restore').getByRole('button', { name: /Restore the previous Civil route/ }).click()
+  await page.getByText(/Civil route: the previous model restored/).waitFor()
+  const civil = (await store('thcad.civil')).doc
+  assert.notEqual(civil.sections?.length ?? 0, 4)
 })
 
 await step('Vietnamese command bar: "1 lệnh" finds the command', async () => {

@@ -157,6 +157,8 @@ export function DrawnSectionChart({ m, sec, w, h, tool }: { m: CivilModel; sec: 
       <path d={fills.join('')} className={s.fillArea} />
       <path d={path(sec.ground)} className={s.egLine} fill="none" data-testid="section-drawn-ground" />
       <path d={path(sec.design)} className={s.secLine} fill="none" data-testid="section-drawn-design" />
+      {/* a lined canal: the inner (water) face, dashed; the areas are measured to the outer face above */}
+      {sec.channel && <path d={path(sec.channel)} className={s.secLine} fill="none" strokeDasharray="5 3" data-testid="section-drawn-channel" />}
       <line x1={X(0)} x2={X(0)} y1={Y(z1) + 4} y2={Y(z0)} className={s.ext} strokeDasharray="4 3" />
       <text x={X(0) + 4} y={Y(z0) - 4} className={s.slope}>{t.axis}</text>
       <g className={s.dim}>

@@ -21,6 +21,7 @@ import { POSTS } from '../../src/cam/posts'
 import { PREVIEW_EXT, ProductionBlocked, WATERMARK, previewFiles, productionFiles } from '../../src/cam/release'
 import { sha256 } from '../../src/lib/sha256'
 import { camSheet } from '../../src/cam/gcode'
+import { fabricationAllowed } from '../../src/cad/provenance'
 
 type R = { id: string; pass: boolean; detail?: unknown }
 const results: R[] = []
@@ -278,6 +279,8 @@ export function run() {
     threw = true
   }
   check('a released job cannot be re-approved', threw)
+  const fab = fabricationAllowed(null)
+  check('source drawing gate (cad/provenance fabricationAllowed): an unready source drawing blocks production', !fab.ok && releaseBlockers(MV, { ...c1.gate, sourceDrawing: { file: 'TEST-scan.png', ok: fab.ok } }, COM).includes('SOURCE_DRAWING_NOT_FABRICATION_READY:TEST-scan.png') && releaseBlockers(MV, { ...c1.gate, sourceDrawing: { file: 'TEST.dxf', ok: true } }, COM).length === 0)
   check('isStale: no record → nothing STALE; same chain → CURRENT', !isStale(null, c1.chain).stale && !isStale(c1.chain, c1.chain).stale)
 
   return { all: results.every((r) => r.pass), passed: results.filter((r) => r.pass).length, total: results.length, failed: results.filter((r) => !r.pass), results: results.map((r) => `${r.pass ? 'PASS' : 'FAIL'}  ${r.id}`) }
