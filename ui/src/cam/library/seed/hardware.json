@@ -1,0 +1,30 @@
+[
+  {
+    "id": "generic-hinge-35", "brand": "Generic", "product": "35 mm cup hinge (app default, cups only)", "kind": "hinge",
+    "drilling": { "cup_diameter_mm": 35, "cup_depth_mm": 12.5, "boring_distance_mm": 5, "boring_distance_min_mm": 3, "boring_distance_max_mm": 7, "end_distance_mm": 100, "legacy": true },
+    "sources": [], "confidence": "generic", "notes": "reference values — the behaviour of earlier versions (cups 22.5 mm from the hinge edge, 100 mm from the door ends, no plate holes)."
+  },
+  {
+    "id": "generic-hinge-35-system32", "brand": "Generic", "product": "35 mm cup hinge, 45/9.5 dowels + system-32 plate (Blum CLIP top class)", "kind": "hinge",
+    "drilling": { "cup_diameter_mm": 35, "cup_depth_mm": 13, "boring_distance_min_mm": 3, "boring_distance_max_mm": 7, "max_door_thickness_mm": 26, "min_door_thickness_mm": 16,
+      "cup_screw_holes": { "spacing_mm": 45, "offset_mm": 9.5, "diameter_mm": 8, "depth_mm": 13 },
+      "plate": { "setback_mm": 37, "spacing_mm": 32, "diameter_mm": 5, "depth_mm": 13 } },
+    "sources": [], "confidence": "generic", "notes": "reference values — confirm with the manufacturer's drilling template."
+  },
+  {
+    "id": "generic-slide-system32", "brand": "Generic", "product": "Ball-bearing / undermount slide, system-32 holes", "kind": "slide",
+    "drilling": { "setback_mm": 37, "diameter_mm": 5, "depth_mm": 13, "min_inside_depth_extra_mm": 10,
+      "positions_mm": { "350": [37, 165, 293], "400": [37, 197, 357], "450": [37, 229, 389], "500": [37, 261, 453] } },
+    "sources": [], "confidence": "generic", "notes": "reference values — 32 mm multiples from the 37 mm front line; confirm the hole positions of your slide."
+  },
+  {
+    "id": "generic-cam-connector-15", "brand": "Generic", "product": "Cam connector Ø15 + bolt (16–19 mm boards)", "kind": "connector",
+    "drilling": { "cam_diameter_mm": 15, "cam_depth_mm": 12.5, "cam_distance_mm": 34, "bolt_diameter_mm": 5, "bolt_depth_mm": 11, "edge_hole_diameter_mm": 8, "positions_mm": [37], "min_board_thickness_mm": 16, "max_board_thickness_mm": 19 },
+    "sources": [], "confidence": "generic", "notes": "reference values. The Ø8 hole into the board end needs horizontal drilling."
+  },
+  {
+    "id": "example-hinge-needs-data", "brand": "Example", "product": "Hinge without catalogue drilling data (example)", "kind": "hinge",
+    "drilling": { "cup_diameter_mm": 35 },
+    "sources": [], "confidence": "generic", "notes": "example of an incomplete record: the cup depth and boring distance are missing, so CNC drilling is blocked until they are entered."
+  }
+]

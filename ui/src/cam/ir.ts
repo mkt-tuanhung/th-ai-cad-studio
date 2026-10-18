@@ -23,7 +23,7 @@ export interface IrTool {
   rpm: number
   feed: number
   plunge: number
-  kind: 'END_MILL' | 'DRILL' | 'FORSTNER'
+  kind: 'END_MILL' | 'DRILL' | 'FORSTNER' | 'SAW_BLADE'
   head_id?: string | null
   tool_id?: string | null
 }

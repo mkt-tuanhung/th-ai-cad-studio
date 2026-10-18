@@ -53,6 +53,8 @@ export interface ParseContext {
   rapid?: number
   /** Deepest Z already cut by the earlier programs of the same job on this stock (split per-tool programs). */
   priorDeepest?: number
+  /** Units codes of the dialect when not G21 / G20 (OSAI: G71 mm / G70 inch). */
+  units?: { mm: string; inch: string }
 }
 
 export interface BackplotSeg {
@@ -91,6 +93,7 @@ export function parseNc(text: string, ctx: ParseContext = {}): ParseResult {
   const issues: NcIssue[] = []
   const add = (code: string, line: number, msg: string, block = true) => issues.push({ code, line, msg, block })
   const profile = ctx.profileCodes ? new Set(ctx.profileCodes) : null
+  const mmCode = ctx.units?.mm ?? 'G21', inchCode = ctx.units?.inch ?? 'G20'
   let units: 'mm' | 'inch' | null = null, absolute: boolean | null = null, plane = 17, wcs: string | null = null, tlo: number | null = null, comp = 40
   let spindle = false, tool: number | null = null, loaded: number | null = null, mode = -1, f = 0, toolChanges = 0, sawM0 = false, firstMotion = true
   let needTlo = false
@@ -139,10 +142,10 @@ export function parseNc(text: string, ctx: ParseContext = {}): ParseResult {
     for (const c of gs) if (CANNED.has(c) && ctx.dialect && !ctx.dialect.has(c)) add('CANNED_CYCLE_UNSUPPORTED', ln, `line ${ln}: canned cycle ${c} not supported by ${ctx.dialectName ?? 'the dialect'}`)
     // ---- modal state
     for (const g of gs) {
-      if (g === 'G20') {
+      if (g === inchCode) {
         units = 'inch'
-        add('INCH_UNITS', ln, `line ${ln}: G20 (inch) — production data is millimetres`)
-      } else if (g === 'G21') units = 'mm'
+        add('INCH_UNITS', ln, `line ${ln}: ${g} (inch) — production data is millimetres`)
+      } else if (g === mmCode) units = 'mm'
       else if (g === 'G90') absolute = true
       else if (g === 'G91') absolute = false
       else if (g === 'G17' || g === 'G18' || g === 'G19') plane = Number(g.slice(1))

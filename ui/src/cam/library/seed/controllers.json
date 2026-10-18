@@ -1,0 +1,74 @@
+[
+  {
+    "id": "SYNTEC", "vendor": "Syntec", "models": ["6MA", "60W-E"], "file_extensions": [".nc"],
+    "units_codes": "G21 mm / G20 inch", "absolute": "G90 absolute / G91 incremental", "tool_change": "T n M6", "tool_length_offset": "G43 H n, cancel G49",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "G81 G83 (G80 cancel)", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... )", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values — confirm with the manual of your controller build."
+  },
+  {
+    "id": "WEIHONG_NCSTUDIO", "vendor": "Weihong", "models": ["NcStudio"], "file_extensions": [".nc"],
+    "units_codes": "G21 mm", "absolute": "G90 / G91", "tool_change": "T n M6 on ATC builds", "tool_length_offset": "not documented",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... )", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values — spindle-select codes of multi-spindle / 4-process machines are machine-builder specific."
+  },
+  {
+    "id": "RICHAUTO_DSP", "vendor": "RichAuto", "models": ["A11", "A18"], "file_extensions": [".nc", ".tap"],
+    "units_codes": "G21 mm", "absolute": "G90", "tool_change": "not documented", "tool_length_offset": "not documented",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "not documented", "program_end": "M30",
+    "known_unsupported": ["M6", "G43"], "sources": [], "confidence": "generic", "notes": "reference values — DSP handheld: one program per tool."
+  },
+  {
+    "id": "MACH3", "vendor": "ArtSoft / Newfangled", "models": ["Mach3"], "file_extensions": [".tap", ".nc"],
+    "units_codes": "G21 mm / G20 inch", "absolute": "G90 / G91", "tool_change": "T n M6 (M6 macro, manual change stops the program)", "tool_length_offset": "G43 H n, cancel G49",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "G81 G83 (G80 cancel)", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... )", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values."
+  },
+  {
+    "id": "FANUC", "vendor": "FANUC", "models": ["0i-MF"], "file_extensions": [],
+    "units_codes": "G21 mm / G20 inch", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "G43 H n, cancel G49",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "G81 G83 (G80 cancel)", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... )", "program_end": "M30; program starts with an O number and ends with %",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values."
+  },
+  {
+    "id": "SIEMENS_840D", "vendor": "Siemens", "models": ["SINUMERIK 840D sl"], "file_extensions": [".mpf"],
+    "units_codes": "ISO dialect mode: G21 mm / G20 inch (Siemens mode: G71 / G70)", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "ISO dialect mode: G43 H n, cancel G49",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "semicolon ; comment", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values — ISO dialect mode needs the ISO dialect option (G291 on, G290 off)."
+  },
+  {
+    "id": "OSAI", "vendor": "OSAI", "models": ["OPEN"], "file_extensions": [],
+    "units_codes": "G71 mm / G70 inch", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "not documented",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "semicolon ; comment", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values."
+  },
+  {
+    "id": "BECKHOFF_TWINCAT", "vendor": "Beckhoff", "models": ["TwinCAT CNC"], "file_extensions": [],
+    "units_codes": "not documented", "absolute": "G90 / G91", "tool_change": "not documented", "tool_length_offset": "not documented",
+    "spindle": "not documented", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3", "comments": "not documented", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values — mostly OEM-configured: fill the codes from the machine builder's documentation."
+  },
+  {
+    "id": "LNC", "vendor": "LNC Technology", "models": ["M6800"], "file_extensions": [".nc"],
+    "units_codes": "G21 mm / G20 inch", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "G43 H n, cancel G49",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "G81 G83 (G80 cancel)", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... )", "program_end": "M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values."
+  },
+  {
+    "id": "LINUXCNC", "vendor": "LinuxCNC project", "models": ["LinuxCNC 2.9"], "file_extensions": [".ngc", ".nc"],
+    "units_codes": "G21 mm / G20 inch", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "G43 H n, cancel G49",
+    "spindle": "S n M3 / M5", "multi_spindle": "M3 $n syntax (2.8+) — not written by this app", "canned_cycles": "G81 G82 G83 (G80 cancel)", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... ) or ; comment", "program_end": "M2 / M30",
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values."
+  },
+  {
+    "id": "GRBL", "vendor": "gnea/grbl", "models": ["GRBL 1.1"], "file_extensions": [".nc", ".gcode"],
+    "units_codes": "G21 mm / G20 inch", "absolute": "G90 / G91", "tool_change": "not supported (M6 is an error)", "tool_length_offset": "G43.1 dynamic only",
+    "spindle": "S n M3 / M5", "multi_spindle": "not supported", "canned_cycles": "not supported", "arcs": "G2 / G3 with I J", "comments": "parentheses ( ... ) or ; comment", "program_end": "M2 / M30",
+    "known_unsupported": ["M6", "G43", "G81", "G83"], "sources": [], "confidence": "generic", "notes": "reference values."
+  },
+  {
+    "id": "PROPRIETARY", "vendor": "Machine vendor", "models": [], "file_extensions": [],
+    "units_codes": null, "absolute": null, "tool_change": null, "tool_length_offset": null,
+    "spindle": null, "multi_spindle": null, "canned_cycles": null, "arcs": null, "comments": null, "program_end": null,
+    "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "Native vendor formats (CIX / BPP / MPR / Xilog / PTX) are made by the vendor CAM; this app does not write them."
+  }
+]

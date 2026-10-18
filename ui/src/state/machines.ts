@@ -13,13 +13,16 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { SAMPLE_PROFILES, blankProfile, cloneProfile, commission, importProfile, profileContentHash, reviseProfile, unqualify, type CommissioningInput, type CommissioningRecord, type MachineProfile } from '../cam/machine'
 import type { ManufacturingJob, ReleaseRecord } from '../cam/job'
+import { templateToProfile, type TemplateChoices } from '../cam/library/fromTemplate'
+import type { MachineTemplate } from '../cam/library/types'
 
 export interface MachineRecord {
   profile: MachineProfile
   /** Earlier revisions, oldest first (never edited). */
   history: MachineProfile[]
   commissioning: CommissioningRecord[]
-  provenance: { source: 'sample' | 'created' | 'cloned' | 'imported'; from?: string; at: string }
+  /** library = made from a machine library template (catalogue reference values); manual = "Enter my machine". */
+  provenance: { source: 'sample' | 'created' | 'cloned' | 'imported' | 'library' | 'manual'; from?: string; at: string }
   log: { at: string; what: string }[]
 }
 
@@ -35,6 +38,10 @@ interface MachinesState {
   clone: (from: string, id: string) => string | null
   save: (p: MachineProfile) => string | null
   importJson: (text: string) => { id?: string; errors: string[] }
+  /** "Use this machine": the template becomes the user's own UNVERIFIED profile (catalogue values). */
+  addFromTemplate: (t: MachineTemplate, choices: TemplateChoices) => { id?: string; error?: string; todo?: string[] }
+  /** "Enter my machine": a validated hand-entered profile, stored UNVERIFIED. */
+  addOwn: (p: MachineProfile) => string | null
   commission: (id: string, input: CommissioningInput) => CommissioningRecord | null
   suspend: (id: string) => void
   remove: (id: string) => string | null
@@ -92,6 +99,21 @@ export const useMachines = create<MachinesState>()(
           for (let k = 2; has(id); k++) id = `${profile.profile_id}_${k}`
           put({ profile: { ...profile, profile_id: id }, history: [], commissioning: [], provenance: { source: 'imported', from: profile.profile_id, at: now() }, log: [{ at: now(), what: `imported as ${profile.status} (an imported status is never trusted)` }] })
           return { id, errors: [] }
+        },
+        addFromTemplate: (t, choices) => {
+          const id = choices.profileId.trim()
+          if (!ID.test(id)) return { error: 'ID' }
+          if (has(id)) return { error: 'EXISTS' }
+          const { profile, todo } = templateToProfile(t, { ...choices, profileId: id })
+          put({ profile, history: [], commissioning: [], provenance: { source: 'library', from: `${t.id} (${t.confidence})`, at: now() }, log: [{ at: now(), what: `from machine library template ${t.id} — catalogue reference values, UNVERIFIED; to measure: ${todo.join(', ')}` }] })
+          return { id, todo }
+        },
+        addOwn: (p) => {
+          if (!ID.test(p.profile_id)) return 'ID'
+          if (has(p.profile_id)) return 'EXISTS'
+          // a hand-entered machine is never trusted as qualified
+          put({ profile: unqualify({ ...structuredClone(p), revision: 1 }, 'UNVERIFIED'), history: [], commissioning: [], provenance: { source: 'manual', at: now() }, log: [{ at: now(), what: 'entered by hand (UNVERIFIED)' }] })
+          return null
         },
         commission: (id, input) => {
           const rec = get().records.find((r) => r.profile.profile_id === id)

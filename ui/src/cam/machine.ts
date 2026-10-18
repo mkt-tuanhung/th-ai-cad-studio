@@ -33,6 +33,8 @@ export interface MachineTool {
   number?: number | null
   length_mm?: number | null
   calibrated_at?: string | null
+  /** Saw blade: measured kerf (mm). */
+  kerf_mm?: number | null
 }
 
 export interface MachineHead {
@@ -86,6 +88,60 @@ export interface MachineProfile {
     evidence_refs?: string[]
   }
   production_export_allowed: boolean
+  /**
+   * MD extension (not part of the v2.2 schema; `schemaProfile()` strips it): the controller family, file
+   * extension, tool-length mode, operator pause code and spindle-select codes the posts need, saw blade data,
+   * and where the profile came from (machine library template). Everything here except `provenance` and
+   * `qualified_ops` is machine content: changing it makes a new revision and drops VERIFIED.
+   */
+  ext?: MachineExt
+}
+
+/** Tool length handling after a tool load: G43 H n, applied by the controller on M6, or Z zeroed per program. */
+export type ToolLengthMode = 'G43' | 'AUTO_ON_TOOL_CHANGE' | 'ZERO_PER_TOOL'
+
+export interface MachineExt {
+  /** ControllerFamilyId of cam/library (kept as a string here so the gate does not depend on the library). */
+  controller_family?: string | null
+  /** Program file extension with the dot (".nc", ".tap", ".mpf"); null = not documented → the post blocks. */
+  file_extension?: string | null
+  tool_length_mode?: ToolLengthMode | null
+  /** Program stop the controller documents for an operator action (e.g. "M0"); null = none → no pause written. */
+  operator_pause_code?: string | null
+  /** Spindle / head select codes from the controller manual, per head (never guessed). */
+  spindle_select?: { head_id: string; codes: string[] }[]
+  /** Comment syntax of the controller (null = the family's documented style; 'none' = write no comments). */
+  comment_style?: 'paren' | 'semicolon' | 'none' | null
+  /** Saw blade (panel saw or router-mounted saw unit), mm. Kerf measured on a test cut. */
+  saw?: { blade_diameter_mm: number | null; kerf_mm: number | null; max_cut_height_mm: number | null; cut_length_mm: number | null; orientation?: 'X' | 'Y' | null; trim_mm?: number | null }
+  /** Table type and the head data of the catalogue (power, max rpm, holder) per head. */
+  table?: string | null
+  head_info?: { head_id: string; power_kw: number | null; rpm_max: number | null; holder: string | null }[]
+  native_formats?: string[]
+  vendor_cam?: string | null
+  /** Layer names of the per-part DXF for vendor CAM (cam/vendorDxf.ts). */
+  dxf_layers?: { outline: string; drill: string; groove: string; pocket: string } | null
+  /** Notes of the controller family that say "not documented" (the profile must state them). */
+  undocumented?: string[]
+  /** Machine library template this profile was made from (reference data, catalogue values). */
+  provenance?: { template_id: string; manufacturer: string; model: string; confidence: string; sources: { title: string; url: string }[]; picked_at: string; choices?: unknown } | null
+  /** Operations qualified by commissioning beyond the base gate (e.g. SAW_CUT of a router saw unit). Set only by commission(). */
+  qualified_ops?: OperationKind[]
+}
+
+/** The profile as the v2.2 schema defines it (the MD extension removed). */
+export function schemaProfile(p: MachineProfile): Omit<MachineProfile, 'ext'> {
+  const { ext: _ext, ...rest } = p
+  void _ext
+  return rest
+}
+
+/** Machine content of the extension (no provenance / qualification flags). */
+const extContent = (e: MachineExt) => {
+  const { provenance: _p, qualified_ops: _q, ...rest } = e
+  void _p
+  void _q
+  return rest
 }
 
 /** Operations each tool kind can do (a tool that is UNASSIGNED does nothing). */
@@ -149,6 +205,8 @@ export function profileContentHash(m: MachineProfile): string {
     profile_id: m.profile_id, machine_type: m.machine_type, manufacturer: m.manufacturer, machine_model: m.machine_model, serial_reference: m.serial_reference ?? null,
     controller: m.controller, axes: m.axes, work_envelope_mm: m.work_envelope_mm, origin: m.origin, heads: m.heads, motion_policy: m.motion_policy ?? 'SEQUENTIAL_ONLY',
     atc: m.atc, fixtures: m.fixtures, postprocessor: { id: m.postprocessor.id, version: m.postprocessor.version, sha256: m.postprocessor.sha256 },
+    // older profiles have no extension: their hash is unchanged
+    ...(m.ext ? { ext: extContent(m.ext) } : {}),
   })
 }
 /** Hash of the heads, tools and offsets only (the "tools" stage of a job's hash chain). */
@@ -207,9 +265,17 @@ const toolOps = (t: MachineTool): OperationKind[] => TOOL_OPS[t.kind] ?? []
 /** What the machine can do, per operation: a head that does it AND a registered tool for it → available. */
 export function capabilities(m: MachineProfile): Capability[] {
   return OPERATIONS.map((op) => {
-    if (op === 'SAW_CUT' && !SAW_ADAPTER_AVAILABLE) {
+    if (op === 'SAW_CUT') {
       const heads = m.heads.filter((h) => h.type === 'SAW_BLADE').map((h) => h.head_id)
-      return { op, state: 'unsupported', heads, reason: heads.length ? 'SAW_ADAPTER_NOT_AVAILABLE' : 'NO_HEAD_FOR_OPERATION' }
+      if (!heads.length) return { op, state: 'unsupported', heads, reason: 'NO_HEAD_FOR_OPERATION' }
+      // a beam / panel saw cuts guillotine patterns (cam/guillotine.ts), never router paths
+      if (m.machine_type === 'PANEL_SAW') return { op, state: 'available', heads, reason: 'PANEL_SAW_PATTERNS' }
+      // a saw unit on a router: straight edge-to-edge cuts only, after that operation was commissioned
+      if (m.machine_type === 'CNC_ROUTER' || m.machine_type === 'HYBRID') {
+        const why = sawAggregateBlock(m)
+        return why ? { op, state: 'unsupported', heads, reason: why } : { op, state: 'available', heads }
+      }
+      if (!SAW_ADAPTER_AVAILABLE) return { op, state: 'unsupported', heads, reason: 'SAW_ADAPTER_NOT_AVAILABLE' }
     }
     if (op === 'KNIFE_CUT' && !KNIFE_ADAPTER_AVAILABLE) return { op, state: 'unsupported', heads: m.heads.filter((h) => h.type === 'KNIFE').map((h) => h.head_id), reason: 'KNIFE_ADAPTER_NOT_AVAILABLE' }
     const heads = m.heads.filter((h) => HEAD_OPS[h.type]?.includes(op) && h.supported_operations.includes(op))
@@ -217,6 +283,15 @@ export function capabilities(m: MachineProfile): Capability[] {
     const withTool = heads.filter((h) => h.tools.some((t) => toolOps(t).includes(op)))
     return withTool.length ? { op, state: 'available', heads: withTool.map((h) => h.head_id) } : { op, state: 'head-only', heads: heads.map((h) => h.head_id), reason: 'NO_TOOL_REGISTERED' }
   })
+}
+
+/** Why a router-mounted saw unit may not cut yet (null = it may: VERIFIED with SAW_CUT qualified, kerf and orientation known). */
+export function sawAggregateBlock(m: MachineProfile): string | null {
+  const sw = m.ext?.saw
+  if (!sw || !num(sw.kerf_mm) || !(sw.kerf_mm > 0)) return 'SAW_KERF_NOT_DEFINED'
+  if (!sw.orientation) return 'SAW_ORIENTATION_NOT_DEFINED'
+  if (m.status !== 'VERIFIED' || !m.ext?.qualified_ops?.includes('SAW_CUT')) return 'SAW_AGGREGATE_NOT_COMMISSIONED'
+  return null
 }
 
 export interface HeadSummary {
@@ -298,6 +373,12 @@ export interface CommissioningRecord {
   engineer: { name: string; at: string }
   evidence_refs: string[]
   valid_until?: string | null
+  /** Survey sheet (docs/09): item → confirmed. Required (all true) for a profile made from a library template. */
+  survey?: Record<string, boolean> | null
+  /** First article measurements vs tolerances (the wizard's table); any row out of tolerance fails. */
+  first_article_rows?: { feature: string; nominal: number; tolerance: number; measured: number | null }[] | null
+  /** Router saw unit: the supervised saw test passed (qualifies SAW_CUT). */
+  saw_test?: { pass: boolean; notes: string } | null
   result: 'VERIFIED' | 'FAILED'
   failures: string[]
 }
@@ -327,14 +408,26 @@ export function commission(profile: MachineProfile, input: CommissioningInput, n
   if (!input.operator.name.trim()) failures.push('OPERATOR_SIGNOFF_MISSING')
   if (!input.engineer.name.trim()) failures.push('ENGINEER_SIGNOFF_MISSING')
   if (!input.evidence_refs.filter((x) => x.trim()).length) failures.push('EVIDENCE_REFS_MISSING')
+  // catalogue values (machine library) are references: the survey sheet must confirm every item on the real machine
+  const survey = input.survey ?? null
+  if (survey && Object.values(survey).some((v) => !v)) failures.push('SURVEY_INCOMPLETE')
+  if (!survey && profile.ext?.provenance) failures.push('SURVEY_MISSING')
+  for (const r of input.first_article_rows ?? []) {
+    if (r.measured === null || !Number.isFinite(r.measured)) failures.push(`FIRST_ARTICLE_NOT_MEASURED:${r.feature}`)
+    else if (Math.abs(r.measured - r.nominal) > r.tolerance + 1e-9) failures.push(`FIRST_ARTICLE_OUT_OF_TOLERANCE:${r.feature}`)
+  }
+  const sawUnit = (profile.machine_type === 'CNC_ROUTER' || profile.machine_type === 'HYBRID') && profile.heads.some((h) => h.type === 'SAW_BLADE')
+  if (input.saw_test && !input.saw_test.pass) failures.push('SAW_TEST_FAILED')
   const record: CommissioningRecord = {
     ...input, id: `COM-${profile.profile_id}-r${profile.revision}-${now.replace(/\D/g, '').slice(0, 14)}`, profile_id: profile.profile_id, profile_revision: profile.revision,
     profile_hash: profileContentHash(profile), at: now, result: failures.length ? 'FAILED' : 'VERIFIED', failures,
   }
   if (failures.length) return { profile: { ...profile, status: profile.status === 'VERIFIED' ? 'UNVERIFIED' : profile.status === 'DRAFT' ? 'DRAFT' : 'UNVERIFIED', production_export_allowed: false, qualification: blankQualification() }, record }
+  const qualified: OperationKind[] = sawUnit && input.saw_test?.pass ? ['SAW_CUT'] : []
   return {
     profile: {
       ...profile, status: 'VERIFIED', production_export_allowed: true, postprocessor: { ...profile.postprocessor, approved_for_controller: true },
+      ...(profile.ext || qualified.length ? { ext: { ...profile.ext, qualified_ops: qualified } } : {}),
       qualification: { parser_pass: true, post_backplot_pass: true, air_cut_pass: true, first_article_pass: true, operator_signed: true, engineer_signed: true, qualified_at: now, evidence_refs: input.evidence_refs.filter((x) => x.trim()) },
     },
     record,
@@ -342,7 +435,7 @@ export function commission(profile: MachineProfile, input: CommissioningInput, n
 }
 
 /** Reset to not-qualified (keeps everything else). */
-export const unqualify = (p: MachineProfile, status: MachineStatus = 'UNVERIFIED'): MachineProfile => ({ ...p, status, production_export_allowed: false, qualification: blankQualification(), postprocessor: { ...p.postprocessor, approved_for_controller: false } })
+export const unqualify = (p: MachineProfile, status: MachineStatus = 'UNVERIFIED'): MachineProfile => ({ ...p, status, production_export_allowed: false, qualification: blankQualification(), postprocessor: { ...p.postprocessor, approved_for_controller: false }, ...(p.ext ? { ext: { ...p.ext, qualified_ops: [] } } : {}) })
 
 /**
  * A new revision of a profile after an edit: revision + 1; a content change (heads, tools, offsets, controller,
@@ -352,6 +445,8 @@ export const unqualify = (p: MachineProfile, status: MachineStatus = 'UNVERIFIED
 export function reviseProfile(prev: MachineProfile, edited: MachineProfile): MachineProfile {
   const changed = profileContentHash(prev) !== profileContentHash(edited)
   const base: MachineProfile = { ...edited, profile_id: prev.profile_id, revision: prev.revision + 1, status: prev.status, qualification: prev.qualification, production_export_allowed: prev.production_export_allowed, postprocessor: { ...edited.postprocessor, approved_for_controller: prev.postprocessor.approved_for_controller } }
+  // qualified operations are set by commissioning only, never by an edit
+  if (base.ext || prev.ext?.qualified_ops?.length) base.ext = { ...base.ext, qualified_ops: prev.ext?.qualified_ops ?? [] }
   if (!changed) return base
   return unqualify(base, prev.status === 'DRAFT' ? 'DRAFT' : 'UNVERIFIED')
 }
@@ -416,6 +511,10 @@ export interface JobGateInput {
   sourceDrawing?: { file: string; ok: boolean } | null
   /** Cabinets whose dimensions are not real (image / AI concept / unconfirmed survey: interior/production). */
   unverifiedCabinets?: string[]
+  /** Hardware drilling problems (cam/hardware.ts) as blocker codes: missing product data, through holes, edge distances. */
+  hardware?: string[]
+  /** Guillotine (panel saw) verification errors; undefined / null = not a saw job. */
+  sawErrors?: string[] | null
 }
 
 const MEASURED_TOLERANCE = 0.3 // mm: a measured board further than this from nominal changes the part rules
@@ -471,5 +570,7 @@ export function releaseBlockers(machine: MachineProfile | null, job: JobGateInpu
   if (job.firstArticle === 'FAIL') out.push('JOB_FIRST_ARTICLE_QC_FAILED')
   if (job.sourceDrawing && !job.sourceDrawing.ok) out.push(`SOURCE_DRAWING_NOT_FABRICATION_READY:${job.sourceDrawing.file}`)
   if (job.unverifiedCabinets?.length) out.push(`CABINET_DIMENSIONS_UNVERIFIED:${job.unverifiedCabinets.join(', ')}`)
+  for (const h of job.hardware ?? []) out.push(h)
+  for (const e of job.sawErrors ?? []) out.push(`SAW_PATTERN_INVALID:${e}`)
   return [...new Set(out)]
 }

@@ -9,14 +9,17 @@
  */
 import { hashOf } from '../../lib/sha256'
 import type { IrMove, IrProgram, IrTool } from '../ir'
+import type { MachineExt } from '../machine'
 
-export type PostId = 'grbl11' | 'linuxcnc' | 'iso_generic' | 'ncstudio'
+export type PostId = 'grbl11' | 'linuxcnc' | 'iso_generic' | 'ncstudio' | 'syntec' | 'mach3' | 'fanuc' | 'siemens840d' | 'osai' | 'richauto' | 'weihong' | 'lnc' | 'twincat' | 'saw_cutlist'
 
 export interface PostOptions {
   /** The machine has a verified automatic tool changer (T… M6 allowed). */
   atc: boolean
   /** The machine profile's verified controller codes; null = no machine profile (preview only). */
   supportedCodes?: string[] | null
+  /** The profile's extension: file extension, tool-length mode, pause code, spindle-select codes, comment style. */
+  ext?: MachineExt | null
 }
 
 export interface PostProgram {
@@ -42,6 +45,14 @@ export interface Post {
   tlo: boolean
   sha256: string
   render: (ir: IrProgram, opts: PostOptions) => PostResult
+  /** Controller family (cam/library) the post is written for; undefined = the generic posts of v2.4. */
+  family?: string
+  /** Units codes when not G21 / G20 (OSAI: G71 / G70), for the parser. */
+  units?: { mm: string; inch: string }
+  /** Writes no NC (panel saw cutting list): only for PANEL_SAW profiles. */
+  noNc?: boolean
+  /** Whether G43 H follows each tool load for these options (default: `tlo`). */
+  tloFor?: (opts: PostOptions) => boolean
 }
 
 export const f3 = (v: number) => (Math.round(v * 1000) / 1000).toFixed(3).replace(/\.?0+$/, '') || '0'
@@ -123,7 +134,8 @@ export function makePost(p: Omit<Post, 'sha256' | 'render' | 'status'> & { style
   return {
     id: p.id, version: p.version, label: p.label, status: 'UNVERIFIED', dialect: p.dialect, tlo: p.tlo, sha256,
     render: (ir, opts) => {
-      const programs = renderWith(ir, p.style(opts), p.perTool(opts))
+      const ext = opts.ext?.file_extension
+      const programs = renderWith(ir, p.style(opts), p.perTool(opts)).map((x) => (ext ? { ...x, name: x.name.replace(/\.nc$/, ext) } : x))
       const issues: string[] = []
       if (p.profileStrict) {
         // OEM dialects: only codes the machine profile lists (verified on that controller) may be used
