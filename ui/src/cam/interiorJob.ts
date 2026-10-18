@@ -16,6 +16,8 @@ import { parseSequence, MOTION_ISSUES, type ParseResult } from './ncparse'
 import { getPost, postFor, type Post } from './posts'
 import type { NcProgram, ReleaseMeta } from './release'
 import { hashOf } from '../lib/sha256'
+import { manufacturableCabinet } from '../interior/production'
+import type { InteriorDoc } from '../state/interior'
 
 export interface CamPrefsLike {
   stock: Record<string, { l: number; w: number }>
@@ -37,6 +39,8 @@ export interface InteriorCncInput {
   jobName: string
   /** Source drawing gate (cad/provenance fabricationAllowed), when the parts come from a known drawing. */
   sourceDrawing?: { file: string; ok: boolean } | null
+  /** The interior document the cabinets belong to (their furniture items' dimension sources count too). */
+  doc?: InteriorDoc
 }
 
 export interface SheetCnc {
@@ -161,6 +165,8 @@ export function interiorCnc(inp: InteriorCncInput): InteriorCnc {
     firstArticle: approval?.firstArticle ?? null,
     post: { id: post.id, version: post.version, sha256: post.sha256 },
     sourceDrawing: inp.sourceDrawing ?? null,
+    // a cabinet with no real dimensions (image import, AI concept, unconfirmed) never enters production (V24-024)
+    unverifiedCabinets: inp.cabinets.filter((c) => !manufacturableCabinet(c, inp.doc).ok).map((c) => c.name),
   }
   const blockers = releaseBlockers(m, gate, inp.commissioning ?? null)
   const simErrors = sheets.reduce((acc, s) => acc + s.parses.reduce((b, r) => b + r.issues.filter((i) => MOTION_ISSUES.has(i.code)).length, 0), 0)

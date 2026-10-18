@@ -414,6 +414,8 @@ export interface JobGateInput {
    * image / PDF import or an open review item blocks manufacturing.
    */
   sourceDrawing?: { file: string; ok: boolean } | null
+  /** Cabinets whose dimensions are not real (image / AI concept / unconfirmed survey: interior/production). */
+  unverifiedCabinets?: string[]
 }
 
 const MEASURED_TOLERANCE = 0.3 // mm: a measured board further than this from nominal changes the part rules
@@ -468,5 +470,6 @@ export function releaseBlockers(machine: MachineProfile | null, job: JobGateInpu
   if (!job.approvals || !job.approvals.operator.trim() || !job.approvals.engineer.trim()) out.push('JOB_SIGNOFF_MISSING')
   if (job.firstArticle === 'FAIL') out.push('JOB_FIRST_ARTICLE_QC_FAILED')
   if (job.sourceDrawing && !job.sourceDrawing.ok) out.push(`SOURCE_DRAWING_NOT_FABRICATION_READY:${job.sourceDrawing.file}`)
+  if (job.unverifiedCabinets?.length) out.push(`CABINET_DIMENSIONS_UNVERIFIED:${job.unverifiedCabinets.join(', ')}`)
   return [...new Set(out)]
 }

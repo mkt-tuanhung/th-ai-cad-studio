@@ -543,3 +543,7 @@
   background: rgba(17, 24, 39, 0.75);
   z-index: 2;
 }
+
+.cutBlocked {
+  color: #b42318 !important;
+}

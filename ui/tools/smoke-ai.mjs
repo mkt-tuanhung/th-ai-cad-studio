@@ -138,14 +138,14 @@ const pick = async (scope, px, py) => {
 }
 const cadCmd = async (cmd) => { await page.keyboard.press('Escape'); await page.keyboard.type(cmd); await page.keyboard.press('Enter') }
 
-await step('task presets: 7 presets with stages / needs / uncertainties and an honest status (layout + 3 options “In development”)', async () => {
+await step('task presets: 7 presets with stages / needs / uncertainties and an honest status (layout + 3 options available: Interior → Space Planning → Layouts)', async () => {
   const p = await openMenu('AI task presets…')
   const cards = p.locator('[data-testid^="preset-"]')
   assert.equal(await cards.count(), 7)
   for (const t of ['Image/PDF → CAD', 'CAD → 3D', 'Automatic room layout', '3 interior options', 'Offline 4K perspective', 'Elevations / sections', 'Take-off & CNC preparation']) assert.ok(await p.getByRole('heading', { name: new RegExp(t.replace(/[()/.+]/g, '.')) }).count(), t)
-  assert.equal(await p.getByTestId('preset-layout').getAttribute('data-status'), 'dev')
-  assert.equal(await p.getByTestId('preset-options3').getAttribute('data-status'), 'dev')
-  assert.ok(await p.getByTestId('preset-options3').getByRole('button', { name: 'In development' }).isDisabled())
+  assert.equal(await p.getByTestId('preset-layout').getAttribute('data-status'), 'available')
+  assert.equal(await p.getByTestId('preset-options3').getAttribute('data-status'), 'available')
+  assert.ok(await p.getByTestId('preset-options3').getByRole('button', { name: 'Open Interior' }).isEnabled())
   assert.equal(await p.getByTestId('preset-render4k').getAttribute('data-status'), 'partial')
   assert.match(await p.getByTestId('preset-scan').innerText(), /Stages[\s\S]*Calibrate the scale[\s\S]*Needs[\s\S]*Uncertain[\s\S]*65 %/i)
   await page.waitForTimeout(300)
@@ -200,7 +200,7 @@ await step('V24-031 room-layout inputs: a measured room whose door has no width 
   const texts = await page.evaluate(() => { const s = window.__thcad.cad.getState(); return s.docs[s.activeId].entities.filter((e) => e.kind === 'text').map((e) => e.value) })
   assert.ok(texts.some((t) => /D1 \? \(width not measured\)/.test(t)), texts.join(' | '))
   const p = await openMenu('AI task presets…')
-  assert.ok(await p.getByTestId('preset-layout').getByRole('button', { name: 'In development' }).isDisabled())
+  assert.ok(await p.getByTestId('preset-layout').getByRole('button', { name: 'Open Interior' }).isEnabled())
   await p.getByTestId('preset-layout').getByRole('button', { name: 'Check inputs' }).click()
   const row = p.locator('[data-testid="job"][data-preset="layout"]').first()
   assert.equal(await row.getAttribute('data-status'), 'needs-user')
@@ -301,14 +301,15 @@ await step('V24-032 restart while a step was “applying” → “Needs you: wa
   await page.keyboard.press('Escape')
 })
 
-await step('VI: presets in Vietnamese (Ảnh/PDF -> CAD, Bố trí phòng tự động “Đang phát triển”)', async () => {
+await step('VI: presets in Vietnamese (Ảnh/PDF -> CAD, Bố trí phòng tự động “Dùng được”)', async () => {
   await page.goto(URL0 + '/#/ai-studio')
   await page.getByRole('radio', { name: 'VI' }).click()
   await page.getByRole('button', { name: 'Tùy chọn trò chuyện' }).click()
   await page.getByRole('menuitem', { name: 'Tác vụ AI mẫu…' }).click()
   const p = page.getByTestId('ai-presets')
   assert.ok(await p.getByRole('heading', { name: /Ảnh\/PDF -> CAD/ }).count())
-  assert.ok(await p.getByTestId('preset-layout').getByRole('button', { name: 'Đang phát triển' }).isDisabled())
+  assert.equal(await p.getByTestId('preset-layout').getAttribute('data-status'), 'available')
+  assert.match(await p.getByTestId('preset-layout').innerText(), /Dùng được/)
   await page.keyboard.press('Escape')
   await page.getByRole('radio', { name: 'EN' }).click()
 })

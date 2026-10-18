@@ -279,6 +279,10 @@ export function run() {
     threw = true
   }
   check('a released job cannot be re-approved', threw)
+  // V24-024 on the CNC side: a cabinet whose dimensions come from an image / AI concept blocks production
+  const aiCab = { ...CABINETS[0], src: { kind: 'ai' as const } }
+  const cAi = run1(MV, null, [aiCab])
+  check('V24-024 cabinet with AI-concept dimensions → CABINET_DIMENSIONS_UNVERIFIED blocks production NC', cAi.blockers.some((b) => b.startsWith('CABINET_DIMENSIONS_UNVERIFIED:')) && releaseBlockers(MV, { ...c1.gate, unverifiedCabinets: [] }, COM).length === 0, cAi.blockers.join(' | '))
   const fab = fabricationAllowed(null)
   check('source drawing gate (cad/provenance fabricationAllowed): an unready source drawing blocks production', !fab.ok && releaseBlockers(MV, { ...c1.gate, sourceDrawing: { file: 'TEST-scan.png', ok: fab.ok } }, COM).includes('SOURCE_DRAWING_NOT_FABRICATION_READY:TEST-scan.png') && releaseBlockers(MV, { ...c1.gate, sourceDrawing: { file: 'TEST.dxf', ok: true } }, COM).length === 0)
   check('isStale: no record → nothing STALE; same chain → CURRENT', !isStale(null, c1.chain).stale && !isStale(c1.chain, c1.chain).stale)

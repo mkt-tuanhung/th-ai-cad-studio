@@ -7,6 +7,9 @@ import { DemoTag, NumField, PRow, PSelect, PanelTabs, Section, Select, wsStyles 
 import { MATERIALS, PRESETS, area, cutList, cutTotals, dimsLabel, perimeter, type Cabinet, type Item, type ItemCategory, type Room } from '../../interior/model'
 import { AiResult, useAiAssist } from '../../components/ai/AiAssist'
 import { interiorAi } from '../../ai/disciplines/interior'
+import { ItemSpaceSections, RoomDoors } from './SpaceInspector'
+import { resizeItem } from '../../interior/layout'
+import { commit } from './spaceKit'
 import s from './Interior.module.css'
 
 const n1 = (v: number) => v.toLocaleString('en-US', { maximumFractionDigits: 1 })
@@ -63,6 +66,8 @@ function ItemProps({ it }: { it: Item }) {
   const { rn, mn } = useNames()
   const up = (label: string, patch: Partial<Item>) => report(edit(`${it.name}: ${label}`, (d) => ({ ...d, items: d.items.map((x) => (x.id === it.id ? { ...x, ...patch } : x)) })), t)
   const cab = it.cabinet ? doc.cabinets.find((c) => c.id === it.cabinet) : undefined
+  // W / D / H within the catalog product's limits; a parametric cabinet follows its item
+  const resize = (label: string, sz: { w?: number; d?: number; h?: number }) => commit(`${it.name}: ${label}`, resizeItem(useInterior.getState().doc, it.id, sz))
   return (
     <>
       <div className={w.elem}>
@@ -87,14 +92,14 @@ function ItemProps({ it }: { it: Item }) {
       </Section>
       <Section title={p.dims}>
         {it.dia !== undefined ? (
-          <PRow label={p.diameter}><NumField label={p.diameter} value={it.dia} min={1} onCommit={(v) => up(p.diameter, { dia: v })} unit="mm" /></PRow>
+          <PRow label={p.diameter}><NumField label={p.diameter} value={it.dia} min={1} onCommit={(v) => resize(p.diameter, { w: v })} unit="mm" /></PRow>
         ) : (
           <>
-            <PRow label={p.width}><NumField label={p.width} value={it.w ?? 0} min={1} onCommit={(v) => up(p.width, { w: v })} unit="mm" /></PRow>
-            <PRow label={p.depth}><NumField label={p.depth} value={it.d ?? 0} min={1} onCommit={(v) => up(p.depth, { d: v })} unit="mm" /></PRow>
+            <PRow label={p.width}><NumField label={p.width} value={it.w ?? 0} min={1} onCommit={(v) => resize(p.width, { w: v })} unit="mm" /></PRow>
+            <PRow label={p.depth}><NumField label={p.depth} value={it.d ?? 0} min={1} onCommit={(v) => resize(p.depth, { d: v })} unit="mm" /></PRow>
           </>
         )}
-        <PRow label={p.height}><NumField label={p.height} value={it.h} min={1} onCommit={(v) => up(p.height, { h: v })} unit="mm" /></PRow>
+        <PRow label={p.height}><NumField label={p.height} value={it.h} min={1} onCommit={(v) => resize(p.height, { h: v })} unit="mm" /></PRow>
       </Section>
       <Section title={p.finish}>
         <PRow label={p.material}>
@@ -108,6 +113,7 @@ function ItemProps({ it }: { it: Item }) {
           </PRow>
         </Section>
       )}
+      <ItemSpaceSections it={it} />
     </>
   )
 }
@@ -187,6 +193,7 @@ function RoomProps({ r }: { r: Room }) {
         <PRow label={p.wallFinish}>{fin('wallFinish', ['paint', 'tile', 'wood'])}</PRow>
         <PRow label={p.ceilingFinish}>{fin('ceilingFinish', ['gypsum', 'paint', 'wood'])}</PRow>
       </Section>
+      <RoomDoors r={r} />
     </>
   )
 }
@@ -293,6 +300,12 @@ function AiTab() {
           </button>
         </div>
         {ai.host ? <AiResult a={ai} /> : (sent || sub !== 'suggestions') && <p className={s.note}>{sub === 'generate' ? a.generateNote : sub === 'modify' ? a.modifyNote : a.notConnected}</p>}
+        {sub === 'generate' && (
+          <>
+            {ai.host && <p className={s.note}>{a.generateNote}</p>}
+            <button type="button" className={w.link} data-testid="open-layouts" onClick={() => set({ bottom: 'space', spTab: 'layouts' })}>{a.openLayouts} <ChevronRight size={11} /></button>
+          </>
+        )}
       </div>
 
       <section className={s.sugg}>

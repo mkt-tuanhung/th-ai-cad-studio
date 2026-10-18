@@ -53,7 +53,7 @@ export function NestingDialog({ onClose }: { onClose: () => void }) {
   const pin = (p: typeof machine) => (p ? { profile_id: p.profile_id, revision: p.revision, hash: profileContentHash(p) } : null)
   const job: ManufacturingJob | null = useMemo(() => (machine ? (jobs.interior ?? newJob(`INT-${PROJECT}`, pin(machine))) : null), [machine, jobs.interior]) // eslint-disable-line react-hooks/exhaustive-deps
   const cnc = useMemo(
-    () => (machine ? interiorCnc({ cabinets: doc.cabinets, cam, machine, machineProfileId: mid, commissioning: currentCommissioning(rec), job, jobName: PROJECT }) : null),
+    () => (machine ? interiorCnc({ cabinets: doc.cabinets, cam, machine, machineProfileId: mid, commissioning: currentCommissioning(rec), job, jobName: PROJECT, doc }) : null),
     [doc.cabinets, cam, machine, mid, rec, job],
   )
   const up = (patch: Partial<CamPrefs>) => set({ cam: { ...cam, ...patch } })

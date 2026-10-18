@@ -162,6 +162,7 @@ export const cncEn = {
     JOB_SIGNOFF_MISSING: 'operator / engineer sign-off missing',
     JOB_FIRST_ARTICLE_QC_FAILED: 'first article QC failed',
     SOURCE_DRAWING_NOT_FABRICATION_READY: 'source drawing not calibrated / review items open',
+    CABINET_DIMENSIONS_UNVERIFIED: 'cabinet dimensions not real (image / AI concept / not confirmed) — measure and confirm first',
     NC_BYTES_NOT_APPROVED: 'NC bytes differ from the approved revision',
   } as Record<string, string>,
   // Part Studio
@@ -330,6 +331,7 @@ export const cncVi: typeof cncEn = {
     JOB_SIGNOFF_MISSING: 'thiếu chữ ký người vận hành / kỹ sư',
     JOB_FIRST_ARTICLE_QC_FAILED: 'mẫu đầu tiên không đạt QC',
     SOURCE_DRAWING_NOT_FABRICATION_READY: 'bản vẽ nguồn chưa hiệu chỉnh tỷ lệ / còn mục cần xem lại',
+    CABINET_DIMENSIONS_UNVERIFIED: 'kích thước tủ chưa phải số đo thật (từ ảnh / ý tưởng AI / chưa xác nhận) — đo và xác nhận trước',
     NC_BYTES_NOT_APPROVED: 'file NC khác bản đã duyệt',
   },
   partFile: 'Bản xem trước kỹ thuật (ZIP)',

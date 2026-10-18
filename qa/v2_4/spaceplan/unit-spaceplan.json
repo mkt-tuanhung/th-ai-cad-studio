@@ -1,0 +1,450 @@
+{
+ "chairCatalog": true,
+ "searchChair": true,
+ "catalogSize": 54,
+ "V24_025_bounds": true,
+ "V24_025_sceneItem": true,
+ "rotate90SwapsBounds": true,
+ "allCatalogBounds": true,
+ "boundsMismatch": [],
+ "autoAlignToWall": true,
+ "wallCabinetHosted": true,
+ "hostRuleSlideOnly": true,
+ "hostNoRotate": true,
+ "fixedProductNoResize": true,
+ "parametricResize": true,
+ "elevation": true,
+ "lockBlocksEdits": true,
+ "hostSetAligns": true,
+ "groupMovesTogether": true,
+ "duplicateBeside": true,
+ "V24_026_sameTransform": true,
+ "V24_026_newDims": true,
+ "V24_026_cabinetReplace": true,
+ "V24_026_clearanceRerun": true,
+ "collisionMeasured": 300,
+ "sampleClean": true,
+ "sampleIssues": [],
+ "clearanceZone": true,
+ "clearanceMeasured": {
+  "measured": 20,
+  "required": 500
+ },
+ "fixes": [
+  {
+   "kind": "move",
+   "dir": "−X",
+   "dist": 500,
+   "after": 512
+  },
+  {
+   "kind": "move",
+   "dir": "+Y",
+   "dist": 1500,
+   "after": 540
+  },
+  {
+   "kind": "move",
+   "dir": "−Y",
+   "dist": 1500,
+   "after": 540
+  }
+ ],
+ "fixResolves": true,
+ "fixOneUndo": true,
+ "doorBlocked": true,
+ "doorWidthNeedsInput": true,
+ "labelGuidance": true,
+ "V24_027_geometrySame": true,
+ "V24_027_appearanceChanges": true,
+ "V24_027_cabinetBoards": true,
+ "V24_028_tileMm": true,
+ "V24_028_sceneExport": true,
+ "options": {
+  "bedroom": {
+   "opts": [
+    {
+     "id": "A",
+     "t": "bedWall",
+     "walls": [
+      1
+     ],
+     "n": 4,
+     "score": {
+      "usable": 2.37,
+      "usableShare": 0.17362637362637362,
+      "access": 1,
+      "storageL": 3654,
+      "doorClear": 1500,
+      "cost": null,
+      "parts": {
+       "usable": 6.9,
+       "storage": 30,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 66.9
+     }
+    },
+    {
+     "id": "B",
+     "t": "bedWall",
+     "walls": [
+      3
+     ],
+     "n": 3,
+     "score": {
+      "usable": 2.11,
+      "usableShare": 0.15476190476190474,
+      "access": 1,
+      "storageL": 3555,
+      "doorClear": 1050,
+      "cost": null,
+      "parts": {
+       "usable": 6.2,
+       "storage": 29.2,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 65.4
+     }
+    },
+    {
+     "id": "C",
+     "t": "bedWall",
+     "walls": [
+      0
+     ],
+     "n": 3,
+     "score": {
+      "usable": 4.09,
+      "usableShare": 0.29926739926739926,
+      "access": 1,
+      "storageL": 1827,
+      "doorClear": 2000,
+      "cost": null,
+      "parts": {
+       "usable": 12,
+       "storage": 15,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 57
+     }
+    }
+   ],
+   "rejected": []
+  },
+  "living": {
+   "opts": [
+    {
+     "id": "A",
+     "t": "sofaWall",
+     "walls": [
+      3,
+      1
+     ],
+     "n": 4,
+     "score": {
+      "usable": 7.94,
+      "usableShare": 0.3796030607364897,
+      "access": 1,
+      "storageL": 540,
+      "doorClear": 1700,
+      "cost": null,
+      "parts": {
+       "usable": 15.2,
+       "storage": 30,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 75.2
+     }
+    },
+    {
+     "id": "B",
+     "t": "sofaWall",
+     "walls": [
+      0,
+      2
+     ],
+     "n": 4,
+     "score": {
+      "usable": 7.82,
+      "usableShare": 0.3739837398373984,
+      "access": 1,
+      "storageL": 540,
+      "doorClear": 2000,
+      "cost": null,
+      "parts": {
+       "usable": 15,
+       "storage": 30,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 75
+     }
+    },
+    {
+     "id": "C",
+     "t": "sofaWall",
+     "walls": [
+      1,
+      3
+     ],
+     "n": 4,
+     "score": {
+      "usable": 7.84,
+      "usableShare": 0.3748206599713056,
+      "access": 1,
+      "storageL": 540,
+      "doorClear": 1700,
+      "cost": null,
+      "parts": {
+       "usable": 15,
+       "storage": 30,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 75
+     }
+    }
+   ],
+   "rejected": []
+  },
+  "kitchen": {
+   "opts": [
+    {
+     "id": "A",
+     "t": "kitchenGalley",
+     "walls": [
+      0,
+      2
+     ],
+     "n": 7,
+     "score": {
+      "usable": 3.15,
+      "usableShare": 0.3100985221674877,
+      "access": 1,
+      "storageL": 3517,
+      "doorClear": 2000,
+      "cost": null,
+      "triangle": {
+       "legs": [
+        1101,
+        2319,
+        2650
+       ],
+       "sum": 6070,
+       "ok": false
+      },
+      "parts": {
+       "usable": 12.4,
+       "storage": 30,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 72.4
+     }
+    },
+    {
+     "id": "B",
+     "t": "kitchenGalley",
+     "walls": [
+      2,
+      0
+     ],
+     "n": 7,
+     "score": {
+      "usable": 3.15,
+      "usableShare": 0.3100985221674877,
+      "access": 1,
+      "storageL": 3516,
+      "doorClear": 2000,
+      "cost": null,
+      "triangle": {
+       "legs": [
+        1751,
+        2319,
+        3044
+       ],
+       "sum": 7114,
+       "ok": false
+      },
+      "parts": {
+       "usable": 12.4,
+       "storage": 30,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 72.4
+     }
+    },
+    {
+     "id": "C",
+     "t": "kitchenI",
+     "walls": [
+      2
+     ],
+     "n": 6,
+     "score": {
+      "usable": 4.43,
+      "usableShare": 0.4366995073891626,
+      "access": 1,
+      "storageL": 2342,
+      "doorClear": 2000,
+      "cost": null,
+      "triangle": {
+       "legs": [
+        1201,
+        1150,
+        2351
+       ],
+       "sum": 4702,
+       "ok": false
+      },
+      "parts": {
+       "usable": 17.5,
+       "storage": 20,
+       "door": 30,
+       "triangle": 0
+      },
+      "total": 67.5
+     }
+    }
+   ],
+   "rejected": [
+    {
+     "template": "kitchenL",
+     "walls": [
+      0,
+      1
+     ],
+     "issues": [
+      "door:k1-d1:L1-3-k1#0"
+     ]
+    },
+    {
+     "template": "kitchenL",
+     "walls": [
+      2,
+      3
+     ],
+     "issues": [
+      "clearance:L4-3-k1#0:front:L4-2-k1#0"
+     ]
+    },
+    {
+     "template": "kitchenL",
+     "walls": [
+      1,
+      2
+     ],
+     "issues": [
+      "clearance:L6-3-k1#0:front:L6-2-k1#0",
+      "door:k1-d1:L6-0-k1#0",
+      "door:k1-d1:L6-1-k1#0"
+     ]
+    },
+    {
+     "template": "kitchenGalley",
+     "walls": [
+      1,
+      3
+     ],
+     "issues": [
+      "door:k1-d1:L7-0-k1#0",
+      "door:k1-d1:L7-1-k1#0"
+     ]
+    },
+    {
+     "template": "kitchenL",
+     "walls": [
+      3,
+      0
+     ],
+     "issues": [
+      "clearance:L8-3-k1#0:front:L8-2-k1#0"
+     ]
+    },
+    {
+     "template": "kitchenGalley",
+     "walls": [
+      3,
+      1
+     ],
+     "issues": [
+      "door:k1-d1:L9-4-k1#0"
+     ]
+    }
+   ]
+  }
+ },
+ "V24_029_threeOptions": true,
+ "V24_029_distinctChangeSets": true,
+ "V24_029_geometryValid": true,
+ "V24_029_deterministic": true,
+ "V24_029_applyOneUndo": true,
+ "V24_030_rejectIntact": true,
+ "V24_031_needsInput": true,
+ "doorsFromBim": true,
+ "kitchenTriangle": [
+  {
+   "legs": [
+    1101,
+    2319,
+    2650
+   ],
+   "sum": 6070,
+   "ok": false
+  },
+  {
+   "legs": [
+    1751,
+    2319,
+    3044
+   ],
+   "sum": 7114,
+   "ok": false
+  },
+  {
+   "legs": [
+    1201,
+    1150,
+    2351
+   ],
+   "sum": 4702,
+   "ok": false
+  }
+ ],
+ "V24_037_schedule": true,
+ "scheduleChairs": true,
+ "V24_024_blocked": true,
+ "V24_024_sampleOk": true,
+ "V24_024_confirm": true,
+ "SP33_elevation": true,
+ "SP33_stable": true,
+ "elevationCabinets": [
+  {
+   "item": "imvdgxya72a",
+   "name": "Base Cabinet 600",
+   "u0": 4030,
+   "u1": 4630,
+   "z0": 0,
+   "z1": 870,
+   "doors": 1
+  },
+  {
+   "item": "imvdgxya728",
+   "name": "Wall Cabinet 600",
+   "u0": 4030,
+   "u1": 4630,
+   "z0": 1450,
+   "z1": 2170,
+   "doors": 1
+  }
+ ],
+ "ms": 523,
+ "failed": [],
+ "all": true
+}

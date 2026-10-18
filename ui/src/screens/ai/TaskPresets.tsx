@@ -95,6 +95,11 @@ export function TaskPresetsDialog({ tab: initial, onClose, onStartScan }: { tab:
     setTab('jobs')
   }
   const gate = fabricationAllowed(doc)
+  // Interior → Space Planning → Layouts (rule-based generator, preview / apply / reject)
+  const openLayouts = () => {
+    useInterior.getState().set({ bottom: 'space', spTab: 'layouts' })
+    go('interior')
+  }
 
   const presetActions = (p: PresetDef) => {
     switch (p.id) {
@@ -110,18 +115,12 @@ export function TaskPresetsDialog({ tab: initial, onClose, onStartScan }: { tab:
       case 'layout':
         return (
           <>
-            <ActionButton disabled>{P.status.dev}</ActionButton>
+            <ActionButton variant="primary" onClick={openLayouts}>{fmt(P.open, { screen: screenName('interior') })}</ActionButton>
             <ActionButton onClick={checkLayout}>{P.checkInputs}</ActionButton>
-            <ActionButton variant="ghost" onClick={() => go('interior')}>{fmt(P.open, { screen: screenName('interior') })}</ActionButton>
           </>
         )
       case 'options3':
-        return (
-          <>
-            <ActionButton disabled>{P.status.dev}</ActionButton>
-            <ActionButton variant="ghost" onClick={() => go('interior')}>{fmt(P.open, { screen: screenName('interior') })}</ActionButton>
-          </>
-        )
+        return <ActionButton variant="primary" onClick={openLayouts}>{fmt(P.open, { screen: screenName('interior') })}</ActionButton>
       case 'render4k':
         return <ActionButton onClick={() => go('renders')}>{fmt(P.open, { screen: screenName('renders') })}</ActionButton>
       case 'views':
