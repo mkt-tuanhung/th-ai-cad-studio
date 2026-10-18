@@ -32,13 +32,13 @@
   {
     "id": "SIEMENS_840D", "vendor": "Siemens", "models": ["SINUMERIK 840D sl"], "file_extensions": [".mpf"],
     "units_codes": "ISO dialect mode: G21 mm / G20 inch (Siemens mode: G71 / G70)", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "ISO dialect mode: G43 H n, cancel G49",
-    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "semicolon ; comment", "program_end": "M30",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "';' starts a comment to the end of the line", "program_end": "M30",
     "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values — ISO dialect mode needs the ISO dialect option (G291 on, G290 off)."
   },
   {
     "id": "OSAI", "vendor": "OSAI", "models": ["OPEN"], "file_extensions": [],
     "units_codes": "G71 mm / G70 inch", "absolute": "G90 / G91", "tool_change": "T n M6", "tool_length_offset": "not documented",
-    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "semicolon ; comment", "program_end": "M30",
+    "spindle": "S n M3 / M5", "multi_spindle": "not documented", "canned_cycles": "not documented", "arcs": "G2 / G3 with I J", "comments": "';' starts a comment to the end of the line", "program_end": "M30",
     "known_unsupported": [], "sources": [], "confidence": "generic", "notes": "reference values."
   },
   {

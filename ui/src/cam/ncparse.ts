@@ -120,7 +120,8 @@ export function parseNc(text: string, ctx: ParseContext = {}): ParseResult {
   }
   lines.forEach((raw, i) => {
     const ln = i + 1
-    const line = raw.replace(/\(.*?\)/g, ' ').replace(/;.*$/, '').trim().toUpperCase()
+    // comments in every style the posts write: ( … ), ; …, // …, ' …, /* … */
+    const line = raw.replace(/\/\*.*?\*\//g, ' ').replace(/\(.*?\)/g, ' ').replace(/\/\/.*$/, '').replace(/[;'].*$/, '').trim().toUpperCase()
     if (!line || line === '%') return
     const words = [...line.matchAll(/([A-Z])\s*([-+]?\d*\.?\d+)/g)].map((m) => [m[1], m[2]] as const)
     const rest = line.replace(/([A-Z])\s*([-+]?\d*\.?\d+)/g, '').replace(/\s+/g, '')

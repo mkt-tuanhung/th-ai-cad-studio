@@ -219,7 +219,7 @@ function Editor({ rec, initial, own, onCreated }: { rec: MachineRecord | null; i
         {field(L.ext.pause, d.ext?.operator_pause_code, (v) => upExt({ operator_pause_code: str(v.trim().toUpperCase()) }))}
         <label className={s.field}>
           {L.ext.comments}
-          <select aria-label={L.ext.comments} value={d.ext?.comment_style ?? ''} onChange={(e) => upExt({ comment_style: (e.target.value || null) as MachineExt['comment_style'] })}>{['', 'paren', 'semicolon', 'none'].map((k) => <option key={k} value={k}>{L.ext.commentModes[k]}</option>)}</select>
+          <select aria-label={L.ext.comments} value={d.ext?.comment_style ?? ''} onChange={(e) => upExt({ comment_style: (e.target.value || null) as MachineExt['comment_style'] })}>{['', 'paren', 'semicolon', 'slash', 'apostrophe', 'block', 'none'].map((k) => <option key={k} value={k}>{L.ext.commentModes[k]}</option>)}</select>
         </label>
       </div>
       {layers && (

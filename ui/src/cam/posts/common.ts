@@ -53,6 +53,8 @@ export interface Post {
   noNc?: boolean
   /** Whether G43 H follows each tool load for these options (default: `tlo`). */
   tloFor?: (opts: PostOptions) => boolean
+  /** Units codes for these options (family posts pick G21 or G71 from the allowed codes). */
+  unitsFor?: (opts: PostOptions) => { mm: string; inch: string }
 }
 
 export const f3 = (v: number) => (Math.round(v * 1000) / 1000).toFixed(3).replace(/\.?0+$/, '') || '0'
@@ -118,11 +120,14 @@ export function renderWith(ir: IrProgram, style: Style, perTool: boolean): PostP
   return programs
 }
 
+/** A line without its comments: ( … ), ; …, // …, ' …, /* … *\/ (the comment styles the family posts write). */
+export const stripComments = (raw: string) => raw.replace(/\/\*.*?\*\//g, ' ').replace(/\(.*?\)/g, ' ').replace(/\/\/.*$/, '').replace(/[;'].*$/, '')
+
 /** Codes a program uses (G / M normalised, plus T / H words), for the profile check. */
 export function codesIn(text: string): string[] {
   const set = new Set<string>()
   for (const raw of text.split('\n')) {
-    const line = raw.replace(/\(.*?\)/g, '').replace(/;.*$/, '').toUpperCase()
+    const line = stripComments(raw).toUpperCase()
     for (const m of line.matchAll(/([GM])\s*(\d+(?:\.\d+)?)/g)) set.add(`${m[1]}${Number(m[2])}`)
     for (const m of line.matchAll(/([TH])\s*\d+/g)) set.add(m[1])
   }

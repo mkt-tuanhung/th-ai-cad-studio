@@ -37,6 +37,11 @@ const NOTE_KEYS = ['units_codes', 'absolute', 'tool_change', 'tool_length_offset
 export type NoteKey = (typeof NOTE_KEYS)[number]
 export { NOTE_KEYS }
 
+/** Clauses of a note (split at . and ; followed by a space, or a new line). */
+const clauses = (n: string) => n.split(/(?<=[.;])\s+|\n/)
+/** A clause states the pattern without a negation. */
+const statedIn = (n: string, re: RegExp) => clauses(n).some((c) => re.test(c) && !/\bnot\b|unsupported|whether/i.test(c))
+
 /** "not supported" notes (GRBL: "M6 is an error") name codes that must NOT be allowed. */
 const NEGATIVE = /not supported|unsupported|is an error|not available|no\s+(?:tool|g43|canned)/i
 
@@ -48,7 +53,8 @@ const NEGATIVE = /not supported|unsupported|is an error|not available|no\s+(?:to
 export function familyCodes(f: ControllerFamily | null): string[] {
   if (!f || f.id === 'PROPRIETARY') return []
   const set = new Set<string>(['G0', 'G1', 'F'])
-  const deny = new Set<string>(f.known_unsupported.flatMap((x) => codesFromText(x)))
+  // "G20/G21 (use G70/G71)": only what is unsupported, not the replacement named after it
+  const deny = new Set<string>(f.known_unsupported.flatMap((x) => codesFromText(x.replace(/\(.*?\)/g, ' ').replace(/\b(?:use|uses|instead)\b.*$/i, ''))))
   for (const k of NOTE_KEYS) {
     const n = f[k]
     if (!documented(n)) continue
@@ -61,20 +67,35 @@ export function familyCodes(f: ControllerFamily | null): string[] {
       }
     }
     for (const c of codes) set.add(c)
-    if (k === 'tool_change' && /\bT\s*(?:n|<n>|\d)/i.test(n)) set.add('T')
-    if (k === 'tool_length_offset' && /\bH\s*(?:n|<n>|\d|number)/i.test(n) && codes.includes('G43')) set.add('H')
-    if (k === 'spindle' && /\bS\s*(?:n|<n>|\d|speed)|\bS word/i.test(n)) set.add('S')
+    // letters: stated in a clause that is not negated ("H-word usage not documented" does not count)
+    if (k === 'tool_change' && statedIn(n, /\bT\s*(?:n\b|<\w+>|\d|_|=)|\bT word|\bT code|\bT address/i)) set.add('T')
+    if (k === 'tool_length_offset' && codes.includes('G43') && statedIn(n, /\bH\s*(?:n\b|<\w+>|\d|_|=|number)|\bH[- ]word|with H\b/i)) set.add('H')
+    if (k === 'spindle' && statedIn(n, /\bS\s*(?:n\b|<\w+>|\d|=|speed)|\bS word|\bS = /i)) set.add('S')
   }
   for (const d of deny) set.delete(d)
   return [...set].sort()
 }
 
-/** Comment syntax the family documents: parentheses, semicolon, or none (null / not documented → no comments). */
-export function commentStyle(f: ControllerFamily | null): 'paren' | 'semicolon' | 'none' {
+export type CommentStyle = 'paren' | 'semicolon' | 'slash' | 'apostrophe' | 'block' | 'none'
+
+/**
+ * Comment syntax the family documents. Each style counts only when a sentence of the note states it without a
+ * negation ("NOT comments", "not documented", "whether … is accepted") and, for ';', calls it a comment (on FANUC
+ * ';' is the end-of-block character). Preference: ( ) > ; > // > ' > /* *\/. Nothing stated → 'none' (the post
+ * writes no comments, which every controller accepts).
+ */
+export function commentStyle(f: ControllerFamily | null): CommentStyle {
   const n = f?.comments
   if (!documented(n)) return 'none'
-  if (/parenthes|\(\s*(?:\.\.\.|…|comment|text)?\s*\)/i.test(n)) return 'paren'
-  if (/;|semicolon/i.test(n)) return 'semicolon'
+  const unsupported = (f?.known_unsupported ?? []).join(' ')
+  const sentences = n.split(/(?<=[.;])\s+|\n/)
+  const negated = (s: string) => /\bnot\b|whether|undocumented|unsupported/i.test(s)
+  const stated = (token: RegExp, needComment = false) => sentences.some((s) => token.test(s) && !negated(s) && (!needComment || /comment|to (?:the )?end of (?:line|block)|rest of (?:the )?(?:line|block)/i.test(s)))
+  if (!/parenthes/i.test(unsupported) && stated(/parenthes|round brackets|'\(\s*(?:\.\.\.|…)?\s*\)'|\(\s*(?:\.\.\.|…)\s*\)/i)) return 'paren'
+  if (stated(/';'|semicolon/i, true)) return 'semicolon'
+  if (stated(/'\/\/'|"\/\/"/)) return 'slash'
+  if (stated(/apostrophe|single quotation/i)) return 'apostrophe'
+  if (stated(/'\/\*'|"\/\*"/)) return 'block'
   return 'none'
 }
 

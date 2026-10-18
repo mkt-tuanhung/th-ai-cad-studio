@@ -59,7 +59,7 @@ function machine(m) {
 function controller(c) {
   const id = c?.id
   if (!FAMILIES.includes(id)) return warn(`controller "${id}" is not a known family — dropped`), null
-  const out = { id, vendor: str(c.vendor) ?? '—', models: arr(c.models).map(str).filter(Boolean), file_extensions: arr(c.file_extensions).map(str).filter((e) => e && /^\.[A-Za-z0-9]{1,6}$/.test(e)).map((e) => e.toLowerCase()) }
+  const out = { id, vendor: str(c.vendor) ?? '—', models: arr(c.models).map(str).filter(Boolean), file_extensions: [...new Set(arr(c.file_extensions).map((e) => /^\s*(\.[A-Za-z0-9]{1,6})\b/.exec(String(e ?? ''))?.[1]?.toLowerCase()).filter(Boolean))] }
   for (const k of NOTE_KEYS) out[k] = note(c[k])
   return { ...out, known_unsupported: arr(c.known_unsupported).map(note).filter(Boolean), sources: sources(c.sources), confidence: conf(c.confidence, id), notes: str(c.notes) ?? '' }
 }
@@ -86,6 +86,68 @@ function hingeDrilling(h) {
   }
   return d
 }
+const nums = (v) => (Array.isArray(v) ? v.map(num).filter((x) => x !== null) : [])
+/** "Ø5 mm hole" / "(Ø5 hole)" / "into Ø5 mm hole" in a fasteners text → 5. */
+const holeDiameter = (fasteners) => {
+  const t = JSON.stringify(fasteners ?? '')
+  const m = /[ØøØ]\s*(\d+(?:\.\d+)?)\s*(?:mm\s*)?hole/i.exec(t)
+  return m ? Number(m[1]) : null
+}
+/**
+ * Drawer slides of the research form → one item per runner variant: positions (from the cabinet front edge) per
+ * nominal length = holes for system screws ("both" + "B_only"; chipboard-screw-only positions are not pre-drilled),
+ * range keys ("500-550") expanded to the variant's runner lengths. Hettich form: front hole + computed rear hole.
+ * Hole depth is not in the catalogue tables → left missing ("needs data").
+ */
+function slideItems(s) {
+  const id = str(s?.id)
+  if (!id) return []
+  const csh = s.cabinet_side_holes ?? {}
+  const lengths = s.runner_lengths_NL_mm
+  const base = { brand: str(s.brand) ?? str(s.manufacturer) ?? '—', kind: 'slide', sources: sources(s.sources), confidence: conf(s.confidence, id) }
+  const diameter_mm = holeDiameter(csh.fasteners)
+  const common = { setback_mm: num(csh.front_hole_mm) ?? 37, diameter_mm, depth_mm: null, min_inside_depth_extra_mm: 0, fixing_height_mm: num(csh.fixing_height_mm), reference: str(csh.reference) }
+  const out = []
+  if (num(csh.front_hole_mm) !== null && csh.rear_hole_from_front_mm_computed && typeof csh.rear_hole_from_front_mm_computed === 'object') {
+    const positions_mm = Object.fromEntries(Object.entries(csh.rear_hole_from_front_mm_computed).map(([L, r]) => [L, [num(csh.front_hole_mm), num(r)].filter((x) => x !== null)]))
+    out.push({ ...base, id, product: str(s.product) ?? id, drilling: { ...common, positions_mm }, notes: str(s.notes) ?? '' })
+  }
+  for (const [variant, table] of Object.entries(csh)) {
+    if (!table || typeof table !== 'object' || Array.isArray(table) || ['fasteners', 'legend'].includes(variant) || /base_fixing/.test(variant)) continue
+    const rows = Object.entries(table).filter(([k, v]) => /^\d+(?:-\d+)?$/.test(k) && v && typeof v === 'object')
+    if (!rows.length) continue
+    const vKey = variant.replace(/^profile_/, '')
+    const all = Array.isArray(lengths) ? nums(lengths) : nums(lengths?.[vKey] ?? lengths?.[variant] ?? Object.values(lengths ?? {}).flat())
+    const positions_mm = {}
+    for (const [k, v] of rows) {
+      const [a, b] = k.split('-').map(Number)
+      const ls = b ? [...new Set([a, b, ...all.filter((L) => L >= a && L <= b)])] : [a]
+      const ys = [...new Set([...nums(v.both), ...nums(v.B_only)])].sort((p, q) => p - q)
+      for (const L of ls) positions_mm[String(L)] = ys
+    }
+    out.push({ ...base, id: `${id}:${vKey}`, product: `${str(s.product) ?? id} — ${vKey}`, drilling: { ...common, positions_mm, variant: vKey }, notes: [str(s.notes), str(table.note)].filter(Boolean).join(' ') })
+  }
+  if (!out.length) out.push({ ...base, id, product: str(s.product) ?? id, drilling: { ...common, raw: csh }, notes: str(s.notes) ?? '' })
+  return out
+}
+/** Connectors of the research form: cam connectors mapped to the cam keys; other types kept with their type. */
+function connectorItem(c) {
+  const id = str(c?.id)
+  if (!id) return null
+  const base = { id, brand: str(c.brand) ?? str(c.manufacturer) ?? '—', product: str(c.product) ?? id, kind: 'connector', sources: sources(c.sources), confidence: conf(c.confidence, id), notes: str(c.notes) ?? '' }
+  if (!c.cam_bore) return { ...base, drilling: { type: str(c.type) ?? 'unknown', raw: Object.fromEntries(Object.entries(c).filter(([k]) => !['id', 'manufacturer', 'product', 'sources', 'confidence', 'notes'].includes(k))) } }
+  const edge = c.bolt_edge_hole ?? c.edge_hole ?? {}
+  const opt = (v) => (Array.isArray(v) ? (nums(v).length === 1 ? nums(v)[0] : nums(v)) : num(v))
+  return {
+    ...base,
+    drilling: {
+      type: 'cam_connector', cam_diameter_mm: num(c.cam_bore.diameter_mm), cam_depth_by_thickness_mm: c.cam_bore.depth_by_panel_thickness_mm ?? null,
+      cam_distance_mm: opt(c.drilling_distance_B_mm), edge_hole_diameter_mm: opt(edge.diameter_mm), edge_hole_depth_mm: num(edge.depth_mm),
+      min_board_thickness_mm: num(c.min_panel_thickness_mm),
+    },
+  }
+}
+
 /** Slide / connector of the research form: numeric fields copied, common aliases mapped. */
 function looseDrilling(o, aliases) {
   const d = {}
@@ -121,7 +183,7 @@ function load(d) {
   if (has('hardware.json')) {
     const h = read(join(d, 'hardware.json'))
     if (Array.isArray(h)) hardware = h.map((x) => hardwareItem(x))
-    else hardware = [...arr(h.hinges).map((x) => hardwareItem(x, 'hinge')), ...arr(h.drawer_slides ?? h.slides).map((x) => hardwareItem(x, 'slide')), ...arr(h.connectors).map((x) => hardwareItem(x, 'connector'))]
+    else hardware = [...arr(h.hinges).map((x) => hardwareItem(x, 'hinge')), ...arr(h.drawer_slides ?? h.slides).flatMap(slideItems), ...arr(h.connectors).map(connectorItem)]
   }
   return { machines: machines.map(machine).filter(Boolean), controllers: controllers.map(controller).filter(Boolean), hardware: hardware.filter(Boolean) }
 }
@@ -138,11 +200,17 @@ const dedupe = (list, what) => {
 const main = load(dir)
 const isSeed = resolve(dir) === resolve(seedDir)
 const seed = isSeed || flags.has('--no-seed') ? { machines: [], controllers: [], hardware: [] } : load(seedDir)
+// imported records first (duplicates within the import are reported); a seed record only fills an id the
+// import does not have (a researched family replaces the seed family of the same id)
+const withSeed = (list, extra, what) => {
+  const d = dedupe(list, what)
+  const ids = new Set(d.map((x) => x.id))
+  return [...d, ...extra.filter((x) => !ids.has(x.id))]
+}
 const data = {
-  machines: dedupe([...main.machines, ...seed.machines], 'machine'),
-  // a researched family replaces the seed family of the same id
-  controllers: dedupe([...main.controllers, ...seed.controllers], 'controller'),
-  hardware: dedupe([...main.hardware, ...seed.hardware], 'hardware'),
+  machines: withSeed(main.machines, seed.machines, 'machine'),
+  controllers: withSeed(main.controllers, seed.controllers, 'controller'),
+  hardware: withSeed(main.hardware, seed.hardware, 'hardware'),
 }
 const origin = { kind: isSeed ? 'seed' : 'research', imported_at: isSeed ? null : new Date().toISOString().slice(0, 10), counts: { machines: data.machines.length, controllers: data.controllers.length, hardware: data.hardware.length } }
 

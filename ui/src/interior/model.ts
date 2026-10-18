@@ -135,6 +135,11 @@ export interface CabinetHardware {
   /** Heights of the slide hole lines from the bottom of the side panel (mm), one per drawer. */
   slideRows?: number[]
   connector?: string | null
+  /**
+   * Values entered for a product field the catalogue does not state (from the manufacturer's drilling template or
+   * measured), or a choice among the catalogue's options: product id → field → value (positions as a list).
+   */
+  overrides?: Record<string, Record<string, number | number[]>>
 }
 
 export type EdgeSide = 'L1' | 'L2' | 'W1' | 'W2'

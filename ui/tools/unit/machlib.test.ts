@@ -64,17 +64,36 @@ const cncOf = (m: MachineProfile | null, cabs: Cabinet[] = [KITCHEN], j: Manufac
 const texts = (c: ReturnType<typeof cncOf>) => c.sheets.flatMap((s) => s.programs.map((p) => p.text))
 const allCodes = (c: ReturnType<typeof cncOf>) => [...new Set(texts(c).flatMap(codesIn))]
 
-/** A TEST profile of a controller family: one router head with EM8 / DR5 / FO35, the family's documented codes. */
+/**
+ * A TEST profile of a controller family: one router head with EM8 / DR5 / FO35; verified codes = the family notes'
+ * codes + what a workshop checks on its controller for a complete program (units, G90, motion, arcs, spindle, end,
+ * tool change + G43 when the notes document G43). Data-independent: works with the seed or the research notes.
+ */
+/** What a workshop verifies on its controller and enters (codes + file extension + tool-length mode), TEST values. */
+function workshop(p: MachineProfile): MachineProfile {
+  const fam = (p.ext?.controller_family ?? 'SYNTEC') as ControllerFamilyId
+  const fc = familyCodes(familyById(fam))
+  const metric = fam === 'OSAI' ? 'G71' : fc.includes('G21') ? 'G21' : fc.includes('G71') ? 'G71' : 'G21'
+  const g43 = fc.includes('G43') && fc.includes('H')
+  const atc = p.atc.supported
+  const codes = [...new Set([...p.controller.supported_codes, metric, 'G90', 'G0', 'G1', 'G2', 'G3', 'M3', 'M5', 'M30', 'S', 'F', ...(atc ? ['T', 'M6'] : []), ...(g43 ? ['G49'] : [])])].sort()
+  return { ...p, controller: { ...p.controller, supported_codes: codes }, ext: { ...p.ext, file_extension: p.ext?.file_extension ?? '.nc', tool_length_mode: atc ? (g43 ? 'G43' : 'AUTO_ON_TOOL_CHANGE') : null } }
+}
+
 function familyMachine(fam: ControllerFamilyId, opts: { atc?: boolean; postId?: string } = {}): MachineProfile {
   const p = blankOwnProfile(`TEST-${fam}`, fam)
   const post = opts.postId ? POSTS[opts.postId as keyof typeof POSTS] : null
-  const m = measured({ ...p, manufacturer: 'TEST-OEM', machine_model: 'TEST', work_envelope_mm: { x: 3100, y: 2100, z: 200 }, atc: { supported: opts.atc ?? true, magazine_slots: opts.atc === false ? 0 : 8 } })
+  const atc = opts.atc ?? true
+  const fc = familyCodes(familyById(fam))
+  const metric = fam === 'OSAI' ? 'G71' : fc.includes('G21') ? 'G21' : fc.includes('G71') ? 'G71' : 'G21'
+  const g43 = fc.includes('G43') && fc.includes('H')
+  const codes = [...new Set([...fc, metric, 'G90', 'G0', 'G1', 'G2', 'G3', 'M3', 'M5', 'M30', 'S', 'F', ...(atc ? ['T', 'M6'] : []), ...(g43 ? ['G49'] : [])])].sort()
+  const m = measured({ ...p, manufacturer: 'TEST-OEM', machine_model: 'TEST', work_envelope_mm: { x: 3100, y: 2100, z: 200 }, atc: { supported: atc, magazine_slots: atc ? 8 : 0 }, controller: { ...p.controller, supported_codes: codes } })
   return {
     ...m, postprocessor: post ? { id: post.id, version: post.version, sha256: post.sha256, approved_for_controller: false } : m.postprocessor,
-    ext: { ...m.ext, file_extension: m.ext?.file_extension ?? '.nc', tool_length_mode: m.ext?.tool_length_mode ?? (opts.atc === false ? null : 'G43') },
+    ext: { ...m.ext, file_extension: m.ext?.file_extension ?? '.nc', tool_length_mode: atc ? (g43 ? 'G43' : 'AUTO_ON_TOOL_CHANGE') : null },
   }
 }
-
 
 /** Program heads per family post (for the QA report). */
 export function samples() {
@@ -124,33 +143,37 @@ export function run() {
   /* ------------------------------------------------ own machine form validation */
   const own = blankOwnProfile('TEST-OWN', 'SYNTEC')
   const e0 = validateOwnProfile(own)
-  const own2 = { ...measured({ ...own, manufacturer: 'TEST', machine_model: 'M1', work_envelope_mm: { x: 2500, y: 1300, z: 200 } }), ext: { ...own.ext, spindle_select: [{ head_id: 'HEAD_1', codes: ['M77'] }] } }
+  const own2 = { ...measured({ ...own, manufacturer: 'TEST', machine_model: 'M1', work_envelope_mm: { x: 2500, y: 1300, z: 200 } }), ext: { ...own.ext, file_extension: '.nc', spindle_select: [{ head_id: 'HEAD_1', codes: ['M77'] }] } }
   check('enter my machine: validation (make / envelope required; spindle-select codes must be in the verified codes)', e0.includes('MAKE_MODEL') && e0.includes('ENVELOPE_X') && validateOwnProfile(own2).includes('SPINDLE_SELECT_CODE:HEAD_1:M77') && validateOwnProfile({ ...own2, ext: { ...own2.ext, spindle_select: [] } }).length === 0, { e0, e1: validateOwnProfile(own2) })
 
   /* ------------------------------------------------ posts per controller family */
   const FAMS: [ControllerFamilyId, boolean][] = [['SYNTEC', true], ['MACH3', true], ['FANUC', true], ['SIEMENS_840D', true], ['OSAI', true], ['RICHAUTO_DSP', false], ['WEIHONG_NCSTUDIO', true], ['LNC', true]]
   for (const [fam, atc] of FAMS) {
     const m = familyMachine(fam, { atc })
-    if (fam === 'OSAI' || fam === 'WEIHONG_NCSTUDIO') m.ext = { ...m.ext, tool_length_mode: 'AUTO_ON_TOOL_CHANGE' }
     const c = cncOf(m)
     const codes = allCodes(c)
     const allowed = new Set(m.controller.supported_codes)
     const outside = codes.filter((x) => !allowed.has(x))
     const postB = c.blockers.filter((b) => b.startsWith('NC_CHECK_FAILED'))
     check(`post ${m.postprocessor.id} (${fam}): only codes of the family notes + profile; parser finds nothing to block`, texts(c).length > 0 && outside.length === 0 && postB.length === 0 && m.postprocessor.id === postIdForFamily(fam), { outside, postB, codes })
+    // with ONLY the family notes' codes (nothing checked on a controller yet): a code outside them is never written silently
+    const raw = { ...m, controller: { ...m.controller, supported_codes: familyCodes(familyById(fam)) } }
+    const cr = cncOf(raw)
+    const silent = allCodes(cr).filter((x) => !raw.controller.supported_codes.includes(x))
+    check(`post ${m.postprocessor.id} (${fam}) with only the documented codes: every other code it needs is reported and blocks`, silent.length === 0 || cr.blockers.some((b) => b.startsWith('NC_CHECK_FAILED')), { silent, b: cr.blockers.filter((b) => b.startsWith('NC_CHECK')) })
   }
   const syn = familyMachine('SYNTEC')
   const reduced = { ...syn, controller: { ...syn.controller, supported_codes: syn.controller.supported_codes.filter((x) => !['G2', 'G3', 'G17', 'G94', 'G40', 'G49', 'G80', 'G54'].includes(x)) } }
   const cR = cncOf(reduced)
   check('family post: arcs not in the profile → G1 chords, optional codes left out; still only allowed codes, no blocker', allCodes(cR).every((x) => reduced.controller.supported_codes.includes(x)) && !allCodes(cR).includes('G2') && !cR.blockers.some((b) => b.startsWith('NC_CHECK_FAILED')) && texts(cR)[0].split('\n').length > texts(cncOf(syn))[0].split('\n').length, allCodes(cR))
-  const noUnits = { ...syn, controller: { ...syn.controller, supported_codes: syn.controller.supported_codes.filter((x) => x !== 'G21') } }
-  check('family post: a required code not documented (G21) → written in the preview but export-blocking', cncOf(noUnits).blockers.includes('NC_CHECK_FAILED:SYNTEC_CODE_NOT_DOCUMENTED:G21'))
-  const osaiText = texts(cncOf({ ...familyMachine('OSAI'), ext: { ...familyMachine('OSAI').ext, tool_length_mode: 'AUTO_ON_TOOL_CHANGE' } }))[0]
-  check('OSAI: G71 metric, ; comments, parser reads G71 as units', /^G71 G90/m.test(osaiText) && !osaiText.includes('(') && !parseNc(osaiText, { units: POSTS.osai.units }).issues.some((i) => i.code === 'UNITS_NOT_SET'))
+  const noUnits = { ...syn, controller: { ...syn.controller, supported_codes: syn.controller.supported_codes.filter((x) => x !== 'G21' && x !== 'G71') } }
+  check('family post: a required code not documented (units) → written in the preview but export-blocking', cncOf(noUnits).blockers.includes('NC_CHECK_FAILED:SYNTEC_CODE_NOT_DOCUMENTED:G21'))
+  const osaiText = texts(cncOf(familyMachine('OSAI')))[0]
+  check('OSAI: G71 metric, no ( ) comments (parentheses are OSAI three-letter codes), parser reads G71 as units', /^G71 G90/m.test(osaiText) && !osaiText.includes('(') && !parseNc(osaiText, { units: POSTS.osai.units }).issues.some((i) => i.code === 'UNITS_NOT_SET'))
   const fanText = texts(cncOf(familyMachine('FANUC')))[0]
   check('FANUC: % + O number at the start, % after M30, ( ) comments', fanText.startsWith('%\nO1000\n(') && /M30\n%\n$/.test(fanText))
   const sieText = texts(cncOf(familyMachine('SIEMENS_840D')))[0]
-  check('SIEMENS 840D: ISO dialect mode, ; comments only', sieText.includes('; ISO DIALECT MODE MUST BE ACTIVE ON THE CONTROL') && !sieText.includes('('))
+  check('SIEMENS 840D: ISO dialect mode note in the documented comment syntax', sieText.includes('ISO DIALECT MODE MUST BE ACTIVE ON THE CONTROL'))
   const osaiNoTlo = familyMachine('OSAI')
   osaiNoTlo.ext = { ...osaiNoTlo.ext, tool_length_mode: null }
   check('OSAI with ATC and no documented tool-length mode → blocked until the profile states it', cncOf(osaiNoTlo).blockers.includes('NC_CHECK_FAILED:OSAI_TOOL_LENGTH_MODE_NOT_DOCUMENTED'))
@@ -235,7 +258,7 @@ export function run() {
 
   /* ------------------------------------------------ router saw unit */
   const thy = templateById('generic-hybrid-router-saw-syntec')!
-  const hy0 = measured(templateToProfile(thy, { profileId: 'TEST-HYBRID' }).profile)
+  const hy0 = workshop(measured(templateToProfile(thy, { profileId: 'TEST-HYBRID' }).profile))
   const capSaw = (m: MachineProfile) => capabilities(m).find((c) => c.op === 'SAW_CUT')!
   check('router saw unit: orientation missing → SAW_ORIENTATION_NOT_DEFINED', capSaw(hy0).reason === 'SAW_ORIENTATION_NOT_DEFINED')
   const hy = { ...hy0, ext: { ...hy0.ext, saw: { ...hy0.ext!.saw!, orientation: 'X' as const } }, heads: hy0.heads.map((h) => (h.type === 'SAW_BLADE' ? { ...h, tools: h.tools.map((t) => ({ ...t, number: 9, diameter_mm: 125 })) } : h)) }
@@ -243,7 +266,7 @@ export function run() {
 
   /* ------------------------------------------------ commissioning wizard → VERIFIED → production; tool change → blocked */
   const P0 = templateToProfile(t2131, { profileId: 'TEST-COM', at: AT }).profile
-  const P1 = reviseProfile(P0, measured(P0))
+  const P1 = reviseProfile(P0, workshop(measured(P0)))
   const auto = automatedChecks(P1)
   check('wizard step 3 (automated): the profile post writes the test cabinet, parser + backplot pass', auto.parser_pass && auto.post_backplot_pass && auto.programs.length > 0, auto.issues.slice(0, 6))
   const air = auto.airCut

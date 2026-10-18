@@ -60,13 +60,15 @@ export function arcChords(x0: number, y0: number, m: { cw: boolean; x: number; y
 export function familyPost(spec: FamilySpec): Post {
   const dialect = new Set(spec.dialect)
   const P = spec.id.toUpperCase()
-  const units = spec.units ?? { mm: 'G21', inch: 'G20' }
-  const sha256 = hashOf({ id: spec.id, version: spec.version, family: spec.family, dialect: [...dialect].sort(), units, tlo: spec.tloDefault, sel: !!spec.requireSpindleSelect, start: String(spec.start), after: spec.after ?? [], render: String(render) })
+  /** Units codes: fixed by the dialect (OSAI), else G21 / G20 when allowed, else G71 / G70 (Syntec, TwinCAT), else G21 (flagged). */
+  const unitsOf = (allowed: Set<string>) => spec.units ?? (allowed.has('G21') ? { mm: 'G21', inch: 'G20' } : allowed.has('G71') ? { mm: 'G71', inch: 'G70' } : { mm: 'G21', inch: 'G20' })
+  const sha256 = hashOf({ id: spec.id, version: spec.version, family: spec.family, dialect: [...dialect].sort(), units: spec.units ?? 'G21|G71', tlo: spec.tloDefault, sel: !!spec.requireSpindleSelect, start: String(spec.start), after: spec.after ?? [], render: String(render) })
 
   function render(ir: IrProgram, opts: PostOptions): { programs: PostProgram[]; issues: string[] } {
     const fam = familyById(spec.family)
     const allowed = new Set(opts.supportedCodes ?? familyCodes(fam))
     const ok = (c: string) => allowed.has(c) && dialect.has(c)
+    const units = unitsOf(allowed)
     const issues = new Set<string>()
     const need = (c: string) => {
       if (!ok(c)) issues.add(`${P}_CODE_NOT_DOCUMENTED:${c}`)
@@ -74,7 +76,17 @@ export function familyPost(spec: FamilySpec): Post {
     }
     const ext = opts.ext ?? null
     const style = ext?.comment_style ?? commentStyle(fam)
-    const cm = (s: string): string | null => (style === 'paren' ? `(${s.replace(/[()]/g, (c) => (c === '(' ? '[' : ']'))})` : style === 'semicolon' ? `; ${s.replace(/;/g, ',').replace(/[()]/g, (c) => (c === '(' ? '[' : ']'))}` : null)
+    const safe = (t: string) => t.replace(/[()]/g, (c) => (c === '(' ? '[' : ']')).replace(/;/g, ',').replace(/'/g, '').replace(/\/\*|\*\//g, '')
+    const cm = (t: string): string | null => {
+      switch (style) {
+        case 'paren': return `(${safe(t)})`
+        case 'semicolon': return `; ${safe(t)}`
+        case 'slash': return `// ${safe(t)}`
+        case 'apostrophe': return `' ${safe(t)}`
+        case 'block': return `/* ${safe(t)} */`
+        default: return null
+      }
+    }
     const fileExt = ext?.file_extension || fam?.file_extensions[0] || null
     if (!fileExt) issues.add(`${P}_FILE_EXTENSION_NOT_DOCUMENTED`)
     const end = ok('M30') ? 'M30' : ok('M2') ? 'M2' : need('M30')
@@ -96,12 +108,14 @@ export function familyPost(spec: FamilySpec): Post {
     // tools in use and their heads
     const used = [...new Set(ir.blocks.map((b) => b.tool))].map((n) => ir.tools.find((t) => t.n === n)!)
     const heads = [...new Set(used.map((t) => t.head_id ?? null))]
-    const sel = new Map((ext?.spindle_select ?? []).filter((x) => x.codes.length && x.codes.every((c) => ok(c))).map((x) => [x.head_id, x.codes]))
+    // select codes: G / M codes as they are, other words (RichAuto T1…T4) checked by their letter
+    const key = (c: string) => (/^[GM]/i.test(c) ? c.toUpperCase().replace(/^([GM])0*(\d)/, '$1$2') : c.charAt(0).toUpperCase())
+    const sel = new Map((ext?.spindle_select ?? []).filter((x) => x.codes.length && x.codes.every((c) => ok(key(c)))).map((x) => [x.head_id, x.codes]))
     const multi = heads.length > 1
     const missingSel = multi ? heads.filter((h) => !h || !sel.has(h)).map((h) => h ?? 'UNASSIGNED').sort() : []
     const combine = multi && !missingSel.length
     if (multi && missingSel.length && spec.requireSpindleSelect) issues.add(`${P}_SPINDLE_SELECT_NOT_DOCUMENTED:${missingSel.join(',')}`)
-    for (const x of ext?.spindle_select ?? []) for (const c of x.codes) if (!ok(c)) issues.add(`${P}_CODE_NOT_DOCUMENTED:${c}`)
+    for (const x of ext?.spindle_select ?? []) for (const c of x.codes) if (!ok(key(c))) issues.add(`${P}_CODE_NOT_DOCUMENTED:${c}`)
 
     // program groups: with an ATC one program per head (or one for all heads with documented select codes);
     // without an ATC one program per tool — except heads selected by documented codes, each holding its own
@@ -186,12 +200,13 @@ export function familyPost(spec: FamilySpec): Post {
     const mode = opts.ext?.tool_length_mode ?? (atc ? spec.tloDefault : 'ZERO_PER_TOOL')
     return mode === 'G43' && ok('G43') && allowed.has('H')
   }
-  return { id: spec.id, version: spec.version, label: spec.label, status: 'UNVERIFIED', dialect, tlo: spec.tloDefault === 'G43', sha256, render, family: spec.family, units: spec.units, tloFor }
+  const unitsFor = (opts: PostOptions) => unitsOf(new Set(opts.supportedCodes ?? familyCodes(familyById(spec.family))))
+  return { id: spec.id, version: spec.version, label: spec.label, status: 'UNVERIFIED', dialect, tlo: spec.tloDefault === 'G43', sha256, render, family: spec.family, units: spec.units, tloFor, unitsFor }
 }
 
 /** M0…M99: OEM M codes (spindle select) are allowed by the dialect but written only when the profile lists them. */
 const M_ALL = Array.from({ length: 100 }, (_, i) => `M${i}`)
-const ISO = ['G0', 'G1', 'G2', 'G3', 'G4', 'G17', 'G20', 'G21', 'G40', 'G43', 'G49', 'G54', 'G55', 'G56', 'G57', 'G58', 'G59', 'G80', 'G90', 'G91', 'G94', ...M_ALL, 'T', 'H', 'F', 'S']
+const ISO = ['G0', 'G1', 'G2', 'G3', 'G4', 'G17', 'G20', 'G21', 'G70', 'G71', 'G40', 'G43', 'G49', 'G54', 'G55', 'G56', 'G57', 'G58', 'G59', 'G80', 'G90', 'G91', 'G94', ...M_ALL, 'T', 'H', 'F', 'S']
 
 export const syntec = familyPost({ id: 'syntec', version: '1.0.0', label: 'Syntec (ISO)', family: 'SYNTEC', dialect: ISO, tloDefault: 'G43' })
 export const mach3 = familyPost({ id: 'mach3', version: '1.0.0', label: 'Mach3', family: 'MACH3', dialect: ISO, tloDefault: 'G43' })
@@ -200,8 +215,8 @@ export const siemens840d = familyPost({
   id: 'siemens840d', version: '1.0.0', label: 'SINUMERIK 840D (ISO dialect mode)', family: 'SIEMENS_840D', dialect: [...ISO, 'G291'], tloDefault: 'G43',
   start: (a) => (a.has('G291') ? ['G291'] : []), note: 'ISO DIALECT MODE MUST BE ACTIVE ON THE CONTROL',
 })
-export const osai = familyPost({ id: 'osai', version: '1.0.0', label: 'OSAI (ISO, G71 metric)', family: 'OSAI', dialect: [...ISO.filter((c) => c !== 'G20' && c !== 'G21'), 'G70', 'G71'], units: { mm: 'G71', inch: 'G70' }, tloDefault: null })
+export const osai = familyPost({ id: 'osai', version: '1.0.0', label: 'OSAI (ISO, G71 metric)', family: 'OSAI', dialect: ISO.filter((c) => c !== 'G20' && c !== 'G21'), units: { mm: 'G71', inch: 'G70' }, tloDefault: null })
 export const richauto = familyPost({ id: 'richauto', version: '1.0.0', label: 'RichAuto DSP', family: 'RICHAUTO_DSP', dialect: ISO, tloDefault: null, requireSpindleSelect: true })
 export const lnc = familyPost({ id: 'lnc', version: '1.0.0', label: 'LNC (ISO)', family: 'LNC', dialect: ISO, tloDefault: 'G43' })
-export const twincat = familyPost({ id: 'twincat', version: '1.0.0', label: 'Beckhoff TwinCAT CNC (codes from the profile)', family: 'BECKHOFF_TWINCAT', dialect: [...ISO, 'G70', 'G71'], tloDefault: null })
+export const twincat = familyPost({ id: 'twincat', version: '1.0.0', label: 'Beckhoff TwinCAT CNC (codes from the profile)', family: 'BECKHOFF_TWINCAT', dialect: ISO, tloDefault: null })
 export const weihong = familyPost({ id: 'weihong', version: '1.0.0', label: 'Weihong NcStudio (incl. 4-process / multi-spindle)', family: 'WEIHONG_NCSTUDIO', dialect: ISO, tloDefault: null, requireSpindleSelect: true })

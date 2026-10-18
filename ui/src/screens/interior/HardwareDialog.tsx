@@ -58,6 +58,30 @@ export function HardwareDialog({ cabinet, onClose }: { cabinet: Cabinet; onClose
       </div>
     )
   }
+  // product fields the catalogue does not state (or offers as options): entered here from the manufacturer's
+  // drilling template / measured, stored on the cabinet — never filled in by the app
+  const PLACEMENT = new Set(['boring_distance', 'end_distance', 'slide_rows'])
+  const missingFields = [hw.hinge, hw.slide, hw.connector].filter((x): x is string => !!x).flatMap((pid) =>
+    plan.issues.flatMap((code) => {
+      const d = `HW_NEEDS_DATA:${pid}:`, ch = `HW_NEEDS_CHOICE:${pid}:`
+      if (code.startsWith(d) && !PLACEMENT.has(code.slice(d.length))) return [{ pid, field: code.slice(d.length), options: null as number[] | null }]
+      if (code.startsWith(ch)) {
+        const rest = code.slice(ch.length), k = rest.lastIndexOf(':')
+        return [{ pid, field: rest.slice(0, k), options: rest.slice(k + 1).split('|').map(Number) }]
+      }
+      return []
+    }),
+  )
+  const setOv = (pid: string, field: string, v: number | number[] | null) => {
+    const cur = { ...(hw.overrides?.[pid] ?? {}) }
+    if (v === null || (Array.isArray(v) && !v.length)) delete cur[field]
+    else cur[field] = v
+    up({ overrides: { ...hw.overrides, [pid]: cur } })
+  }
+  const ovText = (pid: string, field: string) => {
+    const v = hw.overrides?.[pid]?.[field]
+    return v === undefined ? '' : Array.isArray(v) ? v.join(', ') : String(v)
+  }
   const hinge = hardwareById(hw.hinge)
   const range = hinge ? { min: hinge.drilling.boring_distance_min_mm, max: hinge.drilling.boring_distance_max_mm } : null
   return (
@@ -81,6 +105,28 @@ export function HardwareDialog({ cabinet, onClose }: { cabinet: Cabinet; onClose
           </div>
         )}
         {pick('connector', 'connector', H.connector)}
+        {missingFields.length > 0 && (
+          <div className={c0.card} data-testid="hw-missing">
+            <b>{H.enter}</b>
+            <div className={c0.grid}>
+              {missingFields.map(({ pid, field, options }) => {
+                const label = `${pid} · ${field}`
+                return options ? (
+                  <label key={label} className={c0.field}>{label}
+                    <select aria-label={label} value={ovText(pid, field)} onChange={(e) => setOv(pid, field, e.target.value === '' ? null : Number(e.target.value))}>
+                      <option value="">—</option>
+                      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <label key={label} className={c0.field}>{label}{field.startsWith('positions') ? ` (${H.listHint})` : ''}
+                    <input aria-label={label} defaultValue={ovText(pid, field)} onBlur={(e) => { const vals = e.target.value.split(/[,;\s]+/).map((x) => Number(x.replace(',', '.'))).filter((x) => Number.isFinite(x) && x > 0); setOv(pid, field, field.startsWith('positions') ? vals : vals[0] ?? null) }} />
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
         <p className={c0.small} data-testid="hw-holes">{fmt(H.holes, { n: plan.holes.length })}</p>
         {plan.issues.length ? (
           <div className={c0.blockers} data-testid="hw-issues"><b>{H.issues}</b><ul>{plan.issues.map((x) => <li key={x}>{blockerText(x, T.cnc)}</li>)}</ul></div>

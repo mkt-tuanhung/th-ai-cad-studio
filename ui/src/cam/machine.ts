@@ -111,7 +111,7 @@ export interface MachineExt {
   /** Spindle / head select codes from the controller manual, per head (never guessed). */
   spindle_select?: { head_id: string; codes: string[] }[]
   /** Comment syntax of the controller (null = the family's documented style; 'none' = write no comments). */
-  comment_style?: 'paren' | 'semicolon' | 'none' | null
+  comment_style?: 'paren' | 'semicolon' | 'slash' | 'apostrophe' | 'block' | 'none' | null
   /** Saw blade (panel saw or router-mounted saw unit), mm. Kerf measured on a test cut. */
   saw?: { blade_diameter_mm: number | null; kerf_mm: number | null; max_cut_height_mm: number | null; cut_length_mm: number | null; orientation?: 'X' | 'Y' | null; trim_mm?: number | null }
   /** Table type and the head data of the catalogue (power, max rpm, holder) per head. */

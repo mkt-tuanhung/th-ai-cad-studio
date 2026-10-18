@@ -144,7 +144,7 @@ export function interiorCnc(inp: InteriorCncInput): InteriorCnc {
     const programs: NcProgram[] = cam.programs.map((p) => ({
       name: p.name, text: p.text,
       ctx: {
-        dialect: post.dialect, dialectName: post.label, profileCodes: m ? m.controller.supported_codes : null, atc: m ? m.atc.supported : null, requireTlo, units: post.units,
+        dialect: post.dialect, dialectName: post.label, profileCodes: m ? m.controller.supported_codes : null, atc: m ? m.atc.supported : null, requireTlo, units: post.unitsFor ? post.unitsFor(opts0) : post.units,
         sheet: sh, margin: saw && cam.sawLines?.length ? saw.d / 2 + 3 : cnc.cutterD / 2 + 0.01, envelope: m?.work_envelope_mm ?? null, maxDepth: (T ?? sh.t) + cnc.breakthrough, stockT: T, allowance: Math.max(0.5, cnc.breakthrough),
         expectThrough: p.tools.includes(cam.tools[0].n) && cam.profiles.length > 0, clamps, clearance: 0, toolRadius: (n) => radius.get(n) ?? Math.max(...radius.values()), rapid: cnc.rapid,
       },

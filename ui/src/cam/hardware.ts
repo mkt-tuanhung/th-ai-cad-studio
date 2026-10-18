@@ -94,16 +94,33 @@ export function hardwarePlan(c: Cabinet, opts: { shelfPins?: boolean; thickness?
     return id ? hardwareById(id) : null
   }
 
+  // product value: the cabinet's entered value (from the manufacturer's template / measured) or the catalogue value;
+  // a list of options (e.g. B = 24 | 34) needs a choice, a missing value needs data — never a guess
+  const field = (p: HardwareItem, key: string, report = true): number | null => {
+    const o = sel.overrides?.[p.id]?.[key]
+    if (typeof o === 'number' && Number.isFinite(o)) return o
+    const v = p.drilling[key]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (report) {
+      if (Array.isArray(v) && v.length && v.every((x) => typeof x === 'number')) issues.push(`HW_NEEDS_CHOICE:${p.id}:${key}:${v.join('|')}`)
+      else needs(issues, p, key)
+    }
+    return null
+  }
+  const list = (p: HardwareItem, key: string, fallback: unknown): number[] => {
+    const o = sel.overrides?.[p.id]?.[key]
+    const v = Array.isArray(o) ? o : fallback
+    return Array.isArray(v) ? v.map(n).filter((x): x is number => x !== null) : []
+  }
+
   // ---- hinges (doors + mounting plates on the side panels)
   const hinge = missing(sel.hinge)
   const hingeX: number[] = []
   if (hinge && c.doors > 0) {
     const d = hinge.drilling
-    const D = n(d.cup_diameter_mm), depth = n(d.cup_depth_mm)
-    const C = n(sel.boringDistance) ?? n(d.boring_distance_mm)
-    const end = n(sel.hingeEndDistance) ?? n(d.end_distance_mm)
-    if (D === null) needs(issues, hinge, 'cup_diameter_mm')
-    if (depth === null) needs(issues, hinge, 'cup_depth_mm')
+    const D = field(hinge, 'cup_diameter_mm'), depth = field(hinge, 'cup_depth_mm')
+    const C = n(sel.boringDistance) ?? field(hinge, 'boring_distance_mm', false)
+    const end = n(sel.hingeEndDistance) ?? field(hinge, 'end_distance_mm', false)
     if (C === null) needs(issues, hinge, 'boring_distance')
     if (end === null) needs(issues, hinge, 'end_distance')
     const cMin = n(d.boring_distance_min_mm), cMax = n(d.boring_distance_max_mm)
@@ -121,11 +138,11 @@ export function hardwarePlan(c: Cabinet, opts: { shelfPins?: boolean; thickness?
         if (sp === null || off === null || fd === null || fdep === null) needs(issues, hinge, 'cup_screw_holes')
         else for (const x of hingeX) for (const s of [-1, 1]) holes.push({ part: 'DOOR', x: x + (s * sp) / 2, y: y + off, d: fd, depth: fdep, op: 'DRILL_VERTICAL', product: hinge.id, purpose: 'hinge-fixing' })
       } else if (obj(d.cup_screw_pattern)) notes.push(`HW_HINGE_SCREW_ON:${hinge.id}`)
+      // mounting-plate holes are pre-drilled only when the product states setback, spacing, Ø and depth
       const pl = obj(d.plate)
       if (pl) {
         const sb = n(pl.setback_mm), sp = n(pl.spacing_mm), pd = n(pl.diameter_mm), pdep = n(pl.depth_mm)
-        if (sb === null || sp === null) needs(issues, hinge, 'plate')
-        else if (pd === null || pdep === null) notes.push(`HW_PLATE_NOT_PREDRILLED:${hinge.id}`)
+        if (sb === null || sp === null || pd === null || pdep === null) notes.push(`HW_PLATE_NOT_PREDRILLED:${hinge.id}`)
         else for (const x of hingeX) for (const s of [-1, 1]) holes.push({ part: 'SIDE', x: door.bottom + x + (s * sp) / 2, y: sb, d: pd, depth: pdep, op: 'DRILL_VERTICAL', product: hinge.id, purpose: 'hinge-plate' })
         if (c.w > 1200) notes.push(`HW_PLATES_ON_DIVIDERS_MANUAL:${hinge.id}`)
       }
@@ -136,21 +153,19 @@ export function hardwarePlan(c: Cabinet, opts: { shelfPins?: boolean; thickness?
   const slide = missing(sel.slide)
   if (slide) {
     const d = slide.drilling
-    const dia = n(d.diameter_mm), depth = n(d.depth_mm)
+    const dia = field(slide, 'diameter_mm'), depth = field(slide, 'depth_mm')
     const pos = obj(d.positions_mm)
-    if (dia === null) needs(issues, slide, 'diameter_mm')
-    if (depth === null) needs(issues, slide, 'depth_mm')
     if (!pos) needs(issues, slide, 'positions_mm')
     const extra = n(d.min_inside_depth_extra_mm) ?? 0
     const lengths = pos ? Object.keys(pos).map(Number).filter(Number.isFinite).sort((a, b) => a - b) : []
     const want = n(sel.slideLength)
     const len = want ?? [...lengths].reverse().find((L) => L + extra <= c.d - 6 + 1e-9) ?? null
     if (want !== null && !lengths.includes(want)) issues.push(`HW_SLIDE_LENGTH_UNKNOWN:${slide.id}:${want}`)
-    else if (len === null) issues.push(`HW_SLIDE_TOO_LONG:${slide.id}:${c.d}`)
-    else if (len + extra > c.d - 6 + 1e-9) issues.push(`HW_SLIDE_TOO_LONG:${slide.id}:${len}>${c.d}`)
+    else if (len === null && pos) issues.push(`HW_SLIDE_TOO_LONG:${slide.id}:${c.d}`)
+    else if (len !== null && len + extra > c.d - 6 + 1e-9) issues.push(`HW_SLIDE_TOO_LONG:${slide.id}:${len}>${c.d}`)
     const rows = sel.slideRows ?? []
     if (!rows.length) issues.push(`HW_NEEDS_DATA:${slide.id}:slide_rows`)
-    const ys = len !== null && pos ? (pos[String(len)] as unknown[] | undefined)?.map(n).filter((v): v is number => v !== null) ?? [] : []
+    const ys = len !== null ? list(slide, `positions_mm.${len}`, pos?.[String(len)]) : []
     if (len !== null && pos && !ys.length) needs(issues, slide, `positions_mm.${len}`)
     if (dia !== null && depth !== null)
       for (const h of rows)
@@ -160,26 +175,28 @@ export function hardwarePlan(c: Cabinet, opts: { shelfPins?: boolean; thickness?
         }
   }
 
-  // ---- connectors (top / bottom ↔ sides)
+  // ---- connectors (top / bottom ↔ sides): cam connectors; other types are not drilled by this plan
   const con = missing(sel.connector)
   if (con) {
     const d = con.drilling
-    const get = (k: string) => {
-      const v = n(d[k])
-      if (v === null) needs(issues, con, k)
-      return v
-    }
-    const camD = get('cam_diameter_mm'), camDep = get('cam_depth_mm'), B = get('cam_distance_mm'), boltD = get('bolt_diameter_mm'), boltDep = get('bolt_depth_mm'), edgeD = get('edge_hole_diameter_mm')
-    const ps = Array.isArray(d.positions_mm) ? (d.positions_mm as unknown[]).map(n).filter((v): v is number => v !== null) : []
-    if (!ps.length) needs(issues, con, 'positions_mm')
-    const tMin = n(d.min_board_thickness_mm), tMax = n(d.max_board_thickness_mm)
-    if ((tMin !== null && tBoard < tMin - 1e-9) || (tMax !== null && tBoard > tMax + 1e-9)) issues.push(`HW_BOARD_THICKNESS_OUT_OF_RANGE:${con.id}:${tBoard}`)
-    if (camD !== null && camDep !== null && B !== null && boltD !== null && boltDep !== null && edgeD !== null && ps.length) {
-      const ys = [...new Set(ps.flatMap((p) => [p, c.d - p]))]
-      for (const y of ys) {
-        for (const x of [B, inner - B]) holes.push({ part: 'TB', x, y, d: camD, depth: camDep, op: 'DRILL_VERTICAL', product: con.id, purpose: 'cam' })
-        for (const x of [0, inner]) holes.push({ part: 'TB', x, y, d: edgeD, depth: n(d.edge_hole_depth_mm) ?? B, op: 'DRILL_HORIZONTAL', product: con.id, purpose: 'edge' })
-        for (const x of [tBoard / 2, c.h - tBoard / 2]) holes.push({ part: 'SIDE', x, y, d: boltD, depth: boltDep, op: 'DRILL_VERTICAL', product: con.id, purpose: 'bolt' })
+    if (typeof d.type === 'string' && d.type !== 'cam_connector') issues.push(`HW_CONNECTOR_TYPE_UNSUPPORTED:${con.id}:${d.type}`)
+    else {
+      const tbl = obj(d.cam_depth_by_thickness_mm)
+      const tabled = tbl ? n(tbl[String(tBoard)]) ?? n(tbl[String(Math.round(tBoard))]) : null
+      const camD = field(con, 'cam_diameter_mm'), camDep = tabled !== null && sel.overrides?.[con.id]?.cam_depth_mm === undefined ? tabled : field(con, 'cam_depth_mm')
+      const B = field(con, 'cam_distance_mm'), boltD = field(con, 'bolt_diameter_mm'), boltDep = field(con, 'bolt_depth_mm'), edgeD = field(con, 'edge_hole_diameter_mm')
+      const ps = list(con, 'positions_mm', d.positions_mm)
+      if (!ps.length) needs(issues, con, 'positions_mm')
+      const tMin = n(d.min_board_thickness_mm), tMax = n(d.max_board_thickness_mm)
+      if ((tMin !== null && tBoard < tMin - 1e-9) || (tMax !== null && tBoard > tMax + 1e-9)) issues.push(`HW_BOARD_THICKNESS_OUT_OF_RANGE:${con.id}:${tBoard}`)
+      if (camD !== null && camDep !== null && B !== null && boltD !== null && boltDep !== null && edgeD !== null && ps.length) {
+        const ys = [...new Set(ps.flatMap((p) => [p, c.d - p]))]
+        for (const y of ys) {
+          for (const x of [B, inner - B]) holes.push({ part: 'TB', x, y, d: camD, depth: camDep, op: 'DRILL_VERTICAL', product: con.id, purpose: 'cam' })
+          // the edge hole must reach the cam bore: its depth is B when the product states none
+          for (const x of [0, inner]) holes.push({ part: 'TB', x, y, d: edgeD, depth: n(d.edge_hole_depth_mm) ?? B, op: 'DRILL_HORIZONTAL', product: con.id, purpose: 'edge' })
+          for (const x of [tBoard / 2, c.h - tBoard / 2]) holes.push({ part: 'SIDE', x, y, d: boltD, depth: boltDep, op: 'DRILL_VERTICAL', product: con.id, purpose: 'bolt' })
+        }
       }
     }
   }
