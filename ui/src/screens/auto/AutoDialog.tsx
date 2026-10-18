@@ -143,11 +143,17 @@ export function AutoDialog() {
     if (!res) return {}
     const out: Partial<Record<Part, string>> = {}
     const run = (p: Part, f: () => string | null) => { try { const e = f(); if (e) out[p] = e } catch (e) { out[p] = why(e) } }
-    if (res.house) run('house', () => checkBim(res.house!.built.model))
+    // a wrong storey stack (two storeys at one elevation, numbers against elevations) is not offered at all
+    if (res.house) run('house', () => {
+      const pr = res.house!.built.problems ?? []
+      if (pr.length) return pr.map((x) => { const [code, ...rest] = x.split(':'); return fmt((t.notes as Record<string, string>)[code] ?? x, { what: rest.join(':') }) }).join('; ')
+      return checkBim(res.house!.built.model)
+    })
     if (res.house?.interior) run('interior', () => checkInterior(res.house!.interior!))
     if (res.route) run('route', () => checkCivil(res.route!.model))
     if (res.mepModel) run('mep', () => checkMep(res.mepModel!.model))
     return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [res])
   const takes = (p: Part) => keep[p] && !rejected[p]
 

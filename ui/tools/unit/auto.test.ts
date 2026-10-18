@@ -178,9 +178,10 @@ export async function run() {
       const v = boq(bm, autoEn.boq.words).find((r) => r.key === 'beam')!.total
       check('roof beams: the roof slab thickness deducted (no double concrete)', near(v, (220 * (400 - roof.thickness) * 1000) / 1e9, 1e-9), `${v} vs ${(220 * (400 - roof.thickness) * 1000) / 1e9}`)
     } else check('roof beams: the fixture has a roof slab', false)
-    // stairs: steps + waist slab by formula
+    // stairs: the flight's profile (the 3D / IFC section) × width, close to the textbook formula
     const v1 = stairConcrete(10, 170, 2500, 1000)
-    check('stair formula: n·½·r·g·w + t·√(run²+rise²)·w (10 × 170 / 2500 × 1000 → 0.666 m³)', near(v1, 0.2125 + (150 * Math.hypot(2500, 1700) * 1000) / 1e9, 1e-12) && v1 > 0.66 && v1 < 0.67)
+    const textbook = 0.2125 + (150 * Math.hypot(2500, 1700) * 1000) / 1e9
+    check('stair concrete: the profile area × width, within 8 % of n·½·r·g·w + t·√(run²+rise²)·w (10 × 170 / 2500 × 1000)', Math.abs(v1 - textbook) / textbook < 0.08, `${v1.toFixed(4)} vs ${textbook.toFixed(4)}`)
     check('stair formula: unit check — doubling the width doubles it, zero risers → 0', near(stairConcrete(10, 170, 2500, 2000), 2 * v1, 1e-12) && stairConcrete(0, 170, 2500, 1000) === 0)
     const st = m.stairs.find((x) => !x.spiral) ?? { id: 'S-t', category: 'stair' as const, mark: 'S-t', baseLevel: m.levels[0].id, topLevel: m.levels[1].id, x: 0, y: 0, angle: 0, length: 3000, width: 1000 }
     {
