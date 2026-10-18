@@ -8,7 +8,7 @@
  */
 import type { HostApi } from '../services/host'
 import { task } from './discipline'
-import { LAYER_ROLES, type LayerRole, type LayerStat } from '../bim/fromCad'
+import { LAYER_ROLES, norm, type LayerRole, type LayerStat } from '../bim/fromCad'
 
 const lit = (s: string) => JSON.stringify(JSON.stringify(s))
 
@@ -81,6 +81,16 @@ Roles: ground (the natural / existing ground line of the cross sections: "mặt 
 "thiết kế", "TK", "mặt cắt thiết kế"), ignore (everything else: hatches, dimensions, frames, texts, grid / drop lines "đường dóng", scales, titles,
 plans, existing structures, roads "đường hiện trạng").
 Answer only JSON: {"layers":[{"name":"…","role":"…"}]} with every listed layer exactly once.`
+
+/**
+ * Layers the route rule (civilRuleRole, src/civil/fromCad.ts) leaves out on purpose — hatches, texts, frames,
+ * dimensions, drop lines "đường dóng", axes, scales, stake names. The same list as the first test of that rule:
+ * such a layer is KNOWN to the rule (as "not a ground / design line"), so the AI is never asked about it and its
+ * answer can never make it ground or design.
+ */
+export function civilExcluded(layer: string): boolean {
+  return /HATCH|TEXT|\bCHU\b|KHUNG|KICH ?THUOC|\bDIM|THUOC|DONG\b|DUONG ?DONG|TRUC|TIM\b|CAO ?DO\b|KHOANG|TEN ?COC/.test(norm(layer))
+}
 
 export interface CivilLayerFacts {
   name: string
