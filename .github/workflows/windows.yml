@@ -27,6 +27,9 @@ jobs:
           if ($LASTEXITCODE) { throw "build" }
           ctest --test-dir build-core --output-on-failure
           if ($LASTEXITCODE) { throw "tests" }
+      - name: Offline 3D library pack installer (merge keeps the user's items)
+        shell: pwsh
+        run: ./native/packaging/windows/library_pack/test_library_pack.ps1
 
   # CNC safety + CAM unit tests (pure TypeScript, Node): a failed assertion ({ all: false }) fails the job
   ui-unit:

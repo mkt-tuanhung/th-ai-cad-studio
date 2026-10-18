@@ -194,7 +194,7 @@ await step('Version history (project menu): diff in counts, restore the version 
   const before = dlg.getByTestId('version').filter({ hasText: 'Before a change' }).first()
   const diff = await before.getByTestId('version-diff').innerText()
   assert.match(diff, /BIM[^]*walls 4 → 24/, diff)
-  assert.match(await before.innerText(), /App 0\.1\.0/)
+  assert.match(await before.innerText(), /App 0\.1\.1/)
   try {
     await before.getByRole('button', { name: 'Restore' }).click()
     await page.waitForFunction(() => window.__thcad.bim.getState().model.walls.length === 24)
