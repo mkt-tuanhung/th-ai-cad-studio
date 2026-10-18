@@ -67,8 +67,8 @@ export interface Prefs {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  // EN is pre-selected in all approved mockups.
-  language: 'en',
+  // Vietnamese is the default (owner, 2026-10-18); English is the second language (VI / EN switch).
+  language: 'vi',
   themePreference: 'light',
   units: 'mm',
   precision: 2,
@@ -130,7 +130,12 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'thcad.settings',
-      version: 1,
+      version: 2,
+      // v2: Vietnamese became the default — saved settings from before switch to VI once (the user can pick EN again)
+      migrate: (persisted, version) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>
+        return (version < 2 ? { ...p, language: 'vi' } : p) as SettingsState
+      },
       // new keys fall back to their defaults (shallow merge); shortcuts merge per action
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>
