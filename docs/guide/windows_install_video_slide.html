@@ -1,0 +1,37 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><style>
+*{box-sizing:border-box} body{margin:0;width:1920px;height:1080px;overflow:hidden;font-family:"Helvetica Neue",Arial,sans-serif;background:#f4f7f8;color:#1d2733}
+.top{position:absolute;left:0;right:0;top:0;height:120px;background:#0f1b21;display:flex;align-items:center;padding:0 60px;gap:28px}
+.top img{height:64px}.top .t{color:#fff;font-size:44px;font-weight:700}
+.n{position:absolute;right:60px;top:38px;color:#6fbdbd;font-size:30px}
+.left{position:absolute;left:60px;top:170px;width:620px}
+.left li{font-size:34px;line-height:1.35;margin-bottom:26px;overflow-wrap:anywhere}
+.left ul{padding-left:30px;margin:0}
+.img{position:absolute;left:720px;top:160px;width:1140px;height:860px;display:flex;align-items:center;justify-content:center}
+.img img{max-width:100%;max-height:100%;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.full .left{width:1700px}.full .left li{font-size:44px;margin-bottom:34px}
+.tag{position:absolute;right:70px;bottom:40px;background:#fff6e8;color:#b45309;border:2px dashed #b45309;padding:8px 18px;font-size:24px;font-weight:700}
+.foot{position:absolute;left:60px;bottom:30px;color:#5b6673;font-size:22px;letter-spacing:.06em}
+.cover{background:linear-gradient(180deg,#0f1b21,#060a0d);color:#e6f2f4;display:flex;flex-direction:column;align-items:center;justify-content:center;height:1080px;text-align:center}
+.cover img{width:900px}.cover .a{font-size:64px;font-weight:700;margin-top:40px;color:#fff}.cover .b{font-size:34px;color:#6fbdbd;margin-top:16px;letter-spacing:.06em}.cover .c{margin-top:70px;font-size:30px;letter-spacing:.12em;color:#d4e3e8}
+.ss{background:#0d5ea6;color:#fff;padding:60px 70px;font-family:"Segoe UI",Arial,sans-serif;width:1080px;border-radius:6px}
+.ss .h{font-size:58px;font-weight:300;margin-bottom:30px}.ss .b{font-size:28px}.ss .l{text-decoration:underline;margin-top:24px;font-size:30px}
+.ss .btns{margin-top:70px;text-align:right}.ss .btn{display:inline-block;border:2px solid #fff;padding:12px 40px;margin-left:24px;font-size:28px}.ss .hi{background:#fff;color:#0d5ea6;font-weight:700}
+.ring{outline:6px solid #ffcc00;outline-offset:6px}
+.wiz{display:flex;background:#fff;border:2px solid #b9c2c9;width:1100px;height:720px;font-family:"Segoe UI",Arial,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.2)}
+.wiz .art{width:330px;background:#0b1216}.wiz .art img{width:100%;height:100%;object-fit:cover;box-shadow:none;border-radius:0}
+.wiz .body{flex:1;padding:50px;position:relative}.wiz .wt{font-size:36px;font-weight:600;margin-bottom:24px}.wiz .wb{font-size:24px;color:#333;line-height:1.5}
+.wiz .bar{position:absolute;bottom:34px;right:40px}.wiz .bar span{display:inline-block;border:2px solid #8a96a0;padding:8px 34px;margin-left:16px;font-size:24px}.wiz .bar .hi{border-color:#0067c0;background:#0067c0;color:#fff}
+</style></head><body><div id="root"></div><script>
+const q=new URLSearchParams(location.search), i=Number(q.get('i')); 
+fetch('slides.json').then(r=>r.json()).then(S=>{const s=S[i], N=S.length; const r=document.getElementById('root'); const esc=(x)=>x.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const top=`<div class="top"><img src="../shots/md-logo.png"><div class="t">${esc(s.title)}</div><div class="n">${i+1} / ${N}</div></div>`;
+const ul=`<div class="left"><ul>${s.bullets.map(b=>'<li>'+esc(b)+'</li>').join('')}</ul></div>`;
+const foot=`<div class="foot">MD CAD AI STUDIO · Xây dựng và phát triển bởi Minh Dũng</div>`;
+if(s.kind==='cover'||s.kind==='end'){ r.innerHTML=`<div class="cover"><img src="../shots/md-logo.png"><div class="a">${esc(s.title)}</div><div class="b">${s.kind==='end'?esc(s.bullets.join(' · ')):'Windows 10 / 11 · Phiên bản 0.1.0'}</div><div class="c">Xây dựng và phát triển bởi Minh Dũng</div></div>`; return }
+if(s.kind==='text'){ document.body.classList.add('full'); r.innerHTML=top+ul+foot; return }
+let mid='';
+if(s.kind==='shot') mid=`<div class="img"><img src="../shots/${s.img}"></div>`;
+if(s.kind==='smartscreen') mid=`<div class="img"><div class="ss"><div class="h">Windows protected your PC</div><div class="b">Microsoft Defender SmartScreen prevented an unrecognized app from starting.</div><div class="l"><span class="ring">① More info</span></div><div class="b" style="margin-top:24px">App: MD-CAD-AI-STUDIO-Setup-0.1.0.exe<br>Publisher: Unknown publisher</div><div class="btns"><span class="btn ring">② Run anyway</span><span class="btn hi">Don't run</span></div></div></div>`;
+if(s.kind==='wizard') mid=`<div class="img"><div class="wiz"><div class="art"><img src="../shots/wizard_art.png"></div><div class="body"><div class="wt">Chào mừng đến với trình cài đặt MD CAD AI STUDIO</div><div class="wb">Design Smarter. Build Faster.<br><br>Trình cài đặt sẽ cài MD CAD AI STUDIO 0.1.0 lên máy: CAD 2D, BIM, MEP, hạ tầng, cơ khí, nội thất và render, cùng AI chạy hoàn toàn trên máy này — không tài khoản, không cloud.<br><br>Xây dựng và phát triển bởi Minh Dũng</div><div class="bar"><span class="hi ring">Tiếp &gt;</span><span>Huỷ</span></div></div></div></div>`;
+r.innerHTML=top+ul+mid+(s.cap?`<div class="tag">${esc(s.cap)}</div>`:'')+foot;
+})</script></body></html>

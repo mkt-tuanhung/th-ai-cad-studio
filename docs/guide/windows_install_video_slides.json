@@ -1,0 +1,181 @@
+[
+ {
+  "kind": "cover",
+  "title": "Hướng dẫn cài đặt đầy đủ trên Windows",
+  "bullets": [],
+  "narration": "Xin chào. Video này hướng dẫn cài đặt đầy đủ M D CAD AI Studio trên Windows: ứng dụng, mô hình trí tuệ nhân tạo chạy ngoại tuyến, tăng tốc bằng card đồ hoạ, render ảnh như thật và khai báo máy CNC.",
+  "img": null,
+  "cap": null
+ },
+ {
+  "kind": "text",
+  "title": "Bộ cài gồm những gì",
+  "bullets": [
+   "1_CAI_DAT — bộ cài ứng dụng (181 MB)",
+   "2_MO_HINH_AI — mô hình AI chạy offline (4,9 GB)",
+   "CHEP_MO_HINH_VAO_MAY.bat — chép mô hình vào máy",
+   "3_HUONG_DAN — tài liệu PDF và video này"
+  ],
+  "narration": "Thư mục bàn giao có ba phần. Thư mục một là bộ cài ứng dụng. Thư mục hai là mô hình trí tuệ nhân tạo chạy ngoại tuyến, kèm một tệp chép tự động. Thư mục ba là tài liệu hướng dẫn.",
+  "img": null,
+  "cap": null
+ },
+ {
+  "kind": "text",
+  "title": "Yêu cầu máy tính",
+  "bullets": [
+   "Windows 10 bản 1809 trở lên hoặc Windows 11, 64-bit",
+   "RAM 16 GB cho mô hình 7B (máy 8 GB: dùng mô hình 3B)",
+   "Ổ đĩa trống khoảng 20 GB",
+   "Card đồ hoạ hỗ trợ Vulkan (không bắt buộc)",
+   "Không cần Internet khi sử dụng"
+  ],
+  "narration": "Máy cần Windows mười bản 1809 trở lên hoặc Windows mười một, sáu mươi bốn bít. Nên có mười sáu gigabyte RAM cho mô hình bảy tỉ tham số. Card đồ hoạ hỗ trợ Vulkan giúp trí tuệ nhân tạo chạy nhanh hơn, nhưng không bắt buộc. Khi dùng không cần Internet.",
+  "img": null,
+  "cap": null
+ },
+ {
+  "kind": "smartscreen",
+  "title": "Bước 1 — Chạy bộ cài",
+  "bullets": [
+   "Nháy đúp MD-CAD-AI-STUDIO-Setup-0.1.0.exe",
+   "Nếu Windows cảnh báo: bấm “More info”, rồi “Run anyway”",
+   "(Ứng dụng chưa ký số nên Windows cảnh báo lần đầu)"
+  ],
+  "narration": "Bước một. Mở thư mục một, nháy đúp tệp cài đặt. Vì ứng dụng chưa được ký số, lần đầu Windows có thể hiện cảnh báo Windows protected your PC. Bấm More info, sau đó bấm Run anyway để tiếp tục.",
+  "img": null,
+  "cap": "HÌNH MINH HOẠ — không phải ảnh chụp"
+ },
+ {
+  "kind": "wizard",
+  "title": "Bước 1 — Trình cài đặt",
+  "bullets": [
+   "Chọn ngôn ngữ Tiếng Việt",
+   "Màn chào mừng → Tiếp",
+   "Giữ thư mục mặc định C:\\Program Files\\MD CAD AI STUDIO",
+   "Tích “Tạo biểu tượng trên màn hình” → Cài đặt → Hoàn tất"
+  ],
+  "narration": "Chọn ngôn ngữ tiếng Việt. Màn chào mừng có dòng xây dựng và phát triển bởi Minh Dũng. Bấm tiếp, giữ thư mục cài mặc định, chọn tạo biểu tượng trên màn hình, bấm cài đặt, rồi hoàn tất.",
+  "img": null,
+  "cap": "HÌNH MINH HOẠ — ảnh bên trái là ảnh thật của bộ cài"
+ },
+ {
+  "kind": "shot",
+  "title": "Mở ứng dụng lần đầu",
+  "bullets": [
+   "Màn giới thiệu khoảng 4 giây",
+   "Vào trang Tổng quan"
+  ],
+  "narration": "Khi mở lần đầu, ứng dụng chạy màn giới thiệu khoảng bốn giây rồi vào trang tổng quan.",
+  "img": "10_dashboard.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 2 — Cài mô hình AI (offline)",
+  "bullets": [
+   "Đóng ứng dụng",
+   "Chạy 2_MO_HINH_AI\\CHEP_MO_HINH_VAO_MAY.bat",
+   "Mô hình được chép vào %LOCALAPPDATA%\\MD CAD AI STUDIO\\models",
+   "Hoặc: Cài đặt → Tải mô hình AI → Tải về"
+  ],
+  "narration": "Bước hai, cài mô hình trí tuệ nhân tạo. Đóng ứng dụng, mở thư mục hai và nháy đúp tệp chép mô hình vào máy. Tệp này chép khoảng năm gigabyte vào đúng thư mục ứng dụng đọc. Nếu không có gói, có thể vào cài đặt, chọn tải mô hình trí tuệ nhân tạo, rồi bấm tải về.",
+  "img": "30_settings_ai.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Kiểm tra: “Mô hình sẵn sàng”",
+  "bullets": [
+   "Mở lại ứng dụng → Cài đặt → Cấu hình mô hình AI",
+   "Nhãn “Mô hình sẵn sàng”, dòng “Đang chạy trên máy này”"
+  ],
+  "narration": "Mở lại ứng dụng, vào cài đặt, cấu hình mô hình trí tuệ nhân tạo. Nhãn mô hình sẵn sàng nghĩa là trợ lý đã dùng được.",
+  "img": "33_model_ready.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 3 — Bật GPU cho AI",
+  "bullets": [
+   "Cập nhật driver card đồ hoạ (NVIDIA / AMD / Intel)",
+   "Cài đặt → Hiệu năng → bật “Dùng GPU cho AI” → Lưu thay đổi",
+   "Trạng thái ghi tên card kèm (Vulkan)"
+  ],
+  "narration": "Bước ba, bật tăng tốc bằng card đồ hoạ. Cập nhật driver mới nhất cho card, sau đó vào cài đặt, mục hiệu năng, bật dùng GPU cho AI và lưu thay đổi. Dòng trạng thái sẽ ghi tên card kèm chữ Vulkan.",
+  "img": "32_settings_performance.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 4 — Giọng nói tiếng Việt",
+  "bullets": [
+   "Whisper đã chép ở Bước 2 (hoặc tải trong Quản lý mô hình)",
+   "Windows: Privacy & security → Microphone → cho phép ứng dụng desktop",
+   "Bấm micro, nói lệnh — chữ hiện vào ô lệnh"
+  ],
+  "narration": "Bước bốn, nhận giọng nói tiếng Việt. Mô hình Whisper đã được chép ở bước hai. Trong Windows, vào quyền riêng tư, micro, và cho phép ứng dụng máy tính dùng micro. Sau đó bấm biểu tượng micro trong ứng dụng và nói lệnh.",
+  "img": "31_manage_models.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 5 — Render ảnh như thật (tuỳ chọn)",
+  "bullets": [
+   "Cài Blender miễn phí từ blender.org (thư mục mặc định)",
+   "Kết xuất → Engine “Blender Cycles (local)”",
+   "Ảnh render chỉ để trình bày, không dùng làm số đo / CNC"
+  ],
+  "narration": "Bước năm, tuỳ chọn. Muốn ảnh đẹp như ảnh chụp, cài Blender miễn phí vào thư mục mặc định. Trong màn kết xuất, chọn engine Blender Cycles. Ảnh render chỉ để trình bày, không bao giờ dùng làm số đo hay chương trình CNC.",
+  "img": "60_renders.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 6 — Chọn máy CNC trong thư viện",
+  "bullets": [
+   "Nội thất → Bảng cắt → Xếp tấm & CNC → Thư viện máy",
+   "122 mẫu máy, 12 loại bộ điều khiển",
+   "Chọn máy → “Dùng máy này”, hoặc “Tự nhập máy”"
+  ],
+  "narration": "Bước sáu, khai báo máy CNC. Vào nội thất, bảng cắt, xếp tấm và CNC, mở thư viện máy. Thư viện có một trăm hai mươi hai mẫu máy và mười hai loại bộ điều khiển. Chọn máy giống máy của xưởng rồi bấm dùng máy này, hoặc tự nhập thông số máy.",
+  "img": "42_machine_detail.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 6 — Nghiệm thu máy (6 bước)",
+  "bullets": [
+   "Khảo sát → Số đo → Parser / backplot → Chạy không tải → Mẫu đầu → Ký nghiệm thu",
+   "Chưa nghiệm thu: chỉ xuất bản xem trước “KHÔNG DÙNG CHO MÁY”",
+   "Đã nghiệm thu: mở “Xuất NC sản xuất”"
+  ],
+  "narration": "Số liệu thư viện chỉ là tham khảo. Hãy đo máy thật và làm sáu bước nghiệm thu: khảo sát, số đo, kiểm tra chương trình tự động, chạy không tải, cắt mẫu đầu và ký nghiệm thu. Khi chưa nghiệm thu, ứng dụng chỉ xuất bản xem trước có ghi không dùng cho máy. Ứng dụng không bao giờ tự khởi động máy CNC.",
+  "img": "44_commissioning_wizard.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 7 — Kiểm tra nhanh",
+  "bullets": [
+   "Ctrl+K → “1 lệnh”: dựng tất cả từ bản vẽ",
+   "Trợ lý AI, CAD 2D, BIM 3D, Bố trí không gian, Render, CNC",
+   "Thử lại khi tắt mạng — mọi thứ vẫn chạy"
+  ],
+  "narration": "Bước bảy, kiểm tra nhanh. Bấm Control K và gõ một lệnh để dựng toàn bộ từ bản vẽ. Thử trợ lý AI, CAD hai chiều, BIM ba chiều, bố trí không gian, render và CNC. Có thể tắt mạng rồi thử lại, mọi chức năng vẫn chạy.",
+  "img": "20_command_search.png",
+  "cap": null
+ },
+ {
+  "kind": "end",
+  "title": "Hoàn tất",
+  "bullets": [
+   "Chi tiết: HUONG_DAN_CAI_DAT_WINDOWS.pdf",
+   "Dữ liệu chạy hoàn toàn trên máy, không gửi lên Internet",
+   "Gặp lỗi: chụp màn hình và gửi kèm mô tả"
+  ],
+  "narration": "Vậy là xong. Chi tiết từng bước và cách xử lý sự cố có trong tài liệu PDF đi kèm. Dữ liệu của bạn chạy hoàn toàn trên máy. Cảm ơn bạn đã sử dụng M D CAD AI Studio.",
+  "img": null,
+  "cap": null
+ }
+]

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>MD CAD AI STUDIO — Hướng dẫn cài đặt đầy đủ trên Windows</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+  :root { --teal: #155058; --teal2: #1f9aa0; --ink: #1d2733; --mute: #5b6673; --line: #dde3e8; --warn: #b45309; --warnbg: #fff6e8; --okbg: #e9f7f1; --ok: #13704a; }
+  * { box-sizing: border-box; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; color: var(--ink); font-size: 10.6pt; line-height: 1.5; margin: 0; }
+  h1 { font-size: 22pt; color: var(--teal); margin: 0 0 6mm; }
+  h2 { font-size: 15pt; color: var(--teal); border-bottom: 2px solid var(--teal2); padding-bottom: 2mm; margin: 0 0 4mm; break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 5mm 0 2mm; break-after: avoid; }
+  p { margin: 0 0 2.5mm; }
+  ol, ul { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin: 0 0 1.2mm; }
+  .page { break-before: page; }
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: linear-gradient(180deg, #0f1b21, #060a0d); color: #e6f2f4; margin: -16mm -15mm 0; padding: 0 20mm; }
+  .cover img { width: 120mm; }
+  .cover .t1 { font-size: 24pt; font-weight: 700; margin-top: 10mm; color: #fff; }
+  .cover .t2 { font-size: 13pt; color: #6fbdbd; margin-top: 3mm; letter-spacing: .06em; }
+  .cover .meta { margin-top: 14mm; font-size: 10.5pt; color: #a9bec7; }
+  .cover .credit { margin-top: 18mm; font-size: 11pt; letter-spacing: .1em; color: #d4e3e8; }
+  .fig { margin: 3mm 0 4mm; text-align: center; break-inside: avoid; }
+  .fig img { max-width: 100%; border: 1px solid var(--line); border-radius: 2mm; }
+  .fig .cap { font-size: 8.8pt; color: var(--mute); margin-top: 1.2mm; }
+  .box { border-radius: 2mm; padding: 3mm 4mm; margin: 3mm 0 4mm; break-inside: avoid; }
+  .warn { background: var(--warnbg); border-left: 4px solid var(--warn); }
+  .ok { background: var(--okbg); border-left: 4px solid var(--ok); }
+  .note { background: #eef5f6; border-left: 4px solid var(--teal2); }
+  code, .path { font-family: Menlo, Consolas, monospace; font-size: 9.2pt; background: #f1f4f6; padding: .3mm 1.2mm; border-radius: 1mm; }
+  table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; font-size: 9.6pt; break-inside: auto; }
+  th, td { border: 1px solid var(--line); padding: 1.6mm 2.2mm; text-align: left; vertical-align: top; }
+  th { background: #f1f6f7; }
+  .step { display: inline-block; background: var(--teal); color: #fff; border-radius: 50%; width: 6.2mm; height: 6.2mm; text-align: center; line-height: 6.2mm; font-size: 9pt; font-weight: 700; margin-right: 2mm; }
+  .toc li { margin-bottom: 1.6mm; }
+  /* illustrations of Windows dialogs (not screenshots) */
+  .illu { border: 2px dashed #9aa7b1; border-radius: 2mm; padding: 3mm; position: relative; margin: 3mm 0 4mm; break-inside: avoid; }
+  .illu .tag { position: absolute; top: -3.2mm; right: 4mm; background: #fff; padding: 0 2mm; font-size: 8.5pt; color: #6b7681; font-weight: 700; }
+  .ss { background: #0d5ea6; color: #fff; padding: 7mm 9mm; font-family: "Segoe UI", Arial, sans-serif; }
+  .ss .h { font-size: 17pt; font-weight: 300; margin-bottom: 4mm; }
+  .ss .b { font-size: 10pt; opacity: .95; }
+  .ss .link { text-decoration: underline; margin-top: 3mm; display: inline-block; }
+  .ss .btns { margin-top: 8mm; text-align: right; }
+  .ss .btn { display: inline-block; border: 1px solid #fff; padding: 1.5mm 6mm; margin-left: 3mm; font-size: 10pt; }
+  .ss .btn.hi { background: #fff; color: #0d5ea6; font-weight: 700; }
+  .wiz { display: flex; border: 1px solid #b9c2c9; background: #fff; font-family: "Segoe UI", Arial, sans-serif; height: 70mm; }
+  .wiz .art { width: 44mm; background: #0b1216; display: flex; align-items: stretch; }
+  .wiz .art img { width: 100%; height: 100%; object-fit: cover; border: 0; border-radius: 0; }
+  .wiz .body { flex: 1; padding: 6mm 7mm; position: relative; }
+  .wiz .wt { font-size: 14pt; font-weight: 600; margin-bottom: 3mm; }
+  .wiz .wb { font-size: 9.6pt; color: #333; }
+  .wiz .bar { position: absolute; bottom: 4mm; right: 6mm; }
+  .wiz .bar span { display: inline-block; border: 1px solid #8a96a0; padding: .8mm 5mm; margin-left: 2mm; font-size: 9pt; }
+  .wiz .bar span.hi { border-color: #0067c0; background: #0067c0; color: #fff; }
+  .small { font-size: 9pt; color: var(--mute); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <img src="shots/md-logo.png" alt="MD CAD AI STUDIO">
+  <div class="t1">Hướng dẫn cài đặt đầy đủ trên Windows</div>
+  <div class="t2">Design Smarter. Build Faster.</div>
+  <div class="meta">Phiên bản 0.1.0 · Windows 10 (1809 trở lên) / Windows 11 · 64-bit<br>Ứng dụng, mô hình AI chạy offline, GPU, render, máy CNC</div>
+  <div class="credit">Xây dựng và phát triển bởi Minh Dũng</div>
+</div>
+
+<div class="page">
+  <h2>Mục lục</h2>
+  <ol class="toc">
+    <li>Bộ cài gồm những gì</li>
+    <li>Yêu cầu máy tính</li>
+    <li>Bước 1 — Cài ứng dụng</li>
+    <li>Bước 2 — Cài mô hình AI (offline, không cần mạng)</li>
+    <li>Bước 3 — Bật tăng tốc GPU cho AI</li>
+    <li>Bước 4 — Nhận giọng nói tiếng Việt và micro</li>
+    <li>Bước 5 — Render ảnh như thật bằng Blender (tuỳ chọn)</li>
+    <li>Bước 6 — Khai báo máy CNC và nghiệm thu</li>
+    <li>Bước 7 — Kiểm tra nhanh toàn bộ chức năng</li>
+    <li>Dữ liệu, sao lưu, cập nhật và gỡ cài đặt</li>
+    <li>Xử lý sự cố thường gặp</li>
+    <li>Giấy phép và quyền riêng tư</li>
+  </ol>
+  <div class="box note">Các ảnh chụp giao diện trong tài liệu này là ảnh thật của ứng dụng (giao diện trên Windows giống hệt). Vài ảnh chụp từ bản macOS nên đường dẫn thư mục hiển thị kiểu macOS; trên Windows đường dẫn tương ứng được ghi ngay dưới ảnh. Các hộp thoại riêng của Windows (SmartScreen, trình cài đặt) là <b>hình minh hoạ</b>, được đánh dấu rõ.</div>
+
+  <h2 style="margin-top:8mm">1. Bộ cài gồm những gì</h2>
+  <table>
+    <tr><th>Thư mục / file</th><th>Nội dung</th><th>Dung lượng</th></tr>
+    <tr><td><code>1_CAI_DAT\MD-CAD-AI-STUDIO-Setup-0.1.0.exe</code></td><td>Bộ cài ứng dụng: CAD 2D, BIM, MEP, hạ tầng, cơ khí, nội thất, render, CNC, đọc/ghi DWG, nhận giọng nói (chương trình Whisper), thư viện 122 máy CNC</td><td>181 MB</td></tr>
+    <tr><td><code>2_MO_HINH_AI\models\…gguf</code></td><td>Mô hình trợ lý AI Qwen2.5-7B (2 file, chạy offline)</td><td>4,4 GB</td></tr>
+    <tr><td><code>2_MO_HINH_AI\models\whisper\…bin</code></td><td>Mô hình nhận giọng nói tiếng Việt Whisper large-v3-turbo</td><td>547 MB</td></tr>
+    <tr><td><code>2_MO_HINH_AI\CHEP_MO_HINH_VAO_MAY.bat</code></td><td>Tự chép mô hình vào đúng thư mục ứng dụng đọc</td><td></td></tr>
+    <tr><td><code>2_MO_HINH_AI\SHA256SUMS.txt</code></td><td>Mã kiểm tra file mô hình</td><td></td></tr>
+    <tr><td><code>3_HUONG_DAN\</code></td><td>Tài liệu này (PDF) và video hướng dẫn (MP4)</td><td></td></tr>
+  </table>
+
+  <h2>2. Yêu cầu máy tính</h2>
+  <table>
+    <tr><th>Hạng mục</th><th>Tối thiểu</th><th>Khuyên dùng</th></tr>
+    <tr><td>Hệ điều hành</td><td>Windows 10 bản 1809, 64-bit</td><td>Windows 11 64-bit</td></tr>
+    <tr><td>RAM</td><td>8 GB (dùng mô hình AI 3B, tải trong ứng dụng)</td><td>16 GB trở lên (mô hình 7B trong gói này)</td></tr>
+    <tr><td>Ổ đĩa trống</td><td>8 GB</td><td>20 GB (dự án, render, bộ nhớ đệm)</td></tr>
+    <tr><td>Card đồ hoạ</td><td>Không bắt buộc (AI chạy bằng CPU, chậm hơn)</td><td>NVIDIA / AMD / Intel hỗ trợ <b>Vulkan</b>, driver mới; 6 GB VRAM trở lên cho mô hình 7B</td></tr>
+    <tr><td>Màn hình</td><td>1366 × 768</td><td>1920 × 1080 trở lên</td></tr>
+    <tr><td>Internet</td><td colspan="2">Không cần khi dùng. Chỉ cần nếu muốn tải thêm (mô hình 3B, Blender)</td></tr>
+  </table>
+</div>
+
+<div class="page">
+  <h2>3. Bước 1 — Cài ứng dụng</h2>
+  <p><span class="step">1</span>Chép cả thư mục bàn giao vào máy (ví dụ <code>D:\MD_CAD_AI_STUDIO</code>), mở thư mục <code>1_CAI_DAT</code>, nháy đúp <code>MD-CAD-AI-STUDIO-Setup-0.1.0.exe</code>.</p>
+  <p><span class="step">2</span>Ứng dụng chưa được ký số (code signing), nên lần đầu Windows có thể hiện cảnh báo <b>"Windows protected your PC"</b>. Bấm <b>More info</b> (Thông tin thêm), rồi bấm <b>Run anyway</b> (Vẫn chạy).</p>
+  <div class="illu"><span class="tag">HÌNH MINH HOẠ — không phải ảnh chụp</span>
+    <div class="ss">
+      <div class="h">Windows protected your PC</div>
+      <div class="b">Microsoft Defender SmartScreen prevented an unrecognized app from starting.</div>
+      <div class="b link">① More info</div>
+      <div class="b" style="margin-top:3mm">App: MD-CAD-AI-STUDIO-Setup-0.1.0.exe<br>Publisher: Unknown publisher</div>
+      <div class="btns"><span class="btn">② Run anyway</span><span class="btn hi">Don't run</span></div>
+    </div>
+  </div>
+  <p><span class="step">3</span>Nếu Windows hỏi <b>cài cho mọi người dùng hay chỉ cho bạn</b>: chọn "Install for all users" (cần quyền quản trị) hoặc "Install for me only" (không cần quyền quản trị). Cả hai đều chạy đầy đủ chức năng.</p>
+  <p><span class="step">4</span>Chọn ngôn ngữ <b>Tiếng Việt</b>. Màn chào mừng có dòng <i>"Xây dựng và phát triển bởi Minh Dũng"</i>. Bấm <b>Tiếp</b>.</p>
+  <div class="illu"><span class="tag">HÌNH MINH HOẠ — bố cục trình cài đặt, ảnh bên trái là ảnh thật của bộ cài</span>
+    <div class="wiz">
+      <div class="art"><img src="shots/wizard_art.png" alt=""></div>
+      <div class="body">
+        <div class="wt">Chào mừng đến với trình cài đặt MD CAD AI STUDIO</div>
+        <div class="wb">Design Smarter. Build Faster.<br><br>Trình cài đặt sẽ cài MD CAD AI STUDIO 0.1.0 lên máy: CAD 2D, BIM, MEP, hạ tầng, cơ khí, nội thất và render, cùng AI chạy hoàn toàn trên máy này — không tài khoản, không cloud.<br><br>Xây dựng và phát triển bởi Minh Dũng</div>
+        <div class="bar"><span class="hi">Tiếp &gt;</span><span>Huỷ</span></div>
+      </div>
+    </div>
+  </div>
+  <p><span class="step">5</span>Thư mục cài mặc định: <code>C:\Program Files\MD CAD AI STUDIO</code> (hoặc trong thư mục người dùng nếu chọn "chỉ cho bạn"). Giữ nguyên, bấm <b>Tiếp</b>.</p>
+  <p><span class="step">6</span>Tích <b>Tạo biểu tượng trên màn hình</b> nếu muốn, bấm <b>Cài đặt</b>. Trình cài đặt tự tạo sẵn thư mục mô hình <code>%LOCALAPPDATA%\MD CAD AI STUDIO\models</code>.</p>
+  <p><span class="step">7</span>Bấm <b>Hoàn tất</b> (để tích "Mở MD CAD AI STUDIO"). Lần đầu mở có màn giới thiệu khoảng 4 giây, sau đó vào trang Tổng quan.</p>
+  <div class="fig"><img src="shots/10_dashboard.png" style="width:92%"><div class="cap">Trang Tổng quan sau khi mở ứng dụng (ảnh chụp thật).</div></div>
+</div>
+
+<div class="page">
+  <h2>4. Bước 2 — Cài mô hình AI (offline)</h2>
+  <p>Bộ cài ứng dụng không chứa mô hình AI (để nhẹ). Gói bàn giao này có sẵn mô hình, chép vào máy là dùng được ngay, <b>không cần Internet</b>.</p>
+  <h3>Cách A — tự động (khuyên dùng)</h3>
+  <ol>
+    <li>Đóng MD CAD AI STUDIO nếu đang mở.</li>
+    <li>Mở thư mục <code>2_MO_HINH_AI</code>, nháy đúp <code>CHEP_MO_HINH_VAO_MAY.bat</code>.</li>
+    <li>Chờ chép xong (khoảng 5 GB, vài phút), bấm phím bất kỳ để đóng cửa sổ.</li>
+  </ol>
+  <h3>Cách B — chép tay</h3>
+  <ol>
+    <li>Mở File Explorer, dán vào thanh địa chỉ: <code>%LOCALAPPDATA%\MD CAD AI STUDIO\models</code> rồi Enter.</li>
+    <li>Chép 2 file <code>qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf</code> và <code>…-00002-of-00002.gguf</code> vào đây.</li>
+    <li>Tạo thư mục con <code>whisper</code>, chép <code>ggml-large-v3-turbo-q5_0.bin</code> vào đó.</li>
+  </ol>
+  <h3>Cách C — tải trong ứng dụng (khi không có gói)</h3>
+  <p>Cài đặt → <b>Cấu hình mô hình AI</b> → khối <b>Tải mô hình AI</b> → chọn mô hình (ứng dụng khuyên theo RAM) → <b>Tải về</b>. Ứng dụng tự kiểm tra mã sha256, tải tiếp được nếu mất mạng, nạp mô hình và hỏi thử trước khi báo sẵn sàng.</p>
+  <div class="fig"><img src="shots/30_settings_ai.png" style="width:92%"><div class="cap">Cài đặt → Cấu hình mô hình AI khi máy chưa có mô hình (ảnh chụp thật). Trên Windows, "Lưu vào" là <code>C:\Users\&lt;tên&gt;\AppData\Local\MD CAD AI STUDIO\models</code>.</div></div>
+  <div class="box ok"><b>Kiểm tra:</b> mở lại ứng dụng → Cài đặt → Cấu hình mô hình AI phải hiện nhãn <b>"Mô hình sẵn sàng"</b> và dòng "Đang chạy trên máy này — …". Thanh "Cấu hình hiện tại" bên phải hiện "Mọi thứ sẵn sàng".</div>
+  <div class="box warn">Máy RAM 8 GB: mô hình 7B sẽ chạy rất chậm hoặc không nạp được. Hãy dùng Cách C và chọn <b>Qwen2.5-3B</b> (lưu ý: giấy phép của bản 3B chỉ cho dùng phi thương mại).</div>
+</div>
+
+<div class="page">
+  <h2>5. Bước 3 — Bật tăng tốc GPU cho AI</h2>
+  <ol>
+    <li>Cập nhật driver card đồ hoạ mới nhất từ trang của NVIDIA, AMD hoặc Intel (driver mới có sẵn <b>Vulkan</b>).</li>
+    <li>Trong ứng dụng: Cài đặt → khối <b>Hiệu năng</b> → bật <b>"Dùng GPU cho AI"</b> → bấm <b>Lưu thay đổi</b>.</li>
+    <li>Kiểm tra tại Cài đặt → Cấu hình mô hình AI: dòng trạng thái ghi tên card kèm <b>(Vulkan)</b>. Nếu ghi "CPU" thì AI đang chạy bằng CPU (vẫn dùng được, chậm hơn).</li>
+  </ol>
+  <div class="fig"><img src="shots/32_settings_performance.png" style="width:88%"><div class="cap">Khối Hiệu năng: "Tăng tốc phần cứng" (vẽ 2D) và "Dùng GPU cho AI" (ảnh chụp thật).</div></div>
+
+  <h2 style="margin-top:6mm">6. Bước 4 — Nhận giọng nói tiếng Việt và micro</h2>
+  <ol>
+    <li>Mô hình Whisper đã được chép ở Bước 2 (hoặc Cài đặt → Quản lý mô hình → <b>Tải Whisper large-v3-turbo (547 MB)</b>).</li>
+    <li>Windows: <b>Settings → Privacy &amp; security → Microphone</b>: bật "Microphone access" và "Let desktop apps access your microphone".</li>
+    <li>Trong ứng dụng, bấm biểu tượng micro ở ô lệnh/trợ lý AI, nói lệnh, ví dụ: <i>"vẽ cửa sổ rộng một mét hai"</i>. Chữ hiện vào ô lệnh để bạn kiểm tra trước khi gửi.</li>
+  </ol>
+  <div class="fig"><img src="shots/31_manage_models.png" style="width:80%"><div class="cap">Cài đặt → Quản lý mô hình: mô hình AI và nhận giọng nói (ảnh chụp thật).</div></div>
+</div>
+
+<div class="page">
+  <h2>7. Bước 5 — Render ảnh như thật bằng Blender (tuỳ chọn)</h2>
+  <p>Ứng dụng có sẵn bộ render (OCCT). Để có ảnh đẹp hơn như ảnh chụp, cài thêm <b>Blender</b> (miễn phí):</p>
+  <ol>
+    <li>Tải Blender bản Windows Installer tại <code>https://www.blender.org/download/</code> (bản 4.2 trở lên).</li>
+    <li>Cài với thư mục mặc định <code>C:\Program Files\Blender Foundation\Blender x.x\</code>. Ứng dụng tự tìm thấy Blender ở đây.</li>
+    <li>Trong ứng dụng: <b>Kết xuất</b> → Engine chọn <b>"Blender Cycles (local)"</b>. Render chạy ở tiến trình riêng nên ứng dụng không bị đứng; bấm Huỷ là dừng ngay.</li>
+    <li>Ánh sáng nhanh: Ngày / Hoàng hôn / Đêm. Lưu góc camera để render lại đúng góc. Mỗi ảnh có file ghi chú nguồn gốc và nhãn <b>"Chỉ để trình bày"</b> — ảnh render không bao giờ được dùng làm số đo hay chương trình CNC.</li>
+  </ol>
+  <div class="fig"><img src="shots/60_renders.png" style="width:92%"><div class="cap">Màn Kết xuất (ảnh chụp thật).</div></div>
+  <div class="box note">Không cài Blender: ứng dụng vẫn render bằng bộ render có sẵn và ghi rõ đang dùng bộ nào.</div>
+</div>
+
+<div class="page">
+  <h2>8. Bước 6 — Khai báo máy CNC và nghiệm thu</h2>
+  <p>Ứng dụng có <b>thư viện 122 mẫu máy</b> (Biesse, HOMAG, Weeke, SCM/Morbidelli, Felder, Holz-Her, KDT, Nanxing, Blue Elephant, iGOLDEN, Anderson, Shoda, Heian, máy do đại lý tại Việt Nam bán…) và <b>12 loại bộ điều khiển</b> (Syntec, Weihong NcStudio, RichAuto, Mach3, Fanuc, Siemens, OSAI, LNC…).</p>
+  <h3>8.1 Chọn máy</h3>
+  <ol>
+    <li>Vào <b>Nội thất</b> → tab <b>Bảng cắt (Sản xuất)</b> → <b>Xếp tấm &amp; CNC…</b></li>
+    <li>Bấm <b>Thư viện máy…</b> → tìm theo hãng, loại máy, bộ điều khiển, khổ bàn → chọn máy giống máy của xưởng → <b>Dùng máy này</b>.</li>
+    <li>Máy không có trong thư viện: tab <b>Tự nhập máy</b>, điền đầy đủ thông số (khổ bàn, các đầu, dao đo thực, thay dao tự động, bộ điều khiển, vùng kẹp, Z an toàn…).</li>
+  </ol>
+  <div class="two">
+    <div class="fig"><img src="shots/41_machine_library.png"><div class="cap">Thư viện máy: tìm và lọc.</div></div>
+    <div class="fig"><img src="shots/42_machine_detail.png"><div class="cap">Chi tiết máy, nguồn số liệu, máy tương tự.</div></div>
+  </div>
+  <div class="box warn"><b>Quan trọng:</b> số liệu thư viện là số <b>tham khảo catalogue</b>. Hồ sơ máy tạo ra ở trạng thái <b>CHƯA NGHIỆM THU</b>. Phải đo và nhập số thật của máy mình (dao, offset X/Y/Z, gốc phôi, Z an toàn, vùng kẹp; máy cưa panel: bề dày mạch cưa – kerf). Khi chưa nghiệm thu, ứng dụng chỉ xuất <b>bản xem trước</b> có đuôi <code>.NOT_FOR_MACHINE.txt</code>, không xuất file chạy máy.</div>
+  <h3>8.2 Nghiệm thu máy (6 bước, ngay trong ứng dụng)</h3>
+  <ol>
+    <li><b>Khảo sát:</b> đánh dấu danh sách kiểm tra (nút dừng khẩn, liên động, tài liệu bộ điều khiển, hành trình, bàn máy…).</li>
+    <li><b>Số đo:</b> nhập số đo thực các đầu, dao, offset.</li>
+    <li><b>Parser / backplot:</b> ứng dụng tự đọc lại chương trình mẫu và kiểm tra.</li>
+    <li><b>Chạy không tải:</b> chạy file <code>*.AIRCUT_TEST.nc</code> (mọi đường dao nâng cao 20 mm trên mặt ván) dưới sự giám sát của thợ vận hành, ghi kết quả.</li>
+    <li><b>Mẫu đầu:</b> cắt một chi tiết mẫu, đo và nhập kích thước so với dung sai.</li>
+    <li><b>Ký nghiệm thu:</b> tên thợ vận hành và kỹ sư, ngày. Máy chuyển sang <b>ĐÃ NGHIỆM THU</b> (có thời hạn); nút <b>Xuất NC sản xuất</b> mở cho máy đó.</li>
+  </ol>
+  <div class="fig"><img src="shots/44_commissioning_wizard.png" style="width:86%"><div class="cap">Máy &amp; Dao → Trình nghiệm thu máy (ảnh chụp thật).</div></div>
+  <div class="box warn">Sau khi nghiệm thu, mọi thay đổi đầu, dao, offset, bộ điều khiển hay bộ hậu xử lý sẽ <b>tự khoá lại</b> máy, cần nghiệm thu lại. Ứng dụng <b>không bao giờ</b> tự gửi chương trình hay tự khởi động máy CNC — thợ vận hành nạp file và bấm chạy trên máy.</div>
+  <p class="small">Máy Biesse / HOMAG / SCM dùng định dạng chương trình riêng của hãng: ứng dụng xuất DXF theo lớp cho phần mềm CAM của hãng (bSolid / woodWOP / Maestro) tạo chương trình. Máy cưa panel: ứng dụng xếp tấm kiểu cắt thẳng một mạch và xuất sơ đồ cắt, danh sách thứ tự cắt.</p>
+</div>
+
+<div class="page">
+  <h2>9. Bước 7 — Kiểm tra nhanh toàn bộ chức năng</h2>
+  <table>
+    <tr><th>#</th><th>Chức năng</th><th>Cách thử</th><th>Kết quả đúng</th></tr>
+    <tr><td>1</td><td>Trợ lý AI</td><td>Trợ lý AI → hỏi "Mô hình BIM có bao nhiêu tường?"</td><td>Trả lời đúng số tường, vài giây</td></tr>
+    <tr><td>2</td><td>AI sửa bản vẽ</td><td>CAD 2D → gõ "vẽ đường thẳng từ 0,0 đến 5000,0"</td><td>Hiện đề xuất +1, bấm Duyệt mới vẽ, ⌘Z/Ctrl+Z hoàn tác</td></tr>
+    <tr><td>3</td><td>Giọng nói</td><td>Bấm micro, nói một lệnh</td><td>Chữ tiếng Việt hiện vào ô lệnh</td></tr>
+    <tr><td>4</td><td>Mở DWG</td><td>Tổng quan → Mở tệp → chọn file .dwg</td><td>Mở trong CAD 2D</td></tr>
+    <tr><td>5</td><td>1 lệnh</td><td>Ctrl+K → gõ "1 lệnh" → chọn bản vẽ mặt bằng DWG</td><td>Xem tóm tắt, Duyệt → BIM, nội thất, khối lượng, bộ hồ sơ</td></tr>
+    <tr><td>6</td><td>3D trực tiếp</td><td>BIM → 3D, sửa chiều dài một tường trong Thuộc tính</td><td>3D cập nhật ngay, Ctrl+Z hoàn tác một bước</td></tr>
+    <tr><td>7</td><td>Bố trí không gian</td><td>Nội thất → tab Bố trí không gian → Bố cục → tạo phương án</td><td>Tối đa 3 phương án có điểm, Áp dụng / Từ chối</td></tr>
+    <tr><td>8</td><td>Render</td><td>Kết xuất → Render khung nhìn hiện tại</td><td>Ra ảnh, giao diện không đứng</td></tr>
+    <tr><td>9</td><td>CNC</td><td>Nội thất → Bảng cắt → Xếp tấm &amp; CNC → chọn máy</td><td>Ra sơ đồ tấm; xuất bản xem trước (máy chưa nghiệm thu)</td></tr>
+    <tr><td>10</td><td>Chạy không mạng</td><td>Tắt Wi-Fi / rút mạng, làm lại các bước trên</td><td>Mọi thứ vẫn chạy</td></tr>
+  </table>
+  <div class="two">
+    <div class="fig"><img src="shots/20_command_search.png"><div class="cap">Ctrl+K: tìm lệnh, công cụ, "1 lệnh".</div></div>
+    <div class="fig"><img src="shots/50_space_planning.png"><div class="cap">Nội thất → Bố trí không gian.</div></div>
+  </div>
+  <div class="fig"><img src="shots/70_ai_presets.png" style="width:80%"><div class="cap">Trợ lý AI → Tuỳ chọn trò chuyện → Tác vụ AI mẫu (ảnh chụp thật).</div></div>
+  <p class="small">Phím tắt: trên Windows dùng <b>Ctrl</b> thay cho ⌘ trong các ảnh chụp. Cài đặt → Phím tắt có hồ sơ AutoCAD / SketchUp / 3ds Max / MD.</p>
+</div>
+
+<div class="page">
+  <h2>10. Dữ liệu, sao lưu, cập nhật và gỡ cài đặt</h2>
+  <table>
+    <tr><th>Dữ liệu</th><th>Vị trí trên Windows</th></tr>
+    <tr><td>Ứng dụng</td><td><code>C:\Program Files\MD CAD AI STUDIO\</code></td></tr>
+    <tr><td>Mô hình AI</td><td><code>%LOCALAPPDATA%\MD CAD AI STUDIO\models\</code> (đổi được ở Cài đặt → Thư mục mô hình)</td></tr>
+    <tr><td>Dự án / tự lưu / xuất nhập</td><td><code>Documents\MD CAD AI STUDIO\Projects</code>, <code>…\Autosave</code>, <code>…\Exchange</code> (đổi được ở Cài đặt → Tệp &amp; thư mục)</td></tr>
+  </table>
+  <ul>
+    <li><b>Sao lưu:</b> Cài đặt → Tuỳ chọn xử lý tệp: bật "Tự khôi phục tệp khi lỗi" và "Tạo bản sao trước khi lưu" → ứng dụng tự lưu phiên bản; mở <b>Lịch sử phiên bản</b> (Ctrl+K → gõ "phiên bản") để khôi phục. Xuất toàn bộ dự án ra một file JSON để chuyển máy.</li>
+    <li><b>Cập nhật:</b> chạy bộ cài phiên bản mới đè lên; dữ liệu và mô hình được giữ nguyên.</li>
+    <li><b>Gỡ cài đặt:</b> Settings → Apps → Installed apps → MD CAD AI STUDIO → Uninstall. Mô hình AI và dự án <b>không bị xoá</b>; xoá tay thư mục nếu muốn giải phóng ổ đĩa.</li>
+  </ul>
+
+  <h2 style="margin-top:6mm">11. Xử lý sự cố thường gặp</h2>
+  <table>
+    <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
+    <tr><td>Không cài được, Windows chặn</td><td>SmartScreen: More info → Run anyway. Phần mềm diệt virus: cho phép file cài đặt (ứng dụng chưa ký số).</td></tr>
+    <tr><td>AI báo "Chưa nạp mô hình"</td><td>Kiểm tra 2 file <code>.gguf</code> nằm đúng <code>%LOCALAPPDATA%\MD CAD AI STUDIO\models</code> (không nằm trong thư mục con), mở lại ứng dụng. Hoặc Cài đặt → Thư mục mô hình → Đổi… trỏ tới nơi đặt file.</td></tr>
+    <tr><td>AI quá chậm</td><td>Bật "Dùng GPU cho AI", cập nhật driver. Máy RAM ≤ 8 GB: dùng mô hình 3B.</td></tr>
+    <tr><td>Trạng thái AI ghi "CPU" dù có card rời</td><td>Cài driver mới có Vulkan; laptop: cắm sạc, chọn "High performance" cho ứng dụng trong Windows Graphics settings.</td></tr>
+    <tr><td>Micro không nhận</td><td>Windows Settings → Privacy &amp; security → Microphone: cho phép ứng dụng desktop.</td></tr>
+    <tr><td>Không thấy "Blender Cycles (local)" chạy</td><td>Cài Blender vào thư mục mặc định trong <code>C:\Program Files\Blender Foundation\</code>, mở lại ứng dụng.</td></tr>
+    <tr><td>Nút "Xuất NC sản xuất" bị khoá</td><td>Đúng thiết kế: máy chưa nghiệm thu. Di chuột vào nút để xem lý do, làm Trình nghiệm thu máy (mục 8.2).</td></tr>
+    <tr><td>Máy cưa panel không xếp tấm</td><td>Nhập bề dày mạch cưa (kerf) đo thực trong Máy &amp; Dao.</td></tr>
+    <tr><td>Chữ / giao diện quá nhỏ</td><td>Windows Display → Scale 125–150 %; ứng dụng tự co giãn.</td></tr>
+  </table>
+
+  <h2 style="margin-top:6mm">12. Giấy phép và quyền riêng tư</h2>
+  <ul>
+    <li>Ứng dụng chạy <b>hoàn toàn trên máy</b>, không cần tài khoản, không gửi bản vẽ hay dữ liệu lên Internet.</li>
+    <li>Mô hình Qwen2.5-7B-Instruct: giấy phép Apache-2.0. Whisper: MIT. Qwen2.5-3B (tải tuỳ chọn): giấy phép nghiên cứu, phi thương mại.</li>
+    <li>LibreDWG (đọc/ghi DWG) đi kèm dưới dạng chương trình riêng, giấy phép GPL-3.0, có mã nguồn kèm theo. Blender (người dùng tự cài): GPL.</li>
+    <li>Danh sách thành phần và giấy phép: thư mục <code>licenses</code> trong thư mục cài đặt.</li>
+  </ul>
+  <div class="box note">Phiên bản 0.1.0 đã được build và tự kiểm tra trên máy chủ Windows (GitHub Actions). Nếu gặp lỗi trên máy của bạn, hãy chụp màn hình và gửi kèm mô tả các bước để được hỗ trợ.</div>
+  <p style="text-align:center; margin-top:10mm; letter-spacing:.08em; color:#155058">Xây dựng và phát triển bởi Minh Dũng</p>
+</div>
+
+</body>
+</html>
