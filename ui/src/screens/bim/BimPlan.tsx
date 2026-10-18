@@ -8,7 +8,7 @@ import { isStructuralWall, stairFlight, stairGeometry, type FlightGeom } from '.
 import { Modal } from '../../components/ui/Modal'
 import { ruleMessage } from '../../state/bim'
 import { useLinkedT } from '../../i18n/ws/linked'
-import { faceLengths, lockAngle, moveWall, moveWallEnd, parseTyped, pointAt, radiusThrough, snapWalls, wallRun, type SnapKind } from '../../bim/walls'
+import { faceLengths, joinedAt, lockAngle, moveWall, moveWallEnd, parseTyped, pointAt, radiusThrough, snapWalls, wallRun, type SnapKind } from '../../bim/walls'
 import { roomEdgesAt } from '../../bim/rooms'
 import { smartOutline, arcLoop } from '../../bim/smartRoom'
 import { commitSmartRoom } from './LinkedDialogs'
@@ -106,7 +106,7 @@ export function BimPlan() {
   /** Snap (v2.4): endpoint, midpoint, intersection, perpendicular from the last point, nearest on a wall face or
    *  centre line (within 10 px), else a 50 mm grid nearly orthogonal from the last point; Shift locks the angle to 15°
    *  steps, Alt turns the snaps off. `exclude`: the wall being dragged. */
-  const snap = (raw: P2, mods: { shift?: boolean; alt?: boolean } = {}, exclude?: string, from?: P2 | null): { p: P2; snapped: boolean; kind?: SnapKind } => {
+  const snap = (raw: P2, mods: { shift?: boolean; alt?: boolean } = {}, exclude: string[] = [], from?: P2 | null): { p: P2; snapped: boolean; kind?: SnapKind } => {
     if (!view) return { p: raw, snapped: false }
     const last = from !== undefined ? from : pts.at(-1) ?? null
     if (!mods.alt) {
@@ -114,7 +114,7 @@ export function BimPlan() {
       for (const c of onLevel(model.columns)) extra.push([c.x, c.y])
       for (const g of model.grids) extra.push(g.a, g.b)
       for (const x of [...onLevel(model.slabs), ...model.rooms.filter((q) => q.level === level && q.outline)]) extra.push(...(x.outline ?? []))
-      const sn = snapWalls(model, walls.filter((w) => w.id !== exclude), raw, 10 * view.k, last, extra)
+      const sn = snapWalls(model, walls.filter((w) => !exclude.includes(w.id)), raw, 10 * view.k, last, extra)
       if (sn) return { p: sn.p, snapped: true, kind: sn.kind }
     }
     let p: P2 = [Math.round(raw[0] / 50) * 50, Math.round(raw[1] / 50) * 50]
@@ -779,7 +779,9 @@ export function BimPlan() {
             const g = grip.current
             const w = full.walls.find((q) => q.id === g.wall)
             const anchor = w ? (g.kind === 'a' ? wallEnds(w).b : g.kind === 'b' ? wallEnds(w).a : null) : null
-            const sn = snap(W(x, y), { shift: e.shiftKey, alt: e.altKey }, g.wall, anchor)
+            // not onto itself nor the walls that move with the grip
+            const moving = w ? [g.wall, ...(g.kind === 'mid' ? [...joinedAt(full, w, 'a'), ...joinedAt(full, w, 'b')] : joinedAt(full, w, g.kind)).map((j) => j.wall.id)] : [g.wall]
+            const sn = snap(W(x, y), { shift: e.shiftKey, alt: e.altKey }, e.altKey ? [g.wall] : moving, anchor)
             setSnapKind(sn.snapped ? (sn.kind ?? null) : null)
             setGripAt({ wall: g.wall, kind: g.kind, p: sn.p, alt: e.altKey })
             return

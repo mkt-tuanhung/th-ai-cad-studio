@@ -79,6 +79,8 @@ interface BimState {
   /** Saved 3D viewpoints (persisted) and the live 3D view-only state (session). */
   bookmarks: CameraBookmark[]
   setBookmarks: (b: CameraBookmark[]) => void
+  /** Highest model revision handed out (an edit after an undo gets a new revision, never an old one again). */
+  revTop: number
   live3d: Live3dView
   setLive3d: (p: Partial<Live3dView>) => void
   /** Smart Room tool: the template placed by the next plan click. Session only. */
@@ -117,6 +119,7 @@ export const useBim = create<BimState>()(
       pendingComponent: null,
       pendingRoom: null,
       bookmarks: [],
+      revTop: initial.rev ?? 1,
       setBookmarks: (bookmarks) => set({ bookmarks }),
       live3d: { mode: 'section', wallOpacity: 0.35, lowWalls: 1200, doorsOpen: false, collide: true },
       setLive3d: (p) => set({ live3d: { ...get().live3d, ...p } }),
@@ -165,7 +168,10 @@ export const useBim = create<BimState>()(
         const rule = opts?.rules === false ? null : editRule(before, after)
         if (rule) return RULE + ruleText(rule.mark, rule.code)
         const stamped = stampEdit(before, after, opts?.src ?? { kind: 'drawn' }).model
-        set({ model: stamped, undoStack: [...get().undoStack.slice(-99), { label, model: before }], redoStack: [] })
+        // revisions never repeat, also after an undo
+        const rev = Math.max(get().revTop ?? 0, before.rev ?? 1) + 1
+        stamped.rev = rev
+        set({ revTop: rev, model: stamped, undoStack: [...get().undoStack.slice(-99), { label, model: before }], redoStack: [] })
         if (get().coordAuto) get().runChecks()
         return null
       },
@@ -239,6 +245,7 @@ export const useBim = create<BimState>()(
         coordOff: s.coordOff,
         coordAuto: s.coordAuto,
         bookmarks: s.bookmarks,
+        revTop: s.revTop,
         comments: s.comments,
         checks: s.checks,
         checkedAt: s.checkedAt,

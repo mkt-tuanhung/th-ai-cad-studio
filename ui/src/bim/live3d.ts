@@ -36,9 +36,14 @@ export interface SyncResult {
   /** solids the host has built since it started (instrumentation) */
   built?: number
   rev?: number
+  /** sync number (monotonic, per page) */
+  seq?: number
 }
 
 const synced = new Map<string, Synced>()
+let seq = 0
+/** One sync at a time per scene (a second one waits and then compares with what the first left). */
+const queue = new Map<string, Promise<unknown>>()
 /** Last sync per scene key (QA / e2e instrumentation: window.__thcad.live3d). */
 export const lastSync = new Map<string, SyncResult>()
 export const syncLog: (SyncResult & { key: string; at: number })[] = []
@@ -88,7 +93,16 @@ export const forget = (key: string) => synced.delete(key)
  * Brings the native scene `key` to `model`: a patch when this scene already holds an earlier model (and the host
  * supports it), else a full load. Falls back to a full load when a patch fails.
  */
-export async function syncBim3d(host: HostApi, key: string, model: BimModel, view: SceneView = {}, opts: { force?: boolean } = {}): Promise<SyncResult> {
+export function syncBim3d(host: HostApi, key: string, model: BimModel, view: SceneView = {}, opts: { force?: boolean } = {}): Promise<SyncResult> {
+  // nothing pending: start now (synchronously up to the first host call, so it is queued before any frame request)
+  const pending = queue.get(key)
+  const run = pending ? pending.catch(() => undefined).then(() => syncNow(host, key, model, view, opts)) : syncNow(host, key, model, view, opts)
+  queue.set(key, run)
+  void run.finally(() => queue.get(key) === run && queue.delete(key))
+  return run
+}
+
+async function syncNow(host: HostApi, key: string, model: BimModel, view: SceneView, opts: { force?: boolean }): Promise<SyncResult> {
   const t0 = performance.now()
   const prev = synced.get(key)
   const nm = nativeBuildingModel(model)
@@ -97,7 +111,9 @@ export async function syncBim3d(host: HostApi, key: string, model: BimModel, vie
   const walls = wallInputs(nm)
   const vk = viewKey(view)
   const done = (r: SyncResult) => {
-    const out = { ...r, rev: model.rev }
+    const out = { ...r, rev: model.rev, seq: ++seq }
+    // "nothing to do" is not recorded (the last real full load / patch stays the last sync)
+    if (r.mode === 'none') return out
     lastSync.set(key, out)
     syncLog.push({ ...out, key, at: Date.now() })
     if (syncLog.length > 50) syncLog.shift()
@@ -143,7 +159,7 @@ export async function syncBim3d(host: HostApi, key: string, model: BimModel, vie
   return done({ ok: true, mode: 'patch', items: r.items, ms: r.ms, rebuilt: r.rebuilt ?? [], removed: r.removed ?? [], dirty: dirty.guids.size, built: r.built })
 }
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1')) {
   const w = window as unknown as { __thcad?: Record<string, unknown> }
   w.__thcad = { ...(w.__thcad ?? {}), live3d: { lastSync, syncLog, forget } }
 }
