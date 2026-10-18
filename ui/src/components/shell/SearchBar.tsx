@@ -131,8 +131,11 @@ export function SearchBar() {
           else { const f = exportProject(); const name = projectFileName(f); downloadFile(name, JSON.stringify(f), 'application/json'); toast(fmt(P.history.exported, { file: name }), 'success') }
         } })
     }
-    out.push({ id: 'ai', kind: 'ai', label: fmt(t.topbar.searchAskAi, { query: q.trim() }), run: () => navigate('ai-studio') })
-    return out
+    // a typed CAD alias / command name (L, PL, TRIM…) is what the user means: it goes first (after the one command)
+    const exact = (r: Result) => r.kind === 'command' && hits.some((h) => h.kind === 'command' && `c-${h.name}` === r.id && h.score >= 3)
+    const ordered = [...out.filter((r) => r.kind === 'auto'), ...out.filter(exact), ...out.filter((r) => r.kind !== 'auto' && !exact(r))]
+    ordered.push({ id: 'ai', kind: 'ai', label: fmt(t.topbar.searchAskAi, { query: q.trim() }), run: () => navigate('ai-studio') })
+    return ordered
   }, [q, projects, files, t, navigate, touchProject, uploads])
 
   const open = focused && q.trim().length > 0

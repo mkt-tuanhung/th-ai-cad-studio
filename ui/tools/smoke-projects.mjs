@@ -167,6 +167,62 @@ await step('New Project (modal) and From Template (with folders) create and sele
   assert.ok(await files.getByText('02_Alignment').isVisible())
 })
 
+await step('From Template with content (One room): BIM shell, interior room, plan drawing; versions before / after', async () => {
+  await page.evaluate(() => window.__thcad.snapshots.setSnapStorage(window.__thcad.snapshots.memorySnapStorage()))
+  const walls0 = await page.evaluate(() => window.__thcad.bim.getState().model.walls.length)
+  await page.getByRole('button', { name: 'From Template' }).click()
+  await page.getByRole('radio', { name: /One room/ }).click()
+  assert.ok(await page.getByText(/kept in Version history/).isVisible())
+  await page.getByRole('dialog').getByRole('textbox').fill('QA Room')
+  await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click()
+  await page.waitForFunction(() => window.__thcad.bim.getState().model.walls.length === 4)
+  assert.equal(await inspectorName(), 'QA Room')
+  assert.ok(await files.getByText('02_Layout').isVisible())
+  const st = await page.evaluate(() => { const c = window.__thcad.cad.getState(); return { rooms: window.__thcad.interior.getState().doc.rooms.map((r) => r.name), doc: c.docs[c.activeId].name, ents: c.docs[c.activeId].entities.length } })
+  assert.deepEqual(st.rooms, ['Room'])
+  assert.equal(st.doc, 'One Room - Plan.dwg')
+  assert.ok(st.ents > 10, 'plan entities ' + st.ents)
+  const list = await page.evaluate(() => window.__thcad.snapshots.listSnapshots())
+  assert.ok(list.some((m) => m.reason === 'risky' && m.counts.bim.walls === walls0) && list.some((m) => m.reason === 'template' && m.counts.bim.walls === 4), JSON.stringify(list.map((m) => [m.reason, m.counts.bim?.walls])))
+})
+
+await step('Version history (project menu): diff in counts, restore the version before the template (undoable)', async () => {
+  await cards().filter({ hasText: 'QA Room' }).getByRole('button', { name: /More actions/ }).first().click()
+  await page.getByRole('menuitem', { name: 'Version history…' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Version history' })
+  await dlg.waitFor()
+  const before = dlg.getByTestId('version').filter({ hasText: 'Before a change' }).first()
+  const diff = await before.getByTestId('version-diff').innerText()
+  assert.match(diff, /BIM[^]*walls 4 → 24/, diff)
+  assert.match(await before.innerText(), /App 0\.1\.0/)
+  try {
+    await before.getByRole('button', { name: 'Restore' }).click()
+    await page.waitForFunction(() => window.__thcad.bim.getState().model.walls.length === 24)
+  } finally { await page.keyboard.press('Escape') }
+  // one undo step in BIM puts the template's model back
+  await page.evaluate(() => window.__thcad.bim.getState().undo())
+  assert.equal(await page.evaluate(() => window.__thcad.bim.getState().model.walls.length), 4)
+})
+
+await step('Project JSON: export every workspace (.mdproj.json, schema + revisions) and import it back', async () => {
+  await cards().filter({ hasText: 'QA Room' }).getByRole('button', { name: /More actions/ }).first().click()
+  await page.getByRole('menuitem', { name: 'Version history…' }).click()
+  const dlg = page.getByRole('dialog', { name: 'Version history' })
+  const [dl] = await Promise.all([page.waitForEvent('download'), dlg.getByRole('button', { name: 'Export project (JSON)' }).click()])
+  assert.equal(dl.suggestedFilename(), 'QA Room.mdproj.json')
+  const path = await dl.path()
+  const f = JSON.parse((await import('node:fs')).readFileSync(path, 'utf8'))
+  assert.equal(f.format, 'md-cad-ai-studio/project')
+  assert.equal(Object.keys(f.revisions).length, 7)
+  assert.equal(f.stores.bim.walls.length, 4)
+  // change the model, import the file: the exported model comes back
+  try {
+    await page.evaluate(() => window.__thcad.bim.getState().reset())
+    await dlg.getByTestId('project-import').setInputFiles(path)
+    await page.waitForFunction(() => window.__thcad.bim.getState().model.walls.length === 4)
+  } finally { await page.keyboard.press('Escape') }
+})
+
 await step('View all opens the full activity list', async () => {
   await page.getByRole('button', { name: 'View all' }).click()
   assert.ok(await page.getByRole('dialog', { name: 'Recent Activity' }).isVisible())

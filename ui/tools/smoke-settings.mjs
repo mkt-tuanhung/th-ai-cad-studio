@@ -121,6 +121,72 @@ await step('keyboard shortcut remap: OSNAP moves from F3 to F4 and works in CAD 
   await page.goto((process.env.THCAD_UI ?? 'http://127.0.0.1:5173') + '/#/settings', { waitUntil: 'networkidle' })
 })
 
+const UI = process.env.THCAD_UI ?? 'http://127.0.0.1:5173'
+await step('interaction profile per project (V24-039): SketchUp for Villa Riverside only, saved, survives a reload', async () => {
+  await page.evaluate(() => window.__thcad.workspace.getState().touchProject('villa-riverside'))
+  await page.getByRole('button', { name: 'Keyboard Shortcuts' }).click()
+  // scope first (this project), then the profile: the default for all projects stays AutoCAD
+  await page.getByLabel('Applies to', { exact: true }).selectOption('project')
+  await page.getByLabel('Interaction profile', { exact: true }).selectOption('sketchup')
+  // the CAD 2D keys of the profile are listed but inactive (they would steal typed aliases)
+  const line = page.getByTestId('profile-keys-cad2d').locator('li[data-action="cad.line"]')
+  assert.equal(await line.getAttribute('data-active'), 'false')
+  assert.match(await line.innerText(), /typing L starts .*LINE/)
+  assert.equal(await page.getByTestId('profile-keys-bim').locator('li[data-action="bim.wall"]').getAttribute('data-active'), 'true')
+  await save()
+  let st = await settings()
+  assert.equal(st.projectKeyProfiles['villa-riverside'], 'sketchup')
+  assert.equal(st.keyProfile, 'autocad')
+  await page.reload({ waitUntil: 'networkidle' })
+  st = await settings()
+  assert.equal(st.projectKeyProfiles['villa-riverside'], 'sketchup')
+})
+
+await step('profile keys act in BIM (SketchUp L = wall, O = 3D) and switch with the project; CAD 2D aliases untouched', async () => {
+  await page.goto(UI + '/#/bim', { waitUntil: 'networkidle' })
+  await page.evaluate(() => window.__thcad.workspace.getState().touchProject('villa-riverside'))
+  await page.evaluate(() => document.activeElement?.blur())
+  await page.keyboard.press('l')
+  assert.deepEqual(await page.evaluate(() => { const b = window.__thcad.bim.getState(); return [b.tool, b.view] }), ['wall', 'plan'])
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('o')
+  assert.equal(await page.evaluate(() => window.__thcad.bim.getState().view), '3d')
+  // another project uses the default (AutoCAD): L does nothing in BIM
+  await page.evaluate(() => { window.__thcad.workspace.getState().touchProject('th-office-building'); window.__thcad.bim.getState().set({ tool: 'select', view: 'plan' }) })
+  await page.keyboard.press('l')
+  assert.equal(await page.evaluate(() => window.__thcad.bim.getState().tool), 'select')
+  await page.evaluate(() => window.__thcad.bim.getState().set({ view: '3d' }))
+})
+
+await step('cheatsheet (⌘/) lists the app shortcuts and the profile keys of the workspace', async () => {
+  await page.evaluate(() => window.__thcad.workspace.getState().touchProject('villa-riverside'))
+  await page.keyboard.press('Meta+/')
+  const sheet = page.getByTestId('cheatsheet')
+  await sheet.waitFor()
+  assert.ok(await page.getByRole('dialog', { name: /Keyboard cheatsheet — SketchUp/ }).isVisible())
+  assert.equal(await sheet.locator('[data-action="bim.wall"]').getAttribute('data-active'), 'true')
+  assert.ok((await sheet.innerText()).includes('Search / command'))
+  await page.keyboard.press('Escape')
+  assert.equal(await page.getByTestId('cheatsheet').count(), 0)
+})
+
+await step('BIM undo follows Settings → Keyboard Shortcuts (was a hard-coded ⌘Z)', async () => {
+  const desc = () => page.evaluate(() => window.__thcad.bim.getState().model.walls.find((w) => w.id === 'W1').description ?? '')
+  try {
+    await page.evaluate(() => window.__thcad.settings.getState().apply({ shortcuts: { ...window.__thcad.settings.getState().shortcuts, undo: 'Mod+U' } }))
+    const d0 = await desc()
+    await page.evaluate(() => window.__thcad.bim.getState().edit('QA note', (m) => ({ ...m, walls: m.walls.map((w) => (w.id === 'W1' ? { ...w, description: 'QA' } : w)) })))
+    await page.evaluate(() => document.activeElement?.blur())
+    await page.keyboard.press('Meta+z')
+    assert.equal(await desc(), 'QA', '⌘Z no longer undoes')
+    await page.keyboard.press('Meta+u')
+    assert.equal(await desc(), d0)
+  } finally {
+    await page.evaluate(() => window.__thcad.settings.getState().apply({ shortcuts: { ...window.__thcad.settings.getState().shortcuts, undo: 'Mod+Z' }, projectKeyProfiles: {} }))
+    await page.goto(UI + '/#/settings', { waitUntil: 'networkidle' })
+  }
+})
+
 await step('folder Change… in a browser opens a path editor; the new path shows in the rail after Save', async () => {
   await page.getByRole('button', { name: 'Change... Project Default Folder' }).click()
   await page.getByRole('dialog').getByRole('textbox').fill('/Volumes/Work/Projects')
