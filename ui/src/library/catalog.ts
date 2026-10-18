@@ -48,6 +48,16 @@ export interface LibComponent {
   /** Default layer (Layer Mapping). */
   layer: string
   shared?: boolean
+  /* ---- Space Planning metadata (v2.4, optional) ---- */
+  /** Style tags for the Interior furniture library filter. */
+  style?: ('modern' | 'classic' | 'scandi' | 'industrial' | 'minimal')[]
+  /** Parametric resize limits (mm); a product without limits has a fixed size (replace it instead of resizing). */
+  limits?: { w?: [number, number]; d?: [number, number]; h?: [number, number] }
+  /** Wall-hosted: placed with its back on a wall face at `elev` mm above the floor. */
+  hosted?: 'wall'
+  elev?: number
+  /** Unit price if known (no prices are invented: undefined = unknown). */
+  price?: number
   source: 'builtin' | 'upload'
   /** Software the component came from (filter). */
   software: 'MD CAD AI STUDIO' | 'AutoCAD'
@@ -364,6 +374,16 @@ export const BUILTIN: LibComponent[] = [
   c({ name: 'Kitchen Island 2400', group: 'interior', category: 'kitchen', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Kitchen'], size: dims(2400, 1000, 900), sizeLabel: sz(2400, 1000, 900), layer: 'A-FURN-CASE', plan: islandPlan(2400) }),
   c({ name: 'Wardrobe Module 1000', group: 'interior', category: 'storage', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Storage'], size: dims(1000, 600, 2400), sizeLabel: sz(1000, 600, 2400), layer: 'A-FURN-CASE', plan: wardrobePlan(1000) }),
   c({ name: 'Vanity Unit 800', group: 'interior', category: 'bath', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Bathroom'], size: dims(800, 480, 850), sizeLabel: sz(800, 480, 850), layer: 'A-FURN-CASE', plan: () => [rect(0, 0, 800, 480), ...roundRect(150, 60, 500, 340, 100)] }),
+  // ---- v2.4 Space Planning: real-size products and parametric modules (appended: ids of earlier items stay) ----
+  c({ name: 'Dining Chair', group: 'families', category: 'furniture', kind: 'Family', discipline: 'Interior', tags: ['Interior', 'Dining'], size: dims(480, 520, 900), sizeLabel: sz(480, 520, 900), layer: 'A-FURN', style: ['modern', 'scandi'], plan: () => [rect(0, 0, 480, 520), rect(0, 460, 480, 60)] }),
+  c({ name: 'Nightstand 450', group: 'blocks', category: 'interior', kind: 'Block', discipline: 'Interior', tags: ['Interior', 'Bedroom'], size: dims(450, 400, 550), sizeLabel: sz(450, 400, 550), layer: 'A-FURN', style: ['modern', 'minimal'], plan: () => [rect(0, 0, 450, 400), line(0, 40, 450, 40)] }),
+  c({ name: 'Sink Base Cabinet 800', group: 'interior', category: 'kitchen', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Kitchen'], size: dims(800, 600, 870), sizeLabel: sz(800, 600, 870), layer: 'A-FURN-CASE', plan: () => [...cabinetPlan(800)(), ...roundRect(150, 120, 500, 380, 60)] }),
+  c({ name: 'Hob Base Cabinet 600', group: 'interior', category: 'kitchen', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Kitchen'], size: dims(600, 600, 870), sizeLabel: sz(600, 600, 870), layer: 'A-FURN-CASE', plan: () => [...cabinetPlan(600)(), circle(180, 220, 90), circle(420, 220, 90), circle(180, 440, 70), circle(420, 440, 70)] }),
+  c({ name: 'Refrigerator 700', group: 'interior', category: 'kitchen', kind: 'Family', discipline: 'Interior', tags: ['Interior', 'Kitchen'], size: dims(700, 700, 1850), sizeLabel: sz(700, 700, 1850), layer: 'A-FURN-CASE', plan: () => [rect(0, 0, 700, 700), line(0, 60, 700, 60), text(350, 330, 120, 'REF')] }),
+  c({ name: 'Base Cabinet Run', group: 'interior', category: 'kitchen', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Parametric'], size: dims(1200, 600, 870), sizeLabel: '300–3600 × 600 × 870 mm (parametric)', layer: 'A-FURN-CASE', limits: { w: [300, 3600], d: [450, 650], h: [720, 900] }, plan: cabinetPlan(1200) }),
+  c({ name: 'Wardrobe (parametric)', group: 'interior', category: 'storage', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Parametric'], size: dims(1600, 600, 2400), sizeLabel: '600–3600 × 600 × 1800–2700 mm (parametric)', layer: 'A-FURN-CASE', limits: { w: [600, 3600], d: [500, 650], h: [1800, 2700] }, plan: wardrobePlan(1600) }),
+  c({ name: 'Wall Shelf', group: 'interior', category: 'storage', kind: 'Module', discipline: 'Interior', tags: ['Interior', 'Parametric'], size: dims(800, 250, 30), sizeLabel: '400–2400 × 250 × 30 mm, wall-hung', layer: 'A-FURN-CASE', limits: { w: [400, 2400], d: [150, 400], h: [18, 60] }, hosted: 'wall', elev: 1200, plan: () => [rect(0, 0, 800, 250)] }),
+  c({ name: 'Area Rug', group: 'blocks', category: 'interior', kind: 'Block', discipline: 'Interior', tags: ['Interior', 'Parametric'], size: dims(2000, 3000, 10), sizeLabel: '800–4000 × 800–4000 mm (parametric)', layer: 'A-FURN', limits: { w: [800, 4000], d: [800, 4000], h: [5, 30] }, style: ['modern', 'scandi', 'minimal'], plan: () => [rect(0, 0, 2000, 3000), rect(80, 80, 1840, 2840)] }),
 ]
 
 /** Mockup "Recently Used" strip: seeded use times (hours ago) — DEMO history until you insert components. */

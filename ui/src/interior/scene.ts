@@ -7,6 +7,21 @@
 import { boxAt, cylBetween, hex, prism, vcyl, type Prim, type Scene, type SceneItem } from '../engine3d/scene'
 import { MATERIALS, cutList, type Cabinet, type Item, type Room } from './model'
 import type { InteriorDoc } from '../state/interior'
+import { PARTS, partMaterial, sceneMaterial, type SceneMaterial } from './materials'
+
+/** A primitive tagged with the named part of the item it belongs to (per-part finishes). */
+export interface PartPrim {
+  part: string
+  prim: Prim
+}
+
+/**
+ * Scene item of the interior: the engine fields plus appearance metadata for the render paths (GLB /
+ * Blender): `material` {id, colour, roughness, metallic, tileMm, grainDeg}. Parts whose finish differs from
+ * the item's first part are separate scene items `<item id>::<part>` so the live 3D and the path tracer show
+ * them; the geometry is identical either way (a finish never changes geometry).
+ */
+export type InteriorSceneItem = SceneItem & { material?: SceneMaterial; finishPart?: string; item?: string }
 
 /** Walls are cut at this height (plan-section convention) so the rooms stay visible from above. */
 export const WALL_CUT = 1100
@@ -66,11 +81,17 @@ function bbox(r: Room) {
 
 /** Cabinet panels exactly as in the cut list (sides full height, top/bottom between, grooved back, dividers, set-back shelves, overlay doors). */
 export function cabinetParts(c: Cabinet, at: Place): Prim[] {
+  return cabinetPartsTagged(c, at).map((p) => p.prim)
+}
+
+/** cabinetParts with each panel tagged body (carcass, back, dividers, shelves) or front (doors). */
+export function cabinetPartsTagged(c: Cabinet, at: Place): PartPrim[] {
   const L = local(at)
   const parts = cutList(c)
   const get = (name: string) => parts.find((p) => p.part === name)
   const { w, d, h, t } = c
   const out: Prim[] = []
+  const front: Prim[] = []
   // carcass occupies y ∈ [−d/2, d/2]; doors sit in front of it
   const y0 = -d / 2
   out.push(L.box(-w / 2, y0, 0, t, d, h), L.box(w / 2 - t, y0, 0, t, d, h))
@@ -89,64 +110,83 @@ export function cabinetParts(c: Cabinet, at: Place): Prim[] {
       for (let k = 1; k <= per; k++) out.push(L.box(-w / 2 + t + b * (bayW + t) + 1, y0 + 20, t + (k * (h - 2 * t)) / (per + 1) - t / 2, sh.l, sh.wd, sh.t))
   }
   const door = get('Door')
-  for (let k = 0; door && k < door.qty; k++) out.push(L.box(-w / 2 + k * (w / door.qty) + 1.5, y0 - door.t, 1.5, door.wd, door.t, door.l))
-  return out
+  for (let k = 0; door && k < door.qty; k++) front.push(L.box(-w / 2 + k * (w / door.qty) + 1.5, y0 - door.t, 1.5, door.wd, door.t, door.l))
+  return [...out.map((prim) => ({ part: 'body', prim })), ...front.map((prim) => ({ part: 'front', prim }))]
 }
 
 /** Board volume of a cabinet from its cut list (m³) — the 3D panels must match this. */
 export const cutListVolume = (c: Cabinet) => cutList(c).reduce((a, p) => a + (p.l * p.wd * p.t * p.qty) / 1e9, 0)
 
-function furniture(i: Item, at: Place, ceiling: number): Prim[] {
+/** Parametric furniture from W × D × H (origin: footprint centre at the bottom, front −Y), each primitive tagged with its part. */
+export function furnitureParts(i: Item, at: Place, ceiling: number): PartPrim[] {
   const L = local(at)
   const w = i.w ?? i.dia ?? 500, d = i.d ?? i.dia ?? 500, h = i.h
+  const tag = (part: string, ps: Prim[]) => ps.map((prim) => ({ part, prim }))
   switch (i.category) {
     case 'sofas': {
+      if (d <= 1100) {
+        // straight sofa: seat, back and two arms
+        const arm = Math.min(180, w / 6)
+        return [
+          ...tag('body', [L.box(-w / 2, -d / 2, 0, w, d, 420)]),
+          ...tag('back', [L.box(-w / 2, d / 2 - 200, 420, w, 200, h - 420), L.box(-w / 2, -d / 2, 420, arm, d - 200, 200), L.box(w / 2 - arm, -d / 2, 420, arm, d - 200, 200)]),
+        ]
+      }
       // L-shape: main seat along the back, chaise on the right, arms at both ends
       const seat = Math.min(950, d)
       return [
-        L.box(-w / 2, d / 2 - seat, 0, w, seat, 420),
-        L.box(-w / 2, d / 2 - 200, 420, w, 200, h - 420),
-        L.box(-w / 2, d / 2 - seat, 420, 180, seat - 200, 200),
-        L.box(w / 2 - seat, -d / 2, 0, seat, d - seat, 420),
-        L.box(w / 2 - 180, -d / 2, 420, 180, d - 200, 200),
+        ...tag('body', [L.box(-w / 2, d / 2 - seat, 0, w, seat, 420), L.box(w / 2 - seat, -d / 2, 0, seat, d - seat, 420)]),
+        ...tag('back', [L.box(-w / 2, d / 2 - 200, 420, w, 200, h - 420), L.box(-w / 2, d / 2 - seat, 420, 180, seat - 200, 200), L.box(w / 2 - 180, -d / 2, 420, 180, d - 200, 200)]),
       ]
     }
     case 'tables':
-      if (i.dia)
-        return [L.cyl(0, 0, h - 30, i.dia / 2, 30), L.cyl(0, 0, 20, i.dia * 0.1, h - 50), L.cyl(0, 0, 0, i.dia * 0.3, 20)]
-      return [L.box(-w / 2, -d / 2, h - 40, w, d, 40), ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => L.box(sx * (w / 2 - 90) - 30, sy * (d / 2 - 90) - 30, 0, 60, 60, h - 40))]
+      if (i.dia) return [...tag('top', [L.cyl(0, 0, h - 30, i.dia / 2, 30)]), ...tag('legs', [L.cyl(0, 0, 20, i.dia * 0.1, h - 50), L.cyl(0, 0, 0, i.dia * 0.3, 20)])]
+      return [...tag('top', [L.box(-w / 2, -d / 2, h - 40, w, d, 40)]), ...tag('legs', [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => L.box(sx * (w / 2 - 90) - 30, sy * (d / 2 - 90) - 30, 0, 60, 60, h - 40)))]
     case 'chairs':
       if (w > 700)
-        return [L.box(-w / 2, -d / 2, 0, w, d, 420), L.box(-w / 2, d / 2 - 180, 420, w, 180, h - 420), L.box(-w / 2, -d / 2, 420, 150, d - 180, 200), L.box(w / 2 - 150, -d / 2, 420, 150, d - 180, 200)]
+        return [...tag('seat', [L.box(-w / 2, -d / 2, 0, w, d, 420)]), ...tag('back', [L.box(-w / 2, d / 2 - 180, 420, w, 180, h - 420), L.box(-w / 2, -d / 2, 420, 150, d - 180, 200), L.box(w / 2 - 150, -d / 2, 420, 150, d - 180, 200)])]
       return [
-        ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => L.box(sx * (w / 2 - 30) - 17, sy * (d / 2 - 30) - 17, 0, 34, 34, 430)),
-        L.box(-w / 2, -d / 2, 430, w, d, 50),
-        L.box(-w / 2, d / 2 - 40, 480, w, 40, h - 480),
+        ...tag('legs', [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([sx, sy]) => L.box(sx * (w / 2 - 30) - 17, sy * (d / 2 - 30) - 17, 0, 34, 34, 430))),
+        ...tag('seat', [L.box(-w / 2, -d / 2, 430, w, d, 50)]),
+        ...tag('back', [L.box(-w / 2, d / 2 - 40, 480, w, 40, h - 480)]),
       ]
-    case 'beds':
+    case 'beds': {
+      // base, headboard to H; the mattress (and pillows when they fit) stay below H so the bounds are W × D × H
+      const base = Math.min(300, h * 0.5), mat = Math.min(230, h - base - 10)
       return [
-        L.box(-w / 2, -d / 2, 0, w, d, 300),
-        L.box(-w / 2 + 30, -d / 2 + 30, 300, w - 60, d - 130, 230),
-        L.box(-w / 2, d / 2 - 80, 0, w, 80, h),
-        L.box(-w / 2 + 120, d / 2 - 600, 530, w / 2 - 180, 420, 120),
-        L.box(60, d / 2 - 600, 530, w / 2 - 180, 420, 120),
+        ...tag('frame', [L.box(-w / 2, -d / 2, 0, w, d, base), L.box(-w / 2, d / 2 - 80, 0, w, 80, h)]),
+        ...tag('mattress', [
+          L.box(-w / 2 + 30, -d / 2 + 30, base, w - 60, d - 130, mat),
+          ...(base + mat + 120 <= h ? [L.box(-w / 2 + 120, d / 2 - 600, base + mat, w / 2 - 180, 420, 120), L.box(60, d / 2 - 600, base + mat, w / 2 - 180, 420, 120)] : []),
+        ]),
       ]
+    }
     case 'rugs':
-      return [L.box(-w / 2, -d / 2, 0, w, d, Math.max(4, h))]
+      return tag('body', [L.box(-w / 2, -d / 2, 0, w, d, Math.max(4, h))])
     case 'lighting': {
       // hung 900 mm below the ceiling on a cord
       const z = ceiling - 900
       const [cx, cy] = L.pt(0, 0)
-      if (i.dia) return [{ k: 'cone', o: [cx, cy, z], s: [i.dia / 2, i.dia * 0.08, h] }, cylBetween([cx, cy, z + h], [cx, cy, ceiling], 4)]
+      if (i.dia) return tag('shade', [{ k: 'cone', o: [cx, cy, z], s: [i.dia / 2, i.dia * 0.08, h] }, cylBetween([cx, cy, z + h], [cx, cy, ceiling], 4)])
       const [ax, ay] = L.pt(-w / 2 + 60, 0), [bx, by] = L.pt(w / 2 - 60, 0)
-      return [L.box(-w / 2, -d / 2, z, w, d, h), cylBetween([ax, ay, z + h], [ax, ay, ceiling], 3), cylBetween([bx, by, z + h], [bx, by, ceiling], 3)]
+      return tag('shade', [L.box(-w / 2, -d / 2, z, w, d, h), cylBetween([ax, ay, z + h], [ax, ay, ceiling], 3), cylBetween([bx, by, z + h], [bx, by, ceiling], 3)])
     }
     default:
-      return [L.box(-w / 2, -d / 2, 0, w, d, h)]
+      return tag(PARTS[i.category]?.[0] ?? 'body', [L.box(-w / 2, -d / 2, 0, w, d, h)])
   }
 }
 
-/** Where each item instance stands in plan: the sample layout, its own placement (from a CAD plan), else a 1.2 m grid around its room centre. */
+/** Raise primitives by `dz` (the item's elevation). */
+const lift = (ps: PartPrim[], dz: number): PartPrim[] => (dz ? ps.map(({ part, prim }) => ({ part, prim: { ...prim, o: [prim.o[0], prim.o[1], prim.o[2] + dz] as Prim['o'] } })) : ps)
+
+/** Tagged primitives of every instance of an item (cabinet panels or parametric furniture) at its elevation. */
+export function itemPartPrims(doc: InteriorDoc, i: Item, room: Room, at: Place[]): PartPrim[] {
+  const cab = i.cabinet ? doc.cabinets.find((c) => c.id === i.cabinet) : undefined
+  return at.flatMap((p) => lift(cab ? cabinetPartsTagged(cab, p) : furnitureParts(i, p, room.ceilingHeight), i.category === 'lighting' ? 0 : i.elev ?? 0))
+}
+
+/** Where each item instance stands in plan: its own placement (moved in Space Planning, or built from a CAD plan),
+ *  else the sample layout, else a 1.2 m grid around its room centre. */
 export function itemPlacements(doc: InteriorDoc): { item: Item; room: Room; at: Place[] }[] {
   const auto: Record<string, number> = {}
   const out: { item: Item; room: Room; at: Place[] }[] = []
@@ -156,8 +196,8 @@ export function itemPlacements(doc: InteriorDoc): { item: Item; room: Room; at: 
     const lay = LAYOUT[i.id]
     const at: Place[] = []
     for (let k = 0; k < i.qty; k++) {
-      if (lay && lay.room === i.room && lay.at[k]) at.push(lay.at[k])
-      else if (i.at?.[k]) at.push(i.at[k])
+      if (i.at?.[k]) at.push(i.at[k])
+      else if (lay && lay.room === i.room && lay.at[k]) at.push(lay.at[k])
       else {
         // items without a layout yet: a 1.2 m grid around the room centre (shown where they will be placed)
         const b = bbox(room)
@@ -172,9 +212,9 @@ export function itemPlacements(doc: InteriorDoc): { item: Item; room: Room; at: 
 
 /** fullWalls: walls to ceiling height (renders) instead of the plan-section cut; furniture: include items. */
 export function interiorScene(doc: InteriorDoc, opts: { fullWalls?: boolean; furniture?: boolean } = {}): Scene {
-  const items: SceneItem[] = []
+  const items: InteriorSceneItem[] = []
   for (const r of doc.rooms) {
-    items.push({ id: `room:${r.id}`, rgb: color(r.floorFinish), mat: matOf(r.floorFinish), parts: [prism([0, 0, -40], r.outline.map((p) => [p.x, p.y]), 40)] })
+    items.push({ id: `room:${r.id}`, rgb: color(r.floorFinish), mat: matOf(r.floorFinish), material: sceneMaterial(r.floorFinish), parts: [prism([0, 0, -40], r.outline.map((p) => [p.x, p.y]), 40)] })
     const walls: Prim[] = []
     const n = r.outline.length
     for (let k = 0; k < n; k++) {
@@ -185,16 +225,44 @@ export function interiorScene(doc: InteriorDoc, opts: { fullWalls?: boolean; fur
       const rot = (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI
       walls.push(boxAt((p.x + q.x) / 2 + (nx * WALL_T) / 2, (p.y + q.y) / 2 + (ny * WALL_T) / 2, 0, len, WALL_T, opts.fullWalls ? r.ceilingHeight : Math.min(WALL_CUT, r.ceilingHeight), rot))
     }
-    items.push({ id: `walls:${r.id}`, rgb: color(r.wallFinish), parts: walls })
+    items.push({ id: `walls:${r.id}`, rgb: color(r.wallFinish), material: sceneMaterial(r.wallFinish), parts: walls })
   }
 
   for (const { item: i, room, at } of opts.furniture === false ? [] : itemPlacements(doc)) {
     const cab = i.cabinet ? doc.cabinets.find((c) => c.id === i.cabinet) : undefined
-    const parts = at.flatMap((p) => (cab ? cabinetParts(cab, p) : furniture(i, p, room.ceilingHeight)))
-    items.push({ id: i.id, rgb: color(cab ? cab.front : i.material), mat: matOf(cab ? cab.front : i.material), transparency: i.status === 'planned' ? 0.35 : 0, parts })
+    const tagged = itemPartPrims(doc, i, room, at)
+    const finish = (part: string) => partMaterial(i, part, cab)
+    // one scene item per distinct finish; the first one keeps the item id (selection, volumes, renders).
+    // Cabinets lead with the front (their colour before per-part finishes existed).
+    const order = cab ? ['front', 'body'] : PARTS[i.category] ?? ['body']
+    const groups: { part: string; key: string; prims: Prim[] }[] = []
+    for (const part of order) {
+      const prims = tagged.filter((t) => t.part === part).map((t) => t.prim)
+      if (!prims.length) continue
+      const f = finish(part)
+      const key = `${f.material}|${f.grainDeg ?? ''}`
+      const g = groups.find((x) => x.key === key)
+      if (g) g.prims.push(...prims)
+      else groups.push({ part, key, prims })
+    }
+    groups.forEach((g, n) => {
+      const f = finish(g.part)
+      items.push({
+        id: n === 0 ? i.id : `${i.id}::${g.part}`,
+        ...(n === 0 ? {} : { item: i.id, finishPart: g.part }),
+        rgb: color(f.material),
+        mat: matOf(f.material),
+        material: sceneMaterial(f.material, f.grainDeg),
+        transparency: i.status === 'planned' ? 0.35 : 0,
+        parts: g.prims,
+      })
+    })
   }
   return { items, volumes: true }
 }
+
+/** Scene item id → interior item id (`<id>::<part>` items belong to their item). */
+export const sceneItemOwner = (id: string) => id.split('::')[0]
 
 /** Scene id for the current selection (room → its floor, cabinet → the item that uses it). */
 export function interiorSceneId(doc: InteriorDoc, sel: { kind: 'item' | 'room' | 'cabinet'; id: string } | null): string {

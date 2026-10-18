@@ -21,6 +21,33 @@ export interface Room {
   floorFinish: string
   wallFinish: string
   ceilingFinish: string
+  /** Doors in the room outline (Space Planning). `wall` = outline edge index (edge k runs outline[k] → outline[k+1]),
+   *  `at` = distance (mm) from the edge start to the door's near jamb; width unknown = needs input, never guessed. */
+  doors?: RoomDoor[]
+}
+
+export interface RoomDoor {
+  id: string
+  wall: number
+  at: number
+  width?: number
+  /** Leaf swings into the room (default) or out of it / sliding (no swing zone inside). */
+  swing?: 'in' | 'out' | 'sliding'
+}
+
+/** Where an item's / cabinet's dimensions come from. AI concepts and image traces are not real dimensions until
+ *  someone measures them (reviewRequired) — such items cannot enter manufacturing (interior/production.ts). */
+export interface DimSource {
+  kind: 'drawn' | 'catalog' | 'survey' | 'imported' | 'image' | 'ai'
+  confidence?: number
+  reviewRequired?: boolean
+}
+
+/** A finish on one named part of a furniture item (body / front / top / legs / seat / …). */
+export interface PartFinish {
+  material: string
+  /** Grain / texture direction in degrees from the part's length (0 = along the length). */
+  grainDeg?: number
 }
 
 export type ItemCategory = 'sofas' | 'tables' | 'cabinet' | 'chairs' | 'lighting' | 'beds' | 'decor' | 'rugs'
@@ -44,6 +71,20 @@ export interface Item {
   cabinet?: string
   /** Plan placement of each instance (centre, rotation in degrees) — items built from a CAD plan. */
   at?: { x: number; y: number; rot: number }[]
+  /* ---- Space Planning (v2.4) — all optional, older projects load unchanged ---- */
+  /** Library catalog key (LibComponent name) the item was placed from. */
+  catalog?: string
+  /** Height of the item's underside above the floor (mm): wall cabinets, shelves, sconces. */
+  elev?: number
+  /** Locked items cannot be moved, rotated, resized or replaced (and layout options keep them). */
+  locked?: boolean
+  /** Wall-hosted: the item keeps its back on this wall of its room (outline edge index). */
+  host?: { wall: number }
+  /** Items moved together. */
+  group?: string
+  /** Per-part finishes (part → material); parts without an entry use `material`. */
+  parts?: Record<string, PartFinish>
+  src?: DimSource
 }
 
 export interface Material {
@@ -65,6 +106,8 @@ export interface Cabinet {
   doors: number
   board: string
   front: string
+  /** Dimension provenance (see DimSource); undefined = drawn / parametric in this app. */
+  src?: DimSource
 }
 
 export interface CutPart {
