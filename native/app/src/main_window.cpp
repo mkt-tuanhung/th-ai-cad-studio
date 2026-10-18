@@ -84,7 +84,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
 
   // persistent: localStorage / IndexedDB survive restarts. Automated QA (THCAD_QA=1) gets its own profile so a
   // test run never edits or opens the user's drawings and settings.
-  auto* profile = new QWebEngineProfile(qEnvironmentVariableIntValue("THCAD_QA") == 1 ? QStringLiteral("thcad-qa") : QStringLiteral("thcad"), this);
+  // THCAD_PROFILE=<name> gives parallel QA runs (several worktrees) a profile each.
+  const QString profileName = qEnvironmentVariable("THCAD_PROFILE", qEnvironmentVariableIntValue("THCAD_QA") == 1 ? QStringLiteral("thcad-qa") : QStringLiteral("thcad"));
+  auto* profile = new QWebEngineProfile(profileName, this);
   profile->installUrlSchemeHandler("thcad", new UiSchemeHandler(UiSchemeHandler::locateUi(), profile));
   auto* page = new LoggingPage(profile, this);
   // Browser-style downloads (CSV, G-code, ZIP, PNG…): a save dialog, like a browser asking where to save.

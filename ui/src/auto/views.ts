@@ -96,7 +96,10 @@ export async function houseViews(host: HostApi, m: BimModel, w: ViewWords): Prom
   const b = (await host.scene3dCommand(key, JSON.stringify({ cmd: 'bounds' }))).bounds ?? [0, 0, 0, 0, 0, 0]
   const views: HouseView[] = []
   let error: string | undefined
+  // a section keeps its planned number (its title "2-2") even when an earlier one failed
+  let planned = 0
   for (const r of viewRequests(m, w)) {
+    const no = r.kind === 'section' ? ++planned : 0
     const req = nativeRequest(r, b)
     const nd = (await host.scene3dCommand(key, JSON.stringify(req))) as unknown as { ok: boolean; error?: string } & NativeDrawing
     if (!nd.ok) { error = error ?? nd.error ?? 'HLR'; continue }
@@ -108,7 +111,7 @@ export async function houseViews(host: HostApi, m: BimModel, w: ViewWords): Prom
     }
     const ax = r.axis === 'x' ? 0 : 1
     const look = (-VIEW[r.face].toViewer[ax] || 1) as 1 | -1
-    if (doc) views.push({ title: r.title, kind: r.kind, doc, ...(cutAt !== undefined && r.axis ? { cut: { axis: r.axis, at: cutAt, look, label: String(views.filter((v) => v.cut).length + 1) } } : {}) })
+    if (doc) views.push({ title: r.title, kind: r.kind, doc, ...(cutAt !== undefined && r.axis ? { cut: { axis: r.axis, at: cutAt, look, label: String(no || views.filter((v) => v.cut).length + 1) } } : {}) })
   }
   return { views, ms: Date.now() - t0, ...(error ? { error } : {}) }
 }

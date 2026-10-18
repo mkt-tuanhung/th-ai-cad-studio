@@ -1,0 +1,361 @@
+/* Calibration, review, survey and AI preset dialogs (v2.4) — inside the existing Modal, no new layout. */
+.scroll {
+  display: grid;
+  gap: 12px;
+  max-height: min(72vh, 760px);
+  overflow-y: auto;
+  padding-right: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-strong, #1f2937);
+}
+
+.note {
+  font-size: 12.5px;
+  color: var(--text-muted, #5b6472);
+}
+
+.warn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  font-size: 12.5px;
+}
+
+.ok {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+  color: #166534;
+  font-size: 12.5px;
+}
+
+.section {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+}
+
+.section > h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.picker {
+  display: grid;
+  gap: 6px;
+}
+
+.pickBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.pickBar input {
+  width: 110px;
+  padding: 3px 6px;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+}
+
+.pickArea {
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid #e3e8ee;
+  border-radius: 8px;
+  background: #f6f8fa;
+}
+
+.pickInner {
+  position: relative;
+  overflow: hidden;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.pickInner img {
+  display: block;
+  max-width: none;
+  pointer-events: none;
+}
+
+.pickInner svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.refLine {
+  stroke: #0f766e;
+}
+
+.pickLine {
+  stroke: #dc2626;
+}
+
+.pickDot {
+  fill: rgba(220, 38, 38, 0.25);
+  stroke: #dc2626;
+}
+
+.refs {
+  display: grid;
+  gap: 6px;
+}
+
+.fit {
+  font-weight: 600;
+  color: #0f5f66;
+}
+
+.refList,
+.ocr ul,
+.list {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.refList li,
+.ocr li,
+.list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f6f8fa;
+}
+
+.refList em {
+  font-style: normal;
+  color: var(--text-muted, #5b6472);
+}
+
+.refList button,
+.ocr button,
+.list button,
+.linkBtn {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 12px;
+}
+
+.refList button:hover,
+.ocr button:hover,
+.list button:hover,
+.linkBtn:hover {
+  background: #eef3f6;
+}
+
+.list button:disabled {
+  opacity: 0.45;
+}
+
+.ocr {
+  display: grid;
+  gap: 4px;
+}
+
+.dim {
+  color: var(--text-muted, #5b6472);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.row input[type='number'],
+.row input[type='text'],
+.grid input {
+  width: 96px;
+  padding: 3px 6px;
+  border: 1px solid #cfd6de;
+  border-radius: 6px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 10px;
+}
+
+.grid label {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-muted, #5b6472);
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #eef2f5;
+  color: #3a4352;
+  white-space: nowrap;
+}
+
+.badgeWarn {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.badgeOk {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badgeDev {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.badgeInfo {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid #e3e8ee;
+}
+
+.tabs button {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #3a4352;
+}
+
+.tabs button[aria-selected='true'] {
+  font-weight: 600;
+  color: #11606a;
+  box-shadow: inset 0 -2.5px 0 #1a7d84;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #e3e8ee;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.card h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.card ol,
+.card ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.card .label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--text-muted, #5b6472);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.step {
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: #f1f4f7;
+  color: #3a4352;
+}
+
+.step[data-status='done'] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.step[data-status='running'],
+.step[data-status='applying'] {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.step[data-status='failed'] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.step[data-status='skipped'] {
+  opacity: 0.6;
+}
+
+.question {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.question input {
+  width: 100px;
+  padding: 3px 6px;
+  border: 1px solid #fdba74;
+  border-radius: 6px;
+}

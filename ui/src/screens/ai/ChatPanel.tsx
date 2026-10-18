@@ -111,7 +111,7 @@ export function ChatPanel() {
             {menuOpen && (
               <PopoverPanel width={260}>
                 <p className={s.menuNote}>{t.sampleNote}</p>
-                <MenuList onClose={() => setMenuOpen(false)} items={[{ label: t.openSample, onSelect: openSample }]} />
+                <MenuList onClose={() => setMenuOpen(false)} items={[{ label: t.openSample, onSelect: openSample }, { label: T.importCal.presets.menu, onSelect: () => window.dispatchEvent(new CustomEvent('thcad-presets', { detail: 'presets' })) }, { label: T.importCal.jobs.menu, onSelect: () => window.dispatchEvent(new CustomEvent('thcad-presets', { detail: 'jobs' })) }]} />
               </PopoverPanel>
             )}
           </div>

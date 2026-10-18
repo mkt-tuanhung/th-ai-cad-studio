@@ -74,10 +74,13 @@ export interface DrawnSection {
   /** [offset (m, + right of the design centre line), elevation (m)]. */
   ground: [number, number][]
   design: [number, number][]
+  /** A lined canal drawn with both faces: the inner (water) face; `design` is then the outer (excavation) face. */
+  channel?: [number, number][]
   cut: number
   fill: number
-  /** Areas written by the designer next to the section (m²). */
-  drawn?: { cut?: number; fill?: number }
+  /** Areas written by the designer next to the section (m²): the totals, and the split by machine / by hand when
+   *  the drawing writes it ("S đất đắp bằng máy", "S đắp thủ công"). */
+  drawn?: { cut?: number; fill?: number; cutMachine?: number; cutManual?: number; fillMachine?: number; fillManual?: number }
 }
 
 export interface CivilNote {
@@ -116,7 +119,9 @@ export const groundOf = (m: CivilModel): Profile => (m.ground && m.ground.length
 
 /* ---------------- geometry along the alignment ---------------- */
 
+/** Elevation of a profile at a station (NaN on an empty profile — a model without a design invert). */
 export function interp(p: Profile, s: number): number {
+  if (!p.length) return NaN
   if (s <= p[0][0]) return p[0][1]
   for (let i = 1; i < p.length; i++) {
     const [s0, z0] = p[i - 1], [s1, z1] = p[i]
@@ -162,8 +167,12 @@ export function normalDepth(p: DesignParams, S: number): number {
 
 /** Governing (design) slope for the typical section: the mid-length grade (sample); over the whole route for a
  *  route read from a drawing. */
-export const typicalSlope = (m: CivilModel) =>
-  m.sections ? (m.invert[0][1] - m.invert[m.invert.length - 1][1]) / Math.max(1e-9, m.invert[m.invert.length - 1][0] - m.invert[0][0]) : (interp(m.invert, 250) - interp(m.invert, 480)) / 230
+export const typicalSlope = (m: CivilModel) => {
+  // fewer than 2 invert points (a model stored before the design line was required): no slope, no hydraulics
+  if (m.invert.length < 2) return NaN
+  const a = m.invert[0], b = m.invert[m.invert.length - 1]
+  return m.sections ? (a[1] - b[1]) / Math.max(1e-9, b[0] - a[0]) : (interp(m.invert, 250) - interp(m.invert, 480)) / 230
+}
 
 /**
  * Normal-depth hydraulics of the typical section. `ok` is false when there is no flow to compute (a flat or
@@ -186,7 +195,7 @@ export function hydraulics(m: CivilModel, S = typicalSlope(m)) {
 /** Mean design bank height above the invert along the route (from the long profile), null without banks. */
 export function bankDepth(m: CivilModel): number | null {
   const b = [...(m.banks?.left ?? []), ...(m.banks?.right ?? [])]
-  if (!b.length) return null
+  if (!b.length || !m.invert.length) return null
   return b.reduce((a, [s, z]) => a + (z - interp(m.invert, s)), 0) / b.length
 }
 
@@ -292,6 +301,27 @@ export function sectionEarthwork(sections: DrawnSection[], step = 100): EarthRow
     rows.push({ from: lo, to: hi, length: hi - lo, cut, fill, net: cut - fill })
   }
   return rows
+}
+
+/**
+ * The designer's split by machine / by hand over the drawn sections (m³, average end areas between consecutive
+ * sections), from the areas written next to each section. A part is given only when every section with
+ * designer's areas writes it (a stretch without it would make the sum wrong); `null` when no section has any.
+ */
+export function drawnSplit(m: CivilModel): { cutMachine?: number; cutManual?: number; fillMachine?: number; fillManual?: number } | null {
+  const s = [...(m.sections ?? [])].sort((a, b) => a.station - b.station)
+  if (s.length < 2 || !s.some((x) => x.drawn)) return null
+  const out: { cutMachine?: number; cutManual?: number; fillMachine?: number; fillManual?: number } = {}
+  for (const k of ['cutMachine', 'cutManual', 'fillMachine', 'fillManual'] as const) {
+    let v = 0, ok = true
+    for (let i = 1; i < s.length && ok; i++) {
+      const a = s[i - 1].drawn?.[k], b = s[i].drawn?.[k]
+      if (a === undefined || b === undefined) ok = false
+      else v += ((a + b) / 2) * (s[i].station - s[i - 1].station)
+    }
+    if (ok) out[k] = v
+  }
+  return out
 }
 
 /** The drawn section nearest a station. */

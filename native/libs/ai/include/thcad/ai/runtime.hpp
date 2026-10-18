@@ -45,6 +45,10 @@ class Runtime {
   /** Blocking generation. `onToken` may return false to stop. Returns the full text. */
   virtual std::string generate(const std::string& prompt, const GenerateOptions& opt,
                                const std::function<bool(const std::string&)>& onToken = {}) = 0;
+  /** App shutdown: the running load / generation stops as soon as it can (any thread may call this) and
+   *  every later load() / generate() returns at once (false / empty). Sticky. */
+  virtual void abort() {}
+  virtual bool aborted() const { return false; }
 };
 
 /** llama.cpp runtime if compiled in, otherwise a runtime that reports "no backend". */

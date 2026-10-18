@@ -25,6 +25,9 @@ interface EntityBase {
   /** Imported from a DXF/DWG block instance (INSERT): instance id, block name, world rotation (radians).
    *  Informational only (plan recognition reads furniture / doors from it); selection is per entity. */
   insert?: { id: string; name: string; rot: number }
+  /** Provenance (v2.4): which import / survey this entity came from (`CadDocument.provenance.sources[id]`), its
+   *  own confidence (0–1, OCR words) and whether it still needs review. Absent = drawn in this app. */
+  src?: import('./provenance').EntitySrc
 }
 
 export interface LineEntity extends EntityBase {
@@ -121,6 +124,9 @@ export interface CadDocument {
   source: 'seed' | 'new' | 'dxf-import' | 'bim-drawing'
   /** Paper-space layouts (paper size and plot scale; scale null = the largest standard scale that fits). */
   layouts?: Layout[]
+  /** Imported / surveyed sources, their calibration and the review list (v2.4, cad/provenance.ts). Absent =
+   *  everything drawn here: nothing to review. `provenance.reviewRequired` is the doc property “REVIEW REQUIRED”. */
+  provenance?: import('./provenance').DocProvenance
 }
 
 export interface Layout {

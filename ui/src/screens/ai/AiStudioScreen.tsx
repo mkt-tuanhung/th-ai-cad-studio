@@ -1,5 +1,5 @@
 import { ScanToCadModal } from './ScanToCad'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fmt, useT } from '../../i18n'
 import { useAiStudio } from '../../state/aiStudio'
 import { useCad } from '../../state/cad'
@@ -14,6 +14,9 @@ import { StudioHeader, type CapKey } from './StudioHeader'
 import { ChatPanel } from './ChatPanel'
 import { LocalAiStrip } from './LocalAiStrip'
 import { ProposalWorkspace } from './ProposalWorkspace'
+import { TaskPresetsDialog } from './TaskPresets'
+import { createJob, type AiJob } from '../../ai/jobs'
+import { SCAN_STEPS } from '../../ai/presets'
 import s from './AiStudioScreen.module.css'
 
 export function AiStudioScreen() {
@@ -25,6 +28,20 @@ export function AiStudioScreen() {
   const [approveOpen, setApproveOpen] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
   const [scanFile, setScanFile] = useState<File | null>(null)
+  // v2.4 AI task presets + job queue (opened from the chat ⋯ menu); a preset-driven Scan to CAD runs as a job
+  const [presets, setPresets] = useState<'presets' | 'jobs' | null>(null)
+  const [scanJob, setScanJob] = useState<string | null>(null)
+  const pendingScan = useRef<string | null>(null)
+  useEffect(() => {
+    const on = (e: Event) => setPresets(((e as CustomEvent).detail as 'presets' | 'jobs') ?? 'presets')
+    window.addEventListener('thcad-presets', on)
+    return () => window.removeEventListener('thcad-presets', on)
+  }, [])
+  const startScanPreset = (jobId?: string) => {
+    pendingScan.current = jobId ?? 'new'
+    setPresets(null)
+    scanRef.current?.click()
+  }
   const p = PROPOSALS[studio.option - 1]
   const optionLabel = fmt(t.option, { n: p.n })
   const file = `Office Layout - Option ${p.n}.dwg`
@@ -36,6 +53,7 @@ export function AiStudioScreen() {
       case 'smartFix':
         return studio.set({ draft: 'Fix wall intersections' })
       case 'scanToCad':
+        pendingScan.current = null
         return scanRef.current?.click()
       case 'compare':
         return studio.set({ tab: 'files' })
@@ -104,12 +122,27 @@ export function AiStudioScreen() {
         accept="image/*,.pdf"
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) setScanFile(f)
+          if (f) {
+            // a preset run: a new job, or the job being resumed (its file is not kept between sessions)
+            const pend = pendingScan.current
+            pendingScan.current = null
+            if (pend === 'new') {
+              const j: AiJob = createJob({ preset: 'scan', title: fmt(T.importCal.jobs.jobTitleScan, { file: f.name }), steps: SCAN_STEPS, input: { file: f.name } })
+              studio.saveJob(j)
+              setScanJob(j.id)
+            } else if (pend) {
+              const j = studio.jobs.find((x) => x.id === pend)
+              if (j) studio.saveJob({ ...j, status: 'in-progress', questions: j.questions.filter((q) => q.code !== 'reselect-file'), input: { ...j.input, file: f.name }, updatedAt: Date.now() })
+              setScanJob(pend)
+            } else setScanJob(null)
+            setScanFile(f)
+          }
           e.target.value = ''
         }}
       />
 
-      {scanFile && <ScanToCadModal file={scanFile} onClose={() => setScanFile(null)} />}
+      {scanFile && <ScanToCadModal file={scanFile} jobId={scanJob} onClose={() => setScanFile(null)} />}
+      {presets && <TaskPresetsDialog tab={presets} onClose={() => setPresets(null)} onStartScan={startScanPreset} />}
 
       {approveOpen && (
         <Modal

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ManufacturingJob v2.2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "part_revision_hash",
+    "machine_profile_id",
+    "machine_profile_revision",
+    "stock",
+    "machine_selected",
+    "status",
+    "nc_release"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string"
+    },
+    "part_revision_hash": {
+      "type": "string"
+    },
+    "machine_profile_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "machine_profile_revision": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "stock": {
+      "type": "object",
+      "required": [
+        "material_code",
+        "length_mm",
+        "width_mm",
+        "measured_thickness_mm",
+        "grain_axis",
+        "face_a"
+      ],
+      "properties": {
+        "material_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "length_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "width_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "measured_thickness_mm": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "grain_axis": {
+          "enum": [
+            "X",
+            "Y",
+            "NONE",
+            "UNSPECIFIED"
+          ]
+        },
+        "face_a": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "machine_selected": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "LEGACY_UNASSIGNED",
+        "DRAFT",
+        "PARTS_READY",
+        "NESTED",
+        "CAM_PLANNED",
+        "POSTED_FOR_REVIEW",
+        "VALIDATED",
+        "PRODUCTION_RELEASED",
+        "STALE"
+      ]
+    },
+    "head_assignments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "head_id",
+          "tool_id"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "head_id": {
+            "type": "string"
+          },
+          "tool_id": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "controller_dialect": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "post_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "fixture_collision_pass": {
+          "type": "boolean"
+        },
+        "safe_z_pass": {
+          "type": "boolean"
+        },
+        "dialect_parse_pass": {
+          "type": "boolean"
+        },
+        "nc_backplot_pass": {
+          "type": "boolean"
+        },
+        "revision_current": {
+          "type": "boolean"
+        }
+      }
+    },
+    "nc_release": {
+      "type": "object",
+      "required": [
+        "allowed",
+        "approval_state"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "approval_state": {
+          "enum": [
+            "BLOCKED",
+            "PENDING_REVIEW",
+            "RELEASED"
+          ]
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

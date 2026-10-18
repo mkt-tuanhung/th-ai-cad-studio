@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { RotateCcw, Sparkles } from 'lucide-react'
 import { fmt, useT } from '../../i18n'
 import { Modal } from '../../components/ui/Modal'
 import { ActionButton } from '../../components/ui/Button'
@@ -14,7 +14,9 @@ import {
 } from '../../bim/fromCad'
 import { DEFAULT_BUILD, buildBimModel, buildInterior, type BuildOptions } from '../../bim/fromCadBuild'
 import { suggestLayerRoles } from '../../ai/layerRoles'
-import { applyBim, applyInterior, buildNames } from './fromCadActions'
+import { applyBim, applyInterior, buildNames, checkBim, checkInterior } from './fromCadActions'
+import { inferElevations } from '../../auto/pipeline'
+import { latestBackups, restoreBackup, type BackupStore } from '../../auto/backup'
 import s from './FromCad.module.css'
 
 interface PlanRow {
@@ -30,6 +32,9 @@ const num = (v: string, d: number) => (Number.isFinite(Number(v)) && v.trim() !=
 /**
  * Build model from CAD plans: drawing → layer roles (rules, geometry, optional local-AI suggestions, the user) →
  * plans → recognised walls / openings / rooms / columns / furniture → preview → Approve & build (one undo step).
+ * Recognition depends on the drawing and the layer roles only; level names and elevations typed in the plan table
+ * rebuild the model, never re-run the recognition. The model rules run before the approval (shown in the footer);
+ * a replaced model is backed up first and can be restored here.
  */
 export function FromCadDialog({ onClose, interior = false }: { onClose: () => void; interior?: boolean }) {
   const T = useT()
@@ -53,15 +58,19 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
   const [rows, setRows] = useState<Record<string, PlanRow>>({})
   useEffect(() => {
     let n = 0
+    // elevations the titles do not give: from the storey number and the titled neighbours (never two plans at one)
+    const plansIn = regions.filter((r) => r.kind !== 'other')
+    const el = inferElevations(plansIn.map((r) => ({ order: r.order, elevation: r.elevation, roof: r.kind === 'roof' })), DEFAULT_BUILD.storeyH, doc ? roofElevation(doc) : null)
+    const elOf = new Map(plansIn.map((r, i) => [r.id, el[i].elevation]))
     // a role change re-finds the plans; rows the user already edited are kept (same plan title)
     setRows((prev) => Object.fromEntries(regions.map((r) => {
       const plan = r.kind !== 'other'
       if (plan) n++
       const old = prev[r.id]
       if (old && old.title === r.title) return [r.id, old]
-      return [r.id, { title: r.title, use: plan, roof: r.kind === 'roof', levelName: r.levelName ?? fmt(t.levelDefault, { n: Math.max(1, n) }), elevation: String(r.elevation ?? (n - 1) * DEFAULT_BUILD.storeyH) }]
+      return [r.id, { title: r.title, use: plan, roof: r.kind === 'roof', levelName: r.levelName ?? fmt(t.levelDefault, { n: Math.max(1, n) }), elevation: String(r.elevation ?? elOf.get(r.id) ?? (n - 1) * DEFAULT_BUILD.storeyH) }]
     })))
-  }, [regions, t.levelDefault])
+  }, [regions, t.levelDefault, doc])
 
   const [rec, setRec] = useState<RecOptions>(DEFAULT_REC)
   const [bo, setBo] = useState<BuildOptions>(DEFAULT_BUILD)
@@ -70,8 +79,11 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
   const [withInterior, setWithInterior] = useState(interior)
   const roofEl = useMemo(() => (doc ? roofElevation(doc) : null), [doc])
 
-  const recs = useMemo<Recognition[]>(() => (doc ? regions.filter((r) => rows[r.id]).map((r) => recognize(doc, roles, r, rec)) : []), [doc, regions, roles, rec, rows])
-  const picked = regions.map((r, i) => ({ r, rec: recs[i], row: rows[r.id] })).filter((x) => x.rec && x.row?.use)
+  // recognition: the drawing, the roles and the options only (typing a level name or an elevation never re-runs it)
+  const recs = useMemo<Recognition[]>(() => (doc ? regions.map((r) => recognize(doc, roles, r, rec)) : []), [doc, regions, roles, rec])
+  // the model follows the typed names / elevations a moment later (typing stays responsive)
+  const lazyRows = useDeferredValue(rows)
+  const picked = regions.map((r, i) => ({ r, rec: recs[i], row: lazyRows[r.id] })).filter((x) => x.rec && x.row?.use)
   const names = useMemo(() => buildNames(t), [t])
 
   // storey above the top plan follows the roof plan's title elevation when there is one
@@ -82,7 +94,7 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
     if (!picked.length) return null
     return buildBimModel(picked.map((p) => ({ rec: p.rec, levelName: p.row.levelName.trim() || p.r.id, elevation: num(p.row.elevation, 0), roof: p.row.roof })), { ...bo, storeyH }, names)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recs, rows, bo, storeyH, names])
+  }, [recs, lazyRows, bo, storeyH, names])
   const [intLevel, setIntLevel] = useState<string>('L1')
   const intIdx = built ? Math.max(0, built.model.levels.findIndex((l) => l.id === intLevel)) : 0
   const sortedPicks = [...picked].sort((a, b) => num(a.row.elevation, 0) - num(b.row.elevation, 0))
@@ -113,15 +125,18 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
   const runAi = async () => {
     const host = await getHost()
     if (!host) return setAiMsg(t.aiBrowser)
-    setAiMsg(fmt(t.aiRunning, { n: Math.min(60, stats.length) }))
-    const r = await suggestLayerRoles(host, stats)
+    // only the layers no name rule knows are asked about (a name rule is never overridden by a suggestion)
+    const ask = stats.filter((x) => x.by !== 'rule')
+    if (!ask.length) return setAiMsg(t.aiNone)
+    setAiMsg(fmt(t.aiRunning, { n: Math.min(60, ask.length) }))
+    const r = await suggestLayerRoles(host, ask)
     if (r.error === 'no-model') return setAiMsg(t.aiNoModel)
     if (r.error) return setAiMsg(fmt(t.aiFailed, { why: r.error }))
-    // suggestions never override the user's own choices
+    // suggestions never override the user's own choices, nor a name rule
     const next = { ...over }
     let n = 0
     for (const [name, role] of Object.entries(r.roles)) {
-      if (over[name]?.by === 'user') continue
+      if (over[name]?.by === 'user' || stats.find((x) => x.name === name)?.by === 'rule') continue
       const cur = over[name]?.role ?? stats.find((x) => x.name === name)?.role
       if (cur === role) continue
       next[name] = { role, by: 'ai' }
@@ -131,21 +146,66 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
     setAiMsg(n ? fmt(t.aiDone, { n, s: r.seconds.toFixed(1), model: r.model ?? 'local' }) : t.aiNone)
   }
 
-  const approve = () => {
+  // the model rules before the approval (the same the stores run): said in the footer, Approve waits for a fix
+  const preBim = useMemo(() => { try { return built && withBim ? checkBim(built.model, mode) : null } catch (e) { return e instanceof Error ? e.message : String(e) } }, [built, withBim, mode])
+  const preInt = useMemo(() => { try { return interiorBuild && withInterior ? checkInterior(interiorBuild) : null } catch (e) { return e instanceof Error ? e.message : String(e) } }, [interiorBuild, withInterior])
+  // a synchronous guard (a double click applies once); the BIM part applied stays applied — a second click after
+  // the Interior part was rejected does not add it again
+  const busyRef = useRef(false)
+  const [applying, setApplying] = useState(false)
+  const doneBim = useRef<object | null>(null)
+  const [applyErr, setApplyErr] = useState<string | null>(null)
+  useEffect(() => { doneBim.current = null }, [built, mode])
+  const [backups, setBackups] = useState<{ store: BackupStore; at: number; label: string }[]>([])
+  const refreshBackups = useCallback(() => { latestBackups(['bim', 'interior']).then(setBackups, () => setBackups([])) }, [])
+  useEffect(() => { refreshBackups() }, [refreshBackups])
+  const approve = async () => {
+    if (busyRef.current) return
     if (!built) return toast(t.noPlan, 'warning')
+    busyRef.current = true
+    setApplying(true)
+    setApplyErr(null)
     const name = doc?.name ?? ''
     const label = fmt(t.undoLabel, { name })
-    if (withBim) {
-      const err = applyBim(built.model, mode, label)
-      if (err) return toast(fmt(t.invalid, { mark: err }), 'warning')
-      toast(fmt(t.built, { name, summary: summary(built.counts) }), 'success')
+    const A = T.auto.backup
+    try {
+      if (withBim && doneBim.current !== built.model) {
+        const r = await applyBim(built.model, mode, label)
+        if (r.error) { setApplyErr(fmt(t.invalid, { mark: r.error })); toast(fmt(t.invalid, { mark: r.error }), 'warning'); return }
+        doneBim.current = built.model
+        if (!r.backedUp) toast(fmt(A.failed, { what: A.stores.bim }), 'warning')
+        toast(fmt(t.built, { name, summary: summary(built.counts) }), 'success')
+      }
+      if (withInterior && interiorBuild) {
+        const r = await applyInterior(interiorBuild, label)
+        if (r.error) { setApplyErr(fmt(t.invalid, { mark: r.error })); toast(fmt(t.invalid, { mark: r.error }), 'warning'); return }
+        if (!r.backedUp) toast(fmt(A.failed, { what: A.stores.interior }), 'warning')
+        toast(fmt(t.builtInterior, { level: built.model.levels[intIdx]?.name ?? '', rooms: interiorBuild.rooms.length, items: interiorBuild.items.length, cabinets: interiorBuild.cabinets.length }), 'success')
+      }
+      onClose()
+    } catch (e) {
+      const why = e instanceof Error ? e.message : String(e)
+      setApplyErr(why)
+      toast(fmt(t.invalid, { mark: why }), 'warning')
+    } finally {
+      busyRef.current = false
+      setApplying(false)
+      refreshBackups()
     }
-    if (withInterior && interiorBuild) {
-      const err = applyInterior(interiorBuild, label)
-      if (err) return toast(fmt(t.invalid, { mark: err }), 'warning')
-      toast(fmt(t.builtInterior, { level: built.model.levels[intIdx]?.name ?? '', rooms: interiorBuild.rooms.length, items: interiorBuild.items.length, cabinets: interiorBuild.cabinets.length }), 'success')
+  }
+  const restore = async (st: BackupStore) => {
+    if (busyRef.current) return
+    busyRef.current = true
+    const A = T.auto.backup, what = A.stores[st]
+    try {
+      const e = await restoreBackup(st, A.restoreLabel)
+      toast(e ? fmt(A.restoreFailed, { what, why: e }) : fmt(A.restored, { what }), e ? 'warning' : 'success')
+    } catch (e) {
+      toast(fmt(A.restoreFailed, { what, why: e instanceof Error ? e.message : String(e) }), 'warning')
+    } finally {
+      busyRef.current = false
+      refreshBackups()
     }
-    onClose()
   }
   const summary = (c: NonNullable<typeof built>['counts']) => fmt(t.summary, { levels: c.levels, walls: c.walls, doors: c.doors, windows: c.windows, rooms: c.rooms, columns: c.columns, furniture: c.components })
 
@@ -247,7 +307,18 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
                   <option value="merge">{t.opt.merge}</option>
                 </select>
               </label>
+              {withBim && mode === 'replace' && <p className={s.note} data-testid="fromcad-replace-note">{fmt(T.auto.backup.replaceNote, { what: T.auto.backup.stores.bim })}</p>}
               <label className={s.check}><input type="checkbox" checked={withInterior} onChange={(e) => setWithInterior(e.target.checked)} data-testid="fromcad-interior" />{t.opt.interior}</label>
+              {withInterior && <p className={s.note}>{fmt(T.auto.backup.replaceNote, { what: T.auto.backup.stores.interior })}</p>}
+              {backups.length > 0 && (
+                <div className={s.note} data-testid="fromcad-restore">
+                  {backups.map((b) => (
+                    <button key={b.store} type="button" className={s.ai} onClick={() => void restore(b.store)} title={b.label}>
+                      <RotateCcw size={12} /> {fmt(T.auto.backup.restore, { what: T.auto.backup.stores[b.store], when: new Date(b.at).toLocaleString() })}
+                    </button>
+                  ))}
+                </div>
+              )}
               {withInterior && built && (
                 <label className={s.check}>
                   <span>{t.opt.interiorLevel}</span>
@@ -272,6 +343,11 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
             {(['wall', 'curtain', 'door', 'window', 'opening', 'column', 'room', 'furniture'] as const).map((k) => <span key={k}><i className={s[`lg_${k}`]} />{t.legend[k]}</span>)}
           </div>
           {built && <p className={s.note}>{built.align.method === 'grid' && built.align.grid ? fmt(t.align.grid, { v: built.align.grid[0], h: built.align.grid[1] }) : t.align.extent}</p>}
+          {built && built.problems.length > 0 && (
+            <ul className={s.warn} role="alert" data-testid="fromcad-stack">
+              {built.problems.map((x, i) => { const [code, ...rest] = x.split(':'); return <li key={i}>{fmt((t.stack as Record<string, string>)[code] ?? x, { what: rest.join(':').replace('|', ' / ') })}</li> })}
+            </ul>
+          )}
           {allWarnings.length > 0 && <ul className={s.warn}>{allWarnings.map((w, i) => <li key={i}>{w}</li>)}</ul>}
         </div>
       </div>
@@ -279,9 +355,12 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
         <span data-testid="fromcad-summary">
           {built ? summary(built.counts) : t.noPlan}
           {interiorBuild && <><br />{fmt(t.interiorSummary, { rooms: interiorBuild.rooms.length, items: interiorBuild.items.length, cabinets: interiorBuild.cabinets.length })}</>}
+          {preBim && <><br /><span role="alert" data-testid="fromcad-rejected">{fmt(t.invalid, { mark: preBim })}</span></>}
+          {preInt && <><br /><span role="alert" data-testid="fromcad-rejected-interior">{fmt(t.invalid, { mark: preInt })}</span></>}
+          {applyErr && !preBim && !preInt && <><br /><span role="alert">{applyErr}</span></>}
         </span>
         <ActionButton onClick={onClose}>{t.cancel}</ActionButton>
-        <ActionButton variant="primary" onClick={approve} disabled={!built || (!withBim && !withInterior)} data-testid="fromcad-approve">{t.approve}</ActionButton>
+        <ActionButton variant="primary" onClick={() => void approve()} disabled={!built || built.problems.length > 0 || (!withBim && !withInterior) || applying || !!preBim || !!preInt} data-testid="fromcad-approve">{t.approve}</ActionButton>
       </div>
     </Modal>
   )
@@ -289,8 +368,11 @@ export function FromCadDialog({ onClose, interior = false }: { onClose: () => vo
 
 /** The plan with what was recognised drawn over it (drawing coordinates, Y up). */
 function PlanPreview({ doc, rec, roles }: { doc: CadDocument; rec: Recognition; roles: Record<string, LayerRole> }) {
-  const b = rec.region.box
-  const pad = Math.max(800, 0.05 * Math.max(b.x1 - b.x0, b.y1 - b.y0))
+  // a drawing in m / cm is recognised in mm (region.unit): the box and the overlay are in mm, the drawing in its units
+  const u = rec.region.unit && rec.region.unit > 0 ? rec.region.unit : 1
+  const b0 = rec.region.box
+  const b = { x0: b0.x0 / u, y0: b0.y0 / u, x1: b0.x1 / u, y1: b0.y1 / u }
+  const pad = Math.max(800 / u, 0.05 * Math.max(b.x1 - b.x0, b.y1 - b.y0))
   const vb = { x: b.x0 - pad, y: b.y0 - pad, w: b.x1 - b.x0 + 2 * pad, h: b.y1 - b.y0 + 2 * pad }
   const src = useMemo(() => {
     const paths: string[] = []
@@ -324,19 +406,21 @@ function PlanPreview({ doc, rec, roles }: { doc: CadDocument; rec: Recognition; 
     <svg className={s.preview} viewBox={`${vb.x} ${-(vb.y + vb.h)} ${vb.w} ${vb.h}`} data-testid="fromcad-preview" role="img" aria-label={rec.region.title ?? rec.region.id}>
       <g transform="scale(1,-1)">
         <path d={src} className={s.src} strokeWidth={lw} />
+        <g transform={u !== 1 ? `scale(${1 / u})` : undefined}>
         <g transform={turn}>
-        {rec.rooms.map((r, i) => <polygon key={`r${i}`} points={pts(r.outline)} className={s.room} strokeWidth={lw * 1.5} />)}
-        {rec.walls.map((w, i) => <polygon key={`w${i}`} points={pts(wallRect(w))} className={w.curtain ? s.curtain : s.wall} strokeWidth={lw} />)}
+        {rec.rooms.map((r, i) => <polygon key={`r${i}`} points={pts(r.outline)} className={s.room} strokeWidth={lw * 1.5 * u} />)}
+        {rec.walls.map((w, i) => <polygon key={`w${i}`} points={pts(wallRect(w))} className={w.curtain ? s.curtain : s.wall} strokeWidth={lw * u} />)}
         {rec.openings.map((o, i) => { const w = rec.walls[o.wall]; return w ? <polygon key={`o${i}`} points={pts(wallRect(w, o.s0, o.s1, 25))} className={s[o.kind]} /> : null })}
         {rec.columns.map((c, i) => <rect key={`c${i}`} x={c.x - c.w / 2} y={c.y - c.d / 2} width={c.w} height={c.d} className={s.column} />)}
         {rec.furniture.map((f, i) => (
-          <rect key={`f${i}`} x={-f.w / 2} y={-f.d / 2} width={f.w} height={f.d} className={s.furn} strokeWidth={lw} transform={`translate(${f.x} ${f.y}) rotate(${f.rot})`} />
+          <rect key={`f${i}`} x={-f.w / 2} y={-f.d / 2} width={f.w} height={f.d} className={s.furn} strokeWidth={lw * u} transform={`translate(${f.x} ${f.y}) rotate(${f.rot})`} />
         ))}
+        </g>
         </g>
       </g>
       {rec.rooms.map((r, i) => {
         const [cx, cy] = back([r.outline.reduce((a, p) => a + p[0], 0) / r.outline.length, r.outline.reduce((a, p) => a + p[1], 0) / r.outline.length])
-        return <text key={`t${i}`} x={cx} y={-cy} className={s.rlabel} fontSize={vb.w / 75} textAnchor="middle">{`${r.name ?? '?'} · ${r.area.toFixed(2)} m²`}</text>
+        return <text key={`t${i}`} x={cx / u} y={-cy / u} className={s.rlabel} fontSize={vb.w / 75} textAnchor="middle">{`${r.name ?? '?'} · ${r.area.toFixed(2)} m²`}</text>
       })}
     </svg>
   )
