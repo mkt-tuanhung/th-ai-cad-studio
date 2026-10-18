@@ -6,7 +6,9 @@ export type Language = 'en' | 'vi'
 export type ThemePreference = 'light' | 'dark' | 'system'
 export type UnitSystem = 'mm' | 'cm' | 'm' | 'in'
 export type AngleUnits = 'deg' | 'rad' | 'grad'
-export type ShortcutId = 'commandSearch' | 'undo' | 'redo' | 'save' | 'saveAs' | 'osnap' | 'grid' | 'ortho' | 'snap' | 'polar' | 'help'
+export type ShortcutId = 'commandSearch' | 'undo' | 'redo' | 'save' | 'saveAs' | 'osnap' | 'grid' | 'ortho' | 'snap' | 'polar' | 'help' | 'cheatsheet'
+/** Interaction profiles (key maps for tools / navigation, see platform/keymap.ts). */
+export type KeyProfileId = 'autocad' | 'sketchup' | '3dsmax' | 'md'
 
 export const DEFAULT_SHORTCUTS: Record<ShortcutId, string> = {
   commandSearch: 'Mod+K',
@@ -20,6 +22,13 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, string> = {
   snap: 'F9',
   polar: 'F10',
   help: 'F1',
+  cheatsheet: 'Mod+/',
+}
+
+/** Where an app shortcut acts (the drafting toggles only exist in CAD 2D). Used by the collision check. */
+export const SHORTCUT_SCOPE: Record<ShortcutId, 'global' | 'cad2d'> = {
+  commandSearch: 'global', undo: 'global', redo: 'global', save: 'global', saveAs: 'global', help: 'global', cheatsheet: 'global',
+  osnap: 'cad2d', grid: 'cad2d', ortho: 'cad2d', snap: 'cad2d', polar: 'cad2d',
 }
 
 /** Everything the Settings screen edits (persisted). Empty folder strings = the platform default. */
@@ -49,6 +58,12 @@ export interface Prefs {
   cacheSizeGb: number
   maxUndo: number
   shortcuts: Record<ShortcutId, string>
+  /** Default interaction profile (all projects). AutoCAD = typed commands first, no single-key tools. */
+  keyProfile: KeyProfileId
+  /** The user's own key per action, per profile ('' = unbound); merged over the profile's defaults. */
+  keyMaps: Partial<Record<KeyProfileId, Record<string, string>>>
+  /** Profile chosen for one project (project id → profile); else keyProfile. */
+  projectKeyProfiles: Record<string, KeyProfileId>
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -78,6 +93,9 @@ export const DEFAULT_PREFS: Prefs = {
   cacheSizeGb: 10,
   maxUndo: 100,
   shortcuts: DEFAULT_SHORTCUTS,
+  keyProfile: 'autocad',
+  keyMaps: {},
+  projectKeyProfiles: {},
 }
 
 interface SettingsState extends Prefs {

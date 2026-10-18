@@ -27,7 +27,22 @@ import { RightPanel } from './RightPanel'
 import { AiAssistPanel } from './AiAssistPanel'
 import { CommandPanel, type CommandPanelHandle } from './CommandPanel'
 import { StatusBar, StatusRight } from './StatusBar'
+import { useKeyActions } from '../../platform/useKeyActions'
+import { ACTIONS } from '../../platform/keymap'
+import { snapshotOn } from '../../platform/snapshots'
+import { hostError } from '../../platform/hostErrors'
 import s from './Cad2DScreen.module.css'
+
+/** Interaction-profile actions of CAD 2D: they type the same command as the command line (a plain letter key never
+ *  reaches here — it belongs to the command line, see platform/keymap.ts). */
+const CAD_ACTIONS: Record<string, () => void> = Object.fromEntries(
+  ACTIONS.filter((a) => a.scope === 'cad2d' && a.command).map((a) => [a.id, () => {
+    const ss = useCadSession.getState()
+    ss.cancel()
+    ss.input(a.command!)
+    if (a.command === 'ZOOM') ss.input('E')
+  }]),
+)
 
 const isTyping = (el: EventTarget | null) =>
   el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el as HTMLElement | null)?.isContentEditable
@@ -50,7 +65,10 @@ export function Cad2DScreen() {
     if (!doc) return
     cad.save()
     toast(fmt(T.cad.toast.saved, { name: doc.name }), 'success')
+    // Settings → File Handling → "Create backup on save": a version of every workspace (Version history)
+    void snapshotOn('save', doc.name)
   }
+  useKeyActions(CAD_ACTIONS)
 
   /** DXF 2000 with the paper-space layouts (default), or R12 with model space only (old programs). */
   const exportDxf = (r12 = false) => {
@@ -75,7 +93,7 @@ export function Cad2DScreen() {
     let r = await host.dwgWriteDxf(toDxf2000(doc, { leftText: true }), `${baseName()}.dwg`)
     if (r.error === 'no-writer') r = await host.dwgWrite(toDwgAdd(doc).script, `${baseName()}.dwg`)
     if (r.cancelled) return
-    if (!r.ok) return toast(fmt(T.cad.toast.dwgSaveFailed, { why: r.error === 'no-writer' ? 'LibreDWG dxf2dwg / dwgadd not found' : r.error ?? '' }), 'warning')
+    if (!r.ok) return toast(fmt(T.cad.toast.dwgSaveFailed, { why: hostError(r.error, useSettings.getState().language) }), 'warning')
     const file = r.path!.split(/[\\/]/).pop()!
     const msg = fmt(T.cad.toast.dwgSaved, { file, n: r.entities ?? '?', layers: r.layers ?? '?', layouts: r.layouts ?? 0 })
     say(msg, 'info')
@@ -87,7 +105,7 @@ export function Cad2DScreen() {
     const layouts = doc.layouts ?? DEFAULT_LAYOUTS
     const lay = layouts.find((l) => l.id === (layoutId ?? cad.sheet))
     const paper = lay?.paper ?? 'A3'
-    const page = plotPage(doc, paper, lay?.scale ?? undefined)
+    const page = plotPage(doc, paper, lay?.scale ?? undefined, { ruler: lay?.ruler })
     const name = lay ? `${baseName()} - ${lay.name}` : baseName()
     if (kind === 'png') {
       const file = `${name}.png`
@@ -106,7 +124,7 @@ export function Cad2DScreen() {
     }
     const r = await host.cadExportPdf(JSON.stringify(page), `${name}.pdf`)
     if (r.cancelled) return
-    if (!r.ok) return toast(r.error ?? 'PDF', 'warning')
+    if (!r.ok) return toast(hostError(r.error, useSettings.getState().language), 'warning')
     const file = r.path!.split(/[\\/]/).pop()!
     toast(fmt(T.cad.toast.pdfSaved, { file, paper, scale: page.scale }), 'success')
   }
@@ -115,7 +133,7 @@ export function Cad2DScreen() {
   const plotSheetSet = async () => {
     if (!doc) return
     const layouts = doc.layouts ?? DEFAULT_LAYOUTS
-    const pages = layouts.map((l) => ({ ...plotPage(doc, l.paper, l.scale ?? undefined), name: `${baseName()} - ${l.name}` }))
+    const pages = layouts.map((l) => ({ ...plotPage(doc, l.paper, l.scale ?? undefined, { ruler: l.ruler }), name: `${baseName()} - ${l.name}` }))
     const host = await getHost()
     if (!host) {
       const w = window.open('', '_blank')
@@ -127,7 +145,7 @@ export function Cad2DScreen() {
     }
     const r = await host.cadExportPdf(JSON.stringify({ pages, name: `${baseName()} - sheet set` }), `${baseName()} - sheet set.pdf`)
     if (r.cancelled) return
-    if (!r.ok) return toast(r.error ?? 'PDF', 'warning')
+    if (!r.ok) return toast(hostError(r.error, useSettings.getState().language), 'warning')
     toast(fmt(T.cad.sheets.setPlotted, { n: pages.length, file: r.path!.split(/[\\/]/).pop()! }), 'success')
   }
 

@@ -18,7 +18,18 @@ import { InteriorRight } from './InteriorRight'
 import { CabinetDialog } from './CabinetDialog'
 import { NestingDialog } from './NestingDialog'
 import { FromCadDialog } from '../bim/FromCadDialog'
+import { useKeyActions } from '../../platform/useKeyActions'
 import s from './Interior.module.css'
+
+const ist = () => useInterior.getState()
+/** Interaction-profile actions (platform/keymap.ts): the plan tools and views of the ribbon. */
+const INT_ACTIONS: Record<string, () => void> = {
+  'int.dimension': () => ist().set({ itool: ist().itool === 'dimension' ? null : 'dimension', plan: ist().plan ?? 'floor', tab: 'design' }),
+  'int.tag': () => ist().set({ itool: ist().itool === 'tag' ? null : 'tag', plan: ist().plan ?? 'floor', tab: 'design' }),
+  'int.viewFloor': () => ist().set({ plan: 'floor', tab: 'design' }),
+  'int.viewCeiling': () => ist().set({ plan: 'ceiling', tab: 'design' }),
+  'int.view3d': () => ist().set({ plan: null, itool: null, tab: 'design' }),
+}
 
 /** Interior workspace — mockup 09 (Design). */
 export function InteriorScreen() {
@@ -36,6 +47,7 @@ export function InteriorScreen() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [st.undo, st.redo, t])
+  useKeyActions(INT_ACTIONS)
 
   const exportCsv = (kind: 'furniture' | 'cutlist' | 'quantities') => {
     const d = useInterior.getState().doc

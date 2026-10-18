@@ -9,9 +9,10 @@ import { readSystemStatus, type SystemStatus } from '../../services/system'
 import { AiSparkIcon } from '../../components/icons'
 import {
   AiModelCard, FileHandlingCard, FileLocationsCard, IntegrationsCard, InterfaceCard, LanguageCard, PerformanceCard, PrivacyCard,
-  ShortcutsCard, UnitsCard, UpdatesCard, type CardProps,
+  ShortcutsCard, UnitsCard, UpdatesCard, VersionsCard, type CardProps,
 } from './SettingsCards'
 import { SettingsRail } from './SettingsRail'
+import { settingsInbox } from '../../platform/ui'
 import s from './Settings.module.css'
 
 export type Section = 'general' | 'interface' | 'files' | 'ai' | 'units' | 'shortcuts' | 'language' | 'performance' | 'updates' | 'privacy' | 'integrations'
@@ -38,7 +39,12 @@ export function SettingsScreen() {
   const store = useSettings()
   const saved = useMemo(() => prefsOf(store), [store])
   const [draft, setDraft] = useState<Prefs>(saved)
-  const [section, setSection] = useState<Section>('general')
+  // ⌘K → a settings page
+  const [section, setSection] = useState<Section>(() => {
+    const asked = settingsInbox.section as Section | null
+    settingsInbox.section = null
+    return asked && MENU.some((m) => m.id === asked) ? asked : 'general'
+  })
   const [sys, setSys] = useState<SystemStatus | null>(null)
   const [modelPath, setModelPath] = useState<string | null>(null)
   const dirty = !same(draft, saved) || modelPath !== null
@@ -85,6 +91,7 @@ export function SettingsScreen() {
       <>
         <FileLocationsCard {...props} />
         <FileHandlingCard {...props} />
+        <VersionsCard {...props} />
       </>
     ),
     ai: <AiModelCard {...props} />,

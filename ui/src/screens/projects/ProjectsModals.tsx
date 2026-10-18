@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Building2, Box, Settings, Waves } from 'lucide-react'
+import { BedDouble, Briefcase, Building, Building2, Box, CookingPot, Home, PaintRoller, Settings, Waves } from 'lucide-react'
+import { TEMPLATES as CONTENT_TEMPLATES, type TemplateId } from '../../platform/templates'
 import { useT } from '../../i18n'
 import { detailsOf, type Discipline, type Project } from '../../state/workspace'
 import type { Activity, ProjectEntry } from '../../state/projectSeed'
@@ -44,25 +45,57 @@ const TEMPLATES: { id: 'villa' | 'office' | 'mech' | 'canal'; discipline: Discip
   { id: 'canal', discipline: 'civil', Icon: Waves, folders: ['01_Survey', '02_Alignment', '03_Profiles', '04_Cross_Sections', '05_Earthwork'] },
 ]
 
-export function TemplateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string, d: Discipline, folders: string[]) => void }) {
+const CONTENT_ICONS: Record<TemplateId, typeof Box> = { apartment: Building, house: Home, oneRoom: BedDouble, kitchen: CookingPot, office: Briefcase, fitout: PaintRoller }
+
+/**
+ * From Template: templates with real content (platform/templates.ts — BIM model, interior design, plan drawing)
+ * and the folder-structure templates.
+ */
+export function TemplateModal({ onClose, onCreate, onCreateContent }: {
+  onClose: () => void
+  onCreate: (name: string, d: Discipline, folders: string[]) => void
+  onCreateContent: (id: TemplateId, name: string) => void
+}) {
   const t = useT()
   const T = t.projects.modals
-  const [pick, setPick] = useState(TEMPLATES[0])
+  const C = t.platform.templates
+  const [pick, setPick] = useState<{ kind: 'content'; id: TemplateId } | { kind: 'folders'; tp: (typeof TEMPLATES)[number] }>({ kind: 'content', id: CONTENT_TEMPLATES[0].id })
   const [name, setName] = useState('')
   const ok = name.trim().length > 0
+  const create = () => {
+    if (!ok) return
+    if (pick.kind === 'content') onCreateContent(pick.id, name.trim())
+    else onCreate(name.trim(), pick.tp.discipline, pick.tp.folders)
+  }
   return (
-    <Modal title={T.templateTitle} onClose={onClose} footer={<>
+    <Modal title={T.templateTitle} onClose={onClose} width={560} footer={<>
       <ActionButton onClick={onClose}>{T.cancel}</ActionButton>
-      <ActionButton variant="primary" disabled={!ok} onClick={() => ok && onCreate(name.trim(), pick.discipline, pick.folders)}>{T.create}</ActionButton>
+      <ActionButton variant="primary" disabled={!ok} onClick={create}>{T.create}</ActionButton>
     </>}>
-      <div className={s.templates} role="radiogroup">
-        {TEMPLATES.map((tp) => (
-          <button key={tp.id} type="button" role="radio" aria-checked={pick.id === tp.id} className={`${s.tpl} ${pick.id === tp.id ? s.tplOn : ''}`} onClick={() => setPick(tp)}>
-            <tp.Icon size={20} strokeWidth={1.6} />
-            <span><b>{T.templates[tp.id].name}</b><small>{T.templates[tp.id].text}</small></span>
-          </button>
-        ))}
+      <div className={s.templates} role="radiogroup" aria-label={T.templateTitle}>
+        <b className={s.tplGroup}>{C.content}</b>
+        {CONTENT_TEMPLATES.map((tp) => {
+          const Icon = CONTENT_ICONS[tp.id]
+          const on = pick.kind === 'content' && pick.id === tp.id
+          return (
+            <button key={tp.id} type="button" role="radio" aria-checked={on} data-template={tp.id} className={`${s.tpl} ${on ? s.tplOn : ''}`} onClick={() => setPick({ kind: 'content', id: tp.id })}>
+              <Icon size={20} strokeWidth={1.6} />
+              <span><b>{C.items[tp.id].name}</b><small>{C.items[tp.id].text} · v{tp.version}</small></span>
+            </button>
+          )
+        })}
+        <b className={s.tplGroup}>{C.folders}</b>
+        {TEMPLATES.map((tp) => {
+          const on = pick.kind === 'folders' && pick.tp.id === tp.id
+          return (
+            <button key={tp.id} type="button" role="radio" aria-checked={on} className={`${s.tpl} ${on ? s.tplOn : ''}`} onClick={() => setPick({ kind: 'folders', tp })}>
+              <tp.Icon size={20} strokeWidth={1.6} />
+              <span><b>{T.templates[tp.id].name}</b><small>{T.templates[tp.id].text}</small></span>
+            </button>
+          )
+        })}
       </div>
+      {pick.kind === 'content' && <p className={s.tplNote}>{C.loads}</p>}
       <Field label={T.name}><TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder={t.newProject.namePlaceholder} /></Field>
     </Modal>
   )

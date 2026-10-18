@@ -192,6 +192,8 @@ interface WorkspaceState {
   /** Last autosave as reported by the document service. */
   autosave: { at: number; fileName: string }
   seededAt: number
+  /** The project opened last (Dashboard / Projects / ⌘K open, or just created): per-project settings follow it. */
+  currentId: string | null
   createProject: (p: { name: string; discipline: Discipline; format: FileFormat }) => Project
   renameProject: (id: string, name: string) => void
   toggleFavorite: (id: string) => void
@@ -221,10 +223,11 @@ export const useWorkspace = create<WorkspaceState>()(
         hiddenFromRecent: [],
         autosave: { at: now - 2 * 60_000, fileName: 'Project_Villa_A.dwg' },
         seededAt: now,
+        currentId: null,
         createProject: ({ name, discipline, format }) => {
           const t = Date.now()
           const p: Project = { id: uid(), name, discipline, format, favorite: false, version: 1, createdAt: t, modifiedAt: t, details: defaultDetails(discipline) }
-          set({ projects: [p, ...get().projects] })
+          set({ projects: [p, ...get().projects], currentId: p.id })
           get().log({ projectId: p.id, who: 'hoang', kind: 'created', target: name })
           return p
         },
@@ -235,6 +238,7 @@ export const useWorkspace = create<WorkspaceState>()(
         removeFromRecent: (id) => set({ hiddenFromRecent: [...get().hiddenFromRecent, id] }),
         touchProject: (id) =>
           set({
+            currentId: id,
             projects: get().projects.map((p) => (p.id === id ? { ...p, modifiedAt: Date.now() } : p)),
             hiddenFromRecent: get().hiddenFromRecent.filter((x) => x !== id),
           }),

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ComponentType } from 'react'
+import { componentsInbox } from '../../platform/ui'
 import {
   AirVent, Archive, Armchair, ArrowUpToLine, Bath, Box, Building2, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, CookingPot, Cog, DoorOpen, Download,
   Droplet, Ellipsis, Flame, Folder, Grid2x2, Image as ImageIcon, Lamp, Layers, LayoutGrid, LayoutPanelTop, Lightbulb, List, Palette, Search, Sofa, Star, StickyNote,
@@ -56,7 +57,12 @@ export function ComponentsScreen() {
   const [sort, setSort] = useState<Sort>('popular')
   const [desc, setDesc] = useState(true)
   const [view, setView] = useState<'grid' | 'list'>('grid')
-  const [selectedId, setSelectedId] = useState(all.find((c) => c.name === 'Modern Sofa 3-Seater')?.id ?? all[0].id)
+  // ⌘K → a component: open with it selected
+  const [selectedId, setSelectedId] = useState(() => {
+    const asked = componentsInbox.id && all.some((c) => c.id === componentsInbox.id) ? componentsInbox.id : null
+    componentsInbox.id = null
+    return asked ?? all.find((c) => c.name === 'Modern Sofa 3-Seater')?.id ?? all[0].id
+  })
   const [treeOpen, setTreeOpen] = useState(true)
   const [catQuery, setCatQuery] = useState('')
   const [expanded, setExpanded] = useState<Record<Group, boolean>>({ blocks: true, families: true, mechanical: true, mep: false, materials: false, interior: false })

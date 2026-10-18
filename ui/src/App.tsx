@@ -24,6 +24,7 @@ import { SplashScreen, splashWanted } from './components/brand/SplashScreen'
 import { BrandLoadingOverlay } from './components/brand/BrandLoader'
 import { AutoDialog } from './screens/auto/AutoDialog'
 import { useAutoRun } from './state/auto'
+import { PlatformHost } from './platform/PlatformHost'
 import s from './App.module.css'
 
 const shellMode: 'framed' | 'native' =
@@ -67,6 +68,7 @@ export default function App() {
     {splash && <SplashScreen onDone={() => setSplash(false)} />}
     <BrandLoadingOverlay />
     {autoOpen && <AutoDialog />}
+    <PlatformHost />
     <AppWindow mode={shellMode}>
       <div className={s.shell}>
         <Sidebar promo={route === 'dashboard' ? '/assets/dashboard_sidebar_promo.png' : '/assets/common_sidebar_promo.png'} />
