@@ -68,6 +68,19 @@ export interface HostApi {
   scene3dExportGlb(key: string, suggestedName: string): Promise<{ ok: boolean; path?: string; bytes?: number; nodes?: number; triangles?: number; materials?: string[]; boundsMm?: number[]; sha256?: string; error?: string; cancelled?: boolean }>
   /** The user's own Blender (external process, never bundled). */
   blenderInfo(refresh: boolean): Promise<BlenderInfo>
+  /** 3D asset library (v2.4, library/assets.ts): the manifest on disk and its folder. */
+  libraryList(): Promise<{ ok: boolean; dir: string; manifest: unknown; bytes: number; freeBytes: number; running: boolean; busy: boolean; blender: boolean; script: boolean }>
+  /** User action only: GET an allow-listed Poly Haven API URL; the text arrives on 'libraryEvent' {type:'fetch', id}. */
+  libraryFetch(id: string, url: string): Promise<{ ok: boolean; id?: string; error?: string }>
+  libraryDownload(planJson: string): Promise<{ ok: boolean; assets?: number; bytes?: number; error?: string; needBytes?: number; freeBytes?: number }>
+  libraryCancel(): Promise<void>
+  libraryPut(entryJson: string, thumbDataUrl: string): Promise<{ ok: boolean; id?: string; error?: string }>
+  libraryRemove(id: string): Promise<{ ok: boolean; removed?: boolean }>
+  libraryThumbs(idsJson: string): Promise<Record<string, string>>
+  libraryImport(path: string): Promise<{ ok: boolean; id?: string; dir?: string; error?: string; code?: string; cancelled?: boolean }>
+  libraryExport(): Promise<{ ok: boolean; path?: string; items?: number; files?: number; bytes?: number; error?: string; cancelled?: boolean }>
+  libraryImportZip(): Promise<{ ok: boolean; items?: number; files?: number; error?: string; cancelled?: boolean }>
+  libraryReveal(): Promise<boolean>
   /** Render memory pre-check (4K / 8K guard). */
   renderMemoryCheck(w: number, h: number, engine: string): Promise<{ ok: boolean; needBytes: number; budgetBytes: number; physicalBytes: number; reason?: string }>
   /** A render output / queued 3D frame (Renders folder or render cache only) as a JPEG data URL. */
@@ -96,7 +109,7 @@ export interface HostApi {
   dwgWriteTo(script: string, dir: string, name: string): Promise<{ ok: boolean; path?: string; bytes?: number; entities?: number; error?: string }>
   revealFolder(path: string): Promise<boolean>
   loadModel(path: string): Promise<boolean>
-  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress' | 'modelProgress', fn: (payload: unknown) => void): void
+  on(signal: 'aiResult' | 'aiTaskResult' | 'documentChanged' | 'dwgResult' | 'renderProgress' | 'voiceText' | 'voiceTranscript' | 'whisperProgress' | 'modelProgress' | 'libraryEvent', fn: (payload: unknown) => void): void
 }
 
 export interface BlenderInfo {

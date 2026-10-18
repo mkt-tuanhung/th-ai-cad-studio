@@ -87,6 +87,7 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
   connect(dwg_, &DwgReader::finished, this, &HostBridge::dwgResult);
   blender_ = new BlenderWorker(this);
   connect(blender_, &BlenderWorker::progress, this, &HostBridge::renderProgress);
+  initLibrary();
 #ifdef THCAD_HAS_OCCT
   connect(blender_, &BlenderWorker::finished, this, &HostBridge::blenderDone);
 #endif
@@ -1189,7 +1190,10 @@ QJsonObject HostBridge::renderStartBlender(const QJsonObject& job) {
                          {"overrides", b.value("overrides").toObject()},
                          {"ground", b.value("ground").toBool(false)},
                          {"depth16", job.value("format").toString() == QStringLiteral("png16")},
-                         {"device", device}};
+                         {"device", device},
+                         // interior renders: library models / PBR materials / HDRIs (paths relative to the library)
+                         {"dressing", b.value("dressing").toObject()},
+                         {"library", libraryDir()}};
   const QString err = blender_->start(job.value("id").toString(), spec);
   if (!err.isEmpty()) return {{"ok", false}, {"error", err == QStringLiteral("blender-not-found") ? QStringLiteral("Blender is not installed — use the OCCT path tracer") : err}, {"code", err}};
   renderJob_ = job;

@@ -28,6 +28,7 @@ class NativeViewport;
 class DwgReader;
 class ModelDownloader;
 class BlenderWorker;
+class LibraryStore;
 
 class HostBridge : public QObject {
   Q_OBJECT
@@ -164,6 +165,25 @@ class HostBridge : public QObject {
   Q_INVOKABLE QString qaSampleFile(int index) const;
   /** QA only (THCAD_QA=1): saves a Qt grab of the window. */
   Q_INVOKABLE bool qaGrab(const QString& path);
+  /** 3D asset library (host_library.cpp / library_store.hpp): {ok, dir, manifest, bytes, freeBytes, blender, …}. */
+  Q_INVOKABLE QJsonObject libraryList();
+  /** GET an allow-listed Poly Haven API URL (user action only); the text arrives on 'libraryEvent' {type:'fetch', id, ok, text}. */
+  Q_INVOKABLE QJsonObject libraryFetch(const QString& id, const QString& url);
+  /** Download plan (ui/src/library/polyhaven.ts) → files verified (size + md5) into the library; 'libraryEvent' {type:'download', …}. */
+  Q_INVOKABLE QJsonObject libraryDownload(const QString& planJson);
+  Q_INVOKABLE void libraryCancel();
+  /** Writes one manifest entry (user items, edits); thumbDataUrl (optional) becomes its thumb.png. */
+  Q_INVOKABLE QJsonObject libraryPut(const QString& entryJson, const QString& thumbDataUrl);
+  Q_INVOKABLE QJsonObject libraryRemove(const QString& id);
+  /** {id: data URL} of the thumbnails of the given ids (JSON array). */
+  Q_INVOKABLE QJsonObject libraryThumbs(const QString& idsJson);
+  /** "Thêm từ file": a 3D file (open dialog when path is empty; THCAD_PICK_FILE in QA) → Blender → library/user/<id>/model.glb
+   *  + thumbnail; the result (real size, unit guess) arrives on 'libraryEvent' {type:'import', …}; libraryPut commits it. */
+  Q_INVOKABLE QJsonObject libraryImport(const QString& path);
+  /** The user's own items as a .zip (save / open dialog; THCAD_LIBRARY_ZIP in QA). */
+  Q_INVOKABLE QJsonObject libraryExport();
+  Q_INVOKABLE QJsonObject libraryImportZip();
+  Q_INVOKABLE bool libraryReveal();
   /** Option A: the UI reports where its viewport slot is; the native viewer is placed there. */
   Q_INVOKABLE void setViewportSlot(const QString& kind, double x, double y, double w, double h, bool visible);
 
@@ -178,6 +198,8 @@ class HostBridge : public QObject {
   void dwgResult(const QJsonObject& result);
   /** {id, samples, total, ms, preview?} while running; {id, done:true, ok, path?, error?, …} at the end. */
   void renderProgress(const QJsonObject& progress);
+  /** Asset library: {type:'fetch'|'download'|'import'|'probe', …} (see LibraryStore). */
+  void libraryEvent(const QJsonObject& e);
 
  private:
   QJsonObject proposalJson(const Proposal& p) const;
@@ -219,6 +241,10 @@ class HostBridge : public QObject {
   std::unique_ptr<SpeechInput> speech_;
   void renderTick();
   void renderFinish(bool ok, const QString& error);
+  // 3D asset library
+  LibraryStore* library_ = nullptr;
+  void initLibrary();
+  QString libraryDir() const;
   // Blender Cycles worker (separate process)
   BlenderWorker* blender_ = nullptr;
   QJsonObject renderStartBlender(const QJsonObject& job);

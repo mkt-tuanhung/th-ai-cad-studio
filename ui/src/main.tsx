@@ -68,6 +68,11 @@ if (import.meta.env.DEV || import.meta.env.VITE_QA_HOOKS === '1') {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), render24: { provenance, snapshot, runner, bookmarks } }
   })
+  // v2.4 asset library + photoreal interior renders (desktop e2e: e2e_library.js, the demo renders)
+  Promise.all([import('./library/assets'), import('./library/assetService'), import('./library/polyhaven'), import('./library/composer'), import('./renders/interiorRender')]).then(([assets, service, polyhaven, composer, interiorRender]) => {
+    const w = window as unknown as { __thcad: Record<string, unknown> }
+    w.__thcad = { ...(w.__thcad ?? {}), assetLib: { assets, service, polyhaven, composer, interiorRender } }
+  })
   import('./state/aiStudio').then(({ useAiStudio }) => {
     const w = window as unknown as { __thcad: Record<string, unknown> }
     w.__thcad = { ...(w.__thcad ?? {}), aiStudio: useAiStudio }
