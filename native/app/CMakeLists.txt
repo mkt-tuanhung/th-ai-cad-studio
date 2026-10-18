@@ -12,6 +12,7 @@ qt_add_executable(THAICADStudio MACOSX_BUNDLE WIN32
   src/speech_input.hpp
   src/whisper_runner.cpp src/whisper_runner.hpp
   src/model_downloader.cpp src/model_downloader.hpp
+  src/blender_worker.cpp src/blender_worker.hpp
   src/mac_window.hpp
 )
 # brand icon: macOS AppIcon.icns in Contents/Resources, Windows app.ico through a resource script
@@ -31,6 +32,16 @@ else()
 endif()
 if(NOT APPLE AND NOT WIN32)
   target_sources(THAICADStudio PRIVATE src/speech_input_other.cpp)
+endif()
+# Blender render worker script (run by the user's own Blender as a separate process; Blender is not bundled)
+set(THCAD_MD_RENDER ${CMAKE_CURRENT_SOURCE_DIR}/resources/md_render.py)
+if(APPLE)
+  set_source_files_properties(${THCAD_MD_RENDER} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+  target_sources(THAICADStudio PRIVATE ${THCAD_MD_RENDER})
+else()
+  add_custom_command(TARGET THAICADStudio POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:THAICADStudio>/resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${THCAD_MD_RENDER} "$<TARGET_FILE_DIR:THAICADStudio>/resources/md_render.py")
 endif()
 if(WIN32)
   target_sources(THAICADStudio PRIVATE src/video_writer_win.cpp src/speech_input_win.cpp)

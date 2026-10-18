@@ -18,6 +18,7 @@
 #include <QSysInfo>
 #include <QWidget>
 
+#include "blender_worker.hpp"
 #include "dwg_reader.hpp"
 #include "video_writer.hpp"
 #include "speech_input.hpp"
@@ -42,6 +43,9 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QImageWriter>
+#include <QImageReader>
+#include <QCryptographicHash>
+#include <QRandomGenerator>
 #include <QTimer>
 #include <cmath>
 #include <QImage>
@@ -62,6 +66,11 @@ HostBridge::HostBridge(NativeViewport* viewport, QObject* parent)
       bim_(bim::villaRiverside()) {
   dwg_ = new DwgReader(this);
   connect(dwg_, &DwgReader::finished, this, &HostBridge::dwgResult);
+  blender_ = new BlenderWorker(this);
+  connect(blender_, &BlenderWorker::progress, this, &HostBridge::renderProgress);
+#ifdef THCAD_HAS_OCCT
+  connect(blender_, &BlenderWorker::finished, this, &HostBridge::blenderDone);
+#endif
   downloader_ = new ModelDownloader(this);
   connect(this, &HostBridge::modelProgress, this, [this](const QJsonObject& p) {
     if (!p.value("done").toBool()) return;
@@ -117,6 +126,7 @@ QJsonObject HostBridge::info() const {
       {"aiBackend", QString::fromStdString(runtime_->status().backend)},
       {"nativeViewport", nativeViewport()},
       {"dwgReader", DwgReader::version()},
+      {"blender", BlenderWorker::probe()},
   };
 }
 
@@ -382,6 +392,58 @@ void HostBridge::bim3dCamera(const QString& action, double a, double b, double c
   (void)d;
 }
 
+namespace {
+std::array<double, 3> arr3Of(const QJsonValue& v, std::array<double, 3> def) {
+  const QJsonArray a = v.toArray();
+  return a.size() == 3 ? std::array<double, 3>{a[0].toDouble(), a[1].toDouble(), a[2].toDouble()} : def;
+}
+
+QJsonObject glbStatsJson(const occt::GlbStats& st) {
+  QJsonArray mats, b;
+  for (const auto& m : st.materials) mats.append(QString::fromStdString(m));
+  for (double x : st.boundsMm) b.append(x);
+  return {{"bytes", static_cast<double>(st.bytes)}, {"nodes", st.nodes}, {"triangles", st.triangles}, {"vertices", st.vertices}, {"materials", mats}, {"boundsMm", b}};
+}
+
+QString fileSha256(const QString& path) {
+  QFile f(path);
+  if (!f.open(QIODevice::ReadOnly)) return {};
+  QCryptographicHash h(QCryptographicHash::Sha256);
+  h.addData(&f);
+  return QString::fromLatin1(h.result().toHex());
+}
+
+/** `path` lies inside `dir` (both resolved; no ../ escapes). */
+bool insideDir(const QString& path, const QString& dir) {
+  const QString p = QFileInfo(path).canonicalFilePath(), d = QDir(dir).canonicalPath();
+  return !p.isEmpty() && !d.isEmpty() && p.startsWith(d + "/");
+}
+
+/** Working memory of a final render (SP44), bytes. OCCT path tracer: float accumulation buffers on the GPU
+ *  (unified memory on Apple Silicon) + read-back + post-processing copies; Blender: the Blender process,
+ *  Cycles film / denoiser passes and the scene. Deliberately on the safe side. */
+double renderMemoryBytes(int w, int h, const QString& engine) {
+  const double px = double(w) * h;
+  return engine == QStringLiteral("blender") ? 900.0 * 1024 * 1024 + px * 120 : 300.0 * 1024 * 1024 + px * 110;
+}
+
+/** Memory a render may use: THCAD_RENDER_MEM_LIMIT_MB (QA: simulate a small machine) or 60 % of physical RAM. */
+double renderMemoryBudget() {
+  const QString lim = qEnvironmentVariable("THCAD_RENDER_MEM_LIMIT_MB");
+  if (!lim.isEmpty() && lim.toDouble() > 0) return lim.toDouble() * 1024 * 1024;
+  return double(ai::physicalMemoryBytes()) * 0.6;
+}
+
+QJsonObject memoryCheck(int w, int h, const QString& engine) {
+  const double need = renderMemoryBytes(w, h, engine), budget = renderMemoryBudget();
+  QJsonObject r{{"ok", need <= budget}, {"needBytes", need}, {"budgetBytes", budget}, {"physicalBytes", static_cast<double>(ai::physicalMemoryBytes())}};
+  if (need > budget)
+    r["reason"] = QStringLiteral("not enough memory for %1 x %2: needs about %3 GB, %4 GB available for rendering — choose a lower resolution")
+                      .arg(w).arg(h).arg(need / kGiB, 0, 'f', 1).arg(budget / kGiB, 0, 'f', 1);
+  return r;
+}
+}  // namespace
+
 occt::SceneView* HostBridge::scene(const QString& key) {
   auto& v = scenes_[key];
   if (!v) v = std::make_unique<occt::SceneView>();
@@ -486,7 +548,10 @@ QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) 
     v->setClipPlanes(planes);
   } else if (cmd == "section") v->setSectionBox(o["on"].toBool(), ids("around"), o.contains("top") ? o["top"].toDouble() : std::numeric_limits<double>::quiet_NaN());
   else if (cmd == "window") v->windowFit(o["x0"].toInt(), o["y0"].toInt(), o["x1"].toInt(), o["y1"].toInt());
-  else if (cmd == "camera") v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55));
+  else if (cmd == "camera") {
+    if (o["up"].toArray().size() == 3) v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55), vec3("up"));
+    else v->setCamera(vec3("eye"), vec3("at"), o["fov"].toDouble(55));
+  }
   else if (cmd == "walk") v->walk(o["forward"].toDouble(), o["right"].toDouble(), o["yaw"].toDouble(), o["pitch"].toDouble());
   else if (cmd == "drawing2d") {
     const std::array<double, 3> z = vec3("toViewer"), x = vec3("xDir");
@@ -509,7 +574,40 @@ QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) 
   }
   else if (cmd == "getCamera") {
     const auto c = v->camera();
-    return {{"ok", true}, {"eye", QJsonArray{c[0], c[1], c[2]}}, {"at", QJsonArray{c[3], c[4], c[5]}}, {"fov", c[6]}};
+    const auto u = v->cameraUp();
+    return {{"ok", true}, {"eye", QJsonArray{c[0], c[1], c[2]}}, {"at", QJsonArray{c[3], c[4], c[5]}}, {"fov", c[6]}, {"up", QJsonArray{u[0], u[1], u[2]}}, {"lighting", QString::fromStdString(v->lighting())}};
+  }
+  else if (cmd == "lighting") {
+    v->setLighting(o["preset"].toString().toStdString());
+    return {{"ok", true}, {"lighting", QString::fromStdString(v->lighting())}};
+  }
+  else if (cmd == "geomHash") {
+    int n = 0;
+    double vol = 0;
+    const std::string h = v->geometryHash(&n, &vol);
+    return {{"ok", true}, {"hash", QString::fromStdString(h)}, {"items", n}, {"volumeM3", vol}};
+  }
+  else if (cmd == "overrides") {
+    // presentation material variation: recolour groups, the geometry is untouched
+    std::map<std::string, occt::MaterialOverride> by;
+    const QJsonObject g = o["groups"].toObject();
+    for (auto it = g.begin(); it != g.end(); ++it) {
+      const QJsonObject x = it.value().toObject();
+      by[it.key().toStdString()] = {arr3Of(x.value("rgb"), {0.8, 0.8, 0.8}), x.value("mat").toString("matte").toStdString()};
+    }
+    return {{"ok", true}, {"changed", v->applyOverrides(by)}};
+  }
+  else if (cmd == "exportGlb") {
+    // render snapshot (queued job): written into the render cache under a fresh name, never a page-chosen path
+    const QString dir = BlenderWorker::cacheDir() + QStringLiteral("/scenes");
+    QDir().mkpath(dir);
+    const QString path = dir + QStringLiteral("/scene-%1-%2.glb").arg(QDateTime::currentMSecsSinceEpoch()).arg(QString::number(QRandomGenerator::global()->generate(), 16));
+    occt::GlbStats st;
+    const std::string err = v->writeGlb(path.toStdString(), o["visibleOnly"].toBool(true), &st);
+    if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+    QJsonObject r = glbStatsJson(st);
+    r["ok"] = true, r["path"] = path, r["sha256"] = fileSha256(path);
+    return r;
   }
   else if (cmd == "bounds") {
     const auto b = v->bounds(ids("ids"));
@@ -525,7 +623,16 @@ QJsonObject HostBridge::scene3dCommand(const QString& key, const QString& json) 
     QBuffer buf(&bytes);
     buf.open(QIODevice::WriteOnly);
     img.convertToFormat(QImage::Format_RGB888).save(&buf, "PNG");
-    return {{"ok", true}, {"url", QStringLiteral("data:image/png;base64,") + QString::fromLatin1(bytes.toBase64())}, {"w", w}, {"h", h}, {"bytes", static_cast<double>(bytes.size())}};
+    QJsonObject r{{"ok", true}, {"url", QStringLiteral("data:image/png;base64,") + QString::fromLatin1(bytes.toBase64())}, {"w", w}, {"h", h}, {"bytes", static_cast<double>(bytes.size())}};
+    if (o["save"].toBool()) {
+      // the live 3D frame of a queued render (before / after comparison), kept next to its scene snapshot
+      const QString dir = BlenderWorker::cacheDir() + QStringLiteral("/frames");
+      QDir().mkpath(dir);
+      const QString path = dir + QStringLiteral("/frame-%1-%2.png").arg(QDateTime::currentMSecsSinceEpoch()).arg(QString::number(QRandomGenerator::global()->generate(), 16));
+      QFile f(path);
+      if (f.open(QIODevice::WriteOnly) && f.write(bytes) == bytes.size()) r["path"] = path;
+    }
+    return r;
   } else return {{"ok", false}, {"error", "unknown command " + cmd}};
   return {{"ok", true}};
 }
@@ -560,6 +667,54 @@ QJsonObject HostBridge::scene3dExportStep(const QString& key, const QString& sug
   const std::string err = v->writeStep(path.toStdString());
   if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
   return {{"ok", true}, {"path", path}, {"bytes", static_cast<double>(QFileInfo(path).size())}};
+}
+
+QJsonObject HostBridge::scene3dExportGlb(const QString& key, const QString& suggestedName) {
+  auto* v = scene(key);
+  if (!v) return {{"ok", false}, {"error", "no scene"}};
+  QString path = qEnvironmentVariable("THCAD_GLB_OUT");  // QA: skip the dialog
+  if (path.isEmpty()) {
+    const QString start = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + "/" + suggestedName;
+    path = QFileDialog::getSaveFileName(qobject_cast<QWidget*>(parent()), tr("Export GLB"), start, "glTF binary (*.glb)");
+  }
+  if (path.isEmpty()) return {{"ok", false}, {"cancelled", true}};
+  if (!path.endsWith(QStringLiteral(".glb"), Qt::CaseInsensitive)) path += QStringLiteral(".glb");
+  occt::GlbStats st;
+  const std::string err = v->writeGlb(path.toStdString(), false, &st);
+  if (!err.empty()) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+  QJsonObject r = glbStatsJson(st);
+  r["ok"] = true, r["path"] = path, r["sha256"] = fileSha256(path);
+  return r;
+}
+
+QJsonObject HostBridge::renderMemoryCheck(int w, int h, const QString& engine) {
+  return memoryCheck(std::clamp(w, 16, 16384), std::clamp(h, 16, 16384), engine == QStringLiteral("blender") ? engine : QStringLiteral("occt"));
+}
+
+QJsonObject HostBridge::renderReadSidecar(const QString& imagePath) {
+  QString dir = qEnvironmentVariable("THCAD_RENDER_OUT");
+  if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/MD CAD AI STUDIO/Renders");
+  const QFileInfo fi(imagePath);
+  const QString side = fi.absolutePath() + "/" + fi.completeBaseName() + QStringLiteral(".provenance.json");
+  if (!insideDir(side, dir)) return {{"ok", false}, {"error", "no sidecar"}};
+  QFile f(side);
+  if (!f.open(QIODevice::ReadOnly)) return {{"ok", false}, {"error", "no sidecar"}};
+  return {{"ok", true}, {"path", side}, {"sidecar", QJsonDocument::fromJson(f.readAll()).object()}};
+}
+
+QJsonObject HostBridge::renderReadImage(const QString& path, int maxWidth) {
+  QString dir = qEnvironmentVariable("THCAD_RENDER_OUT");
+  if (dir.isEmpty()) dir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + QStringLiteral("/MD CAD AI STUDIO/Renders");
+  if (!insideDir(path, dir) && !insideDir(path, BlenderWorker::cacheDir())) return {{"ok", false}, {"error", "not a render file"}};
+  QImageReader rd(path);
+  QImage img = rd.read();
+  if (img.isNull()) return {{"ok", false}, {"error", rd.errorString()}};
+  if (maxWidth > 0 && img.width() > maxWidth) img = img.scaledToWidth(maxWidth, Qt::SmoothTransformation);
+  QByteArray bytes;
+  QBuffer buf(&bytes);
+  buf.open(QIODevice::WriteOnly);
+  img.convertToFormat(QImage::Format_RGB888).save(&buf, "JPG", 90);
+  return {{"ok", true}, {"url", QStringLiteral("data:image/jpeg;base64,") + QString::fromLatin1(bytes.toBase64())}, {"w", img.width()}, {"h", img.height()}};
 }
 namespace {
 /** Post-processing on the final image (the same controls as the UI's Post Production panel). */
@@ -747,6 +902,31 @@ QString renderBase(const QJsonObject& job, const QString& ext) {
   for (int n = 2; QFileInfo::exists(path + ext); ++n) path = dir + "/" + base + QStringLiteral(" (%1)").arg(n);
   return path;
 }
+
+const char* kPresentationLabel = "PRESENTATION ONLY - not for dimensions, BOM, quantities or CNC (MD CAD AI STUDIO)";
+
+/** Provenance sidecar next to a finished render (`<image base>.provenance.json`): what was rendered (scene id
+ *  and revision captured when the job was queued, camera, settings) and that it is presentation only. */
+QString writeProvenance(const QString& imagePath, const QJsonObject& job, const QJsonObject& engine, int w, int h, double ms) {
+  const QFileInfo fi(imagePath);
+  const QString side = fi.absolutePath() + "/" + fi.completeBaseName() + QStringLiteral(".provenance.json");
+  QJsonObject p = job.value("provenance").toObject();
+  p["schema"] = QStringLiteral("md-cad-ai-studio/render-provenance@1");
+  p["presentationOnly"] = true;
+  p["feedsBom"] = false;
+  p["feedsCnc"] = false;
+  p["label"] = QString::fromLatin1(kPresentationLabel);
+  p["labelVi"] = QStringLiteral("CHỈ ĐỂ TRÌNH BÀY - không dùng cho kích thước, BOM, khối lượng hay CNC");
+  p["image"] = QJsonObject{{"file", fi.fileName()}, {"sha256", fileSha256(imagePath)}, {"bytes", static_cast<double>(fi.size())}, {"w", w}, {"h", h}, {"format", job.value("format").toString("png")}};
+  p["engine"] = engine;
+  p["job"] = QJsonObject{{"id", job.value("id")}, {"name", job.value("name")}, {"kind", job.value("kind").toString("still")}};
+  p["params"] = job.value("params").toObject();
+  p["renderedAt"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+  p["ms"] = ms;
+  QFile f(side);
+  if (!f.open(QIODevice::WriteOnly) || f.write(QJsonDocument(p).toJson()) <= 0) return {};
+  return side;
+}
 }  // namespace
 
 QJsonObject HostBridge::renderStart(const QString& jobJson) {
@@ -755,13 +935,44 @@ QJsonObject HostBridge::renderStart(const QString& jobJson) {
   const QString fmt = job.value("format").toString("png");
   if (fmt == "exr") return {{"ok", false}, {"error", "OpenEXR output is not included in this build (choose PNG 16-bit for high bit depth)"}};
   if (fmt == "tiff" && !QImageWriter::supportedImageFormats().contains("tiff")) return {{"ok", false}, {"error", "TIFF writer not available in this build"}};
+  const bool useBlender = job.value("engine").toString() == QStringLiteral("blender");
+  {
+    // memory pre-check (SP44): refuse cleanly before allocating anything; the project is never touched
+    const QJsonObject p0 = job.value("params").toObject();
+    int mw = std::clamp(p0.value("w").toInt(1920), 16, 8192), mh = std::clamp(p0.value("h").toInt(1080), 16, 8192);
+    if (job.value("kind").toString() == QStringLiteral("panorama")) mw = mh = std::clamp(p0.value("face").toInt(1024), 64, 4096);
+    const QJsonObject mc = memoryCheck(mw, mh, useBlender ? QStringLiteral("blender") : QStringLiteral("occt"));
+    if (!mc.value("ok").toBool())
+      return {{"ok", false}, {"code", "memory"}, {"error", mc.value("reason")}, {"needBytes", mc.value("needBytes")}, {"budgetBytes", mc.value("budgetBytes")}};
+  }
+  if (useBlender) return renderStartBlender(job);
   if (!renderer_) renderer_ = std::make_unique<occt::SceneView>(true);
   if (!renderer_->ok()) return {{"ok", false}, {"error", "OpenGL unavailable"}};
-  auto parsed = json::parse(QJsonDocument(job.value("scene").toObject()).toJson(QJsonDocument::Compact).toStdString());
+  const QJsonObject sc = job.value("scene").toObject();
+  auto parsed = json::parse(QJsonDocument(sc).toJson(QJsonDocument::Compact).toStdString());
   if (auto* e = std::get_if<json::ParseError>(&parsed)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
   int failures = renderer_->setItems(occt::sceneFromJson(std::get<json::Value>(parsed)));
-  // exterior views: the BIM building held by the host (the same model the BIM workspace edits)
-  if (job.value("scene").toObject().value("bim").toBool()) renderer_->addBuilding(bim_, job.value("scene").toObject().value("ground").toBool(true));
+  if (sc.contains("bimModel")) {
+    // exterior views queued with a snapshot of the BIM model (captured when the job was queued)
+    auto pm = json::parse(QJsonDocument(sc.value("bimModel").toObject()).toJson(QJsonDocument::Compact).toStdString());
+    if (auto* e = std::get_if<json::ParseError>(&pm)) return {{"ok", false}, {"error", QString::fromStdString(e->message)}};
+    std::string err;
+    auto m = bim::modelFromJson(std::get<json::Value>(pm), bim::villaRiverside(), &err);
+    if (!m) return {{"ok", false}, {"error", QString::fromStdString(err)}};
+    renderer_->addBuilding(*m, sc.value("ground").toBool(true));
+  } else if (sc.value("bim").toBool()) {
+    // exterior views: the BIM building held by the host (the same model the BIM workspace edits)
+    renderer_->addBuilding(bim_, sc.value("ground").toBool(true));
+  }
+  if (sc.contains("overrides")) {
+    std::map<std::string, occt::MaterialOverride> by;
+    const QJsonObject g = sc.value("overrides").toObject();
+    for (auto it = g.begin(); it != g.end(); ++it) {
+      const QJsonObject x = it.value().toObject();
+      by[it.key().toStdString()] = {arr3Of(x.value("rgb"), {0.8, 0.8, 0.8}), x.value("mat").toString("matte").toStdString()};
+    }
+    renderer_->applyOverrides(by);
+  }
   const QJsonObject pj = job.value("params").toObject();
   occt::RenderParams p = paramsOf(pj);
   // panorama: six square 90° cube faces from the camera position; video: one render per frame camera
@@ -796,7 +1007,90 @@ QJsonObject HostBridge::renderStart(const QString& jobJson) {
 }
 
 void HostBridge::renderCancel(const QString& id) {
-  if (rendering_ && renderJob_.value("id").toString() == id) renderFinish(false, QStringLiteral("cancelled"));
+  if (!rendering_ || renderJob_.value("id").toString() != id) return;
+  // Blender: kill the worker process; the result (cancelled, partial output deleted) arrives on blenderDone
+  if (blender_->running() && blender_->jobId() == id) return blender_->cancel();
+  renderFinish(false, QStringLiteral("cancelled"));
+}
+
+QJsonObject HostBridge::renderStartBlender(const QJsonObject& job) {
+  const QJsonObject b = job.value("blender").toObject();
+  const QString glb = b.value("glb").toString();
+  if (!insideDir(glb, BlenderWorker::cacheDir())) return {{"ok", false}, {"error", "the scene snapshot of this job is missing — queue the render again"}};
+  if (job.value("kind").toString(QStringLiteral("still")) != QStringLiteral("still")) return {{"ok", false}, {"error", "Blender renders still images; panoramas and videos use the OCCT path tracer"}};
+  const QJsonObject pj = job.value("params").toObject();
+  const QJsonObject cam = b.contains("camera") ? b.value("camera").toObject() : pj.value("camera").toObject();
+  QString device = qEnvironmentVariable("THCAD_BLENDER_DEVICE");
+  if (device.isEmpty()) device = b.value("device").toString(QStringLiteral("auto"));
+  const QJsonObject spec{{"glb", QFileInfo(glb).canonicalFilePath()},
+                         {"w", std::clamp(pj.value("w").toInt(1920), 16, 8192)},
+                         {"h", std::clamp(pj.value("h").toInt(1080), 16, 8192)},
+                         {"samples", std::clamp(pj.value("samples").toInt(64), 1, 16384)},
+                         {"bounces", std::clamp(pj.value("bounces").toInt(8), 1, 64)},
+                         {"denoise", job.value("denoise").toBool(true)},
+                         {"exposure", pj.value("exposure").toDouble(0)},
+                         {"camera", cam},
+                         {"lighting", b.value("lighting").toString(QStringLiteral("day"))},
+                         {"sun", QJsonObject{{"on", pj.value("sun").toBool(true)}, {"azimuth", pj.value("sunAzimuth").toDouble(320)}, {"elevation", pj.value("sunElevation").toDouble(40)}, {"intensity", pj.value("sunIntensity").toDouble(1.2)}}},
+                         {"overrides", b.value("overrides").toObject()},
+                         {"ground", b.value("ground").toBool(false)},
+                         {"depth16", job.value("format").toString() == QStringLiteral("png16")},
+                         {"device", device}};
+  const QString err = blender_->start(job.value("id").toString(), spec);
+  if (!err.isEmpty()) return {{"ok", false}, {"error", err == QStringLiteral("blender-not-found") ? QStringLiteral("Blender is not installed — use the OCCT path tracer") : err}, {"code", err}};
+  renderJob_ = job;
+  rendering_ = true;
+  renderStartMs_ = QDateTime::currentMSecsSinceEpoch();
+  return {{"ok", true}, {"engine", "blender"}, {"w", spec.value("w")}, {"h", spec.value("h")}, {"samples", spec.value("samples")}, {"sandbox", BlenderWorker::probe().value("sandbox")}};
+}
+
+void HostBridge::blenderDone(const QJsonObject& r) {
+  const QJsonObject job = renderJob_;
+  rendering_ = false;
+  renderJob_ = {};
+  QJsonObject res{{"id", r.value("id")}, {"done", true}, {"engine", "blender"}, {"samples", r.value("samples")}, {"ms", r.value("ms")}, {"device", r.value("device")}, {"blender", r.value("blender")}};
+  auto fail = [&](const QString& e) {
+    res["ok"] = false;
+    res["error"] = e;
+    if (e != QStringLiteral("cancelled")) res["log"] = r.value("log").toString().right(1500);
+    blender_->cleanup();
+    emit renderProgress(res);
+  };
+  if (!r.value("ok").toBool()) return fail(r.value("error").toString());
+  const QString fmt = job.value("format").toString(QStringLiteral("png"));
+  const QJsonObject fx = job.value("fx").toObject();
+  QImage img(r.value("output").toString());
+  if (img.isNull()) return fail(QStringLiteral("could not read the image Blender wrote"));
+  const int w = img.width(), h = img.height();
+  QImage out;
+  if (fmt == QStringLiteral("png16")) {
+    out = img.convertToFormat(QImage::Format_RGBA64);
+    postFx(reinterpret_cast<uint16_t*>(out.bits()), w, h, fx);
+  } else {
+    QImage rgba = img.convertToFormat(QImage::Format_RGBA8888);
+    postFx(rgba.bits(), w, h, fx);
+    out = rgba.convertToFormat(QImage::Format_RGB888);
+  }
+  res["preview"] = previewUrl(out.convertToFormat(QImage::Format_RGBA8888), {});
+  const double dpm = job.value("dpi").toDouble(300) / 0.0254;
+  out.setDotsPerMeterX(static_cast<int>(std::lround(dpm)));
+  out.setDotsPerMeterY(static_cast<int>(std::lround(dpm)));
+  out.setText(QStringLiteral("Comment"), QString::fromLatin1(kPresentationLabel));
+  out.setText(QStringLiteral("Software"), QStringLiteral("MD CAD AI STUDIO + Blender ") + r.value("blender").toString());
+  const QString ext = fmt == QStringLiteral("jpg") ? QStringLiteral("jpg") : fmt == QStringLiteral("tiff") ? QStringLiteral("tiff") : QStringLiteral("png");
+  const QString path = renderBase(job, "." + ext) + "." + ext;
+  QImageWriter wr(path);
+  if (fmt == QStringLiteral("jpg")) wr.setQuality(95);
+  if (!wr.write(out)) return fail(wr.errorString());
+  res["ok"] = true;
+  res["path"] = path;
+  res["bytes"] = static_cast<double>(QFileInfo(path).size());
+  res["w"] = w, res["h"] = h;
+  const QJsonObject engine{{"name", "blender-cycles"}, {"blender", r.value("blender")}, {"device", r.value("device")}, {"path", BlenderWorker::probe().value("path")},
+                           {"process", "external (QProcess)"}, {"offline", true}, {"sandboxNetworkDenied", BlenderWorker::probe().value("sandbox")}};
+  res["sidecar"] = writeProvenance(path, job, engine, w, h, r.value("ms").toDouble());
+  blender_->cleanup();
+  emit renderProgress(res);
 }
 
 void HostBridge::renderTick() {
@@ -927,8 +1221,13 @@ void HostBridge::renderFinish(bool ok, const QString& error) {
       for (int n = 2; QFileInfo::exists(path); ++n) path = dir + "/" + base + QStringLiteral(" (%1).").arg(n) + ext;
       QImageWriter wr(path);
       if (fmt == "jpg") wr.setQuality(95);
+      img.setText(QStringLiteral("Comment"), QString::fromLatin1(kPresentationLabel));
       if (!wr.write(img)) ok = false, res["error"] = wr.errorString();
-      else res["path"] = path, res["bytes"] = static_cast<double>(QFileInfo(path).size());
+      else {
+        res["path"] = path, res["bytes"] = static_cast<double>(QFileInfo(path).size());
+        if (job.contains("provenance"))
+          res["sidecar"] = writeProvenance(path, job, QJsonObject{{"name", "occt-path-tracing"}, {"occt", QString::fromStdString(occt::version())}, {"process", "in-app (GUI thread, 25 ms slices)"}, {"offline", true}}, w, h, static_cast<double>(QDateTime::currentMSecsSinceEpoch() - renderStartMs_));
+      }
     }
   } else {
     res["error"] = error;
@@ -951,6 +1250,12 @@ double HostBridge::scene3dCommon(const QString&, const QString&, const QString&)
 QJsonArray HostBridge::scene3dOverlaps(const QString&) { return {}; }
 QJsonObject HostBridge::renderStart(const QString&) { return {{"ok", false}, {"error", "no 3D engine in this build"}}; }
 void HostBridge::renderCancel(const QString&) {}
+QJsonObject HostBridge::scene3dExportGlb(const QString&, const QString&) { return {{"ok", false}, {"error", "no 3D engine in this build"}}; }
+QJsonObject HostBridge::renderMemoryCheck(int, int, const QString&) { return {{"ok", true}}; }
+QJsonObject HostBridge::renderReadImage(const QString&, int) { return {{"ok", false}}; }
+QJsonObject HostBridge::renderReadSidecar(const QString&) { return {{"ok", false}}; }
+QJsonObject HostBridge::renderStartBlender(const QJsonObject&) { return {{"ok", false}}; }
+void HostBridge::blenderDone(const QJsonObject&) {}
 void HostBridge::renderTick() {}
 void HostBridge::renderFinish(bool, const QString&) {}
 QJsonObject HostBridge::scene3dExportStep(const QString&, const QString&) { return {{"ok", false}}; }
@@ -990,6 +1295,8 @@ QJsonObject HostBridge::systemInfo() const {
       {"dwgReader", DwgReader::version()},
   };
 }
+
+QJsonObject HostBridge::blenderInfo(bool refresh) { return BlenderWorker::probe(refresh); }
 
 QJsonObject HostBridge::setModelsDir(const QString& dir) {
   if (!QDir(dir).exists()) return {{"ok", false}, {"error", "folder not found"}};
