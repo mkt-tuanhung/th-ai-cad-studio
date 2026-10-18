@@ -1,4 +1,4 @@
-add_library(thcad_geom_occt src/occt.cpp src/viewer.cpp src/offscreen.cpp src/scene.cpp src/part.cpp)
+add_library(thcad_geom_occt src/occt.cpp src/viewer.cpp src/offscreen.cpp src/scene.cpp src/part.cpp src/gltf.cpp)
 if(APPLE)
   target_sources(thcad_geom_occt PRIVATE src/cocoa_app.mm)
 endif()

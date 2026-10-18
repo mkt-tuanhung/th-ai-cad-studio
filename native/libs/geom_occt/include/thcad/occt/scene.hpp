@@ -6,6 +6,7 @@
 // overlaps with boolean common. Public API is OCCT-free (pimpl).
 #include <array>
 #include <limits>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -48,6 +49,24 @@ struct SceneItem {
   std::string mat = "matte";
   /** Feature-based part: when set, the solid comes from its sketches and features (parts/cuts ignored). */
   std::shared_ptr<PartDef> part;
+  /** Material group for presentation variations ("wall", "floor", "glass", "furniture", …; may be empty). */
+  std::string group;
+};
+
+/** What a glTF binary export wrote (see SceneView::writeGlb). */
+struct GlbStats {
+  int nodes = 0, triangles = 0, vertices = 0;
+  /** Material names in glTF order ("md:<mat>:<rrggbb>[:t<alpha%>]"). */
+  std::vector<std::string> materials;
+  /** Bounds of the exported triangles in the scene frame, mm: x0 y0 z0 x1 y1 z1. */
+  std::array<double, 6> boundsMm{0, 0, 0, 0, 0, 0};
+  size_t bytes = 0;
+};
+
+/** Presentation colour / surface override of a material group (geometry untouched). */
+struct MaterialOverride {
+  std::array<double, 3> rgb{0.8, 0.8, 0.8};
+  std::string mat = "matte";
 };
 
 /** Final-quality render of a scene (OCCT ray / path tracing, offscreen, progressive). */
@@ -150,6 +169,23 @@ class SceneView {
   std::vector<SceneReport::Overlap> overlaps() const;
   /** STEP AP214 of the whole scene; empty string on success, else the error. */
   std::string writeStep(const std::string& path) const;
+  /** glTF 2.0 binary (GLB) of the scene: one node + mesh per item (name = item id, extras = id / mat /
+   *  group), one PBR material per distinct colour + surface. Tessellated from the exact B-rep; metres,
+   *  Y up (glTF), i.e. glTF (x, y, z) = scene (x, z, −y) / 1000. `visibleOnly` skips hidden items.
+   *  Empty string on success, else the error. */
+  std::string writeGlb(const std::string& path, bool visibleOnly, GlbStats* stats = nullptr) const;
+  /** Realtime viewport lighting: "standard" (default head-light set) | "day" | "golden" | "night".
+   *  Lights and background only — never the geometry. */
+  void setLighting(const std::string& preset);
+  std::string lighting() const;
+  /** Hash of the geometry (item ids, exact volumes, bounds; no colours): equal before / after a
+   *  lighting or material change. `volumeM3` = sum of item volumes. */
+  std::string geometryHash(int* items = nullptr, double* volumeM3 = nullptr) const;
+  /** Recolours the items of each group (presentation variations); returns the items changed. */
+  int applyOverrides(const std::map<std::string, MaterialOverride>& byGroup);
+  /** Perspective camera with an explicit up vector (camera bookmarks). */
+  void setCamera(const std::array<double, 3>& eye, const std::array<double, 3>& at, double fovDeg, const std::array<double, 3>& up);
+  std::array<double, 3> cameraUp() const;
 
   /** Sets up a final render (camera, sun + sky, materials, ray-tracing parameters). Empty string on
    *  success, else why it cannot render (e.g. the GPU has no ray-tracing support). */
