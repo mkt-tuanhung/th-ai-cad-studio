@@ -1,31 +1,65 @@
-import { CABINETS } from '../../src/interior/model'
+// Nesting + panel CAM of the sample cabinets (run: UNIT=cam node tools/test-cam.mjs run). Asserts; returns { all }.
+import { CABINETS, cutList } from '../../src/interior/model'
 import { nest, piecesOf, verifyNest, DEFAULT_NEST } from '../../src/cam/nesting'
 import { camSheet, simulate, DEFAULT_CAM } from '../../src/cam/gcode'
 
 export function run() {
+  const checks: Record<string, boolean> = {}
   const pieces = piecesOf(CABINETS)
   const r = nest(pieces)
   const shelves = (name: string) => (CABINETS.find((c) => c.name === name)?.shelves ?? 0) > 0
   const cam: Record<string, unknown>[] = []
+  let m6 = 0, g43 = 0, grblBad = 0, m0First = 0, grblPrograms = 0, rebates = 0
   for (const dialect of ['grbl', 'iso'] as const)
     for (const sh of r.sheets) {
       const c = camSheet(sh, { ...DEFAULT_CAM, dialect }, shelves, 'Villa')
       // every hole lies inside its own part (with a 5 mm margin to the edge)
       const holeErr = c.holes.filter((h) => { const p = sh.parts.find((q) => q.label === h.part)!; return !(h.x - h.d / 2 >= p.x && h.x + h.d / 2 <= p.x + p.sx && h.y - h.d / 2 >= p.y && h.y + h.d / 2 <= p.y + p.sy) }).map((h) => h.part)
+      rebates += c.grooves.length
       for (const p of c.programs) {
         const sim = simulate(p.text, sh, sh.t + DEFAULT_CAM.breakthrough, DEFAULT_CAM.cutterD / 2 + 0.01)
         cam.push({ dialect, program: p.name, lines: sim.lines, cut_m: +(sim.cutLength / 1000).toFixed(1), min: +(sim.seconds / 60).toFixed(1), minZ: sim.minZ, errors: sim.errors.slice(0, 3), holes: c.holes.length, holeErr })
+        const code = p.text.split('\n').map((l) => l.replace(/\(.*?\)/g, '').trim())
+        if (dialect === 'iso') {
+          // ISO: G43 H n right after every T n M6 (same n)
+          code.forEach((l, i) => {
+            const t = /^T(\d+) M6$/.exec(l)
+            if (!t) return
+            m6++
+            if (code.slice(i + 1, i + 4).some((x) => new RegExp(`G43 H${t[1]}\\b`).test(x))) g43++
+          })
+        } else {
+          grblPrograms++
+          if (code.some((l) => /\bM6\b|\bG43\b|\bG8[1-9]\b|\bH\d/.test(l))) grblBad++
+          const first = code.findIndex((l) => /[XYZ]-?\d/.test(l))
+          if (code.slice(0, first).some((l) => /^M0\b/.test(l))) m0First++
+        }
       }
     }
+  const cutParts = CABINETS.flatMap(cutList)
+  const door = cutParts.find((p) => p.part === 'Door')!
+  const side = cutParts.find((p) => p.part === 'Side panel')!
+  checks.pieceCount = pieces.length === cutParts.reduce((a, p) => a + p.qty, 0) && pieces.length === 44
+  checks.verifyNest = verifyNest(r).length === 0
+  checks.oversizeReported = r.unplaced.length === 4 && r.unplaced.every((p) => p.l > 2420 || p.w > 1810 || (p.l > 1810 && p.w > 2420))
+  checks.camErrors = cam.every((x) => (x.errors as string[]).length === 0 && (x.holeErr as string[]).length === 0)
+  checks.isoG43AfterEveryM6 = m6 > 0 && m6 === g43
+  checks.grblNoM6G43Canned = grblBad === 0
+  checks.grblM0BeforeMotion = grblPrograms > 0 && m0First === grblPrograms
+  checks.backRebatesMachined = rebates > 0
+  checks.doorCutIsFinishedMinusBand = door.cut.l === door.finished.l - 2 && door.cut.w === door.finished.w - 2
+  checks.sideCutMinusFrontBand = side.cut.w === side.finished.w - 1 && side.cut.l === side.finished.l
+  checks.nestedAtCutSize = r.sheets.flatMap((s) => s.parts).every((p) => { const c = cutParts.find((q) => q.id === p.partId)!; return p.l === c.cut.l && p.w === c.cut.w })
+  checks.partIdsInNc = r.sheets.every((sh) => sh.parts.every((p) => camSheet(sh, DEFAULT_CAM, shelves, 'Villa').programs.some((pr) => pr.text.includes(`[${p.partId} r${p.rev}]`))))
   return {
+    all: Object.values(checks).every(Boolean),
+    checks,
     pieces: pieces.length,
     sheets: r.sheets.map((s) => `${s.material} #${s.index}: ${s.parts.length} parts, yield ${(s.yield * 100).toFixed(1)} %`),
     unplaced: r.unplaced.map((p) => p.label),
-    verify: verifyNest(r),
-    cam,
-    camErrors: cam.reduce((a, x) => a + (x.errors as string[]).length + (x.holeErr as string[]).length, 0),
     gap: DEFAULT_NEST.gap,
-    sample: camSheet(r.sheets[0], DEFAULT_CAM, shelves, 'Villa').programs.map((p) => p.text.split('\n').slice(0, 24).join('\n')).join('\n----\n'),
+    cam: cam.slice(0, 6),
+    sample: camSheet(r.sheets[0], DEFAULT_CAM, shelves, 'Villa').programs.map((p) => p.text.split('\n').slice(0, 14).join('\n')).join('\n----\n'),
   }
 }
 

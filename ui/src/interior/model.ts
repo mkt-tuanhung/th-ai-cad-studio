@@ -65,20 +65,55 @@ export interface Cabinet {
   doors: number
   board: string
   front: string
+  /** Edge band thickness (mm); DEFAULT_EDGE_BAND when absent. */
+  edgeBand?: number
+}
+
+export type EdgeSide = 'L1' | 'L2' | 'W1' | 'W2'
+
+/** A groove / rebate on face A of a part, parallel to an edge (part-local, finished size). */
+export interface PartGroove {
+  kind: 'groove'
+  /** Edge the groove runs along (L2 = the back edge of sides / top / bottom). */
+  edge: 'L2'
+  /** Distance of the groove's near side from that edge (0 = a rebate open on the edge), mm. */
+  setback: number
+  width: number
+  depth: number
+  purpose: 'back'
 }
 
 export interface CutPart {
   cabinet: string
   part: string
   qty: number
-  /** Finished length × width (mm), grain along length. */
+  /** Finished length × width (mm), grain along length. Kept for compatibility: same as `finished`. */
   l: number
   wd: number
   t: number
   material: string
   /** Edge banding on this part (mm per piece). */
   edge: number
+  /** Stable part id (cabinet id + part code) and content revision (changes whenever the part changes). */
+  id: string
+  rev: string
+  /** Grain along the part length (L), across it (W) or none (plain boards). */
+  grain: 'L' | 'W' | 'NONE'
+  /** Face A = the face machined (up on the CNC table): the cabinet inside for carcass parts and doors. */
+  faceA: 'inside' | 'outside'
+  /**
+   * Edge band thickness per side (mm, 0 = not banded). Part-local frame: x along the length, y across the
+   * width; L1 is the edge at y = 0 (front edge / hinge side), L2 at y = width, W1 at x = 0, W2 at x = length.
+   */
+  edges: Record<EdgeSide, number>
+  /** Finished size (after edge banding) and the cut blank size (finished − band thickness per banded side). */
+  finished: { l: number; w: number }
+  cut: { l: number; w: number }
+  grooves?: PartGroove[]
 }
+
+/** Default edge band thickness (PVC / ABS, mm) used until the job confirms the measured band. */
+export const DEFAULT_EDGE_BAND = 1
 
 export const MATERIALS: Material[] = [
   { name: 'Fabric - Beige', kind: 'fabric', color: '#d8cdbb' },
@@ -193,8 +228,13 @@ export const dimsLabel = (i: Pick<Item, 'w' | 'd' | 'h' | 'dia'>) => (i.dia ? `�
 
 /**
  * Carcass cut list for a frameless (European) cabinet: sides run full height, top/bottom sit between the
- * sides, a 6 mm back is grooved in, shelves are set back 20 mm, doors overlay with 3 mm gaps. Vertical
- * dividers are added every 1200 mm so the span stays within the board's sag limit.
+ * sides, a 6 mm back sits in a 6.5 × 8 mm rebate along the back edge (L2) of the sides and top / bottom (the
+ * back is inner + 2 × 8 mm each way; shelves, 20 mm behind the front and 26 mm shallower than the carcass, end
+ * against it), doors overlay with 3 mm gaps. Vertical dividers are added every 1200 mm so the span stays within
+ * the board's sag limit.
+ *
+ * Sizes: `l` × `wd` (= `finished`) are the finished sizes; `cut` is the blank cut on the CNC = finished minus the
+ * band thickness on each banded side (front edge L1 of carcass parts and shelves; all four sides of doors).
  */
 export function cutList(c: Cabinet): CutPart[] {
   const inner = c.w - 2 * c.t
@@ -204,15 +244,35 @@ export function cutList(c: Cabinet): CutPart[] {
   const gap = 3
   const doorW = Math.round(c.w / c.doors - gap)
   const doorH = c.h - gap
-  const parts: CutPart[] = [
-    { cabinet: c.name, part: 'Side panel', qty: 2, l: c.h, wd: c.d, t: c.t, material: c.board, edge: c.h },
-    { cabinet: c.name, part: 'Top / bottom', qty: 2, l: inner, wd: c.d, t: c.t, material: c.board, edge: inner },
-    { cabinet: c.name, part: 'Back panel', qty: 1, l: c.w - 2 * c.t + 16, wd: c.h - 2 * c.t + 16, t: 6, material: 'HDF 6 - White', edge: 0 },
+  const b = c.edgeBand ?? DEFAULT_EDGE_BAND
+  const backT = 6
+  const back: PartGroove = { kind: 'groove', edge: 'L2', setback: 0, width: backT + 0.5, depth: 8, purpose: 'back' }
+  const front = { L1: b, L2: 0, W1: 0, W2: 0 }
+  const none = { L1: 0, L2: 0, W1: 0, W2: 0 }
+  const all4 = { L1: b, L2: b, W1: b, W2: b }
+  type Def = Omit<CutPart, 'id' | 'rev' | 'finished' | 'cut' | 'cabinet' | 'grain'> & { code: string; grain?: CutPart['grain'] }
+  const defs: Def[] = [
+    { code: 'SIDE', part: 'Side panel', qty: 2, l: c.h, wd: c.d, t: c.t, material: c.board, edge: c.h, faceA: 'inside', edges: front, grooves: [back] },
+    { code: 'TB', part: 'Top / bottom', qty: 2, l: inner, wd: c.d, t: c.t, material: c.board, edge: inner, faceA: 'inside', edges: front, grooves: [back] },
+    { code: 'BACK', part: 'Back panel', qty: 1, l: c.w - 2 * c.t + 16, wd: c.h - 2 * c.t + 16, t: backT, material: 'HDF 6 - White', edge: 0, faceA: 'inside', edges: none, grain: 'NONE' },
   ]
-  if (dividers) parts.push({ cabinet: c.name, part: 'Divider', qty: dividers, l: c.h - 2 * c.t, wd: c.d - 6, t: c.t, material: c.board, edge: c.h - 2 * c.t })
-  if (c.shelves) parts.push({ cabinet: c.name, part: 'Shelf', qty: c.shelves * bays, l: Math.round(bayW - 2), wd: c.d - 20 - 6, t: c.t, material: c.board, edge: Math.round(bayW - 2) })
-  if (c.doors) parts.push({ cabinet: c.name, part: 'Door', qty: c.doors, l: doorH, wd: doorW, t: c.t, material: c.front, edge: 2 * (doorH + doorW) })
-  return parts
+  if (dividers) defs.push({ code: 'DIV', part: 'Divider', qty: dividers, l: c.h - 2 * c.t, wd: c.d - 6, t: c.t, material: c.board, edge: c.h - 2 * c.t, faceA: 'inside', edges: front })
+  if (c.shelves) defs.push({ code: 'SHELF', part: 'Shelf', qty: c.shelves * bays, l: Math.round(bayW - 2), wd: c.d - 20 - 6, t: c.t, material: c.board, edge: Math.round(bayW - 2), faceA: 'inside', edges: front })
+  if (c.doors) defs.push({ code: 'DOOR', part: 'Door', qty: c.doors, l: doorH, wd: doorW, t: c.t, material: c.front, edge: 2 * (doorH + doorW), faceA: 'inside', edges: all4 })
+  return defs.map(({ code, grain, ...d }) => {
+    const finished = { l: d.l, w: d.wd }
+    const cut = { l: +(d.l - d.edges.W1 - d.edges.W2).toFixed(2), w: +(d.wd - d.edges.L1 - d.edges.L2).toFixed(2) }
+    const p = { ...d, cabinet: c.name, grain: grain ?? ('L' as const), finished, cut }
+    return { ...p, id: `${c.id}.${code}`, rev: partRev(p) }
+  })
+}
+
+/** Short content revision of a part (FNV-1a of its definition): changes when size, board, banding or ops change. */
+function partRev(p: object): string {
+  const s = JSON.stringify(p)
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0
+  return h.toString(16).padStart(8, '0')
 }
 
 export interface CutTotals {

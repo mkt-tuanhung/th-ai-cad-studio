@@ -12,4 +12,10 @@ writeFileSync(f, (Array.isArray(res) ? res[0] : res).output[0].code)
 const m = await import(f)
 const which = process.argv[2] ?? 'run'
 const arg = process.argv[3] ? (await import('node:fs')).readFileSync(process.argv[3], 'latin1') : undefined
-console.log(JSON.stringify(await m[which](arg), null, 1))
+const out = await m[which](arg)
+console.log(JSON.stringify(out, null, 1))
+// tests that assert return { all: boolean }: a failure exits non-zero (CI)
+if (out && typeof out === 'object' && 'all' in out) {
+  console.log(out.all ? 'ALL PASS' : 'SOME FAILED')
+  if (!out.all) process.exitCode = 1
+}

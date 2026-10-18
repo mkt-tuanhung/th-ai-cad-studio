@@ -2,10 +2,13 @@
  * Panel nesting for CNC routing: the cut-list parts of every cabinet are placed on stock sheets with
  * the MaxRects algorithm (best-short-side fit, largest parts first). Each part keeps a gap of one cutter
  * diameter + spacing to its neighbours (the router cuts around every part) and stays inside the trimmed
- * sheet. Grain: on wood-décor boards the part length follows the sheet length (no rotation); plain
- * boards (HDF white…) may be rotated by 90°.
+ * sheet. Grain: on wood-décor boards each part's grain axis is locked to the sheet length (grain along the
+ * part length → not rotated, across → always rotated); plain boards (HDF white…) may be rotated by 90°.
+ * Parts are nested at their CUT size (finished size minus the edge band thickness on banded sides). Clamp /
+ * no-go zones of the machine are reserved on every sheet (plus one gap) so no part and no cutter path lands on
+ * them. Parts larger than the usable sheet are returned in `unplaced` (never dropped silently).
  */
-import { cutList, type Cabinet, type CutPart } from '../interior/model'
+import { cutList, type Cabinet, type CutPart, type EdgeSide, type PartGroove } from '../interior/model'
 
 export interface NestSettings {
   sheetL: number // mm, along the grain (default stock)
@@ -17,6 +20,8 @@ export interface NestSettings {
   gap: number
   /** Materials whose décor has a grain direction (no rotation). */
   grained: (material: string) => boolean
+  /** Clamp / no-go zones in sheet coordinates (mm from the sheet's lower-left corner). */
+  noGo?: { x0: number; y0: number; x1: number; y1: number }[]
 }
 
 export const DEFAULT_NEST: NestSettings = {
@@ -34,10 +39,17 @@ export interface Piece {
   cabinet: string
   part: string
   material: string
-  /** Finished length (along grain) × width × thickness, mm. */
+  /** CUT blank length (along the part's length) × width × thickness, mm — what the router cuts. */
   l: number
   w: number
   t: number
+  /** Stable part id + revision (cut list), shown on labels and in NC comments. */
+  partId?: string
+  rev?: string
+  grain?: CutPart['grain']
+  finished?: { l: number; w: number }
+  edges?: Record<EdgeSide, number>
+  grooves?: PartGroove[]
 }
 
 export interface Placement extends Piece {
@@ -73,8 +85,17 @@ export function piecesOf(cabinets: Cabinet[]): Piece[] {
   for (const c of cabinets)
     for (const p of cutList(c) as CutPart[])
       for (let k = 1; k <= p.qty; k++)
-        out.push({ id: `${c.id}-${p.part.replace(/\W+/g, '')}-${k}`, label: `${c.name} · ${p.part}${p.qty > 1 ? ` ${k}/${p.qty}` : ''}`, cabinet: c.name, part: p.part, material: p.material, l: p.l, w: p.wd, t: p.t })
+        out.push({
+          id: `${c.id}-${p.part.replace(/\W+/g, '')}-${k}`, label: `${c.name} · ${p.part}${p.qty > 1 ? ` ${k}/${p.qty}` : ''}`, cabinet: c.name, part: p.part, material: p.material,
+          l: p.cut.l, w: p.cut.w, t: p.t, partId: p.id, rev: p.rev, grain: p.grain, finished: p.finished, edges: p.edges, grooves: p.grooves,
+        })
   return out
+}
+
+/** Rotation options allowed for a piece: grain locked to the sheet length on grained boards. */
+export function rotations(p: Piece, s: NestSettings): boolean[] {
+  if (!s.grained(p.material) || p.grain === 'NONE') return [false, true]
+  return p.grain === 'W' ? [true] : [false]
 }
 
 type Rect = { x: number; y: number; w: number; h: number }
@@ -118,8 +139,7 @@ function pass(list: Piece[], s: NestSettings, fit: Fit): { sheets: Sheet[]; unpl
     const stock = stockOf(s, p.material)
     const usableL = stock.l - 2 * s.trim, usableW = stock.w - 2 * s.trim
     // each part reserves its size + gap; the trimmed sheet gets + gap so the last part may touch the trim line
-    const options: [number, number, boolean][] = [[p.l + s.gap, p.w + s.gap, false]]
-    if (!s.grained(p.material)) options.push([p.w + s.gap, p.l + s.gap, true])
+    const options: [number, number, boolean][] = rotations(p, s).map((rot) => (rot ? [p.w + s.gap, p.l + s.gap, true] : [p.l + s.gap, p.w + s.gap, false]))
     const tryBin = (bin: Bin) => {
       let best: { r: Rect; rot: boolean; sc: number } | null = null
       for (const [w, h, rot] of options)
@@ -137,8 +157,20 @@ function pass(list: Piece[], s: NestSettings, fit: Fit): { sheets: Sheet[]; unpl
         continue
       }
       const b = { bin: new Bin(usableL + s.gap, usableW + s.gap), sheet: { material: p.material, t: p.t, index: 0, l: stock.l, w: stock.w, parts: [], yield: 0 } as Sheet }
+      // clamps / no-go zones: reserved with one gap around them (bin coordinates start at the trim line)
+      for (const z of s.noGo ?? []) {
+        const x0 = Math.max(0, z.x0 - s.trim - s.gap), y0 = Math.max(0, z.y0 - s.trim - s.gap)
+        const x1 = Math.min(usableL + s.gap, z.x1 - s.trim + s.gap), y1 = Math.min(usableW + s.gap, z.y1 - s.trim + s.gap)
+        if (x1 > x0 && y1 > y0) b.bin.place({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 })
+      }
+      const best = tryBin(b.bin)
+      // too large for the sheet once the clamp zones are kept clear
+      if (!best) {
+        unplaced.push(p)
+        continue
+      }
       bins.push(b)
-      target = { b, best: tryBin(b.bin) }
+      target = { b, best }
     }
     const { b, best } = target as { b: { bin: Bin; sheet: Sheet }; best: { r: Rect; rot: boolean } }
     b.bin.place(best.r)
@@ -192,7 +224,9 @@ export function verifyNest(r: NestResult, s: NestSettings = DEFAULT_NEST): strin
     for (const p of sh.parts) {
       if (p.material !== sh.material) errs.push(`${p.label}: on a ${sh.material} sheet`)
       if (p.x < s.trim - 1e-6 || p.y < s.trim - 1e-6 || p.x + p.sx > sh.l - s.trim + 1e-6 || p.y + p.sy > sh.w - s.trim + 1e-6) errs.push(`${p.label}: outside the trimmed sheet`)
-      if (p.rotated && s.grained(p.material)) errs.push(`${p.label}: rotated against the grain`)
+      if (!rotations(p, s).includes(p.rotated)) errs.push(`${p.label}: rotated against the grain`)
+      for (const z of s.noGo ?? [])
+        if (p.x - s.gap / 2 < z.x1 && p.x + p.sx + s.gap / 2 > z.x0 && p.y - s.gap / 2 < z.y1 && p.y + p.sy + s.gap / 2 > z.y0) errs.push(`${p.label}: on a clamp / no-go zone`)
     }
     for (let i = 0; i < sh.parts.length; i++)
       for (let j = i + 1; j < sh.parts.length; j++) {
@@ -222,11 +256,32 @@ export function layoutDxf(sheets: Sheet[], trim: number, holes: { sheet: number;
     o.push('0', 'TEXT', '8', 'LABELS', '10', String(ox), '20', String(sh.w + 40), '40', '40', '1', `${sh.material} #${sh.index} (${(sh.yield * 100).toFixed(1)} %)`)
     for (const p of sh.parts) {
       rect('PARTS', ox + p.x, p.y, p.sx, p.sy)
-      o.push('0', 'TEXT', '8', 'LABELS', '10', (ox + p.x + 10).toFixed(1), '20', (p.y + 10).toFixed(1), '40', '18', '1', `${p.label} ${p.l}x${p.w}`)
+      o.push('0', 'TEXT', '8', 'LABELS', '10', (ox + p.x + 10).toFixed(1), '20', (p.y + 10).toFixed(1), '40', '18', '1', `${p.label}${p.partId ? ` [${p.partId} r${p.rev}]` : ''} ${p.l}x${p.w}`)
     }
     for (const h of holes.filter((q) => q.sheet === i)) o.push('0', 'CIRCLE', '8', 'DRILL', '10', (ox + h.x).toFixed(3), '20', h.y.toFixed(3), '40', (h.d / 2).toFixed(3))
     ox += sh.l + 200
   })
   o.push('0', 'ENDSEC', '0', 'EOF')
   return o.join('\r\n') + '\r\n'
+}
+
+const edgeCode = (e?: Record<EdgeSide, number>) => (e ? (['L1', 'L2', 'W1', 'W2'] as EdgeSide[]).filter((k) => e[k] > 0).map((k) => `${k}:${e[k]}`).join(' ') || '-' : '')
+
+/** Rows of the part-label CSV (sheet, part id + revision, cut and finished sizes, banding, grain, position). */
+export function labelRows(sheets: Sheet[]): (string | number)[][] {
+  return [
+    ['Sheet', 'Material', 'Part', 'Cut length (mm)', 'Cut width (mm)', 'Thickness (mm)', 'X (mm)', 'Y (mm)', 'Rotated', 'Part ID', 'Rev', 'Finished length (mm)', 'Finished width (mm)', 'Edge band (mm per side)', 'Grain'],
+    ...sheets.flatMap((sh) => sh.parts.map((p) => [`${sh.material} #${sh.index}`, p.material, p.label, p.l, p.w, p.t, p.x.toFixed(1), p.y.toFixed(1), p.rotated ? 'yes' : 'no', p.partId ?? p.id, p.rev ?? '', p.finished?.l ?? p.l, p.finished?.w ?? p.w, edgeCode(p.edges), p.grain ?? ''])),
+  ]
+}
+
+/**
+ * Rows of the production cut-list CSV: the original columns first (finished sizes), then id + revision, the cut
+ * blank size, banding per side, grain, face A and grooves.
+ */
+export function cutListRows(parts: CutPart[]): (string | number)[][] {
+  return [
+    ['Cabinet', 'Part', 'Qty', 'Length (mm)', 'Width (mm)', 'Thickness (mm)', 'Material', 'Edge banding per piece (mm)', 'Part ID', 'Rev', 'Cut length (mm)', 'Cut width (mm)', 'Edge band (mm per side)', 'Grain', 'Face A', 'Grooves'],
+    ...parts.map((p) => [p.cabinet, p.part, p.qty, p.l, p.wd, p.t, p.material, p.edge, p.id, p.rev, p.cut.l, p.cut.w, edgeCode(p.edges), p.grain, p.faceA, (p.grooves ?? []).map((g) => `${g.purpose} ${g.width}x${g.depth} @${g.edge}+${g.setback}`).join('; ')]),
+  ]
 }
