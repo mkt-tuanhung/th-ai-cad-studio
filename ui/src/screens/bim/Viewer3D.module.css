@@ -338,7 +338,7 @@
   background: #e6f4f2;
 }
 
-/* v2.4 view-only modes (low walls, see-through, walkthrough): their chips under the scene chips */
+/* v2.4 view-only modes (low walls, see-through, walkthrough): their chips right of the plan preview card */
 .viewSelect > span {
   overflow: hidden;
   white-space: nowrap;
@@ -346,9 +346,8 @@
 }
 .modeChips {
   position: absolute;
-  left: 50%;
-  top: 84px;
-  transform: translateX(-50%);
+  left: 234px;
+  top: 52px;
   display: flex;
   gap: 6px;
   z-index: 2;

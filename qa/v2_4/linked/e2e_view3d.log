@@ -1,0 +1,25 @@
+E2E PASS Interior: live OCCT frame
+E2E PASS Interior: Isolate with nothing selected asks for a selection
+E2E PASS Interior: click picks the solid under the cursor (highlighted)
+E2E PASS Interior: Isolate keeps only the selection — Isolated — 2 shownShow all
+E2E PASS Interior: Show all brings everything back
+E2E PASS Interior: Section box clips the view (chip shown)
+E2E PASS Interior: Zoom region arms the tool
+E2E PASS Interior: dragging a rectangle zooms into it and ends the tool
+E2E PASS Interior: Pan tool drags the view
+E2E PASS Interior: Snapshot saves a PNG at 2× the view — Select an element first | Snapshot saved — Villa Riverside - interior - 2026-10-18-07-09-28.png (1456 × 970 px)
+E2E PASS Interior: Exploded view rebuilds with furniture lifted and cabinets opened
+E2E PASS Interior: Walkthrough arms first-person mode
+E2E PASS Interior: W walks forward
+E2E PASS Interior: ← turns left
+E2E PASS Interior: Esc leaves the walkthrough
+E2E PASS MEP: Hide selected (SA-01-L2) hides it — 1 hiddenShow all / SA-01-L2 hidden — Show all brings it back / true
+E2E PASS MEP: Isolate with nothing selected isolates the clashing elements — Isolated — 10 shownShow all
+E2E PASS MEP: Section box around the clashes
+E2E PASS Mechanical: Isolate the casing — Isolated — 1 shownShow all
+E2E PASS Mechanical: Remove from view hides the casing (the BOM is unchanged)
+E2E PASS BIM: live OCCT building in the shared scene engine (section view cut at Level 1 + 1.5 m)
+E2E PASS BIM: Exterior shows the whole building
+E2E PASS BIM: Isolate selection (W1) — Isolated — 1 shownShow all
+E2E BIM pick → ""
+E2E DONE OK

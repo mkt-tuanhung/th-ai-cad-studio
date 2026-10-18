@@ -130,7 +130,7 @@ async function syncNow(host: HostApi, key: string, model: BimModel, view: SceneV
     return done({ ok: true, mode: 'full', items: r.items, failures: r.failures, ms: r.ms ?? performance.now() - t0 })
   }
   if (!prev || prev.host !== host || opts.force || !host.scene3dPatch || !incrementalOn()) return full()
-  if (prev.model === model && prev.view === vk) return done({ ok: true, mode: 'none', ms: 0, rebuilt: [] })
+  if (prev.model === model && prev.view === vk) return done({ ok: true, mode: 'none', ms: 0, rebuilt: [], items: lastSync.get(key)?.items })
 
   // walls whose native inputs changed, cross-checked with the dependency graph
   const dirty = dirtyOf(prev.model, model)
@@ -144,7 +144,7 @@ async function syncNow(host: HostApi, key: string, model: BimModel, view: SceneV
   const nativeChanged = rebuild.size > 0 || remove.some((id) => prev.walls.has(id)) || prev.model.levels !== model.levels || JSON.stringify(prev.model.slabs.map((s) => [s.level, s.kind])) !== JSON.stringify(model.slabs.map((s) => [s.level, s.kind]))
   if (!rebuild.size && !upserts.length && !remove.length && !nativeChanged) {
     synced.set(key, { model, view: vk, extras, walls, host })
-    return done({ ok: true, mode: 'none', ms: performance.now() - t0, rebuilt: [], dirty: dirty.guids.size })
+    return done({ ok: true, mode: 'none', ms: performance.now() - t0, rebuilt: [], dirty: dirty.guids.size, items: lastSync.get(key)?.items })
   }
   const ids = [...rebuild, ...nm.windows.filter((o) => rebuild.has(o.hostWall)).map((o) => `glass:${o.id}`), ...upserts.map((i) => i.id)]
   const payload = { ...(rebuild.size || nativeChanged ? { model: nm } : {}), walls: [...rebuild], items: upserts, levelSlabs: nativeChanged, guids: guidsOf(model, ids) }
