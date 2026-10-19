@@ -79,7 +79,8 @@
     <li>Bước 5 — Render ảnh như thật bằng Blender (tuỳ chọn)</li>
     <li>Bước 6 — Khai báo máy CNC và nghiệm thu</li>
     <li>Bước 7 — Kiểm tra nhanh toàn bộ chức năng</li>
-    <li>Dữ liệu, sao lưu, cập nhật và gỡ cài đặt</li>
+    <li>Tính năng mới 0.1.1 — thư viện nội thất 3D, phối cảnh như thật, ảnh mặt bằng → 3D, ảnh mẫu → phong cách</li>
+    <li>Dữ liệu, sao lưu, cập nhật (từ bản trước) và gỡ cài đặt</li>
     <li>Xử lý sự cố thường gặp</li>
     <li>Giấy phép và quyền riêng tư</li>
   </ol>
@@ -88,12 +89,14 @@
   <h2 style="margin-top:8mm">1. Bộ cài gồm những gì</h2>
   <table>
     <tr><th>Thư mục / file</th><th>Nội dung</th><th>Dung lượng</th></tr>
-    <tr><td><code>1_CAI_DAT\MD-CAD-AI-STUDIO-Setup-0.1.1.exe</code></td><td>Bộ cài ứng dụng: CAD 2D, BIM, MEP, hạ tầng, cơ khí, nội thất, render, CNC, đọc/ghi DWG, nhận giọng nói (chương trình Whisper), thư viện 122 máy CNC</td><td>181 MB</td></tr>
+    <tr><td><code>1_CAI_DAT\MD-CAD-AI-STUDIO-Setup-0.1.1.exe</code></td><td>Bộ cài ứng dụng: CAD 2D, BIM, MEP, hạ tầng, cơ khí, nội thất, render, CNC, đọc/ghi DWG, nhận giọng nói (chương trình Whisper), thư viện 122 máy CNC</td><td>188 MB</td></tr>
     <tr><td><code>2_MO_HINH_AI\models\…gguf</code></td><td>Mô hình trợ lý AI Qwen2.5-7B (2 file, chạy offline)</td><td>4,4 GB</td></tr>
     <tr><td><code>2_MO_HINH_AI\models\whisper\…bin</code></td><td>Mô hình nhận giọng nói tiếng Việt Whisper large-v3-turbo</td><td>547 MB</td></tr>
+    <tr><td><code>2_MO_HINH_AI\models\vision\…gguf</code></td><td>Mô hình AI đọc ảnh Qwen2.5-VL-7B + mmproj (cho tính năng ảnh mẫu → phong cách)</td><td>5,2 GB</td></tr>
     <tr><td><code>2_MO_HINH_AI\CHEP_MO_HINH_VAO_MAY.bat</code></td><td>Tự chép mô hình vào đúng thư mục ứng dụng đọc</td><td></td></tr>
     <tr><td><code>2_MO_HINH_AI\SHA256SUMS.txt</code></td><td>Mã kiểm tra file mô hình</td><td></td></tr>
     <tr><td><code>3_HUONG_DAN\</code></td><td>Tài liệu này (PDF) và video hướng dẫn (MP4)</td><td></td></tr>
+    <tr><td><code>4_THU_VIEN_NOI_THAT\</code></td><td>Thư viện nội thất 3D offline (57 đồ, 34 vật liệu, 4 HDRI — Poly Haven, giấy phép CC0) + <code>CAI_THU_VIEN_NOI_THAT.bat</code></td><td>787 MB</td></tr>
   </table>
 
   <h2>2. Yêu cầu máy tính</h2>
@@ -156,14 +159,17 @@
   <ol>
     <li>Đóng MD CAD AI STUDIO nếu đang mở.</li>
     <li>Mở thư mục <code>2_MO_HINH_AI</code>, nháy đúp <code>CHEP_MO_HINH_VAO_MAY.bat</code>.</li>
-    <li>Chờ chép xong (khoảng 5 GB, vài phút), bấm phím bất kỳ để đóng cửa sổ.</li>
+    <li>Chờ chép xong (khoảng 10 GB, vài phút), bấm phím bất kỳ để đóng cửa sổ.</li>
   </ol>
   <h3>Cách B — chép tay</h3>
   <ol>
     <li>Mở File Explorer, dán vào thanh địa chỉ: <code>%LOCALAPPDATA%\MD CAD AI STUDIO\models</code> rồi Enter.</li>
     <li>Chép 2 file <code>qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf</code> và <code>…-00002-of-00002.gguf</code> vào đây.</li>
     <li>Tạo thư mục con <code>whisper</code>, chép <code>ggml-large-v3-turbo-q5_0.bin</code> vào đó.</li>
+    <li>Tạo thư mục con <code>vision</code>, chép 2 file <code>Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf</code> và <code>mmproj-Qwen2.5-VL-7B-Instruct-Q8_0.gguf</code> vào đó.</li>
   </ol>
+  <h3>Thư viện nội thất 3D</h3>
+  <p>Mở thư mục <code>4_THU_VIEN_NOI_THAT</code>, nháy đúp <code>CAI_THU_VIEN_NOI_THAT.bat</code> (khoảng 800 MB, không cần Internet). Thư viện được chép vào <code>%LOCALAPPDATA%\MD CAD AI STUDIO\library</code>; đồ anh chị đã tự thêm trước đó được giữ nguyên.</p>
   <h3>Cách C — tải trong ứng dụng (khi không có gói)</h3>
   <p>Cài đặt → <b>Cấu hình mô hình AI</b> → khối <b>Tải mô hình AI</b> → chọn mô hình (ứng dụng khuyên theo RAM) → <b>Tải về</b>. Ứng dụng tự kiểm tra mã sha256, tải tiếp được nếu mất mạng, nạp mô hình và hỏi thử trước khi báo sẵn sàng.</p>
   <div class="fig"><img src="shots/30_settings_ai.png" style="width:92%"><div class="cap">Cài đặt → Cấu hình mô hình AI khi máy chưa có mô hình (ảnh chụp thật). Trên Windows, "Lưu vào" là <code>C:\Users\&lt;tên&gt;\AppData\Local\MD CAD AI STUDIO\models</code>.</div></div>
@@ -254,22 +260,92 @@
 </div>
 
 <div class="page">
-  <h2>10. Dữ liệu, sao lưu, cập nhật và gỡ cài đặt</h2>
+  <h2>10. Tính năng mới 0.1.1</h2>
+  <h3>10.1 Thư viện nội thất 3D</h3>
+  <p>Vào <b>Nội thất → Bố trí không gian → Thư viện → "Thư viện 3D…"</b>. Thư viện có sẵn 57 đồ nội thất thật (sofa, ghế, bàn, giường, tủ, đèn, cây…), 34 vật liệu (gỗ, vải, da, đá, gạch, sơn) và 4 bầu trời HDRI, nguồn Poly Haven, giấy phép CC0 (dùng thương mại tự do). Bấm <b>Đặt vào phòng</b>, hoặc chọn một món trên mặt bằng rồi bấm <b>Thay mục đang chọn</b> — vị trí được giữ nguyên.</p>
+  <div class="fig"><img src="shots/90_library.png" style="width:90%"><div class="cap">Hộp thoại Thư viện nội thất &amp; vật liệu 3D (ảnh chụp thật).</div></div>
+  <div class="box note">Kích thước thật (R × S × C) của món đồ trong dự án là số liệu chuẩn cho bản vẽ, bảng thống kê, BOM và CNC; mô hình 3D trong thư viện chỉ dùng để trình bày và render.</div>
+</div>
+
+<div class="page">
+  <h3>10.2 Tự thêm đồ vào thư viện</h3>
+  <table>
+    <tr><th>Tab</th><th>Cách dùng</th></tr>
+    <tr><td><b>Thêm từ file</b></td><td>Chọn file tải trên mạng (GLB, glTF, OBJ, FBX, .blend). Phần mềm tự đo kích thước thật và đoán đơn vị (m / cm / mm) để anh chị xác nhận, chọn loại đồ, đặt tên tiếng Việt và <b>ghi nguồn / giấy phép</b> (bắt buộc — người dùng chịu trách nhiệm bản quyền của file tải về). Ảnh đại diện được tạo tự động. File không phải GLB được chuyển qua Blender (cần cài Blender).</td></tr>
+    <tr><td><b>Tải từ mạng</b></td><td>Tìm và tải từng mẫu đồ / vật liệu / HDRI miễn phí của Poly Haven ngay trong phần mềm (chỉ khi anh chị bấm tải).</td></tr>
+    <tr><td><b>Tự vẽ</b></td><td>Ghép đồ từ các khối hộp, trụ, hộp bo góc: nhập kích thước, vị trí, vật liệu; xem 3D ngay; bắt đầu từ mẫu có sẵn (sofa, bàn, kệ, giường…). Lưu vào thư viện.</td></tr>
+    <tr><td><b>Xuất / nhập</b></td><td>Xuất đồ tự thêm ra file .zip để chuyển sang máy khác, và nhập lại.</td></tr>
+  </table>
+  <div class="two">
+    <div class="fig"><img src="shots/97_lib_addfile.png"><div class="cap">Thêm từ file.</div></div>
+    <div class="fig"><img src="shots/91_lib_draw.png"><div class="cap">Tự vẽ bằng các khối.</div></div>
+  </div>
+  <div class="fig"><img src="shots/98_lib_download.png" style="width:70%"><div class="cap">Tải từ mạng (Poly Haven, CC0).</div></div>
+</div>
+
+<div class="page">
+  <h3>10.3 Phối cảnh nội thất như thật</h3>
+  <p>Cần cài Blender (Bước 5). Trong <b>Kết xuất</b>, chọn engine <b>Blender Cycles (local)</b>. Khi render, phần mềm tự thay khối hộp bằng đồ thật trong thư viện (đúng loại và kích thước), gắn vật liệu thật, thêm trần, đèn âm trần, ánh sáng trời qua cửa sổ. Menu <b>Góc nhìn tự động</b> gợi ý 2–3 góc chụp kiểu nhiếp ảnh kiến trúc cho mỗi phòng (máy cao 1,3 m, tường đứng thẳng). Ảnh render chỉ để trình bày, không dùng làm số đo hay chương trình CNC.</p>
+  <div class="fig"><img src="shots/92_render_living.png" style="width:88%"><div class="cap">Phòng khách Villa 150 m² — dựng tự động từ bản vẽ DWG, render Blender trên máy (ảnh render thật).</div></div>
+  <div class="two">
+    <div class="fig"><img src="shots/92b_render_dining.png"><div class="cap">Phòng ăn.</div></div>
+    <div class="fig"><img src="shots/92c_render_kitchen.png"><div class="cap">Bếp, đảo bếp.</div></div>
+  </div>
+</div>
+
+<div class="page">
+  <h3>10.4 Ảnh mặt bằng → nội thất 3D</h3>
+  <ol>
+    <li>Bấm <b>Ctrl+K</b> → <b>1 lệnh</b> → chọn ảnh scan, PDF hoặc ảnh chụp bản vẽ mặt bằng (PNG, JPG, WebP, PDF; PDF nhiều trang thì chọn trang).</li>
+    <li>Ảnh chụp bằng điện thoại: bật "Ảnh chụp điện thoại — nắn thẳng tờ giấy", kéo 4 góc nếu chưa đúng. Có thể bật xoay thẳng, cân sáng, đọc tên phòng (OCR).</li>
+    <li>Bấm <b>Nhận dạng</b>: phần mềm tìm tường, cửa đi, cửa sổ, cột, phòng và đọc tên phòng. Màu cam là chỗ phần mềm chưa chắc chắn. Sửa ngay trên ảnh: xoá, thêm tường bằng 2 cú bấm, đổi loại / bề rộng cửa, đổi tên phòng, đổi độ dày tường.</li>
+    <li><b>Tỷ lệ là bắt buộc:</b> chọn gợi ý từ chữ kích thước đọc được (ví dụ "9000"), hoặc chọn 2 điểm và nhập khoảng cách thật. Chưa đặt tỷ lệ: bản vẽ gắn <b>CẦN XEM LẠI</b> và không được xuất NC sản xuất.</li>
+    <li>Bấm <b>Duyệt và dựng</b> → xem tóm tắt → <b>Duyệt &amp; làm hết</b>: BIM 3D, mặt đứng, mặt cắt, nội thất, bảng cắt và hồ sơ được tạo như khi dùng bản vẽ CAD. Mỗi phần là một bước hoàn tác.</li>
+  </ol>
+  <div class="two">
+    <div class="fig"><img src="shots/93_pi_review.png"><div class="cap">Màn xem lại: tường, cửa, cửa sổ, phòng nhận dạng trên ảnh.</div></div>
+    <div class="fig"><img src="shots/94_pi_bim3d.png"><div class="cap">BIM 3D dựng từ ảnh (chế độ Tô bóng).</div></div>
+  </div>
+  <div class="box note"><b>Độ chính xác:</b> bản vẽ rõ nét / bản scan: tốt (diện tích phòng sai vài %); ảnh chụp điện thoại: cần sửa tay nhiều. Nên scan 300 dpi để đọc tên phòng tốt hơn. Chưa hỗ trợ tường cong, chữ dọc, ảnh xoay 90°.</div>
+</div>
+
+<div class="page">
+  <h3>10.5 Ảnh mẫu → phong cách nội thất</h3>
+  <ol>
+    <li>Cần mô hình AI đọc ảnh (Bước 2, thư mục <code>models\vision</code>). Không có mô hình, phần mềm vẫn chạy "phân tích cơ bản" (chỉ bảng màu).</li>
+    <li>Vào <b>Nội thất → Trợ lý AI → "Phong cách từ ảnh mẫu"</b> (hoặc kéo thả ảnh lên một phòng trên mặt bằng). Chọn 1–5 ảnh mẫu (Pinterest, tạp chí, công trình mẫu).</li>
+    <li><b>Phân tích</b> (khoảng 15 giây, chạy hoàn toàn trên máy): phong cách, bảng màu, vật liệu từng bề mặt (sàn, tường, trần, đồ gỗ, vải bọc, kim loại, đá), danh sách đồ. Kiểm tra và sửa — nhất là ô <b>Sàn</b>.</li>
+    <li><b>Phương án:</b> A / B / C bố trí theo phong cách, hoặc "giữ bố trí, chỉ đổi phong cách". Bấm <b>Áp dụng</b> (một bước hoàn tác; ván tủ sản xuất chỉ đổi khi anh chị tự tick).</li>
+    <li><b>Phối cảnh:</b> bấm <b>Render phối cảnh</b> — ảnh render đặt cạnh ảnh mẫu để so sánh.</li>
+  </ol>
+  <div class="two">
+    <div class="fig"><img src="shots/95_style_analysis.png"><div class="cap">Bước 1 — Phân tích ảnh mẫu.</div></div>
+    <div class="fig"><img src="shots/99_style_options.png"><div class="cap">Bước 2 — Ba phương án.</div></div>
+  </div>
+  <div class="fig"><img src="shots/96_style_compare.png" style="width:92%"><div class="cap">Ảnh mẫu (trái) và phối cảnh render theo phong cách đó (phải).</div></div>
+</div>
+
+<div class="page">
+  <h2>11. Dữ liệu, sao lưu, cập nhật và gỡ cài đặt</h2>
   <table>
     <tr><th>Dữ liệu</th><th>Vị trí trên Windows</th></tr>
     <tr><td>Ứng dụng</td><td><code>C:\Program Files\MD CAD AI STUDIO\</code></td></tr>
+    <tr><td>Thư viện nội thất 3D</td><td><code>%LOCALAPPDATA%\MD CAD AI STUDIO\library\</code> (xuất / nhập .zip trong hộp thoại Thư viện 3D)</td></tr>
     <tr><td>Mô hình AI</td><td><code>%LOCALAPPDATA%\MD CAD AI STUDIO\models\</code> (đổi được ở Cài đặt → Thư mục mô hình)</td></tr>
     <tr><td>Dự án / tự lưu / xuất nhập</td><td><code>Documents\MD CAD AI STUDIO\Projects</code>, <code>…\Autosave</code>, <code>…\Exchange</code> (đổi được ở Cài đặt → Tệp &amp; thư mục)</td></tr>
   </table>
   <ul>
     <li><b>Sao lưu:</b> Cài đặt → Tuỳ chọn xử lý tệp: bật "Tự khôi phục tệp khi lỗi" và "Tạo bản sao trước khi lưu" → ứng dụng tự lưu phiên bản; mở <b>Lịch sử phiên bản</b> (Ctrl+K → gõ "phiên bản") để khôi phục. Xuất toàn bộ dự án ra một file JSON để chuyển máy.</li>
-    <li><b>Cập nhật:</b> chạy bộ cài phiên bản mới đè lên; dữ liệu và mô hình được giữ nguyên.</li>
+    <li><b>Cập nhật từ bản trước (ví dụ 0.1.0 → 0.1.1):</b> đóng ứng dụng, chạy bộ cài mới đè lên — <b>không cần gỡ bản cũ</b>. Dự án, cài đặt, KEY bản quyền, mô hình AI và thư viện được giữ nguyên. Sau đó chạy <code>CAI_THU_VIEN_NOI_THAT.bat</code> (và chép mô hình AI đọc ảnh nếu dùng tính năng ảnh mẫu). Máy đang dùng bản cũ <b>chưa có KEY</b>: sau khi cập nhật, phần mềm hiện màn hình kích hoạt (mục 3.1). Kiểm tra phiên bản tại Cài đặt → Cập nhật.</li>
     <li><b>Gỡ cài đặt:</b> Settings → Apps → Installed apps → MD CAD AI STUDIO → Uninstall. Mô hình AI và dự án <b>không bị xoá</b>; xoá tay thư mục nếu muốn giải phóng ổ đĩa.</li>
   </ul>
 
-  <h2 style="margin-top:6mm">11. Xử lý sự cố thường gặp</h2>
+  <h2 style="margin-top:6mm">12. Xử lý sự cố thường gặp</h2>
   <table>
     <tr><th>Hiện tượng</th><th>Cách xử lý</th></tr>
+    <tr><td>Thư viện 3D trống / thiếu đồ</td><td>Chạy <code>4_THU_VIEN_NOI_THAT\CAI_THU_VIEN_NOI_THAT.bat</code>, hoặc trong hộp thoại Thư viện 3D → Tải từ mạng → "Tải thư viện nội thất mẫu".</td></tr>
+    <tr><td>Ảnh mặt bằng nhận dạng thiếu / sai nhiều</td><td>Dùng ảnh scan rõ nét (300 dpi) thay ảnh chụp; ảnh chụp: kéo 4 góc tờ giấy cho đúng; sửa tường / cửa / tên phòng ở màn xem lại trước khi Duyệt.</td></tr>
+    <tr><td>Ảnh mẫu chỉ ra "phân tích cơ bản"</td><td>Chưa có mô hình AI đọc ảnh: chép <code>models\vision</code> (Bước 2) hoặc Cài đặt → Quản lý mô hình → tải Qwen2.5-VL. Máy cần RAM 16 GB.</td></tr>
     <tr><td>Màn hình ghi TRIAL VERSION, không dùng được chức năng nào</td><td>Chưa kích hoạt: làm mục 3.1 (gửi mã máy, nhập KEY).</td></tr>
     <tr><td>Báo "KEY này được cấp cho máy khác"</td><td>KEY gắn với một máy. Gửi đúng mã máy của máy đang dùng (nút Sao chép mã máy) để được cấp KEY riêng.</td></tr>
     <tr><td>Báo "KEY bị hỏng hoặc thiếu ký tự"</td><td>Dán lại đủ cả KEY (bắt đầu bằng MDK1-), hoặc dùng nút Chọn file key (.mdkey).</td></tr>
@@ -284,7 +360,7 @@
     <tr><td>Chữ / giao diện quá nhỏ</td><td>Windows Display → Scale 125–150 %; ứng dụng tự co giãn.</td></tr>
   </table>
 
-  <h2 style="margin-top:6mm">12. Giấy phép và quyền riêng tư</h2>
+  <h2 style="margin-top:6mm">13. Giấy phép và quyền riêng tư</h2>
   <ul>
     <li>Ứng dụng chạy <b>hoàn toàn trên máy</b>, không cần tài khoản, không gửi bản vẽ hay dữ liệu lên Internet.</li>
     <li>Mô hình Qwen2.5-7B-Instruct: giấy phép Apache-2.0. Whisper: MIT. Qwen2.5-3B (tải tuỳ chọn): giấy phép nghiên cứu, phi thương mại.</li>
