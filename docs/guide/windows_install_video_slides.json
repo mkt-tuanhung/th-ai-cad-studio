@@ -1,9 +1,9 @@
 [
  {
   "kind": "cover",
-  "title": "Hướng dẫn cài đặt đầy đủ trên Windows",
+  "title": "Hướng dẫn cài đặt đầy đủ trên Windows — bản 0.1.1",
   "bullets": [],
-  "narration": "Xin chào. Video này hướng dẫn cài đặt đầy đủ M D CAD AI Studio trên Windows: ứng dụng, mô hình trí tuệ nhân tạo chạy ngoại tuyến, tăng tốc bằng card đồ hoạ, render ảnh như thật và khai báo máy CNC.",
+  "narration": "Xin chào anh chị. Video này hướng dẫn cài đặt đầy đủ phần mềm MD CAD AI Studio bản 0.1.1 trên máy tính Windows: cài ứng dụng, kích hoạt bản quyền, cài trợ lý AI chạy ngay trên máy, thư viện nội thất 3D, render ảnh như thật, và các tính năng mới: dựng nội thất từ ảnh mặt bằng, và lấy phong cách từ ảnh mẫu.",
   "img": null,
   "cap": null
  },
@@ -11,12 +11,12 @@
   "kind": "text",
   "title": "Bộ cài gồm những gì",
   "bullets": [
-   "1_CAI_DAT — bộ cài ứng dụng (181 MB)",
-   "2_MO_HINH_AI — mô hình AI chạy offline (4,9 GB)",
-   "CHEP_MO_HINH_VAO_MAY.bat — chép mô hình vào máy",
-   "3_HUONG_DAN — tài liệu PDF và video này"
+   "1_CAI_DAT — bộ cài ứng dụng 0.1.1 (188 MB)",
+   "2_MO_HINH_AI — mô hình AI chạy offline (10 GB, gồm AI đọc ảnh)",
+   "3_HUONG_DAN — tài liệu PDF và video này",
+   "4_THU_VIEN_NOI_THAT — thư viện nội thất 3D (787 MB)"
   ],
-  "narration": "Thư mục bàn giao có ba phần. Thư mục một là bộ cài ứng dụng. Thư mục hai là mô hình trí tuệ nhân tạo chạy ngoại tuyến, kèm một tệp chép tự động. Thư mục ba là tài liệu hướng dẫn.",
+  "narration": "Thư mục bàn giao gồm bốn phần. Thư mục số một là bộ cài ứng dụng. Thư mục số hai chứa mô hình AI chạy không cần mạng, gồm cả AI đọc ảnh, kèm một tệp chép tự động. Thư mục số ba là tài liệu hướng dẫn và video này. Thư mục số bốn là thư viện nội thất 3D.",
   "img": null,
   "cap": null
  },
@@ -30,7 +30,7 @@
    "Card đồ hoạ hỗ trợ Vulkan (không bắt buộc)",
    "Không cần Internet khi sử dụng"
   ],
-  "narration": "Máy cần Windows mười bản 1809 trở lên hoặc Windows mười một, sáu mươi bốn bít. Nên có mười sáu gigabyte RAM cho mô hình bảy tỉ tham số. Card đồ hoạ hỗ trợ Vulkan giúp trí tuệ nhân tạo chạy nhanh hơn, nhưng không bắt buộc. Khi dùng không cần Internet.",
+  "narration": "Máy cần chạy Windows 10 bản 1809 trở lên, hoặc Windows 11, bản 64 bít. Nên có từ 16 gigabyte RAM để chạy mô hình AI bản 7B. Card đồ hoạ có hỗ trợ Vulkan sẽ giúp AI chạy nhanh hơn, nhưng không bắt buộc. Khi sử dụng, phần mềm không cần kết nối Internet.",
   "img": null,
   "cap": null
  },
@@ -38,11 +38,11 @@
   "kind": "smartscreen",
   "title": "Bước 1 — Chạy bộ cài",
   "bullets": [
-   "Nháy đúp MD-CAD-AI-STUDIO-Setup-0.1.0.exe",
+   "Nháy đúp MD-CAD-AI-STUDIO-Setup-0.1.1.exe",
    "Nếu Windows cảnh báo: bấm “More info”, rồi “Run anyway”",
    "(Ứng dụng chưa ký số nên Windows cảnh báo lần đầu)"
   ],
-  "narration": "Bước một. Mở thư mục một, nháy đúp tệp cài đặt. Vì ứng dụng chưa được ký số, lần đầu Windows có thể hiện cảnh báo Windows protected your PC. Bấm More info, sau đó bấm Run anyway để tiếp tục.",
+  "narration": "Bước một: cài ứng dụng. Mở thư mục số một, nháy đúp vào tệp cài đặt. Vì phần mềm chưa được ký số, lần đầu Windows có thể hiện cảnh báo màu xanh. Anh chị bấm vào dòng More info, sau đó bấm nút Run anyway để tiếp tục.",
   "img": null,
   "cap": "HÌNH MINH HOẠ — không phải ảnh chụp"
  },
@@ -55,7 +55,7 @@
    "Giữ thư mục mặc định C:\\Program Files\\MD CAD AI STUDIO",
    "Tích “Tạo biểu tượng trên màn hình” → Cài đặt → Hoàn tất"
   ],
-  "narration": "Chọn ngôn ngữ tiếng Việt. Màn chào mừng có dòng xây dựng và phát triển bởi Minh Dũng. Bấm tiếp, giữ thư mục cài mặc định, chọn tạo biểu tượng trên màn hình, bấm cài đặt, rồi hoàn tất.",
+  "narration": "Trong trình cài đặt, chọn ngôn ngữ tiếng Việt. Màn chào mừng có dòng: Xây dựng và phát triển bởi Minh Dũng. Bấm Tiếp, giữ nguyên thư mục cài mặc định, chọn tạo biểu tượng trên màn hình, bấm Cài đặt, rồi bấm Hoàn tất.",
   "img": null,
   "cap": "HÌNH MINH HOẠ — ảnh bên trái là ảnh thật của bộ cài"
  },
@@ -64,22 +64,35 @@
   "title": "Mở ứng dụng lần đầu",
   "bullets": [
    "Màn giới thiệu khoảng 4 giây",
-   "Vào trang Tổng quan"
+   "Chưa có KEY: chế độ dùng thử, mọi chức năng bị khoá"
   ],
-  "narration": "Khi mở lần đầu, ứng dụng chạy màn giới thiệu khoảng bốn giây rồi vào trang tổng quan.",
+  "narration": "Khi mở lần đầu, phần mềm chạy màn giới thiệu khoảng bốn giây, sau đó hiện màn hình kích hoạt bản quyền.",
   "img": "10_dashboard.png",
   "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Bước 1b — Kích hoạt bản quyền (KEY)",
+  "bullets": [
+   "Chưa kích hoạt: chữ TRIAL VERSION phủ màn hình, mọi chức năng bị khoá",
+   "Bấm “Sao chép mã máy”, gửi cho Minh Dũng — HOTLINE 0879232666",
+   "Dán KEY vào ô, hoặc “Chọn file key (.mdkey)” → Kích hoạt",
+   "Phần mềm tự khởi động lại với đầy đủ chức năng · mỗi máy một KEY"
+  ],
+  "narration": "Khi chưa kích hoạt, phần mềm ở chế độ dùng thử: màn hình phủ dòng chữ bản dùng thử và mọi chức năng đều bị khoá. Anh chị bấm Sao chép mã máy, rồi gửi mã máy này cho anh Minh Dũng qua số hotline 0879232666 để nhận mã kích hoạt. Khi có mã kích hoạt, dán vào ô, hoặc bấm Chọn file, rồi bấm Kích hoạt. Phần mềm sẽ tự khởi động lại và mở đầy đủ chức năng. Mỗi máy tính cần một mã kích hoạt riêng.",
+  "img": "15_activation.png",
+  "cap": "Ảnh chụp trên macOS — trên Windows giống hệt"
  },
  {
   "kind": "shot",
   "title": "Bước 2 — Cài mô hình AI (offline)",
   "bullets": [
    "Đóng ứng dụng",
-   "Chạy 2_MO_HINH_AI\\CHEP_MO_HINH_VAO_MAY.bat",
-   "Mô hình được chép vào %LOCALAPPDATA%\\MD CAD AI STUDIO\\models",
-   "Hoặc: Cài đặt → Tải mô hình AI → Tải về"
+   "Chạy 2_MO_HINH_AI\\CHEP_MO_HINH_VAO_MAY.bat (khoảng 10 GB)",
+   "Chạy 4_THU_VIEN_NOI_THAT\\CAI_THU_VIEN_NOI_THAT.bat",
+   "Hoặc tải trong Cài đặt → Quản lý mô hình / Thư viện"
   ],
-  "narration": "Bước hai, cài mô hình trí tuệ nhân tạo. Đóng ứng dụng, mở thư mục hai và nháy đúp tệp chép mô hình vào máy. Tệp này chép khoảng năm gigabyte vào đúng thư mục ứng dụng đọc. Nếu không có gói, có thể vào cài đặt, chọn tải mô hình trí tuệ nhân tạo, rồi bấm tải về.",
+  "narration": "Bước hai: cài mô hình AI và thư viện nội thất. Đóng phần mềm, mở thư mục số hai và nháy đúp vào tệp Chép mô hình vào máy, khoảng mười gigabyte. Sau đó mở thư mục số bốn và nháy đúp vào tệp Cài thư viện nội thất. Nếu không có sẵn các gói này, anh chị vào Cài đặt, chọn Quản lý mô hình, rồi bấm Tải về.",
   "img": "30_settings_ai.png",
   "cap": null
  },
@@ -90,7 +103,7 @@
    "Mở lại ứng dụng → Cài đặt → Cấu hình mô hình AI",
    "Nhãn “Mô hình sẵn sàng”, dòng “Đang chạy trên máy này”"
   ],
-  "narration": "Mở lại ứng dụng, vào cài đặt, cấu hình mô hình trí tuệ nhân tạo. Nhãn mô hình sẵn sàng nghĩa là trợ lý đã dùng được.",
+  "narration": "Mở lại phần mềm, vào Cài đặt, mục Cấu hình mô hình AI. Khi thấy nhãn Mô hình sẵn sàng, nghĩa là trợ lý AI đã dùng được.",
   "img": "33_model_ready.png",
   "cap": null
  },
@@ -102,7 +115,7 @@
    "Cài đặt → Hiệu năng → bật “Dùng GPU cho AI” → Lưu thay đổi",
    "Trạng thái ghi tên card kèm (Vulkan)"
   ],
-  "narration": "Bước ba, bật tăng tốc bằng card đồ hoạ. Cập nhật driver mới nhất cho card, sau đó vào cài đặt, mục hiệu năng, bật dùng GPU cho AI và lưu thay đổi. Dòng trạng thái sẽ ghi tên card kèm chữ Vulkan.",
+  "narration": "Bước ba: bật tăng tốc bằng card đồ hoạ. Cập nhật driver mới nhất cho card đồ hoạ, sau đó vào Cài đặt, mục Hiệu năng, bật Dùng GPU cho AI và bấm Lưu thay đổi. Dòng trạng thái sẽ hiện tên card đồ hoạ kèm chữ Vulkan.",
   "img": "32_settings_performance.png",
   "cap": null
  },
@@ -114,7 +127,7 @@
    "Windows: Privacy & security → Microphone → cho phép ứng dụng desktop",
    "Bấm micro, nói lệnh — chữ hiện vào ô lệnh"
   ],
-  "narration": "Bước bốn, nhận giọng nói tiếng Việt. Mô hình Whisper đã được chép ở bước hai. Trong Windows, vào quyền riêng tư, micro, và cho phép ứng dụng máy tính dùng micro. Sau đó bấm biểu tượng micro trong ứng dụng và nói lệnh.",
+  "narration": "Bước bốn: nhận giọng nói tiếng Việt. Mô hình giọng nói đã được chép ở bước hai. Trong Windows, vào phần Quyền riêng tư, mục Micro, và cho phép ứng dụng trên máy tính sử dụng micro. Sau đó bấm biểu tượng micro trong phần mềm và nói lệnh.",
   "img": "31_manage_models.png",
   "cap": null
  },
@@ -126,8 +139,95 @@
    "Kết xuất → Engine “Blender Cycles (local)”",
    "Ảnh render chỉ để trình bày, không dùng làm số đo / CNC"
   ],
-  "narration": "Bước năm, tuỳ chọn. Muốn ảnh đẹp như ảnh chụp, cài Blender miễn phí vào thư mục mặc định. Trong màn kết xuất, chọn engine Blender Cycles. Ảnh render chỉ để trình bày, không bao giờ dùng làm số đo hay chương trình CNC.",
+  "narration": "Bước năm, không bắt buộc. Muốn có ảnh đẹp như ảnh chụp, anh chị cài thêm phần mềm Blender miễn phí, giữ thư mục cài mặc định. Trong màn Kết xuất, chọn công cụ Blender Cycles. Ảnh render chỉ dùng để trình bày, không bao giờ được dùng làm số đo hay chương trình máy CNC.",
   "img": "60_renders.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — Thư viện nội thất 3D",
+  "bullets": [
+   "Nội thất → Bố trí không gian → Thư viện → “Thư viện 3D…”",
+   "57 đồ nội thất, 34 vật liệu, 4 bầu trời HDRI (Poly Haven, CC0)",
+   "“Đặt vào phòng” hoặc thay đồ đang chọn, giữ nguyên vị trí"
+  ],
+  "narration": "Tính năng mới: thư viện nội thất 3D. Vào Nội thất, Bố trí không gian, chọn Thư viện, rồi bấm Thư viện 3D. Thư viện có sẵn năm mươi bảy món đồ nội thất thật, ba mươi tư vật liệu và bốn bầu trời, miễn phí bản quyền. Bấm Đặt vào phòng, hoặc thay món đồ đang chọn mà vẫn giữ nguyên vị trí.",
+  "img": "90_library.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — Tự thêm đồ vào thư viện",
+  "bullets": [
+   "Thêm từ file: GLB, glTF, OBJ, FBX, .blend — tự đo kích thước",
+   "Tải từ mạng: tìm và tải mẫu Poly Haven ngay trong phần mềm",
+   "Tự vẽ: ghép đồ từ khối hộp, trụ, bo góc — chọn vật liệu",
+   "Xuất / nhập .zip để chuyển thư viện sang máy khác"
+  ],
+  "narration": "Anh chị có thể tự thêm đồ vào thư viện theo ba cách. Một: Thêm từ file, nhận các tệp tải trên mạng, phần mềm tự đo kích thước thật để anh chị xác nhận. Hai: Tải từ mạng, tìm và tải mẫu ngay trong phần mềm. Ba: Tự vẽ, ghép đồ từ các khối hộp, khối trụ, chọn vật liệu và lưu lại. Thư viện có thể xuất ra tệp nén để chuyển sang máy khác.",
+  "img": "91_lib_draw.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — Phối cảnh nội thất như thật",
+  "bullets": [
+   "Kết xuất → Blender Cycles: đồ thật, vật liệu thật, trần và đèn",
+   "Góc nhìn tự động 1 / 2 / 3 kiểu nhiếp ảnh kiến trúc",
+   "Ngày / Hoàng hôn / Đêm · ảnh chỉ để trình bày"
+  ],
+  "narration": "Phối cảnh nội thất như thật. Khi render bằng Blender, phần mềm tự thay khối hộp bằng đồ nội thất thật, gắn vật liệu, thêm trần và đèn, ánh sáng trời qua cửa sổ. Menu Góc nhìn tự động gợi ý ba góc chụp đẹp cho mỗi phòng. Ảnh render chỉ dùng để trình bày với khách.",
+  "img": "92_render_living.png",
+  "cap": "Ảnh render thật — Villa 150 m², dựng tự động từ bản vẽ DWG"
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — Ảnh mặt bằng → nội thất 3D",
+  "bullets": [
+   "Ctrl+K → “1 lệnh” → chọn ảnh scan, PDF hoặc ảnh chụp bản vẽ",
+   "Ảnh chụp: tự nắn thẳng, kéo 4 góc nếu cần",
+   "Nhận dạng tường, cửa, cửa sổ, phòng (đọc tên phòng) → kiểm tra, sửa",
+   "Bắt buộc đặt tỷ lệ — chưa hiệu chỉnh: CẦN XEM LẠI, không xuất CNC"
+  ],
+  "narration": "Tính năng mới: dựng nội thất từ ảnh mặt bằng. Bấm Control K, chọn một lệnh, rồi chọn ảnh scan, tệp pi-đi-ép, hoặc ảnh chụp bản vẽ. Phần mềm nắn thẳng ảnh, nhận dạng tường, cửa, cửa sổ và phòng, đọc cả tên phòng. Anh chị kiểm tra, sửa chỗ sai, và bắt buộc đặt tỷ lệ bằng một kích thước đã biết. Chưa đặt tỷ lệ thì bản vẽ bị đánh dấu cần xem lại và không được xuất cho máy.",
+  "img": "93_pi_review.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — Duyệt và dựng 3D từ ảnh",
+  "bullets": [
+   "Duyệt → BIM 3D, mặt đứng, mặt cắt, nội thất, bảng cắt",
+   "Mỗi phần là một bước hoàn tác",
+   "Ảnh rõ nét cho kết quả tốt nhất (nên scan 300 dpi)"
+  ],
+  "narration": "Bấm Duyệt, phần mềm dựng mô hình BIM ba chiều, mặt đứng, mặt cắt, bố trí nội thất và bảng cắt, giống như khi dùng bản vẽ CAD. Ảnh càng rõ nét kết quả càng tốt, nên scan ở độ phân giải ba trăm dpi.",
+  "img": "94_pi_bim3d.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — Ảnh mẫu → phong cách nội thất",
+  "bullets": [
+   "Nội thất → Trợ lý AI → “Phong cách từ ảnh mẫu”",
+   "Chọn 1–5 ảnh mẫu (Pinterest, công trình mẫu)",
+   "AI chạy trên máy đọc phong cách, màu, vật liệu (~15 giây)",
+   "Kiểm tra và sửa từng bề mặt trước khi áp dụng"
+  ],
+  "narration": "Tính năng mới: lấy phong cách từ ảnh mẫu. Vào Nội thất, Trợ lý AI, chọn Phong cách từ ảnh mẫu, rồi chọn từ một đến năm ảnh. AI chạy ngay trên máy đọc phong cách, bảng màu và vật liệu trong khoảng mười lăm giây. Anh chị kiểm tra và sửa từng bề mặt nếu cần.",
+  "img": "95_style_analysis.png",
+  "cap": null
+ },
+ {
+  "kind": "shot",
+  "title": "Mới 0.1.1 — 3 phương án và phối cảnh so sánh",
+  "bullets": [
+   "Phương án A / B / C, hoặc giữ bố trí và chỉ đổi phong cách",
+   "Áp dụng: một bước hoàn tác, không đổi dữ liệu sản xuất",
+   "Render đặt cạnh ảnh mẫu để so sánh"
+  ],
+  "narration": "Phần mềm tự bố trí ba phương án theo phong cách đó, hoặc giữ nguyên bố trí và chỉ đổi vật liệu. Bấm Áp dụng, rồi Render phối cảnh. Ảnh render được đặt cạnh ảnh mẫu để anh chị so sánh.",
+  "img": "96_style_compare.png",
   "cap": null
  },
  {
@@ -138,7 +238,7 @@
    "122 mẫu máy, 12 loại bộ điều khiển",
    "Chọn máy → “Dùng máy này”, hoặc “Tự nhập máy”"
   ],
-  "narration": "Bước sáu, khai báo máy CNC. Vào nội thất, bảng cắt, xếp tấm và CNC, mở thư viện máy. Thư viện có một trăm hai mươi hai mẫu máy và mười hai loại bộ điều khiển. Chọn máy giống máy của xưởng rồi bấm dùng máy này, hoặc tự nhập thông số máy.",
+  "narration": "Bước sáu: khai báo máy CNC. Vào Nội thất, chọn Bảng cắt, rồi Xếp tấm và CNC, sau đó mở Thư viện máy. Thư viện có một trăm hai mươi hai mẫu máy và mười hai loại bộ điều khiển. Chọn máy giống với máy của xưởng rồi bấm Dùng máy này. Nếu máy chưa có trong thư viện, chọn Tự nhập máy.",
   "img": "42_machine_detail.png",
   "cap": null
  },
@@ -150,7 +250,7 @@
    "Chưa nghiệm thu: chỉ xuất bản xem trước “KHÔNG DÙNG CHO MÁY”",
    "Đã nghiệm thu: mở “Xuất NC sản xuất”"
   ],
-  "narration": "Số liệu thư viện chỉ là tham khảo. Hãy đo máy thật và làm sáu bước nghiệm thu: khảo sát, số đo, kiểm tra chương trình tự động, chạy không tải, cắt mẫu đầu và ký nghiệm thu. Khi chưa nghiệm thu, ứng dụng chỉ xuất bản xem trước có ghi không dùng cho máy. Ứng dụng không bao giờ tự khởi động máy CNC.",
+  "narration": "Thông số trong thư viện chỉ để tham khảo. Anh chị cần đo máy thật và làm đủ sáu bước nghiệm thu: khảo sát, nhập số đo, kiểm tra chương trình, chạy thử không phôi, cắt mẫu và ký nghiệm thu. Khi chưa nghiệm thu, phần mềm chỉ xuất bản xem trước, có ghi rõ không dùng cho máy. Phần mềm không bao giờ tự khởi động máy CNC.",
   "img": "44_commissioning_wizard.png",
   "cap": null
  },
@@ -162,8 +262,21 @@
    "Trợ lý AI, CAD 2D, BIM 3D, Bố trí không gian, Render, CNC",
    "Thử lại khi tắt mạng — mọi thứ vẫn chạy"
   ],
-  "narration": "Bước bảy, kiểm tra nhanh. Bấm Control K và gõ một lệnh để dựng toàn bộ từ bản vẽ. Thử trợ lý AI, CAD hai chiều, BIM ba chiều, bố trí không gian, render và CNC. Có thể tắt mạng rồi thử lại, mọi chức năng vẫn chạy.",
+  "narration": "Bước bảy: kiểm tra nhanh. Bấm Control K, gõ một lệnh, để dựng toàn bộ hồ sơ từ bản vẽ. Anh chị thử thêm trợ lý AI, bản vẽ hai chiều, mô hình ba chiều, bố trí không gian, render và CNC. Có thể ngắt mạng rồi thử lại, mọi chức năng vẫn hoạt động bình thường.",
   "img": "20_command_search.png",
+  "cap": null
+ },
+ {
+  "kind": "text",
+  "title": "Cập nhật từ bản trước (đã cài 0.1.0)",
+  "bullets": [
+   "Chạy bộ cài 0.1.1 đè lên — không cần gỡ bản cũ",
+   "Giữ nguyên dự án, cài đặt, KEY, mô hình AI và thư viện",
+   "Chạy CAI_THU_VIEN_NOI_THAT.bat (và chép mô hình AI đọc ảnh nếu dùng)",
+   "Bản cũ chưa có KEY: sau khi cập nhật cần kích hoạt KEY"
+  ],
+  "narration": "Nếu máy đã cài bản trước, anh chị chỉ cần chạy bộ cài mới đè lên, không cần gỡ bản cũ. Dự án, cài đặt, key bản quyền, mô hình AI và thư viện đều được giữ nguyên. Sau đó chạy tệp Cài thư viện nội thất. Máy đang dùng bản cũ chưa có key thì sau khi cập nhật cần kích hoạt key như hướng dẫn ở đầu video.",
+  "img": null,
   "cap": null
  },
  {
@@ -174,7 +287,7 @@
    "Dữ liệu chạy hoàn toàn trên máy, không gửi lên Internet",
    "Gặp lỗi: chụp màn hình và gửi kèm mô tả"
   ],
-  "narration": "Vậy là xong. Chi tiết từng bước và cách xử lý sự cố có trong tài liệu PDF đi kèm. Dữ liệu của bạn chạy hoàn toàn trên máy. Cảm ơn bạn đã sử dụng M D CAD AI Studio.",
+  "narration": "Vậy là xong. Chi tiết từng bước và cách xử lý sự cố có trong tài liệu PDF đi kèm. Toàn bộ dữ liệu của anh chị được xử lý ngay trên máy. Cảm ơn anh chị đã sử dụng MD CAD AI Studio.",
   "img": null,
   "cap": null
  }
